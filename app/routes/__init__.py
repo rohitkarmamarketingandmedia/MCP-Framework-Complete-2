@@ -17,6 +17,7 @@ def register_routes(app: Flask):
     from app.routes.clients import clients_bp
     from app.routes.campaigns import campaigns_bp
     from app.routes.intake import intake_bp
+    from app.routes.semrush import semrush_bp
     
     # Register with /api prefix
     app.register_blueprint(auth_bp, url_prefix='/api/auth')
@@ -28,3 +29,4 @@ def register_routes(app: Flask):
     app.register_blueprint(clients_bp, url_prefix='/api/clients')
     app.register_blueprint(campaigns_bp, url_prefix='/api/campaigns')
     app.register_blueprint(intake_bp, url_prefix='/api/intake')
+    app.register_blueprint(semrush_bp, url_prefix='/api/semrush')

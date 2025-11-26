@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MCP 3.0 - Client Intake System</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @keyframes gradient { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
+        body { background: linear-gradient(-45deg, #667eea, #764ba2, #f093fb, #4facfe); background-size: 400% 400%; animation: gradient 15s ease infinite; min-height: 100vh; }
+        .glass { background: rgba(255,255,255,0.95); backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.3); box-shadow: 0 8px 32px rgba(31,38,135,0.37); }
+        .glow-btn { animation: pulse-glow 2s ease-in-out infinite; }
+        @keyframes pulse-glow { 0%, 100% { box-shadow: 0 0 20px rgba(102,126,234,0.5); } 50% { box-shadow: 0 0 40px rgba(102,126,234,0.8); } }
+        .spinner { border: 3px solid #f3f3f3; border-top: 3px solid #667eea; border-radius: 50%; width: 20px; height: 20px; animation: spin 1s linear infinite; display: inline-block; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .fade-in { animation: fadeIn 0.5s ease-in; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        .tag { display: inline-block; background: #e0e7ff; color: #4338ca; padding: 2px 8px; border-radius: 9999px; font-size: 12px; margin: 2px; }
+        .tag-green { background: #d1fae5; color: #065f46; }
+        .tag-orange { background: #fed7aa; color: #9a3412; }
+    </style>
+</head>
+<body class="p-4 md:p-8">
+    <div class="max-w-5xl mx-auto">
+        <div class="text-center mb-6">
+            <h1 class="text-4xl md:text-5xl font-bold text-white mb-2 drop-shadow-lg">MCP 3.0</h1>
+            <p class="text-white/80 text-lg">Marketing Control Platform - Client Intake</p>
+        </div>
+
+        <div class="glass rounded-xl p-4 mb-6">
+            <div class="flex flex-wrap items-center gap-4">
+                <div class="flex-1 min-w-[200px]">
+                    <input type="text" id="apiUrl" value="https://mcp-framework.onrender.com" class="w-full px-3 py-2 border rounded-lg text-sm" placeholder="API URL">
+                </div>
+                <div class="flex-1 min-w-[200px]">
+                    <input type="password" id="authToken" class="w-full px-3 py-2 border rounded-lg text-sm" placeholder="Auth Token">
+                </div>
+                <button onclick="showLogin()" class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg text-sm">Login</button>
+                <span id="apiStatus" class="text-sm"></span>
+            </div>
+        </div>
+
+        <div id="loginModal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+            <div class="glass rounded-xl p-6 w-full max-w-md mx-4">
+                <h3 class="text-xl font-bold mb-4">Login to MCP</h3>
+                <div class="space-y-4">
+                    <input type="email" id="loginEmail" placeholder="Email" class="w-full px-4 py-2 border rounded-lg">
+                    <input type="password" id="loginPassword" placeholder="Password" class="w-full px-4 py-2 border rounded-lg">
+                    <div class="flex gap-2">
+                        <button onclick="doLogin()" class="flex-1 bg-purple-600 hover:bg-purple-700 text-white py-2 rounded-lg">Login</button>
+                        <button onclick="hideLogin()" class="flex-1 bg-gray-300 hover:bg-gray-400 py-2 rounded-lg">Cancel</button>
+                    </div>
+                    <p id="loginStatus" class="text-sm text-center"></p>
+                </div>
+            </div>
+        </div>
+
+        <div class="glass rounded-2xl p-6 md:p-8 mb-6 fade-in">
+            <h2 class="text-2xl font-bold text-gray-800 mb-6">📋 Client Information</h2>
+            
+            <div class="bg-gradient-to-r from-purple-50 to-blue-50 rounded-xl p-4 mb-6 border border-purple-200">
+                <h3 class="font-semibold text-gray-800 mb-2">🔍 Quick Research</h3>
+                <p class="text-sm text-gray-600 mb-3">Enter a website to auto-populate with SEMRush data</p>
+                <div class="flex gap-2">
+                    <input type="url" id="quickWebsite" class="flex-1 px-3 py-2 border rounded-lg" placeholder="https://example.com">
+                    <button onclick="runQuickResearch()" id="researchBtn" class="bg-purple-600 hover:bg-purple-700 text-white px-6 py-2 rounded-lg">Research</button>
+                </div>
+                <div id="researchStatus" class="mt-2 text-sm"></div>
+            </div>
+
+            <div class="grid md:grid-cols-2 gap-4 mb-6">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Business Name *</label>
+                    <input type="text" id="businessName" required class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Website</label>
+                    <input type="url" id="website" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Industry *</label>
+                    <select id="industry" required class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500">
+                        <option value="">Select Industry</option>
+                        <option value="roofing">Roofing</option>
+                        <option value="hvac">HVAC</option>
+                        <option value="plumbing">Plumbing</option>
+                        <option value="electrical">Electrical</option>
+                        <option value="windows">Window Installation</option>
+                        <option value="landscaping">Landscaping</option>
+                        <option value="real estate">Real Estate</option>
+                        <option value="dental">Dental</option>
+                        <option value="legal">Legal Services</option>
+                        <option value="general">Other</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Location *</label>
+                    <input type="text" id="geo" required class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500" placeholder="Sarasota, FL">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Phone</label>
+                    <input type="tel" id="phone" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                    <input type="email" id="email" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500">
+                </div>
+            </div>
+
+            <div id="researchResults" class="hidden mb-6">
+                <h3 class="font-semibold text-gray-800 mb-3">📊 SEMRush Research Results</h3>
+                <div class="grid md:grid-cols-3 gap-4">
+                    <div class="bg-blue-50 rounded-lg p-4">
+                        <h4 class="font-medium text-blue-800 mb-2">Domain Overview</h4>
+                        <div id="domainOverview" class="text-sm text-gray-700"></div>
+                    </div>
+                    <div class="bg-green-50 rounded-lg p-4">
+                        <h4 class="font-medium text-green-800 mb-2">Top Keywords</h4>
+                        <div id="topKeywords" class="text-sm text-gray-700"></div>
+                    </div>
+                    <div class="bg-orange-50 rounded-lg p-4">
+                        <h4 class="font-medium text-orange-800 mb-2">Competitors Found</h4>
+                        <div id="competitorsFound" class="text-sm text-gray-700"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid md:grid-cols-2 gap-4 mb-6">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Primary Keywords (one per line)</label>
+                    <textarea id="primaryKeywords" rows="4" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500" placeholder="roof repair sarasota&#10;roofing company sarasota"></textarea>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Competitors (one per line)</label>
+                    <textarea id="competitors" rows="4" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500" placeholder="competitor1.com&#10;competitor2.com"></textarea>
+                </div>
+            </div>
+
+            <div class="grid md:grid-cols-2 gap-4 mb-6">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Unique Selling Points (one per line)</label>
+                    <textarea id="usps" rows="3" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500" placeholder="24-hour emergency service&#10;Family-owned since 1985"></textarea>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Tone</label>
+                    <select id="tone" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 mb-2">
+                        <option value="professional">Professional</option>
+                        <option value="friendly">Friendly</option>
+                        <option value="technical">Technical</option>
+                    </select>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Service Areas</label>
+                    <input type="text" id="serviceAreas" class="w-full px-4 py-2 border rounded-lg" placeholder="Sarasota, Bradenton, Venice">
+                </div>
+            </div>
+
+            <div class="bg-gray-50 rounded-xl p-4 mb-6">
+                <h3 class="font-semibold text-gray-800 mb-3">⚙️ Generation Options</h3>
+                <div class="grid md:grid-cols-3 gap-4">
+                    <label class="flex items-center gap-2">
+                        <input type="checkbox" id="runResearch" checked class="w-4 h-4 text-purple-600">
+                        <span class="text-sm">Run SEMRush Research</span>
+                    </label>
+                    <label class="flex items-center gap-2">
+                        <input type="checkbox" id="generateContent" checked class="w-4 h-4 text-purple-600">
+                        <span class="text-sm">Generate Content</span>
+                    </label>
+                    <div class="flex items-center gap-2">
+                        <label class="text-sm">Blogs:</label>
+                        <select id="blogCount" class="px-2 py-1 border rounded">
+                            <option value="1">1</option>
+                            <option value="2">2</option>
+                            <option value="3" selected>3</option>
+                            <option value="5">5</option>
+                        </select>
+                        <label class="text-sm ml-2">Social:</label>
+                        <select id="socialCount" class="px-2 py-1 border rounded">
+                            <option value="1">1</option>
+                            <option value="2">2</option>
+                            <option value="3" selected>3</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <div class="text-center">
+                <button id="submitBtn" onclick="submitPipeline()" class="glow-btn bg-gradient-to-r from-green-500 to-emerald-600 text-white px-12 py-4 rounded-xl font-bold text-lg hover:opacity-90 transition">
+                    🚀 Create Client & Generate Content
+                </button>
+            </div>
+        </div>
+
+        <div id="progressPanel" class="hidden glass rounded-2xl p-6 mb-6 fade-in">
+            <h2 class="text-xl font-bold text-gray-800 mb-4">⏳ Processing...</h2>
+            <div id="progressSteps" class="space-y-3"></div>
+        </div>
+
+        <div id="resultsPanel" class="hidden glass rounded-2xl p-6 fade-in">
+            <h2 class="text-2xl font-bold text-gray-800 mb-4">✅ Complete!</h2>
+            <div id="resultsContent"></div>
+        </div>
+    </div>
+
+    <script>
+        function showLogin() { document.getElementById('loginModal').classList.remove('hidden'); }
+        function hideLogin() { document.getElementById('loginModal').classList.add('hidden'); }
+
+        async function doLogin() {
+            const email = document.getElementById('loginEmail').value;
+            const password = document.getElementById('loginPassword').value;
+            const apiUrl = document.getElementById('apiUrl').value;
+            const status = document.getElementById('loginStatus');
+            try {
+                status.innerHTML = '<span class="spinner"></span> Logging in...';
+                const res = await fetch(`${apiUrl}/api/auth/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+                const data = await res.json();
+                if (data.token) {
+                    document.getElementById('authToken').value = data.token;
+                    document.getElementById('apiStatus').innerHTML = '<span class="text-green-600">✅ Logged in</span>';
+                    hideLogin();
+                } else {
+                    status.innerHTML = '<span class="text-red-600">❌ ' + (data.error || 'Login failed') + '</span>';
+                }
+            } catch (e) {
+                status.innerHTML = '<span class="text-red-600">❌ ' + e.message + '</span>';
+            }
+        }
+
+        async function runQuickResearch() {
+            const website = document.getElementById('quickWebsite').value.trim();
+            if (!website) { alert('Please enter a website URL'); return; }
+            const token = document.getElementById('authToken').value;
+            if (!token) { alert('Please login first'); showLogin(); return; }
+
+            const apiUrl = document.getElementById('apiUrl').value;
+            const btn = document.getElementById('researchBtn');
+            const status = document.getElementById('researchStatus');
+
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner"></span>';
+            status.innerHTML = '<span class="text-purple-600">Researching domain with SEMRush...</span>';
+
+            try {
+                const res = await fetch(`${apiUrl}/api/intake/quick`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                    body: JSON.stringify({ website })
+                });
+                const data = await res.json();
+
+                if (data.success && data.suggested_profile) {
+                    const profile = data.suggested_profile;
+                    document.getElementById('businessName').value = profile.business_name || '';
+                    document.getElementById('website').value = profile.website || website;
+                    document.getElementById('industry').value = profile.industry || '';
+                    document.getElementById('geo').value = profile.geo || '';
+                    if (profile.primary_keywords) document.getElementById('primaryKeywords').value = profile.primary_keywords.join('\n');
+                    if (profile.competitors) document.getElementById('competitors').value = profile.competitors.join('\n');
+                    showResearchResults(data);
+                    status.innerHTML = '<span class="text-green-600">✅ Research complete!</span>';
+                } else {
+                    status.innerHTML = '<span class="text-orange-600">⚠️ Limited data. ' + (data.errors?.join(', ') || '') + '</span>';
+                }
+            } catch (e) {
+                status.innerHTML = '<span class="text-red-600">❌ ' + e.message + '</span>';
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = 'Research';
+            }
+        }
+
+        function showResearchResults(data) {
+            const panel = document.getElementById('researchResults');
+            const profile = data.suggested_profile || {};
+            const research = data.research || {};
+
+            document.getElementById('domainOverview').innerHTML = `
+                <p><strong>Traffic:</strong> ${(profile.organic_traffic || 0).toLocaleString()}/mo</p>
+                <p><strong>Keywords:</strong> ${(profile.organic_keywords || 0).toLocaleString()}</p>
+            `;
+
+            const keywords = research.top_keywords?.slice(0, 5) || profile.primary_keywords?.slice(0, 5) || [];
+            document.getElementById('topKeywords').innerHTML = keywords.length > 0
+                ? keywords.map(k => `<span class="tag">${typeof k === 'string' ? k : k.keyword}</span>`).join('')
+                : '<span class="text-gray-500">No data</span>';
+
+            const comps = research.competitors?.slice(0, 5) || profile.competitors?.slice(0, 5) || [];
+            document.getElementById('competitorsFound').innerHTML = comps.length > 0
+                ? comps.map(c => `<span class="tag tag-orange">${typeof c === 'string' ? c : c.domain}</span>`).join('')
+                : '<span class="text-gray-500">No data</span>';
+
+            panel.classList.remove('hidden');
+        }
+
+        async function submitPipeline() {
+            const token = document.getElementById('authToken').value;
+            if (!token) { alert('Please login first'); showLogin(); return; }
+
+            const businessName = document.getElementById('businessName').value.trim();
+            const industry = document.getElementById('industry').value;
+            const geo = document.getElementById('geo').value.trim();
+            if (!businessName || !industry || !geo) { alert('Please fill required fields'); return; }
+
+            const apiUrl = document.getElementById('apiUrl').value;
+            const btn = document.getElementById('submitBtn');
+            const progressPanel = document.getElementById('progressPanel');
+            const progressSteps = document.getElementById('progressSteps');
+
+            const payload = {
+                business_name: businessName,
+                website: document.getElementById('website').value.trim(),
+                industry: industry,
+                geo: geo,
+                phone: document.getElementById('phone').value.trim(),
+                email: document.getElementById('email').value.trim(),
+                service_areas: document.getElementById('serviceAreas').value.split(',').map(s => s.trim()).filter(s => s),
+                primary_keywords: document.getElementById('primaryKeywords').value.split('\n').map(k => k.trim()).filter(k => k),
+                competitors: document.getElementById('competitors').value.split('\n').map(c => c.trim()).filter(c => c),
+                usps: document.getElementById('usps').value.split('\n').map(u => u.trim()).filter(u => u),
+                tone: document.getElementById('tone').value,
+                blog_count: parseInt(document.getElementById('blogCount').value),
+                social_count: parseInt(document.getElementById('socialCount').value),
+                run_semrush_research: document.getElementById('runResearch').checked,
+                generate_content: document.getElementById('generateContent').checked
+            };
+
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner"></span> Processing...';
+            progressPanel.classList.remove('hidden');
+            progressSteps.innerHTML = '<div class="flex items-center gap-2 text-gray-600"><span class="spinner"></span> Running pipeline...</div>';
+
+            try {
+                const res = await fetch(`${apiUrl}/api/intake/pipeline`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                    body: JSON.stringify(payload)
+                });
+                const data = await res.json();
+
+                if (data.success) {
+                    showResults(data);
+                    progressSteps.innerHTML = '<div class="text-green-600">✅ Pipeline complete!</div>';
+                } else {
+                    progressSteps.innerHTML = '<div class="text-red-600">❌ ' + (data.error || 'Error') + '</div>';
+                }
+            } catch (e) {
+                progressSteps.innerHTML = '<div class="text-red-600">❌ ' + e.message + '</div>';
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '🚀 Create Client & Generate Content';
+            }
+        }
+
+        function showResults(data) {
+            const panel = document.getElementById('resultsPanel');
+            const content = document.getElementById('resultsContent');
+            const summary = data.summary || {};
+            const research = data.research || {};
+            const blogs = data.content?.blogs || [];
+            const social = data.content?.social || [];
+
+            content.innerHTML = `
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                    <div class="bg-green-100 rounded-lg p-4 text-center">
+                        <div class="text-3xl font-bold text-green-700">${summary.blogs_generated || 0}</div>
+                        <div class="text-sm text-green-600">Blogs</div>
+                    </div>
+                    <div class="bg-purple-100 rounded-lg p-4 text-center">
+                        <div class="text-3xl font-bold text-purple-700">${summary.social_generated || 0}</div>
+                        <div class="text-sm text-purple-600">Social Posts</div>
+                    </div>
+                    <div class="bg-blue-100 rounded-lg p-4 text-center">
+                        <div class="text-3xl font-bold text-blue-700">${summary.keywords_discovered || 0}</div>
+                        <div class="text-sm text-blue-600">Keywords</div>
+                    </div>
+                    <div class="bg-orange-100 rounded-lg p-4 text-center">
+                        <div class="text-3xl font-bold text-orange-700">${summary.competitors_found || 0}</div>
+                        <div class="text-sm text-orange-600">Competitors</div>
+                    </div>
+                </div>
+
+                <div class="bg-gray-50 rounded-lg p-4 mb-6">
+                    <h3 class="font-bold text-gray-800 mb-2">📋 Client Created</h3>
+                    <p><strong>${data.client?.business_name}</strong> (ID: ${data.client?.id})</p>
+                    <p class="text-sm text-gray-600">${data.client?.industry} in ${data.client?.geo}</p>
+                </div>
+
+                ${research.discovered_keywords?.length > 0 ? `
+                <div class="bg-blue-50 rounded-lg p-4 mb-6">
+                    <h3 class="font-bold text-gray-800 mb-2">🔍 Discovered Keywords</h3>
+                    <div class="flex flex-wrap gap-1">
+                        ${research.discovered_keywords.slice(0, 15).map(k => `<span class="tag">${k.keyword} (${k.volume}/mo)</span>`).join('')}
+                    </div>
+                </div>` : ''}
+
+                <div class="grid md:grid-cols-2 gap-4 mb-6">
+                    <div class="bg-green-50 rounded-lg p-4">
+                        <h3 class="font-bold text-gray-800 mb-2">📝 Blog Posts</h3>
+                        <ul class="space-y-2">
+                            ${blogs.map(b => `<li class="text-sm ${b.status === 'generated' ? 'text-green-700' : 'text-red-600'}">
+                                ${b.status === 'generated' ? '✅' : '❌'} ${b.title || b.keyword}
+                                ${b.word_count ? `<span class="text-gray-500">(${b.word_count} words)</span>` : ''}
+                            </li>`).join('') || '<li class="text-gray-500">None</li>'}
+                        </ul>
+                    </div>
+                    <div class="bg-purple-50 rounded-lg p-4">
+                        <h3 class="font-bold text-gray-800 mb-2">📱 Social Posts</h3>
+                        <ul class="space-y-1">
+                            ${social.slice(0, 12).map(s => `<li class="text-sm ${s.status === 'generated' ? 'text-green-700' : 'text-red-600'}">
+                                ${s.status === 'generated' ? '✅' : '❌'} ${s.platform.toUpperCase()}
+                            </li>`).join('') || '<li class="text-gray-500">None</li>'}
+                        </ul>
+                    </div>
+                </div>
+
+                ${data.errors?.length > 0 ? `
+                <div class="bg-red-50 rounded-lg p-4 mb-6">
+                    <h3 class="font-bold text-red-800 mb-2">⚠️ Errors</h3>
+                    <ul class="text-sm text-red-700">${data.errors.map(e => `<li>${e}</li>`).join('')}</ul>
+                </div>` : ''}
+
+                <div class="bg-gradient-to-r from-purple-100 to-blue-100 rounded-lg p-4">
+                    <h3 class="font-bold text-gray-800 mb-2">🚀 Next Steps</h3>
+                    <p class="text-sm">View content in <a href="${document.getElementById('apiUrl').value}" target="_blank" class="text-purple-600 underline font-medium">MCP Dashboard</a></p>
+                </div>
+            `;
+            panel.classList.remove('hidden');
+            panel.scrollIntoView({ behavior: 'smooth' });
+        }
+    </script>
+</body>
+</html>

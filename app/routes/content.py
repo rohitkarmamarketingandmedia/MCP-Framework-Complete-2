@@ -107,16 +107,15 @@ def generate_content(current_user):
 @token_required
 def bulk_generate(current_user):
     """
-    Generate multiple blog posts
+    Generate multiple blog posts (one at a time to avoid timeouts)
     
     POST /api/content/bulk-generate
     {
         "client_id": "client_abc123",
-        "keywords": [
-            {"keyword": "roof repair sarasota", "geo": "Sarasota, FL"},
-            {"keyword": "roof replacement bradenton", "geo": "Bradenton, FL"}
-        ],
-        "industry": "roofing"
+        "topics": [
+            {"keyword": "roof repair sarasota", "word_count": 1200},
+            {"keyword": "roof replacement bradenton", "word_count": 1500}
+        ]
     }
     """
     if not current_user.can_generate_content:
@@ -124,30 +123,112 @@ def bulk_generate(current_user):
     
     data = request.get_json()
     
-    if not data.get('client_id') or not data.get('keywords'):
-        return jsonify({'error': 'client_id and keywords required'}), 400
+    client_id = data.get('client_id')
+    topics = data.get('topics', [])
+    
+    if not client_id or not topics:
+        return jsonify({'error': 'client_id and topics required'}), 400
+    
+    # Get client
+    client = data_service.get_client(client_id)
+    if not client:
+        return jsonify({'error': 'Client not found'}), 404
+    
+    if not current_user.has_access_to_client(client_id):
+        return jsonify({'error': 'Access denied'}), 403
+    
+    # Get internal linking service
+    from app.services.internal_linking_service import internal_linking_service
+    service_pages = client.get_service_pages()
     
     results = []
-    for kw in data['keywords']:
-        params = {
-            'client_id': data['client_id'],
-            'keyword': kw['keyword'],
-            'geo': kw.get('geo', ''),
-            'industry': data.get('industry', '')
-        }
+    
+    for topic in topics[:5]:  # Limit to 5 to avoid timeout
+        keyword = topic.get('keyword', '')
+        if not keyword:
+            results.append({'keyword': '', 'success': False, 'error': 'keyword required'})
+            continue
         
-        # Generate each post
-        result = ai_service.generate_blog_post(**params)
-        results.append({
-            'keyword': kw['keyword'],
-            'success': not result.get('error'),
-            'content_id': result.get('id', ''),
-            'error': result.get('error')
-        })
+        try:
+            # Build params from client data
+            params = {
+                'keyword': keyword,
+                'geo': client.geo,
+                'industry': client.industry,
+                'word_count': topic.get('word_count', current_app.config.get('DEFAULT_BLOG_WORD_COUNT', 1200)),
+                'tone': client.tone or 'professional',
+                'business_name': client.business_name,
+                'include_faq': topic.get('include_faq', True),
+                'faq_count': topic.get('faq_count', 5),
+                'internal_links': service_pages,  # Pass service pages to AI
+                'usps': client.get_unique_selling_points()
+            }
+            
+            # Generate content
+            result = ai_service.generate_blog_post(**params)
+            
+            if result.get('error'):
+                results.append({
+                    'keyword': keyword,
+                    'success': False,
+                    'error': result['error']
+                })
+                continue
+            
+            # Process content with internal linking service
+            body_content = result.get('body', '')
+            if service_pages and body_content:
+                link_result = internal_linking_service.process_blog_content(
+                    content=body_content,
+                    service_pages=service_pages,
+                    primary_keyword=keyword,
+                    location=client.geo,
+                    business_name=client.business_name,
+                    fix_headings=True,
+                    add_cta=True
+                )
+                body_content = link_result['content']
+                links_added = link_result['links_added']
+            else:
+                links_added = 0
+            
+            # Create and save blog post
+            blog_post = DBBlogPost(
+                client_id=client_id,
+                title=result.get('title', keyword),
+                body=body_content,
+                meta_title=result.get('meta_title', ''),
+                meta_description=result.get('meta_description', ''),
+                primary_keyword=keyword,
+                secondary_keywords=result.get('secondary_keywords', []),
+                internal_links=service_pages,
+                faq_content=result.get('faq_items', []),
+                word_count=len(body_content.split()),
+                status=ContentStatus.DRAFT
+            )
+            
+            data_service.save_blog_post(blog_post)
+            
+            results.append({
+                'keyword': keyword,
+                'success': True,
+                'content_id': blog_post.id,
+                'title': blog_post.title,
+                'word_count': blog_post.word_count,
+                'links_added': links_added
+            })
+            
+        except Exception as e:
+            results.append({
+                'keyword': keyword,
+                'success': False,
+                'error': str(e)
+            })
     
     return jsonify({
-        'total': len(data['keywords']),
-        'successful': sum(1 for r in results if r['success']),
+        'client_id': client_id,
+        'total': len(topics),
+        'successful': sum(1 for r in results if r.get('success')),
         'results': results
     })
 

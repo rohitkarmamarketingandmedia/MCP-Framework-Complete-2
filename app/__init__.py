@@ -43,6 +43,16 @@ def create_app(config_name=None):
     def dashboard():
         return send_from_directory(root_dir, 'dashboard.html')
     
+    # Serve intake dashboard
+    @app.route('/intake')
+    def intake_dashboard():
+        return send_from_directory(root_dir, 'intake-dashboard.html')
+    
+    # Serve client content dashboard (for demos)
+    @app.route('/client-dashboard')
+    def client_dashboard():
+        return send_from_directory(root_dir, 'client-dashboard.html')
+    
     # Health check
     @app.route('/health')
     def health():
@@ -64,7 +74,8 @@ def create_app(config_name=None):
                 'publish': '/api/publish',
                 'analytics': '/api/analytics',
                 'clients': '/api/clients',
-                'campaigns': '/api/campaigns'
+                'campaigns': '/api/campaigns',
+                'semrush': '/api/semrush'
             }
         }
     

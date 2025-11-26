@@ -277,3 +277,264 @@ def get_client_summary(current_user, client_id):
             }
         }
     })
+
+
+# ==========================================
+# SERVICE PAGES (Internal Linking)
+# ==========================================
+
+@clients_bp.route('/<client_id>/service-pages', methods=['GET'])
+@token_required
+def get_service_pages(current_user, client_id):
+    """
+    Get client's service pages for internal linking
+    
+    Returns:
+    {
+        "client_id": "client_abc123",
+        "service_pages": [
+            {"keyword": "roof repair", "url": "/roof-repair/", "title": "Roof Repair Services"}
+        ]
+    }
+    """
+    if not current_user.has_access_to_client(client_id):
+        return jsonify({'error': 'Access denied'}), 403
+    
+    client = data_service.get_client(client_id)
+    if not client:
+        return jsonify({'error': 'Client not found'}), 404
+    
+    return jsonify({
+        'client_id': client_id,
+        'service_pages': client.get_service_pages()
+    })
+
+
+@clients_bp.route('/<client_id>/service-pages', methods=['POST'])
+@token_required
+def add_service_page(current_user, client_id):
+    """
+    Add a service page for internal linking
+    
+    POST /api/clients/{id}/service-pages
+    {
+        "keyword": "roof repair",
+        "url": "/roof-repair/",
+        "title": "Roof Repair Services"
+    }
+    """
+    if not current_user.has_access_to_client(client_id):
+        return jsonify({'error': 'Access denied'}), 403
+    
+    client = data_service.get_client(client_id)
+    if not client:
+        return jsonify({'error': 'Client not found'}), 404
+    
+    data = request.get_json()
+    keyword = data.get('keyword', '').strip()
+    url = data.get('url', '').strip()
+    title = data.get('title', keyword).strip()
+    
+    if not keyword or not url:
+        return jsonify({'error': 'keyword and url are required'}), 400
+    
+    # Get existing pages
+    pages = client.get_service_pages()
+    
+    # Check for duplicate keyword
+    for page in pages:
+        if page.get('keyword', '').lower() == keyword.lower():
+            return jsonify({'error': f'Service page for "{keyword}" already exists'}), 400
+    
+    # Add new page
+    pages.append({
+        'keyword': keyword,
+        'url': url,
+        'title': title
+    })
+    
+    client.set_service_pages(pages)
+    data_service.save_client(client)
+    
+    return jsonify({
+        'message': 'Service page added',
+        'service_pages': pages
+    })
+
+
+@clients_bp.route('/<client_id>/service-pages', methods=['PUT'])
+@token_required
+def update_service_pages(current_user, client_id):
+    """
+    Replace all service pages (bulk update)
+    
+    PUT /api/clients/{id}/service-pages
+    {
+        "service_pages": [
+            {"keyword": "roof repair", "url": "/roof-repair/", "title": "Roof Repair"},
+            {"keyword": "roof replacement", "url": "/roof-replacement/", "title": "Roof Replacement"}
+        ]
+    }
+    """
+    if not current_user.has_access_to_client(client_id):
+        return jsonify({'error': 'Access denied'}), 403
+    
+    client = data_service.get_client(client_id)
+    if not client:
+        return jsonify({'error': 'Client not found'}), 404
+    
+    data = request.get_json()
+    pages = data.get('service_pages', [])
+    
+    # Validate structure
+    validated_pages = []
+    for page in pages:
+        keyword = page.get('keyword', '').strip()
+        url = page.get('url', '').strip()
+        title = page.get('title', keyword).strip()
+        
+        if keyword and url:
+            validated_pages.append({
+                'keyword': keyword,
+                'url': url,
+                'title': title
+            })
+    
+    client.set_service_pages(validated_pages)
+    data_service.save_client(client)
+    
+    return jsonify({
+        'message': f'Updated {len(validated_pages)} service pages',
+        'service_pages': validated_pages
+    })
+
+
+@clients_bp.route('/<client_id>/service-pages/<int:index>', methods=['DELETE'])
+@token_required
+def delete_service_page(current_user, client_id, index):
+    """
+    Delete a service page by index
+    
+    DELETE /api/clients/{id}/service-pages/0
+    """
+    if not current_user.has_access_to_client(client_id):
+        return jsonify({'error': 'Access denied'}), 403
+    
+    client = data_service.get_client(client_id)
+    if not client:
+        return jsonify({'error': 'Client not found'}), 404
+    
+    pages = client.get_service_pages()
+    
+    if index < 0 or index >= len(pages):
+        return jsonify({'error': 'Invalid index'}), 400
+    
+    removed = pages.pop(index)
+    client.set_service_pages(pages)
+    data_service.save_client(client)
+    
+    return jsonify({
+        'message': f'Removed service page: {removed.get("keyword")}',
+        'service_pages': pages
+    })
+
+
+@clients_bp.route('/<client_id>/service-pages/auto-generate', methods=['POST'])
+@token_required
+def auto_generate_service_pages(current_user, client_id):
+    """
+    Auto-generate service pages from client's website
+    Uses primary keywords + industry standard pages
+    
+    POST /api/clients/{id}/service-pages/auto-generate
+    {
+        "base_url": "https://example.com"  // Optional, uses client website_url if not provided
+    }
+    """
+    if not current_user.has_access_to_client(client_id):
+        return jsonify({'error': 'Access denied'}), 403
+    
+    client = data_service.get_client(client_id)
+    if not client:
+        return jsonify({'error': 'Client not found'}), 404
+    
+    data = request.get_json() or {}
+    base_url = data.get('base_url', client.website_url or '').strip().rstrip('/')
+    
+    if not base_url:
+        return jsonify({'error': 'No base URL available'}), 400
+    
+    generated_pages = []
+    
+    # Generate from primary keywords
+    for keyword in client.get_primary_keywords():
+        slug = keyword.lower().replace(' ', '-').replace(',', '')
+        # Remove location from slug
+        for area in client.get_service_areas():
+            slug = slug.replace(area.lower(), '').strip('-')
+        slug = slug.strip('-')
+        
+        if slug:
+            generated_pages.append({
+                'keyword': keyword,
+                'url': f'{base_url}/{slug}/',
+                'title': keyword.title()
+            })
+    
+    # Add industry-standard pages based on client industry
+    industry_pages = {
+        'roofing': [
+            {'keyword': 'roof repair', 'slug': 'roof-repair', 'title': 'Roof Repair Services'},
+            {'keyword': 'roof replacement', 'slug': 'roof-replacement', 'title': 'Roof Replacement'},
+            {'keyword': 'roof inspection', 'slug': 'roof-inspection', 'title': 'Roof Inspections'},
+            {'keyword': 'emergency roof repair', 'slug': 'emergency-roof-repair', 'title': 'Emergency Roof Repair'},
+        ],
+        'hvac': [
+            {'keyword': 'ac repair', 'slug': 'ac-repair', 'title': 'AC Repair Services'},
+            {'keyword': 'heating repair', 'slug': 'heating-repair', 'title': 'Heating Repair'},
+            {'keyword': 'hvac installation', 'slug': 'hvac-installation', 'title': 'HVAC Installation'},
+            {'keyword': 'ac maintenance', 'slug': 'ac-maintenance', 'title': 'AC Maintenance'},
+        ],
+        'plumbing': [
+            {'keyword': 'plumbing repair', 'slug': 'plumbing-repair', 'title': 'Plumbing Repair'},
+            {'keyword': 'drain cleaning', 'slug': 'drain-cleaning', 'title': 'Drain Cleaning'},
+            {'keyword': 'water heater repair', 'slug': 'water-heater-repair', 'title': 'Water Heater Repair'},
+            {'keyword': 'emergency plumber', 'slug': 'emergency-plumber', 'title': 'Emergency Plumber'},
+        ],
+        'electrical': [
+            {'keyword': 'electrical repair', 'slug': 'electrical-repair', 'title': 'Electrical Repair'},
+            {'keyword': 'electrical installation', 'slug': 'electrical-installation', 'title': 'Electrical Installation'},
+            {'keyword': 'panel upgrade', 'slug': 'panel-upgrade', 'title': 'Panel Upgrades'},
+        ],
+    }
+    
+    if client.industry.lower() in industry_pages:
+        for page in industry_pages[client.industry.lower()]:
+            # Check if keyword not already added
+            existing_keywords = [p['keyword'].lower() for p in generated_pages]
+            if page['keyword'].lower() not in existing_keywords:
+                generated_pages.append({
+                    'keyword': page['keyword'],
+                    'url': f"{base_url}/{page['slug']}/",
+                    'title': page['title']
+                })
+    
+    # Merge with existing pages (don't overwrite)
+    existing_pages = client.get_service_pages()
+    existing_urls = [p['url'].lower() for p in existing_pages]
+    
+    new_pages = []
+    for page in generated_pages:
+        if page['url'].lower() not in existing_urls:
+            new_pages.append(page)
+    
+    all_pages = existing_pages + new_pages
+    client.set_service_pages(all_pages)
+    data_service.save_client(client)
+    
+    return jsonify({
+        'message': f'Added {len(new_pages)} new service pages',
+        'new_pages': new_pages,
+        'total_pages': len(all_pages),
+        'service_pages': all_pages
+    })

@@ -38,6 +38,32 @@ if command -v python3 &> /dev/null; then
     
     if [ "$PY_MAJOR" -ge 3 ] && [ "$PY_MINOR" -ge 10 ]; then
         echo -e "${GREEN}✓ Python $PY_VERSION found${NC}"
+        
+        # Warn about bleeding edge Python versions
+        if [ "$PY_MINOR" -ge 14 ]; then
+            echo ""
+            echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+            echo -e "${YELLOW}  ⚠️  WARNING: Python $PY_VERSION is bleeding edge${NC}"
+            echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+            echo ""
+            echo -e "  Some packages may not have pre-built wheels for Python $PY_VERSION."
+            echo -e "  If installation fails, use Python 3.12 (stable) instead:"
+            echo ""
+            echo -e "  ${CYAN}macOS:${NC}"
+            echo -e "    brew install python@3.12"
+            echo -e "    /opt/homebrew/bin/python3.12 -m venv venv"
+            echo ""
+            echo -e "  ${CYAN}Linux:${NC}"
+            echo -e "    sudo apt install python3.12 python3.12-venv"
+            echo -e "    python3.12 -m venv venv"
+            echo ""
+            read -p "  Continue with Python $PY_VERSION anyway? (y/N): " CONTINUE_BETA
+            if [[ ! "$CONTINUE_BETA" =~ ^[Yy]$ ]]; then
+                echo -e "${YELLOW}Aborted. Install Python 3.12 and try again.${NC}"
+                exit 0
+            fi
+            echo ""
+        fi
     else
         echo -e "${RED}✗ Python 3.10+ required (found $PY_VERSION)${NC}"
         echo "  Install: https://www.python.org/downloads/"
@@ -70,9 +96,36 @@ source venv/bin/activate 2>/dev/null || . venv/bin/activate
 echo -e "${CYAN}[3/7] Installing dependencies...${NC}"
 
 pip install --upgrade pip --quiet
-pip install -r requirements.txt --quiet
 
-echo -e "${GREEN}✓ Dependencies installed${NC}"
+# Try to install dependencies
+if pip install -r requirements.txt; then
+    echo -e "${GREEN}✓ Dependencies installed${NC}"
+else
+    echo ""
+    echo -e "${RED}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo -e "${RED}  ✗ Dependency installation failed${NC}"
+    echo -e "${RED}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo ""
+    echo -e "  This often happens with Python 3.14+ (bleeding edge)."
+    echo ""
+    echo -e "  ${CYAN}Fix: Use Python 3.12 instead${NC}"
+    echo ""
+    echo -e "  ${YELLOW}macOS:${NC}"
+    echo -e "    brew install python@3.12"
+    echo -e "    rm -rf venv"
+    echo -e "    /opt/homebrew/bin/python3.12 -m venv venv"
+    echo -e "    source venv/bin/activate"
+    echo -e "    pip install -r requirements.txt"
+    echo ""
+    echo -e "  ${YELLOW}Linux:${NC}"
+    echo -e "    sudo apt install python3.12 python3.12-venv"
+    echo -e "    rm -rf venv"
+    echo -e "    python3.12 -m venv venv"
+    echo -e "    source venv/bin/activate"
+    echo -e "    pip install -r requirements.txt"
+    echo ""
+    exit 1
+fi
 
 # ============================================
 # Step 4: Configure Environment
@@ -138,11 +191,20 @@ echo -e "${CYAN}[6/7] Setting up admin user...${NC}"
 
 # Check if admin exists
 ADMIN_EXISTS=$(python3 -c "
-from app.services.data_service import DataService
-ds = DataService()
-users = ds.get_all_users()
-admins = [u for u in users if u.role.value == 'admin']
-print('yes' if admins else 'no')
+import os
+os.environ.setdefault('DATABASE_URL', 'sqlite:///mcp_framework.db')
+from app import create_app
+from app.database import db
+from app.models.db_models import DBUser, UserRole
+from app.services.db_service import DataService
+
+app = create_app('development')
+with app.app_context():
+    db.create_all()
+    ds = DataService()
+    users = ds.get_all_users()
+    admins = [u for u in users if u.role == UserRole.ADMIN]
+    print('yes' if admins else 'no')
 " 2>/dev/null || echo "no")
 
 if [ "$ADMIN_EXISTS" = "yes" ]; then
@@ -160,13 +222,25 @@ else
     echo ""
     
     python3 -c "
-from app.services.data_service import DataService
-from app.models.user import create_admin_user
+import os
+os.environ.setdefault('DATABASE_URL', 'sqlite:///mcp_framework.db')
+from app import create_app
+from app.database import db
+from app.models.db_models import DBUser, UserRole
+from app.services.db_service import DataService
 
-admin = create_admin_user('$ADMIN_EMAIL', '$ADMIN_NAME', '$ADMIN_PASS')
-ds = DataService()
-ds.save_user(admin)
-print('SUCCESS')
+app = create_app('development')
+with app.app_context():
+    db.create_all()
+    admin = DBUser(
+        email='$ADMIN_EMAIL',
+        name='$ADMIN_NAME',
+        password='$ADMIN_PASS',
+        role=UserRole.ADMIN
+    )
+    ds = DataService()
+    ds.save_user(admin)
+    print('SUCCESS')
 " && echo -e "${GREEN}✓ Admin user created${NC}" || echo -e "${RED}✗ Failed to create admin${NC}"
 fi
 
@@ -176,11 +250,14 @@ fi
 echo -e "${CYAN}[7/7] Verifying installation...${NC}"
 
 python3 -c "
+import os
+os.environ.setdefault('DATABASE_URL', 'sqlite:///mcp_framework.db')
 from app import create_app
-from app.models import User, Client, BlogPost
-from app.services import AIService, DataService
-app = create_app('testing')
-print('SUCCESS')
+from app.models.db_models import DBUser, DBClient, DBBlogPost
+from app.services.db_service import DataService
+app = create_app('development')
+with app.app_context():
+    print('SUCCESS')
 " && echo -e "${GREEN}✓ All systems operational${NC}" || {
     echo -e "${RED}✗ Verification failed${NC}"
     exit 1

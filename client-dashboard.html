@@ -1,0 +1,635 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Content Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+        * { font-family: 'Inter', sans-serif; }
+        body { background: #0f172a; }
+        .glass { background: rgba(255,255,255,0.03); backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.1); }
+        .glass-light { background: rgba(255,255,255,0.95); }
+        .gradient-text { background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .gradient-border { border: 2px solid transparent; background: linear-gradient(#1e293b, #1e293b) padding-box, linear-gradient(135deg, #667eea, #764ba2, #f093fb) border-box; }
+        .stat-card { transition: all 0.3s; }
+        .stat-card:hover { transform: translateY(-4px); box-shadow: 0 20px 40px rgba(102,126,234,0.2); }
+        .content-card { transition: all 0.3s; }
+        .content-card:hover { transform: translateY(-2px); }
+        .pulse-dot { animation: pulse 2s infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+        .blog-content { line-height: 1.8; }
+        .blog-content h2 { font-size: 1.5rem; font-weight: 700; margin: 1.5rem 0 1rem; color: #1e293b; }
+        .blog-content h3 { font-size: 1.25rem; font-weight: 600; margin: 1.25rem 0 0.75rem; color: #334155; }
+        .blog-content p { margin-bottom: 1rem; color: #475569; }
+        .blog-content ul, .blog-content ol { margin: 1rem 0; padding-left: 1.5rem; }
+        .blog-content li { margin-bottom: 0.5rem; color: #475569; }
+        .blog-content a { color: #667eea; text-decoration: underline; }
+        .internal-link { background: linear-gradient(135deg, #667eea20, #764ba220); padding: 2px 6px; border-radius: 4px; }
+        .tab-active { background: linear-gradient(135deg, #667eea, #764ba2); color: white; }
+        .fade-in { animation: fadeIn 0.5s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        .spinner { border: 3px solid rgba(255,255,255,0.1); border-top-color: #667eea; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .social-gbp { border-left: 4px solid #4285f4; }
+        .social-facebook { border-left: 4px solid #1877f2; }
+        .social-instagram { border-left: 4px solid #e4405f; }
+    </style>
+</head>
+<body class="min-h-screen">
+    <!-- Auth Modal -->
+    <div id="authModal" class="fixed inset-0 bg-black/80 flex items-center justify-center z-50">
+        <div class="glass rounded-2xl p-8 w-full max-w-md mx-4 fade-in">
+            <div class="text-center mb-6">
+                <h1 class="text-3xl font-bold gradient-text mb-2">Content Dashboard</h1>
+                <p class="text-gray-400">Login to view your marketing content</p>
+            </div>
+            <div class="space-y-4">
+                <input type="text" id="apiUrl" value="https://mcp-framework.onrender.com" class="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:border-purple-500" placeholder="API URL">
+                <input type="email" id="loginEmail" class="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:border-purple-500" placeholder="Email">
+                <input type="password" id="loginPassword" class="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:border-purple-500" placeholder="Password">
+                <button onclick="doLogin()" class="w-full py-3 bg-gradient-to-r from-purple-600 to-pink-600 rounded-xl text-white font-semibold hover:opacity-90 transition">
+                    Sign In
+                </button>
+                <p id="authError" class="text-red-400 text-sm text-center hidden"></p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Dashboard -->
+    <div id="dashboard" class="hidden">
+        <!-- Header -->
+        <header class="glass border-b border-white/10 sticky top-0 z-40">
+            <div class="max-w-7xl mx-auto px-4 py-4">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-4">
+                        <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-600 to-pink-600 flex items-center justify-center">
+                            <i class="fas fa-rocket text-white"></i>
+                        </div>
+                        <div>
+                            <h1 id="clientName" class="text-xl font-bold text-white">Loading...</h1>
+                            <p id="clientMeta" class="text-sm text-gray-400">Marketing Dashboard</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-4">
+                        <select id="clientSelector" onchange="loadClient(this.value)" class="px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white text-sm focus:outline-none">
+                            <option value="">Select Client</option>
+                        </select>
+                        <button onclick="refreshData()" class="p-2 glass rounded-lg text-gray-400 hover:text-white transition">
+                            <i class="fas fa-sync-alt"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Stats Bar -->
+        <div class="max-w-7xl mx-auto px-4 py-6">
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div class="stat-card glass rounded-xl p-4">
+                    <div class="flex items-center gap-3">
+                        <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center">
+                            <i class="fas fa-file-alt text-white text-xl"></i>
+                        </div>
+                        <div>
+                            <p id="statBlogs" class="text-2xl font-bold text-white">0</p>
+                            <p class="text-sm text-gray-400">Blog Posts</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="stat-card glass rounded-xl p-4">
+                    <div class="flex items-center gap-3">
+                        <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-600 flex items-center justify-center">
+                            <i class="fas fa-share-alt text-white text-xl"></i>
+                        </div>
+                        <div>
+                            <p id="statSocial" class="text-2xl font-bold text-white">0</p>
+                            <p class="text-sm text-gray-400">Social Posts</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="stat-card glass rounded-xl p-4">
+                    <div class="flex items-center gap-3">
+                        <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500 to-violet-600 flex items-center justify-center">
+                            <i class="fas fa-key text-white text-xl"></i>
+                        </div>
+                        <div>
+                            <p id="statKeywords" class="text-2xl font-bold text-white">0</p>
+                            <p class="text-sm text-gray-400">Keywords</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="stat-card glass rounded-xl p-4">
+                    <div class="flex items-center gap-3">
+                        <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-orange-500 to-red-600 flex items-center justify-center">
+                            <i class="fas fa-users text-white text-xl"></i>
+                        </div>
+                        <div>
+                            <p id="statCompetitors" class="text-2xl font-bold text-white">0</p>
+                            <p class="text-sm text-gray-400">Competitors</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tabs -->
+        <div class="max-w-7xl mx-auto px-4 mb-6">
+            <div class="flex gap-2 overflow-x-auto pb-2">
+                <button onclick="showTab('blogs')" id="tab-blogs" class="tab-active px-6 py-2 rounded-lg text-sm font-medium transition whitespace-nowrap">
+                    <i class="fas fa-file-alt mr-2"></i>Blog Posts
+                </button>
+                <button onclick="showTab('social')" id="tab-social" class="px-6 py-2 rounded-lg text-sm font-medium text-gray-400 hover:text-white transition whitespace-nowrap glass">
+                    <i class="fas fa-share-alt mr-2"></i>Social Posts
+                </button>
+                <button onclick="showTab('seo')" id="tab-seo" class="px-6 py-2 rounded-lg text-sm font-medium text-gray-400 hover:text-white transition whitespace-nowrap glass">
+                    <i class="fas fa-chart-line mr-2"></i>SEO Overview
+                </button>
+            </div>
+        </div>
+
+        <!-- Content Panels -->
+        <div class="max-w-7xl mx-auto px-4 pb-12">
+            <!-- Blogs Panel -->
+            <div id="panel-blogs" class="fade-in">
+                <div id="blogsList" class="space-y-4">
+                    <div class="text-center py-12">
+                        <div class="spinner mx-auto mb-4"></div>
+                        <p class="text-gray-400">Loading blog posts...</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Social Panel -->
+            <div id="panel-social" class="hidden fade-in">
+                <div class="grid md:grid-cols-3 gap-4 mb-6">
+                    <button onclick="filterSocial('all')" id="social-all" class="glass rounded-xl p-4 text-left hover:bg-white/5 transition border-2 border-purple-500">
+                        <p class="text-white font-semibold">All Platforms</p>
+                        <p id="countAll" class="text-2xl font-bold gradient-text">0</p>
+                    </button>
+                    <button onclick="filterSocial('gbp')" id="social-gbp" class="glass rounded-xl p-4 text-left hover:bg-white/5 transition">
+                        <div class="flex items-center gap-2">
+                            <i class="fab fa-google text-blue-400"></i>
+                            <p class="text-white font-semibold">Google Business</p>
+                        </div>
+                        <p id="countGbp" class="text-2xl font-bold text-blue-400">0</p>
+                    </button>
+                    <button onclick="filterSocial('facebook')" id="social-facebook" class="glass rounded-xl p-4 text-left hover:bg-white/5 transition">
+                        <div class="flex items-center gap-2">
+                            <i class="fab fa-facebook text-blue-500"></i>
+                            <p class="text-white font-semibold">Facebook</p>
+                        </div>
+                        <p id="countFacebook" class="text-2xl font-bold text-blue-500">0</p>
+                    </button>
+                </div>
+                <div id="socialList" class="grid md:grid-cols-2 gap-4">
+                    <div class="text-center py-12 col-span-2">
+                        <div class="spinner mx-auto mb-4"></div>
+                        <p class="text-gray-400">Loading social posts...</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SEO Panel -->
+            <div id="panel-seo" class="hidden fade-in">
+                <div class="grid md:grid-cols-2 gap-6">
+                    <div class="glass rounded-xl p-6">
+                        <h3 class="text-lg font-semibold text-white mb-4"><i class="fas fa-bullseye mr-2 text-purple-400"></i>Target Keywords</h3>
+                        <div id="keywordsList" class="space-y-2"></div>
+                    </div>
+                    <div class="glass rounded-xl p-6">
+                        <h3 class="text-lg font-semibold text-white mb-4"><i class="fas fa-crosshairs mr-2 text-orange-400"></i>Competitors</h3>
+                        <div id="competitorsList" class="space-y-2"></div>
+                    </div>
+                    <div class="glass rounded-xl p-6">
+                        <h3 class="text-lg font-semibold text-white mb-4"><i class="fas fa-link mr-2 text-green-400"></i>Service Pages</h3>
+                        <div id="servicePagesList" class="space-y-2"></div>
+                    </div>
+                    <div class="glass rounded-xl p-6">
+                        <h3 class="text-lg font-semibold text-white mb-4"><i class="fas fa-star mr-2 text-yellow-400"></i>Unique Selling Points</h3>
+                        <div id="uspsList" class="space-y-2"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Blog Preview Modal -->
+    <div id="blogModal" class="hidden fixed inset-0 bg-black/90 z-50 overflow-y-auto">
+        <div class="max-w-4xl mx-auto py-8 px-4">
+            <div class="glass-light rounded-2xl overflow-hidden fade-in">
+                <div class="bg-gradient-to-r from-purple-600 to-pink-600 p-6">
+                    <div class="flex items-start justify-between">
+                        <div>
+                            <span id="modalKeyword" class="inline-block px-3 py-1 bg-white/20 rounded-full text-white text-sm mb-2"></span>
+                            <h1 id="modalTitle" class="text-2xl md:text-3xl font-bold text-white"></h1>
+                        </div>
+                        <button onclick="closeBlogModal()" class="p-2 hover:bg-white/20 rounded-lg transition">
+                            <i class="fas fa-times text-white text-xl"></i>
+                        </button>
+                    </div>
+                    <div class="flex items-center gap-4 mt-4 text-white/80 text-sm">
+                        <span><i class="fas fa-clock mr-1"></i><span id="modalWordCount">0</span> words</span>
+                        <span><i class="fas fa-link mr-1"></i><span id="modalLinkCount">0</span> internal links</span>
+                        <span id="modalStatus" class="px-2 py-1 bg-white/20 rounded"></span>
+                    </div>
+                </div>
+                <div class="p-6 md:p-8">
+                    <div class="mb-6 p-4 bg-gray-50 rounded-xl">
+                        <p class="text-sm text-gray-500 mb-1">Meta Title</p>
+                        <p id="modalMetaTitle" class="font-medium text-gray-800"></p>
+                        <p class="text-sm text-gray-500 mt-3 mb-1">Meta Description</p>
+                        <p id="modalMetaDesc" class="text-gray-600"></p>
+                    </div>
+                    <div id="modalBody" class="blog-content"></div>
+                    <div id="modalFaq" class="mt-8 hidden">
+                        <h3 class="text-xl font-bold text-gray-800 mb-4"><i class="fas fa-question-circle mr-2 text-purple-500"></i>Frequently Asked Questions</h3>
+                        <div id="faqContent" class="space-y-4"></div>
+                    </div>
+                </div>
+                <div class="border-t p-4 flex justify-between items-center bg-gray-50">
+                    <div class="flex gap-2">
+                        <button onclick="copyBlogContent()" class="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg text-sm font-medium transition">
+                            <i class="fas fa-copy mr-1"></i>Copy Content
+                        </button>
+                        <button onclick="downloadBlog()" class="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg text-sm font-medium transition">
+                            <i class="fas fa-download mr-1"></i>Download
+                        </button>
+                    </div>
+                    <button class="px-6 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-lg text-sm font-medium hover:opacity-90 transition">
+                        <i class="fas fa-check mr-1"></i>Approve
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let API_URL = '';
+        let AUTH_TOKEN = '';
+        let currentClient = null;
+        let allBlogs = [];
+        let allSocial = [];
+
+        // ==========================================
+        // AUTH
+        // ==========================================
+        async function doLogin() {
+            const apiUrl = document.getElementById('apiUrl').value.trim();
+            const email = document.getElementById('loginEmail').value;
+            const password = document.getElementById('loginPassword').value;
+            const errorEl = document.getElementById('authError');
+
+            try {
+                const res = await fetch(`${apiUrl}/api/auth/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+                const data = await res.json();
+
+                if (data.token) {
+                    API_URL = apiUrl;
+                    AUTH_TOKEN = data.token;
+                    document.getElementById('authModal').classList.add('hidden');
+                    document.getElementById('dashboard').classList.remove('hidden');
+                    loadClients();
+                } else {
+                    errorEl.textContent = data.error || 'Login failed';
+                    errorEl.classList.remove('hidden');
+                }
+            } catch (e) {
+                errorEl.textContent = 'Connection failed: ' + e.message;
+                errorEl.classList.remove('hidden');
+            }
+        }
+
+        // ==========================================
+        // DATA LOADING
+        // ==========================================
+        async function loadClients() {
+            try {
+                const res = await fetch(`${API_URL}/api/clients/`, {
+                    headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
+                });
+                const data = await res.json();
+                const clients = data.clients || [];
+
+                const selector = document.getElementById('clientSelector');
+                selector.innerHTML = '<option value="">Select Client</option>';
+                clients.forEach(c => {
+                    selector.innerHTML += `<option value="${c.id}">${c.business_name}</option>`;
+                });
+
+                if (clients.length > 0) {
+                    selector.value = clients[0].id;
+                    loadClient(clients[0].id);
+                }
+            } catch (e) {
+                console.error('Failed to load clients:', e);
+            }
+        }
+
+        async function loadClient(clientId) {
+            if (!clientId) return;
+
+            try {
+                // Load client details
+                const clientRes = await fetch(`${API_URL}/api/clients/${clientId}`, {
+                    headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
+                });
+                currentClient = await clientRes.json();
+
+                // Update header
+                document.getElementById('clientName').textContent = currentClient.business_name || 'Client';
+                document.getElementById('clientMeta').textContent = `${currentClient.industry || ''} • ${currentClient.geo || ''}`;
+
+                // Load blogs
+                const blogsRes = await fetch(`${API_URL}/api/content/blogs?client_id=${clientId}`, {
+                    headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
+                });
+                const blogsData = await blogsRes.json();
+                allBlogs = blogsData.blogs || [];
+
+                // Load social
+                const socialRes = await fetch(`${API_URL}/api/social/posts?client_id=${clientId}`, {
+                    headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
+                });
+                const socialData = await socialRes.json();
+                allSocial = socialData.posts || [];
+
+                // Update stats
+                updateStats();
+                renderBlogs();
+                renderSocial();
+                renderSEO();
+
+            } catch (e) {
+                console.error('Failed to load client:', e);
+            }
+        }
+
+        function updateStats() {
+            document.getElementById('statBlogs').textContent = allBlogs.length;
+            document.getElementById('statSocial').textContent = allSocial.length;
+            document.getElementById('statKeywords').textContent = 
+                (currentClient?.primary_keywords?.length || 0) + (currentClient?.secondary_keywords?.length || 0);
+            document.getElementById('statCompetitors').textContent = currentClient?.competitors?.length || 0;
+        }
+
+        function refreshData() {
+            const clientId = document.getElementById('clientSelector').value;
+            if (clientId) loadClient(clientId);
+        }
+
+        // ==========================================
+        // TABS
+        // ==========================================
+        function showTab(tab) {
+            ['blogs', 'social', 'seo'].forEach(t => {
+                document.getElementById(`panel-${t}`).classList.add('hidden');
+                document.getElementById(`tab-${t}`).classList.remove('tab-active');
+                document.getElementById(`tab-${t}`).classList.add('glass', 'text-gray-400');
+            });
+            document.getElementById(`panel-${tab}`).classList.remove('hidden');
+            document.getElementById(`tab-${tab}`).classList.add('tab-active');
+            document.getElementById(`tab-${tab}`).classList.remove('glass', 'text-gray-400');
+        }
+
+        // ==========================================
+        // BLOGS
+        // ==========================================
+        function renderBlogs() {
+            const container = document.getElementById('blogsList');
+
+            if (allBlogs.length === 0) {
+                container.innerHTML = `
+                    <div class="glass rounded-xl p-12 text-center">
+                        <i class="fas fa-file-alt text-4xl text-gray-600 mb-4"></i>
+                        <p class="text-gray-400">No blog posts yet</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = allBlogs.map(blog => `
+                <div class="content-card glass rounded-xl p-6 cursor-pointer hover:bg-white/5" onclick="openBlogModal('${blog.id}')">
+                    <div class="flex items-start justify-between gap-4">
+                        <div class="flex-1">
+                            <div class="flex items-center gap-2 mb-2">
+                                <span class="px-2 py-1 bg-purple-500/20 text-purple-300 rounded text-xs font-medium">
+                                    ${blog.primary_keyword || 'Blog'}
+                                </span>
+                                <span class="px-2 py-1 ${blog.status === 'published' ? 'bg-green-500/20 text-green-300' : 'bg-yellow-500/20 text-yellow-300'} rounded text-xs">
+                                    ${blog.status || 'draft'}
+                                </span>
+                            </div>
+                            <h3 class="text-lg font-semibold text-white mb-2">${blog.title || 'Untitled'}</h3>
+                            <p class="text-gray-400 text-sm line-clamp-2">${blog.meta_description || ''}</p>
+                        </div>
+                        <div class="text-right">
+                            <p class="text-2xl font-bold gradient-text">${blog.word_count || 0}</p>
+                            <p class="text-xs text-gray-500">words</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-4 mt-4 pt-4 border-t border-white/10 text-sm text-gray-500">
+                        <span><i class="fas fa-link mr-1"></i>${countInternalLinks(blog.body)} links</span>
+                        <span><i class="fas fa-question-circle mr-1"></i>${blog.faq_content?.length || 0} FAQs</span>
+                        <span class="ml-auto text-purple-400 hover:text-purple-300">View Full Post →</span>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function countInternalLinks(body) {
+            if (!body) return 0;
+            const matches = body.match(/<a[^>]*href=[^>]*>/gi);
+            return matches ? matches.length : 0;
+        }
+
+        let currentBlog = null;
+
+        function openBlogModal(blogId) {
+            currentBlog = allBlogs.find(b => b.id === blogId);
+            if (!currentBlog) return;
+
+            document.getElementById('modalKeyword').textContent = currentBlog.primary_keyword || '';
+            document.getElementById('modalTitle').textContent = currentBlog.title || 'Untitled';
+            document.getElementById('modalWordCount').textContent = currentBlog.word_count || 0;
+            document.getElementById('modalLinkCount').textContent = countInternalLinks(currentBlog.body);
+            document.getElementById('modalStatus').textContent = currentBlog.status || 'draft';
+            document.getElementById('modalMetaTitle').textContent = currentBlog.meta_title || '';
+            document.getElementById('modalMetaDesc').textContent = currentBlog.meta_description || '';
+            document.getElementById('modalBody').innerHTML = currentBlog.body || '';
+
+            // FAQs
+            const faqSection = document.getElementById('modalFaq');
+            const faqContent = document.getElementById('faqContent');
+            if (currentBlog.faq_content && currentBlog.faq_content.length > 0) {
+                faqSection.classList.remove('hidden');
+                faqContent.innerHTML = currentBlog.faq_content.map(faq => `
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <p class="font-semibold text-gray-800 mb-2">${faq.question || faq.q || ''}</p>
+                        <p class="text-gray-600">${faq.answer || faq.a || ''}</p>
+                    </div>
+                `).join('');
+            } else {
+                faqSection.classList.add('hidden');
+            }
+
+            document.getElementById('blogModal').classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeBlogModal() {
+            document.getElementById('blogModal').classList.add('hidden');
+            document.body.style.overflow = '';
+        }
+
+        function copyBlogContent() {
+            if (!currentBlog) return;
+            const content = `${currentBlog.title}\n\n${currentBlog.body?.replace(/<[^>]*>/g, '')}`;
+            navigator.clipboard.writeText(content);
+            alert('Content copied to clipboard!');
+        }
+
+        function downloadBlog() {
+            if (!currentBlog) return;
+            const content = `# ${currentBlog.title}\n\n${currentBlog.body?.replace(/<[^>]*>/g, '')}`;
+            const blob = new Blob([content], { type: 'text/markdown' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${currentBlog.title?.replace(/[^a-z0-9]/gi, '-').toLowerCase() || 'blog'}.md`;
+            a.click();
+        }
+
+        // ==========================================
+        // SOCIAL
+        // ==========================================
+        let socialFilter = 'all';
+
+        function renderSocial() {
+            const container = document.getElementById('socialList');
+
+            // Update counts
+            document.getElementById('countAll').textContent = allSocial.length;
+            document.getElementById('countGbp').textContent = allSocial.filter(s => s.platform === 'gbp').length;
+            document.getElementById('countFacebook').textContent = allSocial.filter(s => s.platform === 'facebook').length;
+
+            const filtered = socialFilter === 'all' ? allSocial : allSocial.filter(s => s.platform === socialFilter);
+
+            if (filtered.length === 0) {
+                container.innerHTML = `
+                    <div class="glass rounded-xl p-12 text-center col-span-2">
+                        <i class="fas fa-share-alt text-4xl text-gray-600 mb-4"></i>
+                        <p class="text-gray-400">No social posts yet</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = filtered.map(post => `
+                <div class="glass rounded-xl p-4 social-${post.platform}">
+                    <div class="flex items-center gap-2 mb-3">
+                        ${getPlatformIcon(post.platform)}
+                        <span class="text-sm font-medium text-white">${getPlatformName(post.platform)}</span>
+                        <span class="ml-auto px-2 py-1 ${post.status === 'published' ? 'bg-green-500/20 text-green-300' : 'bg-yellow-500/20 text-yellow-300'} rounded text-xs">
+                            ${post.status || 'draft'}
+                        </span>
+                    </div>
+                    <p class="text-gray-300 text-sm mb-3">${post.content || ''}</p>
+                    ${post.hashtags?.length > 0 ? `
+                        <div class="flex flex-wrap gap-1">
+                            ${post.hashtags.map(h => `<span class="text-xs text-purple-400">#${h}</span>`).join(' ')}
+                        </div>
+                    ` : ''}
+                </div>
+            `).join('');
+        }
+
+        function filterSocial(filter) {
+            socialFilter = filter;
+            ['all', 'gbp', 'facebook'].forEach(f => {
+                document.getElementById(`social-${f}`).classList.remove('border-2', 'border-purple-500');
+            });
+            document.getElementById(`social-${filter}`).classList.add('border-2', 'border-purple-500');
+            renderSocial();
+        }
+
+        function getPlatformIcon(platform) {
+            const icons = {
+                'gbp': '<i class="fab fa-google text-blue-400"></i>',
+                'facebook': '<i class="fab fa-facebook text-blue-500"></i>',
+                'instagram': '<i class="fab fa-instagram text-pink-500"></i>'
+            };
+            return icons[platform] || '<i class="fas fa-share-alt text-gray-400"></i>';
+        }
+
+        function getPlatformName(platform) {
+            const names = { 'gbp': 'Google Business', 'facebook': 'Facebook', 'instagram': 'Instagram' };
+            return names[platform] || platform;
+        }
+
+        // ==========================================
+        // SEO
+        // ==========================================
+        function renderSEO() {
+            // Keywords
+            const keywordsEl = document.getElementById('keywordsList');
+            const allKeywords = [...(currentClient?.primary_keywords || []), ...(currentClient?.secondary_keywords || [])];
+            keywordsEl.innerHTML = allKeywords.length > 0 
+                ? allKeywords.map((k, i) => `
+                    <div class="flex items-center gap-2 p-2 rounded-lg ${i < (currentClient?.primary_keywords?.length || 0) ? 'bg-purple-500/20' : 'bg-white/5'}">
+                        <span class="text-sm text-gray-300">${k}</span>
+                        ${i < (currentClient?.primary_keywords?.length || 0) ? '<span class="ml-auto text-xs text-purple-400">Primary</span>' : ''}
+                    </div>
+                `).join('')
+                : '<p class="text-gray-500 text-sm">No keywords defined</p>';
+
+            // Competitors
+            const compsEl = document.getElementById('competitorsList');
+            compsEl.innerHTML = currentClient?.competitors?.length > 0
+                ? currentClient.competitors.map(c => `
+                    <div class="flex items-center gap-2 p-2 rounded-lg bg-white/5">
+                        <i class="fas fa-globe text-orange-400"></i>
+                        <span class="text-sm text-gray-300">${c}</span>
+                    </div>
+                `).join('')
+                : '<p class="text-gray-500 text-sm">No competitors defined</p>';
+
+            // Service Pages
+            const servicesEl = document.getElementById('servicePagesList');
+            servicesEl.innerHTML = currentClient?.service_pages?.length > 0
+                ? currentClient.service_pages.map(s => `
+                    <div class="flex items-center gap-2 p-2 rounded-lg bg-white/5">
+                        <i class="fas fa-link text-green-400"></i>
+                        <div class="flex-1">
+                            <span class="text-sm text-gray-300">${s.title || s.keyword}</span>
+                            <span class="text-xs text-gray-500 block">${s.url}</span>
+                        </div>
+                    </div>
+                `).join('')
+                : '<p class="text-gray-500 text-sm">No service pages defined</p>';
+
+            // USPs
+            const uspsEl = document.getElementById('uspsList');
+            uspsEl.innerHTML = currentClient?.unique_selling_points?.length > 0
+                ? currentClient.unique_selling_points.map(u => `
+                    <div class="flex items-center gap-2 p-2 rounded-lg bg-white/5">
+                        <i class="fas fa-star text-yellow-400"></i>
+                        <span class="text-sm text-gray-300">${u}</span>
+                    </div>
+                `).join('')
+                : '<p class="text-gray-500 text-sm">No USPs defined</p>';
+        }
+
+        // Close modal on escape
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') closeBlogModal();
+        });
+    </script>
+</body>
+</html>

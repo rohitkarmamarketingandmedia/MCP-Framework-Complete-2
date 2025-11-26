@@ -124,6 +124,9 @@ class DBClient(db.Model):
     service_areas: Mapped[str] = mapped_column(Text, default='[]')
     unique_selling_points: Mapped[str] = mapped_column(Text, default='[]')
     
+    # Internal Linking - Service Pages (JSON array of {keyword, url, title})
+    service_pages: Mapped[str] = mapped_column(Text, default='[]')
+    
     tone: Mapped[str] = mapped_column(String(100), default='professional')
     
     # Integration credentials (stored as JSON)
@@ -150,6 +153,7 @@ class DBClient(db.Model):
         self.competitors = json.dumps(kwargs.get('competitors', []))
         self.service_areas = json.dumps(kwargs.get('service_areas', []))
         self.unique_selling_points = json.dumps(kwargs.get('unique_selling_points', []))
+        self.service_pages = json.dumps(kwargs.get('service_pages', []))
         self.tone = kwargs.get('tone', 'professional')
         self.integrations = json.dumps(kwargs.get('integrations', {}))
         self.subscription_tier = kwargs.get('subscription_tier', 'standard')
@@ -176,6 +180,16 @@ class DBClient(db.Model):
     def get_unique_selling_points(self) -> List[str]:
         return json.loads(self.unique_selling_points)
     
+    def get_service_pages(self) -> List[dict]:
+        """Get service pages for internal linking
+        Returns: [{"keyword": "roof repair", "url": "/roof-repair/", "title": "Roof Repair Services"}]
+        """
+        return json.loads(self.service_pages)
+    
+    def set_service_pages(self, pages: List[dict]):
+        """Set service pages for internal linking"""
+        self.service_pages = json.dumps(pages)
+    
     def get_integrations(self) -> dict:
         return json.loads(self.integrations)
     
@@ -189,6 +203,7 @@ class DBClient(db.Model):
             'competitors': self.get_competitors(),
             'service_areas': self.get_service_areas(),
             'usps': self.get_unique_selling_points(),
+            'service_pages': self.get_service_pages(),
             'tone': self.tone
         }
     
@@ -206,6 +221,7 @@ class DBClient(db.Model):
             'competitors': self.get_competitors(),
             'service_areas': self.get_service_areas(),
             'unique_selling_points': self.get_unique_selling_points(),
+            'service_pages': self.get_service_pages(),
             'tone': self.tone,
             'subscription_tier': self.subscription_tier,
             'monthly_content_limit': self.monthly_content_limit,
