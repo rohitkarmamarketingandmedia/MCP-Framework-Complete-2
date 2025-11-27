@@ -55,14 +55,14 @@ if __name__ == '__main__':
     
     print(f"""
 ╔══════════════════════════════════════════════════════════════╗
-║                    MCP Framework v3.0                        ║
-║              Marketing Control Platform                      ║
-║                  by Karma Marketing                          ║
+║              MCP Framework v4.5                              ║
+║          Karma Marketing + Media                             ║
 ╠══════════════════════════════════════════════════════════════╣
 ║                                                              ║
 ║  🌐 Dashboard: http://localhost:{port:<5}                        ║
 ║  📡 API:       http://localhost:{port}/api                      ║
 ║  💚 Health:    http://localhost:{port}/health                   ║
+║  🔐 Admin:     http://localhost:{port}/admin                    ║
 ║                                                              ║
 ║  Environment: {'development' if debug else 'production':<12}                              ║
 ║                                                              ║

@@ -1,183 +1,157 @@
-# MCP Framework v3.0
+# MCP Framework v4.5
 
 **Marketing Control Platform** - AI-powered SEO content automation engine by Karma Marketing + Media.
 
 ## Overview
 
-MCP Framework is a complete marketing automation API that generates SEO-optimized content, manages social media, publishes to WordPress, and tracks analytics - all powered by AI.
+MCP Framework is a complete marketing automation platform that generates SEO-optimized content, manages social media, publishes to WordPress, tracks analytics, and provides AI-powered agents for content generation - all with a beautiful dashboard UI.
 
 ## Features
 
 - **AI Content Generation** - Blog posts, landing pages with proper SEO structure
+- **AI Agent System** - 7 configurable AI agents with prompt editing via admin UI
 - **Schema Markup** - JSON-LD generation for LocalBusiness, FAQ, Article, etc.
 - **Social Media** - Multi-platform post generation (GBP, Facebook, Instagram, LinkedIn)
 - **WordPress Publishing** - Direct REST API integration with Yoast SEO support
 - **Analytics** - Google Analytics 4 integration for traffic and performance
-- **SEO Tools** - SEMrush integration for keyword rankings and competitor analysis
+- **SEO Tools** - SEMRush integration for keyword rankings and competitor analysis
 - **Multi-tenant** - Client management with role-based access control
+- **Review Management** - AI-powered review response generation
+- **Lead Generation** - Forms, tracking, and GBP integration
+- **Background Jobs** - Automated content scheduling and monitoring
+- **Webhooks** - 12 event types for integrations
+- **Audit Logging** - Full trail of all system changes
 
 ## Quick Start
 
-### 1. Clone and Setup
+### Option 1: Deploy to Render (Recommended)
+
+See `DEPLOY_ROHIT.md` for step-by-step instructions.
 
 ```bash
-git clone <repo-url>
-cd mcp-framework
+# 1. Push to GitHub
+git add . && git commit -m "Deploy" && git push
 
-# Create virtual environment
-python -m venv venv
-source venv/bin/activate  # Linux/Mac
-# or: venv\Scripts\activate  # Windows
+# 2. Go to render.com → New Blueprint → Connect repo
 
-# Install dependencies
-pip install -r requirements.txt
+# 3. Set environment variables:
+#    - OPENAI_API_KEY
+#    - ADMIN_EMAIL
+#    - ADMIN_PASSWORD
 
-# Configure environment
-cp .env.example .env
-# Edit .env with your API keys
+# 4. Click Deploy
 ```
 
-### 2. Run Development Server
+### Option 2: Local Development
 
 ```bash
+# Clone and setup
+git clone <repo-url>
+cd mcp-framework
+python -m venv venv
+source venv/bin/activate  # Windows: venv\Scripts\activate
+pip install -r requirements.txt
+
+# Configure
+cp .env.production.example .env
+# Edit .env with your values
+
+# Run
 python run.py
 ```
 
 Server starts at `http://localhost:5000`
 
-### 3. Test the API
+## Dashboards
+
+| URL | Purpose |
+|-----|---------|
+| `/admin` | Admin panel - users, agents, settings, audit log |
+| `/agency` | Agency command center - all clients overview |
+| `/intake` | New client onboarding wizard |
+| `/elite` | SEO monitoring dashboard |
+| `/portal` | Client self-service portal |
+| `/client` | Client content dashboard |
+
+## AI Agents
+
+The framework includes 7 configurable AI agents:
+
+| Agent | Purpose |
+|-------|---------|
+| `content_writer` | SEO-optimized blog posts |
+| `review_responder` | Professional review responses |
+| `social_writer` | Platform-specific social posts |
+| `seo_analyzer` | Keyword opportunity analysis |
+| `competitor_analyzer` | Competitive intelligence |
+| `service_page_writer` | Location/service landing pages |
+| `intake_analyzer` | Client discovery analysis |
+
+Edit prompts, models, and settings via `/admin` → AI Agents tab.
+
+## API Endpoints (204 total)
+
+### Core APIs
+
+| Category | Endpoints |
+|----------|-----------|
+| Auth | `/api/auth/*` - Login, register, users |
+| Content | `/api/content/*` - Blog generation |
+| Clients | `/api/clients/*` - Client management |
+| Social | `/api/social/*` - Social media |
+| Schema | `/api/schema/*` - JSON-LD markup |
+| Publish | `/api/publish/*` - WordPress, GBP |
+| Analytics | `/api/analytics/*` - Traffic, rankings |
+| Agents | `/api/agents/*` - AI agent config |
+| Settings | `/api/settings/*` - System settings |
+| Webhooks | `/api/webhooks/*` - Event triggers |
+
+### Quick Examples
 
 ```bash
 # Health check
-curl http://localhost:5000/health
+curl https://your-app.onrender.com/health
 
-# Create admin user (first time)
-curl -X POST http://localhost:5000/api/auth/register \
+# Login
+curl -X POST https://your-app.onrender.com/api/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"email":"admin@example.com","name":"Admin","password":"secure123","role":"admin"}'
-```
+  -d '{"email":"admin@example.com","password":"yourpass"}'
 
-## API Endpoints
-
-### Authentication
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/api/auth/login` | Login, get JWT token |
-| POST | `/api/auth/register` | Register user (admin only) |
-| GET | `/api/auth/me` | Get current user |
-| POST | `/api/auth/change-password` | Change password |
-
-### Content Generation
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/api/content/generate` | Generate SEO blog post |
-| POST | `/api/content/bulk-generate` | Generate multiple posts |
-| GET | `/api/content/{id}` | Get content by ID |
-| PUT | `/api/content/{id}` | Update content |
-| GET | `/api/content/client/{client_id}` | List client content |
-| POST | `/api/content/seo-check` | Check SEO score |
-
-### Schema Markup
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/api/schema/generate` | Generate JSON-LD schema |
-| POST | `/api/schema/validate` | Validate schema |
-| GET | `/api/schema/{id}` | Get schema by ID |
-| GET | `/api/schema/client/{client_id}` | List client schemas |
-
-### Social Media
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/api/social/generate` | Generate social post |
-| POST | `/api/social/kit` | Generate all platforms |
-| GET | `/api/social/{id}` | Get post by ID |
-| PUT | `/api/social/{id}` | Update post |
-| POST | `/api/social/schedule` | Schedule posts |
-
-### Publishing
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/api/publish/wordpress` | Publish to WordPress |
-| POST | `/api/publish/gbp` | Publish to Google Business |
-| POST | `/api/publish/facebook` | Publish to Facebook |
-| POST | `/api/publish/bulk` | Bulk publish |
-
-### Analytics
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/analytics/overview/{client_id}` | Overview metrics |
-| GET | `/api/analytics/traffic/{client_id}` | Traffic details |
-| GET | `/api/analytics/rankings/{client_id}` | Keyword rankings |
-| GET | `/api/analytics/competitors/{client_id}` | Competitor analysis |
-| GET | `/api/analytics/report/{client_id}` | Full report |
-
-### Clients
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/clients` | List clients |
-| POST | `/api/clients` | Create client |
-| GET | `/api/clients/{id}` | Get client |
-| PUT | `/api/clients/{id}` | Update client |
-| PUT | `/api/clients/{id}/keywords` | Update keywords |
-| PUT | `/api/clients/{id}/integrations` | Update integrations |
-
-### Campaigns
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/campaigns` | List campaigns |
-| POST | `/api/campaigns` | Create campaign |
-| GET | `/api/campaigns/{id}` | Get campaign |
-| PUT | `/api/campaigns/{id}` | Update campaign |
-| POST | `/api/campaigns/{id}/activate` | Activate |
-| POST | `/api/campaigns/{id}/pause` | Pause |
-| POST | `/api/campaigns/{id}/complete` | Complete |
-
-## Usage Examples
-
-### Generate Blog Post
-
-```bash
-curl -X POST http://localhost:5000/api/content/generate \
-  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+# Generate blog post
+curl -X POST https://your-app.onrender.com/api/content/generate \
+  -H "Authorization: Bearer YOUR_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
-    "client_id": "client_abc123",
+    "client_id": "client_123",
     "keyword": "roof repair sarasota",
     "geo": "Sarasota, FL",
-    "industry": "roofing",
-    "word_count": 1200,
-    "include_faq": true,
-    "internal_links": [
-      {"url": "/services/roof-repair", "anchor": "roof repair services"}
-    ]
+    "industry": "roofing"
   }'
 ```
 
-### Generate Social Kit
+## Environment Variables
 
-```bash
-curl -X POST http://localhost:5000/api/social/kit \
-  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "client_id": "client_abc123",
-    "custom_topic": "Spring roof maintenance tips",
-    "platforms": ["gbp", "facebook", "instagram", "linkedin"]
-  }'
+### Required
+
+```env
+DATABASE_URL=postgresql://...
+SECRET_KEY=<generate-secure-key>
+JWT_SECRET_KEY=<generate-secure-key>
+OPENAI_API_KEY=sk-...
+ADMIN_EMAIL=admin@yourdomain.com
+ADMIN_PASSWORD=SecurePassword123!
 ```
 
-### Publish to WordPress
+### Optional
 
-```bash
-curl -X POST http://localhost:5000/api/publish/wordpress \
-  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "content_id": "content_xyz789",
-    "status": "publish",
-    "categories": ["Roofing", "Tips"]
-  }'
+```env
+ANTHROPIC_API_KEY=sk-ant-...
+SEMRUSH_API_KEY=...
+SENDGRID_API_KEY=SG....
+CORS_ORIGINS=https://yourdomain.com
 ```
+
+See `.env.production.example` for full list.
 
 ## Project Structure
 
@@ -186,93 +160,69 @@ mcp-framework/
 ├── app/
 │   ├── __init__.py          # Flask app factory
 │   ├── config.py            # Configuration
-│   ├── models/
-│   │   ├── __init__.py
-│   │   ├── user.py          # User authentication
-│   │   ├── client.py        # Client/business data
-│   │   ├── content.py       # Blog, schema, social posts
-│   │   └── campaign.py      # Campaign tracking
-│   ├── routes/
-│   │   ├── __init__.py
-│   │   ├── auth.py          # Authentication endpoints
-│   │   ├── content.py       # Content generation
-│   │   ├── schema.py        # Schema markup
-│   │   ├── social.py        # Social media
-│   │   ├── publish.py       # Publishing
-│   │   ├── analytics.py     # Analytics
-│   │   ├── clients.py       # Client management
-│   │   └── campaigns.py     # Campaign management
-│   └── services/
-│       ├── __init__.py
-│       ├── ai_service.py    # OpenAI/Anthropic
-│       ├── seo_service.py   # SEMrush/Ahrefs
-│       ├── cms_service.py   # WordPress
-│       ├── social_service.py # Social platforms
-│       ├── analytics_service.py # GA4
-│       └── data_service.py  # Data persistence
-├── data/                    # JSON data storage
-├── tests/
-├── run.py                   # Entry point
-├── requirements.txt
-├── Dockerfile
-├── docker-compose.yml
-├── nginx.conf
-├── .env.example
-└── README.md
+│   ├── database.py          # SQLAlchemy setup
+│   ├── models/              # Database models (19 tables)
+│   ├── routes/              # API endpoints (19 blueprints)
+│   └── services/            # Business logic (23 services)
+├── scripts/
+│   ├── create_admin.py      # Create admin user
+│   └── validate_production.py # Verify deployment
+├── tests/                   # Test suite (21 tests)
+├── *.html                   # Dashboard UIs (7 dashboards)
+├── run.py                   # Development server
+├── build.sh                 # Render build script
+├── render.yaml              # Render blueprint
+├── requirements.txt         # Python dependencies
+├── DEPLOY_ROHIT.md          # Deployment guide
+├── PRODUCTION.md            # Production docs
+└── README.md                # This file
 ```
 
+## System Stats
+
+- **Version:** 4.5.0
+- **Python Code:** 21,500+ lines
+- **API Routes:** 204
+- **Database Tables:** 19
+- **AI Agents:** 7
+- **Dashboards:** 7
+- **Tests:** 21 passing
+
 ## Deployment
+
+### Render (Recommended)
+
+The `render.yaml` blueprint handles everything:
+- PostgreSQL database
+- Auto-generated secrets
+- Health checks
+- Auto-deploy from GitHub
 
 ### Docker
 
 ```bash
-# Build and run
 docker-compose up -d
-
-# With nginx reverse proxy
-docker-compose --profile with-nginx up -d
-
-# View logs
-docker-compose logs -f
 ```
 
-### Manual (Production)
+### Manual
 
 ```bash
-# Install gunicorn
-pip install gunicorn
-
-# Run with gunicorn
-gunicorn --bind 0.0.0.0:5000 --workers 4 run:app
+pip install -r requirements.txt
+gunicorn run:app --bind 0.0.0.0:8000 --workers 2
 ```
 
-## Configuration
+## Scripts
 
-All configuration via environment variables. See `.env.example` for full list.
+```bash
+# Create admin user
+python scripts/create_admin.py
 
-**Required:**
-- `SECRET_KEY` - Flask secret key
-- `OPENAI_API_KEY` - For content generation
+# Validate production deployment
+python scripts/validate_production.py
 
-**Optional integrations:**
-- `SEMRUSH_API_KEY` - Keyword rankings
-- `WP_BASE_URL`, `WP_USERNAME`, `WP_APP_PASSWORD` - WordPress
-- `GA4_PROPERTY_ID`, `GA4_CREDENTIALS_JSON` - Google Analytics
-- `GBP_LOCATION_ID`, `GBP_API_KEY` - Google Business Profile
-- `FACEBOOK_ACCESS_TOKEN`, `FACEBOOK_PAGE_ID` - Facebook
-
-## SEO Content Strategy
-
-The framework enforces SEO best practices:
-
-1. **H1** - Contains primary keyword + location
-2. **All H2s** - Include location reference
-3. **H3s** - Keyword variations
-4. **Meta title** - 50-60 chars, keyword at start
-5. **Meta description** - 150-160 chars with CTA
-6. **Keyword density** - 1-2% natural distribution
-7. **Internal links** - 3+ per article minimum
-8. **FAQs** - Schema-ready Q&A sections
+# Run tests
+python -m pytest tests/ -v
+```
 
 ## License
 
@@ -280,4 +230,6 @@ Proprietary - Karma Marketing + Media
 
 ## Support
 
-Contact: Karma Marketing + Media
+- Deployment Guide: `DEPLOY_ROHIT.md`
+- Production Docs: `PRODUCTION.md`
+- GitHub Issues: [repo]/issues

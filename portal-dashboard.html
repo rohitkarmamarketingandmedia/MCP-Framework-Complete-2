@@ -1,0 +1,922 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Client Portal | Karma Marketing + Media</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        * { font-family: 'Inter', sans-serif; }
+        
+        body {
+            background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+            min-height: 100vh;
+        }
+        
+        .glass {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.8);
+        }
+        
+        .stat-card {
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .stat-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, var(--card-color, #3b82f6), transparent);
+        }
+        
+        .stat-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+        }
+        
+        .card-blue { --card-color: #3b82f6; }
+        .card-green { --card-color: #10b981; }
+        .card-purple { --card-color: #8b5cf6; }
+        .card-orange { --card-color: #f59e0b; }
+        
+        .trend-up { color: #10b981; }
+        .trend-down { color: #ef4444; }
+        .trend-neutral { color: #6b7280; }
+        
+        .lead-new { border-left: 4px solid #3b82f6; }
+        .lead-contacted { border-left: 4px solid #f59e0b; }
+        .lead-qualified { border-left: 4px solid #8b5cf6; }
+        .lead-converted { border-left: 4px solid #10b981; }
+        .lead-lost { border-left: 4px solid #ef4444; }
+        
+        .fade-in {
+            animation: fadeIn 0.5s ease-out;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .pulse-dot {
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.7; transform: scale(1.1); }
+        }
+        
+        .login-bg {
+            background: linear-gradient(135deg, #1e3a5f 0%, #0f172a 50%, #1e293b 100%);
+        }
+        
+        .gradient-text {
+            background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        
+        .spinner {
+            border: 3px solid rgba(59, 130, 246, 0.1);
+            border-top-color: #3b82f6;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .rank-badge {
+            background: linear-gradient(135deg, #10b981, #059669);
+            color: white;
+            padding: 2px 8px;
+            border-radius: 9999px;
+            font-weight: 600;
+            font-size: 0.75rem;
+        }
+    </style>
+</head>
+<body>
+    <!-- Login Modal -->
+    <div id="authModal" class="fixed inset-0 login-bg flex items-center justify-center z-50">
+        <div class="glass rounded-2xl p-8 w-full max-w-md mx-4 shadow-2xl fade-in">
+            <div class="text-center mb-8">
+                <div class="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center shadow-lg">
+                    <i class="fas fa-chart-line text-3xl text-white"></i>
+                </div>
+                <h1 class="text-3xl font-bold gradient-text mb-2">Client Portal</h1>
+                <p class="text-gray-500">Karma Marketing + Media</p>
+            </div>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Email Address</label>
+                    <input type="email" id="loginEmail" 
+                        class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
+                        placeholder="your@email.com">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Password</label>
+                    <input type="password" id="loginPassword" 
+                        class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
+                        placeholder="••••••••">
+                </div>
+                <button onclick="doLogin()" id="loginBtn" 
+                    class="w-full py-4 bg-gradient-to-r from-blue-500 to-purple-600 rounded-xl text-white font-bold text-lg hover:opacity-90 transition shadow-lg">
+                    Sign In to Dashboard
+                </button>
+                <p id="authError" class="text-red-500 text-sm text-center hidden"></p>
+            </div>
+            <div class="mt-6 text-center">
+                <p class="text-sm text-gray-500">Need help? Contact your account manager</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div id="loadingOverlay" class="fixed inset-0 bg-white/80 flex items-center justify-center z-40 hidden">
+        <div class="text-center">
+            <div class="spinner mx-auto mb-4"></div>
+            <p class="text-gray-600">Loading your dashboard...</p>
+        </div>
+    </div>
+
+    <!-- Main Dashboard -->
+    <div id="dashboard" class="hidden">
+        <!-- Header -->
+        <header class="glass border-b border-gray-200 sticky top-0 z-30 shadow-sm">
+            <div class="container mx-auto px-4 py-4 max-w-7xl">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-4">
+                        <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
+                            <i class="fas fa-chart-line text-white"></i>
+                        </div>
+                        <div>
+                            <h1 class="text-xl font-bold text-gray-800" id="business-name">Your Dashboard</h1>
+                            <p class="text-sm text-gray-500" id="date-range">Last 30 Days</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <div class="flex items-center gap-2 px-3 py-1.5 bg-green-50 rounded-full">
+                            <span class="w-2 h-2 rounded-full bg-green-500 pulse-dot"></span>
+                            <span class="text-sm text-green-700 font-medium">Live Data</span>
+                        </div>
+                        <select id="period-select" onchange="changePeriod()" 
+                            class="px-4 py-2 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="7">Last 7 Days</option>
+                            <option value="30" selected>Last 30 Days</option>
+                            <option value="90">Last 90 Days</option>
+                        </select>
+                        <button onclick="downloadReport()" 
+                            class="px-4 py-2 bg-gradient-to-r from-blue-500 to-purple-600 text-white text-sm font-medium rounded-xl hover:opacity-90 transition shadow-md">
+                            <i class="fas fa-download mr-2"></i>Download Report
+                        </button>
+                        <button onclick="logout()" class="p-2 text-gray-400 hover:text-gray-600 transition" title="Sign Out">
+                            <i class="fas fa-sign-out-alt text-lg"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <main class="container mx-auto px-4 py-8 max-w-7xl">
+            
+            <!-- Key Metrics -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                <!-- Total Leads -->
+                <div class="stat-card card-blue glass rounded-2xl p-6 shadow-md">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
+                            <i class="fas fa-users text-xl text-blue-600"></i>
+                        </div>
+                        <span class="text-sm font-semibold" id="leads-trend">—</span>
+                    </div>
+                    <div class="text-3xl font-bold text-gray-800" id="total-leads">—</div>
+                    <div class="text-sm text-gray-500 mt-1">Total Leads</div>
+                    <div class="text-xs text-gray-400 mt-2" id="leads-compare">vs previous period</div>
+                </div>
+                
+                <!-- Conversion Rate -->
+                <div class="stat-card card-green glass rounded-2xl p-6 shadow-md">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center">
+                            <i class="fas fa-check-circle text-xl text-green-600"></i>
+                        </div>
+                        <span class="text-sm font-semibold" id="conversion-trend">—</span>
+                    </div>
+                    <div class="text-3xl font-bold text-gray-800" id="conversion-rate">—</div>
+                    <div class="text-sm text-gray-500 mt-1">Conversion Rate</div>
+                    <div class="text-xs text-gray-400 mt-2" id="converted-count">0 converted</div>
+                </div>
+                
+                <!-- Revenue -->
+                <div class="stat-card card-purple glass rounded-2xl p-6 shadow-md">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center">
+                            <i class="fas fa-dollar-sign text-xl text-purple-600"></i>
+                        </div>
+                        <span class="text-sm font-semibold" id="revenue-trend">—</span>
+                    </div>
+                    <div class="text-3xl font-bold text-gray-800" id="total-revenue">—</div>
+                    <div class="text-sm text-gray-500 mt-1">Revenue from Leads</div>
+                    <div class="text-xs text-gray-400 mt-2" id="avg-value">Avg: $0 per lead</div>
+                </div>
+                
+                <!-- Avg Ranking -->
+                <div class="stat-card card-orange glass rounded-2xl p-6 shadow-md">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="w-12 h-12 bg-orange-100 rounded-xl flex items-center justify-center">
+                            <i class="fas fa-trophy text-xl text-orange-600"></i>
+                        </div>
+                        <span class="text-sm font-semibold" id="ranking-trend">—</span>
+                    </div>
+                    <div class="text-3xl font-bold text-gray-800" id="avg-ranking">—</div>
+                    <div class="text-sm text-gray-500 mt-1">Avg. Google Ranking</div>
+                    <div class="text-xs text-gray-400 mt-2" id="keywords-tracked">0 keywords tracked</div>
+                </div>
+            </div>
+
+            <!-- Charts Row -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+                <!-- Lead Trends Chart -->
+                <div class="lg:col-span-2 glass rounded-2xl p-6 shadow-md">
+                    <div class="flex items-center justify-between mb-6">
+                        <h3 class="text-lg font-bold text-gray-800">Lead Trends</h3>
+                        <div class="flex gap-4 text-sm">
+                            <span class="flex items-center gap-2">
+                                <span class="w-3 h-3 rounded-full bg-blue-500"></span>
+                                Leads
+                            </span>
+                            <span class="flex items-center gap-2">
+                                <span class="w-3 h-3 rounded-full bg-green-500"></span>
+                                Converted
+                            </span>
+                        </div>
+                    </div>
+                    <div class="h-72">
+                        <canvas id="leads-chart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Lead Sources -->
+                <div class="glass rounded-2xl p-6 shadow-md">
+                    <h3 class="text-lg font-bold text-gray-800 mb-6">Lead Sources</h3>
+                    <div class="h-48 mb-4">
+                        <canvas id="sources-chart"></canvas>
+                    </div>
+                    <div id="source-breakdown" class="space-y-2"></div>
+                </div>
+            </div>
+
+            <!-- Recent Leads & Rankings Row -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+                <!-- Recent Leads -->
+                <div class="glass rounded-2xl p-6 shadow-md">
+                    <div class="flex items-center justify-between mb-6">
+                        <h3 class="text-lg font-bold text-gray-800">Recent Leads</h3>
+                        <span class="text-sm text-blue-600 font-medium" id="new-leads-count">0 new today</span>
+                    </div>
+                    <div id="leads-list" class="space-y-3">
+                        <div class="text-center py-8 text-gray-400">Loading leads...</div>
+                    </div>
+                </div>
+
+                <!-- Keyword Rankings -->
+                <div class="glass rounded-2xl p-6 shadow-md">
+                    <div class="flex items-center justify-between mb-6">
+                        <h3 class="text-lg font-bold text-gray-800">Keyword Rankings</h3>
+                        <span class="text-sm text-green-600 font-medium" id="improved-count">0 improved</span>
+                    </div>
+                    <div id="keywords-list" class="space-y-3">
+                        <div class="text-center py-8 text-gray-400">Loading rankings...</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- All Leads Table -->
+            <div class="glass rounded-2xl p-6 shadow-md">
+                <div class="flex items-center justify-between mb-6">
+                    <h3 class="text-lg font-bold text-gray-800">All Leads</h3>
+                    <div class="flex gap-3">
+                        <div class="relative">
+                            <i class="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+                            <input type="text" id="search-leads" oninput="searchLeads()" 
+                                placeholder="Search leads..." 
+                                class="pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-64">
+                        </div>
+                        <select id="status-filter" onchange="filterLeads()" 
+                            class="px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="">All Status</option>
+                            <option value="new">New</option>
+                            <option value="contacted">Contacted</option>
+                            <option value="qualified">Qualified</option>
+                            <option value="converted">Converted</option>
+                            <option value="lost">Lost</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full">
+                        <thead>
+                            <tr class="text-left text-sm text-gray-500 border-b">
+                                <th class="pb-3 font-medium">Name</th>
+                                <th class="pb-3 font-medium">Contact</th>
+                                <th class="pb-3 font-medium">Service</th>
+                                <th class="pb-3 font-medium">Source</th>
+                                <th class="pb-3 font-medium">Status</th>
+                                <th class="pb-3 font-medium">Date</th>
+                            </tr>
+                        </thead>
+                        <tbody id="leads-table">
+                            <tr><td colspan="6" class="py-8 text-center text-gray-400">Loading...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+        </main>
+        
+        <!-- Footer -->
+        <footer class="mt-12 py-6 text-center text-sm text-gray-400">
+            <p>Powered by <span class="font-semibold text-gray-600">Karma Marketing + Media</span></p>
+        </footer>
+    </div>
+
+    <script>
+        // Configuration
+        const API_URL = window.location.origin;
+        let token = localStorage.getItem('portal_token');
+        let clientId = localStorage.getItem('portal_client_id');
+        let currentUser = null;
+        let allLeads = [];
+        let leadsChart = null;
+        let sourcesChart = null;
+
+        // Check for URL params (magic link support)
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('token')) {
+            token = urlParams.get('token');
+            localStorage.setItem('portal_token', token);
+        }
+        if (urlParams.get('client_id')) {
+            clientId = urlParams.get('client_id');
+            localStorage.setItem('portal_client_id', clientId);
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', async function() {
+            if (token && clientId) {
+                // Try to auto-login with existing token
+                try {
+                    const valid = await validateToken();
+                    if (valid) {
+                        showDashboard();
+                        await loadDashboard();
+                        return;
+                    }
+                } catch (e) {
+                    console.log('Token validation failed, showing login');
+                }
+            }
+            // Show login
+            document.getElementById('authModal').classList.remove('hidden');
+        });
+
+        async function validateToken() {
+            const response = await fetch(`${API_URL}/api/auth/me`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (response.ok) {
+                const data = await response.json();
+                currentUser = data.user;
+                
+                // Get client ID from user's assigned clients if not set
+                if (!clientId && currentUser.client_ids && currentUser.client_ids.length > 0) {
+                    clientId = currentUser.client_ids[0];
+                    localStorage.setItem('portal_client_id', clientId);
+                }
+                
+                return true;
+            }
+            return false;
+        }
+
+        async function doLogin() {
+            const email = document.getElementById('loginEmail').value;
+            const password = document.getElementById('loginPassword').value;
+            const errorEl = document.getElementById('authError');
+            const btn = document.getElementById('loginBtn');
+            
+            if (!email || !password) {
+                errorEl.textContent = 'Please enter email and password';
+                errorEl.classList.remove('hidden');
+                return;
+            }
+            
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Signing in...';
+            errorEl.classList.add('hidden');
+            
+            try {
+                const response = await fetch(`${API_URL}/api/auth/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok && data.token) {
+                    token = data.token;
+                    currentUser = data.user;
+                    localStorage.setItem('portal_token', token);
+                    
+                    // Get client ID from user's assigned clients
+                    if (currentUser.client_ids && currentUser.client_ids.length > 0) {
+                        clientId = currentUser.client_ids[0];
+                        localStorage.setItem('portal_client_id', clientId);
+                    } else if (currentUser.role === 'admin') {
+                        // Admin - get first available client
+                        const clientsRes = await fetch(`${API_URL}/api/clients/`, {
+                            headers: { 'Authorization': `Bearer ${token}` }
+                        });
+                        const clientsData = await clientsRes.json();
+                        if (clientsData.clients && clientsData.clients.length > 0) {
+                            clientId = clientsData.clients[0].id;
+                            localStorage.setItem('portal_client_id', clientId);
+                        }
+                    }
+                    
+                    if (!clientId) {
+                        throw new Error('No client assigned to your account');
+                    }
+                    
+                    showDashboard();
+                    await loadDashboard();
+                } else {
+                    throw new Error(data.error || 'Login failed');
+                }
+            } catch (error) {
+                errorEl.textContent = error.message;
+                errorEl.classList.remove('hidden');
+                btn.disabled = false;
+                btn.innerHTML = 'Sign In to Dashboard';
+            }
+        }
+
+        function showDashboard() {
+            document.getElementById('authModal').classList.add('hidden');
+            document.getElementById('dashboard').classList.remove('hidden');
+        }
+
+        function logout() {
+            localStorage.removeItem('portal_token');
+            localStorage.removeItem('portal_client_id');
+            window.location.reload();
+        }
+
+        async function loadDashboard() {
+            const days = parseInt(document.getElementById('period-select').value);
+            const headers = {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            };
+            
+            document.getElementById('loadingOverlay').classList.remove('hidden');
+            
+            try {
+                // Load client info
+                const clientRes = await fetch(`${API_URL}/api/clients/${clientId}`, { headers });
+                const clientData = await clientRes.json();
+                if (clientData.business_name) {
+                    document.getElementById('business-name').textContent = clientData.business_name;
+                }
+                
+                // Load lead stats
+                const statsRes = await fetch(`${API_URL}/api/leads/stats?client_id=${clientId}&days=${days}`, { headers });
+                const stats = await statsRes.json();
+                
+                const totalLeads = stats.total_leads || 0;
+                const converted = stats.by_status?.converted || 0;
+                const conversionRate = totalLeads > 0 ? Math.round((converted / totalLeads) * 100) : 0;
+                const revenue = stats.converted_value || 0;
+                
+                document.getElementById('total-leads').textContent = totalLeads;
+                document.getElementById('conversion-rate').textContent = conversionRate + '%';
+                document.getElementById('total-revenue').textContent = '$' + revenue.toLocaleString();
+                document.getElementById('converted-count').textContent = `${converted} converted`;
+                document.getElementById('avg-value').textContent = `Avg: $${totalLeads > 0 ? Math.round(revenue / totalLeads).toLocaleString() : 0} per lead`;
+                
+                // Calculate real trends (compare to previous period)
+                const prevStatsRes = await fetch(`${API_URL}/api/leads/stats?client_id=${clientId}&days=${days * 2}`, { headers });
+                const prevStats = await prevStatsRes.json();
+                const prevTotal = (prevStats.total_leads || 0) - totalLeads;
+                
+                const leadsTrend = prevTotal > 0 ? Math.round(((totalLeads - prevTotal) / prevTotal) * 100) : 0;
+                setTrend('leads-trend', leadsTrend);
+                document.getElementById('leads-compare').textContent = `${prevTotal} in previous ${days} days`;
+                
+                // Source breakdown
+                renderSourceBreakdown(stats.by_source || {});
+                
+                // Load leads
+                const leadsRes = await fetch(`${API_URL}/api/leads/?client_id=${clientId}&days=${days}&limit=100`, { headers });
+                const leadsData = await leadsRes.json();
+                allLeads = leadsData.leads || [];
+                
+                // Count new leads today
+                const today = new Date().toDateString();
+                const newToday = allLeads.filter(l => new Date(l.created_at).toDateString() === today).length;
+                document.getElementById('new-leads-count').textContent = `${newToday} new today`;
+                
+                renderRecentLeads(allLeads.slice(0, 5));
+                renderLeadsTable(allLeads);
+                
+                // Load trends
+                const trendsRes = await fetch(`${API_URL}/api/leads/trends?client_id=${clientId}&days=${days}`, { headers });
+                const trendsData = await trendsRes.json();
+                renderLeadsChart(trendsData.trends || []);
+                
+                // Load rankings from rank tracking service
+                await loadRankings(headers);
+                
+            } catch (error) {
+                console.error('Dashboard load error:', error);
+            } finally {
+                document.getElementById('loadingOverlay').classList.add('hidden');
+            }
+        }
+
+        function setTrend(elementId, value) {
+            const el = document.getElementById(elementId);
+            if (value > 0) {
+                el.innerHTML = `<i class="fas fa-arrow-up mr-1"></i>+${value}%`;
+                el.className = 'text-sm font-semibold trend-up';
+            } else if (value < 0) {
+                el.innerHTML = `<i class="fas fa-arrow-down mr-1"></i>${value}%`;
+                el.className = 'text-sm font-semibold trend-down';
+            } else {
+                el.innerHTML = `<i class="fas fa-minus mr-1"></i>0%`;
+                el.className = 'text-sm font-semibold trend-neutral';
+            }
+        }
+
+        async function loadRankings(headers) {
+            try {
+                // Try to load from rank tracking service
+                const rankRes = await fetch(`${API_URL}/api/monitoring/rank-history?client_id=${clientId}&days=30`, { headers });
+                
+                if (rankRes.ok) {
+                    const rankData = await rankRes.json();
+                    const history = rankData.history || [];
+                    
+                    if (history.length > 0) {
+                        // Group by keyword and get latest
+                        const keywordMap = {};
+                        history.forEach(h => {
+                            if (!keywordMap[h.keyword] || new Date(h.checked_at) > new Date(keywordMap[h.keyword].checked_at)) {
+                                keywordMap[h.keyword] = h;
+                            }
+                        });
+                        
+                        const keywords = Object.values(keywordMap).map(k => ({
+                            keyword: k.keyword,
+                            position: k.position,
+                            change: k.change || 0
+                        }));
+                        
+                        renderKeywordsList(keywords);
+                        
+                        // Calculate average
+                        const avg = Math.round(keywords.reduce((s, k) => s + k.position, 0) / keywords.length);
+                        document.getElementById('avg-ranking').textContent = '#' + avg;
+                        document.getElementById('keywords-tracked').textContent = `${keywords.length} keywords tracked`;
+                        
+                        const improved = keywords.filter(k => k.change > 0).length;
+                        document.getElementById('improved-count').textContent = `${improved} improved`;
+                        setTrend('ranking-trend', improved > 0 ? Math.round((improved / keywords.length) * 100) : 0);
+                        
+                        return;
+                    }
+                }
+            } catch (e) {
+                console.log('Rank tracking not available:', e);
+            }
+            
+            // Fallback - show message
+            document.getElementById('avg-ranking').textContent = '—';
+            document.getElementById('keywords-tracked').textContent = 'Not tracked yet';
+            document.getElementById('ranking-trend').innerHTML = '<i class="fas fa-clock mr-1"></i>Pending';
+            document.getElementById('ranking-trend').className = 'text-sm font-semibold trend-neutral';
+            document.getElementById('keywords-list').innerHTML = `
+                <div class="text-center py-6 text-gray-400">
+                    <i class="fas fa-chart-line text-3xl mb-2"></i>
+                    <p>Rank tracking starting soon</p>
+                    <p class="text-xs mt-1">Your keywords are being monitored</p>
+                </div>
+            `;
+        }
+
+        function renderKeywordsList(keywords) {
+            const container = document.getElementById('keywords-list');
+            
+            if (keywords.length === 0) {
+                container.innerHTML = '<div class="text-center py-6 text-gray-400">No rankings yet</div>';
+                return;
+            }
+            
+            container.innerHTML = keywords.slice(0, 5).map(kw => {
+                const changeClass = kw.change > 0 ? 'trend-up' : kw.change < 0 ? 'trend-down' : 'trend-neutral';
+                const changeIcon = kw.change > 0 ? 'fa-arrow-up' : kw.change < 0 ? 'fa-arrow-down' : 'fa-minus';
+                const positionClass = kw.position <= 3 ? 'rank-badge' : kw.position <= 10 ? 'bg-green-100 text-green-800 px-2 py-1 rounded-full text-xs font-semibold' : 'bg-gray-100 text-gray-600 px-2 py-1 rounded-full text-xs font-semibold';
+                
+                return `
+                    <div class="flex items-center justify-between p-3 bg-gray-50 rounded-xl hover:bg-gray-100 transition">
+                        <div class="flex-1 min-w-0">
+                            <div class="text-sm font-medium text-gray-800 truncate">${kw.keyword}</div>
+                        </div>
+                        <div class="flex items-center gap-3 ml-4">
+                            <span class="${positionClass}">#${kw.position}</span>
+                            <span class="text-xs ${changeClass} flex items-center gap-1 w-12 justify-end">
+                                <i class="fas ${changeIcon}"></i>
+                                ${Math.abs(kw.change)}
+                            </span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function renderRecentLeads(leads) {
+            const container = document.getElementById('leads-list');
+            
+            if (leads.length === 0) {
+                container.innerHTML = '<div class="text-center py-8 text-gray-400">No leads yet</div>';
+                return;
+            }
+            
+            container.innerHTML = leads.map(lead => {
+                const statusClass = `lead-${lead.status}`;
+                const timeAgo = getTimeAgo(lead.created_at);
+                
+                return `
+                    <div class="flex items-center justify-between p-4 bg-gray-50 rounded-xl ${statusClass} hover:bg-gray-100 transition">
+                        <div class="flex-1 min-w-0">
+                            <div class="font-medium text-gray-800">${lead.name}</div>
+                            <div class="text-sm text-gray-500 truncate">${lead.service_requested || 'General Inquiry'}</div>
+                        </div>
+                        <div class="text-right ml-4">
+                            <div class="text-sm text-gray-500">${timeAgo}</div>
+                            <span class="inline-block px-2 py-1 text-xs rounded-full ${getStatusColor(lead.status)}">${lead.status}</span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function renderLeadsTable(leads) {
+            const tbody = document.getElementById('leads-table');
+            
+            if (leads.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" class="py-8 text-center text-gray-400">No leads found</td></tr>';
+                return;
+            }
+            
+            tbody.innerHTML = leads.map(lead => `
+                <tr class="border-b hover:bg-gray-50 transition">
+                    <td class="py-4 font-medium text-gray-800">${lead.name}</td>
+                    <td class="py-4 text-gray-600">
+                        <div>${lead.phone || '—'}</div>
+                        <div class="text-sm text-gray-400">${lead.email || ''}</div>
+                    </td>
+                    <td class="py-4 text-gray-600">${lead.service_requested || '—'}</td>
+                    <td class="py-4 text-gray-600">
+                        <span class="capitalize">${lead.source}</span>
+                        ${lead.source_detail ? `<span class="text-gray-400 text-sm"> (${lead.source_detail})</span>` : ''}
+                    </td>
+                    <td class="py-4">
+                        <span class="inline-block px-3 py-1 text-xs font-medium rounded-full ${getStatusColor(lead.status)}">${lead.status}</span>
+                    </td>
+                    <td class="py-4 text-gray-500 text-sm">${formatDate(lead.created_at)}</td>
+                </tr>
+            `).join('');
+        }
+
+        function renderSourceBreakdown(sources) {
+            const container = document.getElementById('source-breakdown');
+            const total = Object.values(sources).reduce((a, b) => a + b, 0);
+            
+            if (total === 0) {
+                container.innerHTML = '<div class="text-center text-gray-400 text-sm">No data yet</div>';
+                renderSourcesChart({});
+                return;
+            }
+            
+            const colors = {
+                'form': '#3b82f6',
+                'phone': '#10b981',
+                'chat': '#8b5cf6',
+                'gbp': '#f59e0b',
+                'referral': '#ec4899',
+                'other': '#6b7280'
+            };
+            
+            container.innerHTML = Object.entries(sources)
+                .sort((a, b) => b[1] - a[1])
+                .map(([source, count]) => {
+                    const pct = Math.round((count / total) * 100);
+                    const color = colors[source] || colors['other'];
+                    return `
+                        <div class="flex items-center justify-between text-sm">
+                            <div class="flex items-center gap-2">
+                                <span class="w-3 h-3 rounded-full" style="background: ${color}"></span>
+                                <span class="text-gray-600 capitalize">${source}</span>
+                            </div>
+                            <span class="font-medium text-gray-800">${pct}%</span>
+                        </div>
+                    `;
+                }).join('');
+            
+            renderSourcesChart(sources);
+        }
+
+        function renderLeadsChart(trends) {
+            const ctx = document.getElementById('leads-chart').getContext('2d');
+            
+            if (leadsChart) {
+                leadsChart.destroy();
+            }
+            
+            const labels = trends.map(t => {
+                const date = new Date(t.date);
+                return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+            });
+            
+            leadsChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Leads',
+                        data: trends.map(t => t.count || 0),
+                        borderColor: '#3b82f6',
+                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                        fill: true,
+                        tension: 0.4,
+                        borderWidth: 2
+                    }, {
+                        label: 'Converted',
+                        data: trends.map(t => t.converted || 0),
+                        borderColor: '#10b981',
+                        backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                        fill: true,
+                        tension: 0.4,
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: { stepSize: 1 },
+                            grid: { color: 'rgba(0,0,0,0.05)' }
+                        },
+                        x: {
+                            grid: { display: false }
+                        }
+                    }
+                }
+            });
+        }
+
+        function renderSourcesChart(sources) {
+            const ctx = document.getElementById('sources-chart').getContext('2d');
+            
+            if (sourcesChart) {
+                sourcesChart.destroy();
+            }
+            
+            const colors = ['#3b82f6', '#10b981', '#8b5cf6', '#f59e0b', '#ec4899', '#6b7280'];
+            const labels = Object.keys(sources).map(s => s.charAt(0).toUpperCase() + s.slice(1));
+            const data = Object.values(sources);
+            
+            if (data.length === 0) {
+                // Empty state
+                ctx.fillStyle = '#f3f4f6';
+                ctx.beginPath();
+                ctx.arc(ctx.canvas.width/2, ctx.canvas.height/2, 60, 0, 2 * Math.PI);
+                ctx.fill();
+                return;
+            }
+            
+            sourcesChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: data,
+                        backgroundColor: colors.slice(0, labels.length),
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '65%',
+                    plugins: {
+                        legend: { display: false }
+                    }
+                }
+            });
+        }
+
+        // Utility functions
+        function getTimeAgo(dateStr) {
+            const date = new Date(dateStr);
+            const now = new Date();
+            const diff = now - date;
+            
+            const minutes = Math.floor(diff / 60000);
+            const hours = Math.floor(diff / 3600000);
+            const days = Math.floor(diff / 86400000);
+            
+            if (minutes < 60) return minutes + 'm ago';
+            if (hours < 24) return hours + 'h ago';
+            if (days < 7) return days + 'd ago';
+            return date.toLocaleDateString();
+        }
+
+        function formatDate(dateStr) {
+            return new Date(dateStr).toLocaleDateString('en-US', {
+                month: 'short',
+                day: 'numeric',
+                hour: 'numeric',
+                minute: '2-digit'
+            });
+        }
+
+        function getStatusColor(status) {
+            const colors = {
+                'new': 'bg-blue-100 text-blue-800',
+                'contacted': 'bg-yellow-100 text-yellow-800',
+                'qualified': 'bg-purple-100 text-purple-800',
+                'converted': 'bg-green-100 text-green-800',
+                'lost': 'bg-red-100 text-red-800'
+            };
+            return colors[status] || 'bg-gray-100 text-gray-800';
+        }
+
+        function changePeriod() {
+            const days = document.getElementById('period-select').value;
+            document.getElementById('date-range').textContent = `Last ${days} Days`;
+            loadDashboard();
+        }
+
+        function filterLeads() {
+            const status = document.getElementById('status-filter').value;
+            const filtered = status ? allLeads.filter(l => l.status === status) : allLeads;
+            renderLeadsTable(filtered);
+        }
+
+        function searchLeads() {
+            const query = document.getElementById('search-leads').value.toLowerCase();
+            const filtered = allLeads.filter(l => 
+                l.name.toLowerCase().includes(query) ||
+                (l.email && l.email.toLowerCase().includes(query)) ||
+                (l.phone && l.phone.includes(query))
+            );
+            renderLeadsTable(filtered);
+        }
+
+        async function downloadReport() {
+            // TODO: Implement PDF generation
+            alert('Report generation coming soon! Your report will include all metrics and leads for the selected period.');
+        }
+
+        // Handle enter key on login
+        document.getElementById('loginPassword').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') doLogin();
+        });
+        document.getElementById('loginEmail').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') document.getElementById('loginPassword').focus();
+        });
+    </script>
+</body>
+</html>

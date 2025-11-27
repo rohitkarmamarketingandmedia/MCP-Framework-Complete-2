@@ -36,7 +36,11 @@ class DataService:
         else:
             db.session.add(user)
         
-        db.session.commit()
+        try:
+            db.session.commit()
+        except Exception as e:
+            db.session.rollback()
+            raise e
         return user
     
     def get_user(self, user_id: str) -> Optional[DBUser]:
@@ -59,17 +63,32 @@ class DataService:
         """Delete a user"""
         user = DBUser.query.get(user_id)
         if user:
-            db.session.delete(user)
-            db.session.commit()
-            return True
+            try:
+                db.session.delete(user)
+                try:
+                    db.session.commit()
+                except Exception:
+                    db.session.rollback()
+                    raise
+                return True
+            except Exception:
+                db.session.rollback()
+                return False
         return False
     
     def update_last_login(self, user_id: str):
         """Update user's last login timestamp"""
         user = DBUser.query.get(user_id)
         if user:
-            user.last_login = datetime.utcnow()
-            db.session.commit()
+            try:
+                user.last_login = datetime.utcnow()
+                try:
+                    db.session.commit()
+                except Exception:
+                    db.session.rollback()
+                    raise
+            except Exception:
+                db.session.rollback()
     
     # ============================================
     # Client Operations
@@ -99,7 +118,11 @@ class DataService:
         else:
             db.session.add(client)
         
-        db.session.commit()
+        try:
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
+            raise
         return client
     
     def get_client(self, client_id: str) -> Optional[DBClient]:
@@ -114,9 +137,17 @@ class DataService:
         """Soft delete a client"""
         client = DBClient.query.get(client_id)
         if client:
-            client.is_active = False
-            db.session.commit()
-            return True
+            try:
+                client.is_active = False
+                try:
+                    db.session.commit()
+                except Exception:
+                    db.session.rollback()
+                    raise
+                return True
+            except Exception:
+                db.session.rollback()
+                return False
         return False
     
     # ============================================
@@ -147,7 +178,11 @@ class DataService:
         else:
             db.session.add(post)
         
-        db.session.commit()
+        try:
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
+            raise
         return post
     
     def get_blog_post(self, post_id: str) -> Optional[DBBlogPost]:
@@ -163,7 +198,11 @@ class DataService:
         post = DBBlogPost.query.get(post_id)
         if post:
             db.session.delete(post)
-            db.session.commit()
+            try:
+                db.session.commit()
+            except Exception:
+                db.session.rollback()
+                raise
             return True
         return False
     
@@ -184,7 +223,11 @@ class DataService:
         else:
             db.session.add(post)
         
-        db.session.commit()
+        try:
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
+            raise
         return post
     
     def get_social_post(self, post_id: str) -> Optional[DBSocialPost]:
@@ -203,7 +246,11 @@ class DataService:
         post = DBSocialPost.query.get(post_id)
         if post:
             db.session.delete(post)
-            db.session.commit()
+            try:
+                db.session.commit()
+            except Exception:
+                db.session.rollback()
+                raise
             return True
         return False
     
@@ -229,7 +276,11 @@ class DataService:
         else:
             db.session.add(campaign)
         
-        db.session.commit()
+        try:
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
+            raise
         return campaign
     
     def get_campaign(self, campaign_id: str) -> Optional[DBCampaign]:
@@ -245,7 +296,11 @@ class DataService:
         campaign = DBCampaign.query.get(campaign_id)
         if campaign:
             db.session.delete(campaign)
-            db.session.commit()
+            try:
+                db.session.commit()
+            except Exception:
+                db.session.rollback()
+                raise
             return True
         return False
     
@@ -264,7 +319,11 @@ class DataService:
         else:
             db.session.add(schema)
         
-        db.session.commit()
+        try:
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
+            raise
         return schema
     
     def get_schema(self, schema_id: str) -> Optional[DBSchemaMarkup]:
@@ -280,7 +339,11 @@ class DataService:
         schema = DBSchemaMarkup.query.get(schema_id)
         if schema:
             db.session.delete(schema)
-            db.session.commit()
+            try:
+                db.session.commit()
+            except Exception:
+                db.session.rollback()
+                raise
             return True
         return False
 

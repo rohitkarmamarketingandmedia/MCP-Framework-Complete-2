@@ -9,9 +9,20 @@ from datetime import datetime, timedelta
 
 from app.models.db_models import DBUser, UserRole
 from app.services.db_service import DataService, create_admin_user
+from app.services.audit_service import audit_service
 
 auth_bp = Blueprint('auth', __name__)
 data_service = DataService()
+
+
+@auth_bp.route('/health', methods=['GET'])
+def health_check():
+    """Health check endpoint for monitoring"""
+    return jsonify({
+        'status': 'healthy',
+        'service': 'Karma Marketing + Media',
+        'version': '4.4.0'
+    })
 
 
 def token_required(f):
@@ -99,13 +110,24 @@ def login():
     user = data_service.get_user_by_email(data['email'])
     
     if not user or not user.verify_password(data['password']):
+        # Log failed login attempt
+        audit_service.log_login(
+            user_id=user.id if user else None,
+            user_email=data['email'],
+            success=False,
+            error='Invalid credentials'
+        )
         return jsonify({'error': 'Invalid email or password'}), 401
     
     if not user.is_active:
+        audit_service.log_login(user.id, user.email, False, 'Account deactivated')
         return jsonify({'error': 'Account is deactivated'}), 401
     
     # Update last login
     data_service.update_last_login(user.id)
+    
+    # Log successful login
+    audit_service.log_login(user.id, user.email, True)
     
     token = generate_token(user)
     
@@ -214,3 +236,87 @@ def delete_user(current_user, user_id):
     data_service.save_user(user)
     
     return jsonify({'message': 'User deactivated'})
+
+
+@auth_bp.route('/users/<user_id>', methods=['PUT'])
+@admin_required
+def update_user(current_user, user_id):
+    """
+    Update user details (admin only)
+    
+    PUT /api/auth/users/<user_id>
+    {
+        "name": "New Name",
+        "role": "manager",
+        "client_ids": ["client_1", "client_2"],
+        "is_active": true
+    }
+    """
+    user = data_service.get_user(user_id)
+    if not user:
+        return jsonify({'error': 'User not found'}), 404
+    
+    data = request.get_json()
+    
+    if 'name' in data:
+        user.name = data['name']
+    
+    if 'role' in data:
+        valid_roles = [UserRole.ADMIN, UserRole.MANAGER, UserRole.CLIENT, UserRole.VIEWER]
+        if data['role'] in valid_roles or data['role'] in ['admin', 'manager', 'client', 'viewer']:
+            user.role = data['role']
+    
+    if 'client_ids' in data:
+        user.set_client_ids(data['client_ids'])
+    
+    if 'is_active' in data:
+        user.is_active = bool(data['is_active'])
+    
+    data_service.save_user(user)
+    
+    return jsonify({
+        'message': 'User updated successfully',
+        'user': user.to_dict()
+    })
+
+
+@auth_bp.route('/users/<user_id>/activate', methods=['POST'])
+@admin_required
+def activate_user(current_user, user_id):
+    """Reactivate a deactivated user (admin only)"""
+    user = data_service.get_user(user_id)
+    if not user:
+        return jsonify({'error': 'User not found'}), 404
+    
+    user.is_active = True
+    data_service.save_user(user)
+    
+    return jsonify({'message': 'User activated', 'user': user.to_dict()})
+
+
+@auth_bp.route('/users/<user_id>/reset-password', methods=['POST'])
+@admin_required
+def reset_user_password(current_user, user_id):
+    """
+    Reset user password (admin only)
+    
+    POST /api/auth/users/<user_id>/reset-password
+    {
+        "new_password": "newpass123"
+    }
+    """
+    user = data_service.get_user(user_id)
+    if not user:
+        return jsonify({'error': 'User not found'}), 404
+    
+    data = request.get_json()
+    if not data.get('new_password'):
+        return jsonify({'error': 'new_password is required'}), 400
+    
+    if len(data['new_password']) < 6:
+        return jsonify({'error': 'Password must be at least 6 characters'}), 400
+    
+    user.set_password(data['new_password'])
+    data_service.save_user(user)
+    
+    return jsonify({'message': 'Password reset successfully'})

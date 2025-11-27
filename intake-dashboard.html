@@ -3,433 +3,1597 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MCP 3.0 - Client Intake System</title>
+    <title>New Client Setup | Karma Marketing + Media</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
-        @keyframes gradient { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
-        body { background: linear-gradient(-45deg, #667eea, #764ba2, #f093fb, #4facfe); background-size: 400% 400%; animation: gradient 15s ease infinite; min-height: 100vh; }
-        .glass { background: rgba(255,255,255,0.95); backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.3); box-shadow: 0 8px 32px rgba(31,38,135,0.37); }
-        .glow-btn { animation: pulse-glow 2s ease-in-out infinite; }
-        @keyframes pulse-glow { 0%, 100% { box-shadow: 0 0 20px rgba(102,126,234,0.5); } 50% { box-shadow: 0 0 40px rgba(102,126,234,0.8); } }
-        .spinner { border: 3px solid #f3f3f3; border-top: 3px solid #667eea; border-radius: 50%; width: 20px; height: 20px; animation: spin 1s linear infinite; display: inline-block; }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        .fade-in { animation: fadeIn 0.5s ease-in; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
-        .tag { display: inline-block; background: #e0e7ff; color: #4338ca; padding: 2px 8px; border-radius: 9999px; font-size: 12px; margin: 2px; }
-        .tag-green { background: #d1fae5; color: #065f46; }
-        .tag-orange { background: #fed7aa; color: #9a3412; }
+        body { font-family: 'Inter', sans-serif; }
+        .glass {
+            background: rgba(255, 255, 255, 0.98);
+            backdrop-filter: blur(20px);
+        }
+        .gradient-bg {
+            background: linear-gradient(135deg, #1e3a5f 0%, #0f172a 50%, #1e293b 100%);
+        }
+        
+        /* Opportunity Score Colors */
+        .score-excellent { background: linear-gradient(135deg, #059669, #10b981); }
+        .score-good { background: linear-gradient(135deg, #0891b2, #06b6d4); }
+        .score-moderate { background: linear-gradient(135deg, #d97706, #f59e0b); }
+        .score-difficult { background: linear-gradient(135deg, #dc2626, #ef4444); }
+        
+        /* Keyword Card */
+        .keyword-card {
+            transition: all 0.2s ease;
+            border: 2px solid transparent;
+        }
+        .keyword-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+        }
+        .keyword-card.selected-primary {
+            border-color: #2563eb;
+            background: #eff6ff;
+        }
+        .keyword-card.selected-secondary {
+            border-color: #059669;
+            background: #ecfdf5;
+        }
+        
+        /* Progress Steps */
+        .step-dot {
+            transition: all 0.3s ease;
+        }
+        .step-dot.active {
+            background: #2563eb;
+            transform: scale(1.2);
+        }
+        .step-dot.completed {
+            background: #059669;
+        }
+        .step-line {
+            transition: all 0.3s ease;
+        }
+        .step-line.completed {
+            background: #059669;
+        }
+        
+        /* Animations */
+        .fade-up {
+            animation: fadeUp 0.4s ease-out;
+        }
+        @keyframes fadeUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .pulse-border {
+            animation: pulseBorder 2s ease-in-out infinite;
+        }
+        @keyframes pulseBorder {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.4); }
+            50% { box-shadow: 0 0 0 8px rgba(37, 99, 235, 0); }
+        }
+        
+        /* Tooltip */
+        .tooltip {
+            position: relative;
+        }
+        .tooltip .tooltip-text {
+            visibility: hidden;
+            opacity: 0;
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #1f2937;
+            color: white;
+            padding: 8px 12px;
+            border-radius: 8px;
+            font-size: 12px;
+            white-space: nowrap;
+            transition: all 0.2s ease;
+            z-index: 50;
+            margin-bottom: 8px;
+        }
+        .tooltip:hover .tooltip-text {
+            visibility: visible;
+            opacity: 1;
+        }
+        
+        /* Mobile menu */
+        .action-menu {
+            position: absolute;
+            right: 0;
+            top: 100%;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+            z-index: 40;
+            min-width: 180px;
+            overflow: hidden;
+        }
+        
+        /* Skeleton */
+        .skeleton {
+            background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+            background-size: 200% 100%;
+            animation: skeleton 1.5s infinite;
+        }
+        @keyframes skeleton {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
     </style>
 </head>
-<body class="p-4 md:p-8">
-    <div class="max-w-5xl mx-auto">
-        <div class="text-center mb-6">
-            <h1 class="text-4xl md:text-5xl font-bold text-white mb-2 drop-shadow-lg">MCP 3.0</h1>
-            <p class="text-white/80 text-lg">Marketing Control Platform - Client Intake</p>
-        </div>
-
-        <div class="glass rounded-xl p-4 mb-6">
-            <div class="flex flex-wrap items-center gap-4">
-                <div class="flex-1 min-w-[200px]">
-                    <input type="text" id="apiUrl" value="https://mcp-framework.onrender.com" class="w-full px-3 py-2 border rounded-lg text-sm" placeholder="API URL">
-                </div>
-                <div class="flex-1 min-w-[200px]">
-                    <input type="password" id="authToken" class="w-full px-3 py-2 border rounded-lg text-sm" placeholder="Auth Token">
-                </div>
-                <button onclick="showLogin()" class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg text-sm">Login</button>
-                <span id="apiStatus" class="text-sm"></span>
+<body class="gradient-bg min-h-screen">
+    <div class="container mx-auto px-4 py-6 max-w-6xl">
+        
+        <!-- Header -->
+        <div class="flex items-center justify-between mb-6">
+            <div>
+                <h1 class="text-2xl font-bold text-white">New Client Setup</h1>
+                <p class="text-gray-400 text-sm">Data-driven keyword targeting</p>
+            </div>
+            <div class="text-right">
+                <div class="text-xs text-gray-500">Auto-saved</div>
+                <div class="text-xs text-gray-400" id="last-saved">—</div>
             </div>
         </div>
 
-        <div id="loginModal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-            <div class="glass rounded-xl p-6 w-full max-w-md mx-4">
-                <h3 class="text-xl font-bold mb-4">Login to MCP</h3>
-                <div class="space-y-4">
-                    <input type="email" id="loginEmail" placeholder="Email" class="w-full px-4 py-2 border rounded-lg">
-                    <input type="password" id="loginPassword" placeholder="Password" class="w-full px-4 py-2 border rounded-lg">
-                    <div class="flex gap-2">
-                        <button onclick="doLogin()" class="flex-1 bg-purple-600 hover:bg-purple-700 text-white py-2 rounded-lg">Login</button>
-                        <button onclick="hideLogin()" class="flex-1 bg-gray-300 hover:bg-gray-400 py-2 rounded-lg">Cancel</button>
-                    </div>
-                    <p id="loginStatus" class="text-sm text-center"></p>
-                </div>
+        <!-- Progress Bar -->
+        <div class="flex items-center justify-center mb-8">
+            <div class="flex items-center">
+                <div class="step-dot active w-8 h-8 rounded-full bg-gray-600 flex items-center justify-center text-white text-sm font-semibold" id="dot-1">1</div>
+                <div class="step-line w-20 h-1 bg-gray-600 mx-2" id="line-1"></div>
+                <div class="step-dot w-8 h-8 rounded-full bg-gray-600 flex items-center justify-center text-white text-sm font-semibold" id="dot-2">2</div>
+                <div class="step-line w-20 h-1 bg-gray-600 mx-2" id="line-2"></div>
+                <div class="step-dot w-8 h-8 rounded-full bg-gray-600 flex items-center justify-center text-white text-sm font-semibold" id="dot-3">3</div>
+                <div class="step-line w-20 h-1 bg-gray-600 mx-2" id="line-3"></div>
+                <div class="step-dot w-8 h-8 rounded-full bg-gray-600 flex items-center justify-center text-white text-sm font-semibold" id="dot-4">4</div>
             </div>
         </div>
 
-        <div class="glass rounded-2xl p-6 md:p-8 mb-6 fade-in">
-            <h2 class="text-2xl font-bold text-gray-800 mb-6">📋 Client Information</h2>
+        <!-- Main Card -->
+        <div class="glass rounded-2xl shadow-2xl overflow-hidden">
             
-            <div class="bg-gradient-to-r from-purple-50 to-blue-50 rounded-xl p-4 mb-6 border border-purple-200">
-                <h3 class="font-semibold text-gray-800 mb-2">🔍 Quick Research</h3>
-                <p class="text-sm text-gray-600 mb-3">Enter a website to auto-populate with SEMRush data</p>
-                <div class="flex gap-2">
-                    <input type="url" id="quickWebsite" class="flex-1 px-3 py-2 border rounded-lg" placeholder="https://example.com">
-                    <button onclick="runQuickResearch()" id="researchBtn" class="bg-purple-600 hover:bg-purple-700 text-white px-6 py-2 rounded-lg">Research</button>
-                </div>
-                <div id="researchStatus" class="mt-2 text-sm"></div>
-            </div>
-
-            <div class="grid md:grid-cols-2 gap-4 mb-6">
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Business Name *</label>
-                    <input type="text" id="businessName" required class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Website</label>
-                    <input type="url" id="website" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Industry *</label>
-                    <select id="industry" required class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500">
-                        <option value="">Select Industry</option>
-                        <option value="roofing">Roofing</option>
-                        <option value="hvac">HVAC</option>
-                        <option value="plumbing">Plumbing</option>
-                        <option value="electrical">Electrical</option>
-                        <option value="windows">Window Installation</option>
-                        <option value="landscaping">Landscaping</option>
-                        <option value="real estate">Real Estate</option>
-                        <option value="dental">Dental</option>
-                        <option value="legal">Legal Services</option>
-                        <option value="general">Other</option>
-                    </select>
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Location *</label>
-                    <input type="text" id="geo" required class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500" placeholder="Sarasota, FL">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Phone</label>
-                    <input type="tel" id="phone" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Email</label>
-                    <input type="email" id="email" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500">
-                </div>
-            </div>
-
-            <div id="researchResults" class="hidden mb-6">
-                <h3 class="font-semibold text-gray-800 mb-3">📊 SEMRush Research Results</h3>
-                <div class="grid md:grid-cols-3 gap-4">
-                    <div class="bg-blue-50 rounded-lg p-4">
-                        <h4 class="font-medium text-blue-800 mb-2">Domain Overview</h4>
-                        <div id="domainOverview" class="text-sm text-gray-700"></div>
+            <!-- ==================== STEP 1: BUSINESS INFO ==================== -->
+            <div id="step-1" class="step-content p-8">
+                <div class="max-w-2xl mx-auto">
+                    <h2 class="text-2xl font-bold text-gray-800 mb-2">Tell us about the business</h2>
+                    <p class="text-gray-500 mb-8">We'll use this to find the best keyword opportunities.</p>
+                    
+                    <div class="space-y-6">
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">Business Name</label>
+                            <input type="text" id="business_name" placeholder="e.g., ABC Roofing" 
+                                   class="w-full px-4 py-3 text-lg border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all">
+                        </div>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                                <label class="block text-sm font-semibold text-gray-700 mb-2">Industry</label>
+                                <select id="industry" class="w-full px-4 py-3 text-lg border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all">
+                                    <option value="">Select...</option>
+                                    <option value="roofing">🏠 Roofing</option>
+                                    <option value="hvac">❄️ HVAC</option>
+                                    <option value="plumbing">🔧 Plumbing</option>
+                                    <option value="electrical">⚡ Electrical</option>
+                                    <option value="windows">🪟 Windows & Doors</option>
+                                    <option value="landscaping">🌳 Landscaping</option>
+                                    <option value="painting">🎨 Painting</option>
+                                    <option value="flooring">🪵 Flooring</option>
+                                    <option value="remodeling">🔨 Remodeling</option>
+                                    <option value="pest_control">🐜 Pest Control</option>
+                                    <option value="cleaning">🧹 Cleaning Services</option>
+                                    <option value="garage_doors">🚗 Garage Doors</option>
+                                    <option value="solar">☀️ Solar</option>
+                                    <option value="pool">🏊 Pool Services</option>
+                                    <option value="fencing">🏗️ Fencing</option>
+                                    <option value="concrete">🧱 Concrete</option>
+                                    <option value="tree_service">🌲 Tree Service</option>
+                                    <option value="moving">📦 Moving Services</option>
+                                    <option value="locksmith">🔐 Locksmith</option>
+                                    <option value="appliance_repair">🔌 Appliance Repair</option>
+                                </select>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-semibold text-gray-700 mb-2">Primary Location</label>
+                                <input type="text" id="geo" placeholder="e.g., Sarasota, FL" 
+                                       class="w-full px-4 py-3 text-lg border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all">
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">Website <span class="text-gray-400 font-normal">(optional)</span></label>
+                            <input type="text" id="website" placeholder="https://example.com" 
+                                   class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all">
+                        </div>
+                        
+                        <!-- Collapsible Additional Info -->
+                        <details class="group">
+                            <summary class="cursor-pointer text-blue-600 hover:text-blue-700 font-medium flex items-center">
+                                <svg class="w-5 h-5 mr-2 transition-transform group-open:rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                                </svg>
+                                Add more details (optional)
+                            </summary>
+                            <div class="mt-4 space-y-4 pl-7">
+                                <div class="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label class="block text-sm text-gray-600 mb-1">Phone</label>
+                                        <input type="text" id="phone" placeholder="(941) 555-1234" 
+                                               class="w-full px-3 py-2 border border-gray-200 rounded-lg">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm text-gray-600 mb-1">Email</label>
+                                        <input type="email" id="email" placeholder="info@example.com" 
+                                               class="w-full px-3 py-2 border border-gray-200 rounded-lg">
+                                    </div>
+                                </div>
+                                <div>
+                                    <label class="block text-sm text-gray-600 mb-1">Service Areas</label>
+                                    <input type="text" id="service_areas" placeholder="Sarasota, Bradenton, Venice" 
+                                           class="w-full px-3 py-2 border border-gray-200 rounded-lg">
+                                </div>
+                                <div>
+                                    <label class="block text-sm text-gray-600 mb-1">What makes them unique?</label>
+                                    <textarea id="usps" rows="2" placeholder="24/7 service, family-owned, free estimates..." 
+                                              class="w-full px-3 py-2 border border-gray-200 rounded-lg"></textarea>
+                                </div>
+                            </div>
+                        </details>
                     </div>
-                    <div class="bg-green-50 rounded-lg p-4">
-                        <h4 class="font-medium text-green-800 mb-2">Top Keywords</h4>
-                        <div id="topKeywords" class="text-sm text-gray-700"></div>
-                    </div>
-                    <div class="bg-orange-50 rounded-lg p-4">
-                        <h4 class="font-medium text-orange-800 mb-2">Competitors Found</h4>
-                        <div id="competitorsFound" class="text-sm text-gray-700"></div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="grid md:grid-cols-2 gap-4 mb-6">
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Primary Keywords (one per line)</label>
-                    <textarea id="primaryKeywords" rows="4" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500" placeholder="roof repair sarasota&#10;roofing company sarasota"></textarea>
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Competitors (one per line)</label>
-                    <textarea id="competitors" rows="4" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500" placeholder="competitor1.com&#10;competitor2.com"></textarea>
-                </div>
-            </div>
-
-            <div class="grid md:grid-cols-2 gap-4 mb-6">
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Unique Selling Points (one per line)</label>
-                    <textarea id="usps" rows="3" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500" placeholder="24-hour emergency service&#10;Family-owned since 1985"></textarea>
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Tone</label>
-                    <select id="tone" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 mb-2">
-                        <option value="professional">Professional</option>
-                        <option value="friendly">Friendly</option>
-                        <option value="technical">Technical</option>
-                    </select>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Service Areas</label>
-                    <input type="text" id="serviceAreas" class="w-full px-4 py-2 border rounded-lg" placeholder="Sarasota, Bradenton, Venice">
-                </div>
-            </div>
-
-            <div class="bg-gray-50 rounded-xl p-4 mb-6">
-                <h3 class="font-semibold text-gray-800 mb-3">⚙️ Generation Options</h3>
-                <div class="grid md:grid-cols-3 gap-4">
-                    <label class="flex items-center gap-2">
-                        <input type="checkbox" id="runResearch" checked class="w-4 h-4 text-purple-600">
-                        <span class="text-sm">Run SEMRush Research</span>
-                    </label>
-                    <label class="flex items-center gap-2">
-                        <input type="checkbox" id="generateContent" checked class="w-4 h-4 text-purple-600">
-                        <span class="text-sm">Generate Content</span>
-                    </label>
-                    <div class="flex items-center gap-2">
-                        <label class="text-sm">Blogs:</label>
-                        <select id="blogCount" class="px-2 py-1 border rounded">
-                            <option value="1">1</option>
-                            <option value="2">2</option>
-                            <option value="3" selected>3</option>
-                            <option value="5">5</option>
-                        </select>
-                        <label class="text-sm ml-2">Social:</label>
-                        <select id="socialCount" class="px-2 py-1 border rounded">
-                            <option value="1">1</option>
-                            <option value="2">2</option>
-                            <option value="3" selected>3</option>
-                        </select>
+                    
+                    <div class="mt-10 flex justify-end">
+                        <button onclick="goToStep(2)" class="px-8 py-4 bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 transition-all flex items-center text-lg">
+                            Find Keywords
+                            <svg class="w-5 h-5 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
+                            </svg>
+                        </button>
                     </div>
                 </div>
             </div>
 
-            <div class="text-center">
-                <button id="submitBtn" onclick="submitPipeline()" class="glow-btn bg-gradient-to-r from-green-500 to-emerald-600 text-white px-12 py-4 rounded-xl font-bold text-lg hover:opacity-90 transition">
-                    🚀 Create Client & Generate Content
-                </button>
+            <!-- ==================== STEP 2: KEYWORD DISCOVERY ==================== -->
+            <div id="step-2" class="step-content hidden">
+                <div class="p-8 border-b border-gray-100">
+                    <div class="max-w-4xl mx-auto">
+                        <h2 class="text-2xl font-bold text-gray-800 mb-2">Keyword Discovery</h2>
+                        <p class="text-gray-500">We found these opportunities based on <span id="industry-label" class="font-medium text-gray-700">your industry</span> in <span id="geo-label" class="font-medium text-gray-700">your location</span></p>
+                    </div>
+                </div>
+                
+                <!-- Keyword Input Area -->
+                <div class="p-6 bg-gray-50 border-b border-gray-100">
+                    <div class="max-w-4xl mx-auto">
+                        <div class="flex flex-col md:flex-row gap-4">
+                            <div class="flex-1">
+                                <div class="relative">
+                                    <input type="text" id="keyword-input" placeholder="Add a keyword the client mentioned..." 
+                                           class="w-full pl-12 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                           onkeypress="if(event.key==='Enter')addCustomKeyword()">
+                                    <svg class="w-5 h-5 text-gray-400 absolute left-4 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                                    </svg>
+                                </div>
+                            </div>
+                            <button onclick="addCustomKeyword()" class="px-6 py-3 bg-gray-800 text-white font-medium rounded-xl hover:bg-gray-900 transition-all flex items-center justify-center">
+                                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                                </svg>
+                                Add & Research
+                            </button>
+                        </div>
+                        
+                        <!-- Competitor Input -->
+                        <div class="mt-4 flex items-center">
+                            <span class="text-sm text-gray-500 mr-3">Or find gaps vs competitor:</span>
+                            <input type="text" id="competitor-input" placeholder="competitor.com" 
+                                   class="px-3 py-2 border border-gray-200 rounded-lg text-sm w-48"
+                                   onkeypress="if(event.key==='Enter')analyzeCompetitor()">
+                            <button onclick="analyzeCompetitor()" class="ml-2 px-4 py-2 text-sm bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-all">
+                                Analyze
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Loading State -->
+                <div id="loading-keywords" class="hidden p-8">
+                    <div class="max-w-4xl mx-auto">
+                        <div class="flex items-center justify-center py-12">
+                            <div class="text-center">
+                                <svg class="animate-spin w-12 h-12 text-blue-600 mx-auto mb-4" fill="none" viewBox="0 0 24 24">
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                                <p class="text-gray-600 font-medium" id="loading-text">Researching keywords with SEMRush...</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Keywords Grid -->
+                <div id="keywords-container" class="p-6">
+                    <div class="max-w-4xl mx-auto">
+                        
+                        <!-- Legend -->
+                        <div class="flex flex-wrap items-center gap-4 mb-6 text-sm">
+                            <span class="text-gray-500">Opportunity Score:</span>
+                            <span class="flex items-center"><span class="w-3 h-3 rounded-full score-excellent mr-1"></span> Excellent (80+)</span>
+                            <span class="flex items-center"><span class="w-3 h-3 rounded-full score-good mr-1"></span> Good (60-79)</span>
+                            <span class="flex items-center"><span class="w-3 h-3 rounded-full score-moderate mr-1"></span> Moderate (40-59)</span>
+                            <span class="flex items-center"><span class="w-3 h-3 rounded-full score-difficult mr-1"></span> Difficult (&lt;40)</span>
+                        </div>
+                        
+                        <!-- Quick Actions -->
+                        <div class="flex flex-wrap gap-3 mb-6">
+                            <button onclick="autoSelectBest()" class="px-4 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-all font-medium text-sm flex items-center">
+                                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/>
+                                </svg>
+                                Auto-Select Best Keywords
+                            </button>
+                            <button onclick="clearSelections()" class="px-4 py-2 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition-all text-sm">
+                                Clear All
+                            </button>
+                        </div>
+                        
+                        <!-- Keywords List -->
+                        <div id="keywords-list" class="space-y-3">
+                            <!-- Populated by JS -->
+                        </div>
+                        
+                        <!-- Empty State -->
+                        <div id="empty-keywords" class="hidden text-center py-16">
+                            <svg class="w-16 h-16 mx-auto text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                            </svg>
+                            <p class="text-gray-500">Add keywords above to start researching</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Selection Summary Bar -->
+                <div class="sticky bottom-0 bg-white border-t border-gray-200 p-4 shadow-lg">
+                    <div class="max-w-4xl mx-auto flex items-center justify-between">
+                        <div class="flex items-center gap-6">
+                            <div>
+                                <span class="text-2xl font-bold text-blue-600" id="primary-count">0</span>
+                                <span class="text-gray-500 text-sm ml-1">Primary</span>
+                            </div>
+                            <div>
+                                <span class="text-2xl font-bold text-green-600" id="secondary-count">0</span>
+                                <span class="text-gray-500 text-sm ml-1">Secondary</span>
+                            </div>
+                            <div class="hidden md:block border-l border-gray-200 pl-6">
+                                <span class="text-lg font-semibold text-gray-800" id="total-volume">0</span>
+                                <span class="text-gray-500 text-sm ml-1">monthly searches</span>
+                            </div>
+                        </div>
+                        <div class="flex gap-3">
+                            <button onclick="goToStep(1)" class="px-4 py-2 text-gray-600 hover:text-gray-800">
+                                ← Back
+                            </button>
+                            <button onclick="goToStep(3)" id="btn-to-step-3" disabled
+                                    class="px-6 py-3 bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center">
+                                Review Selection
+                                <svg class="w-5 h-5 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
             </div>
+
+            <!-- ==================== STEP 3: REVIEW ==================== -->
+            <div id="step-3" class="step-content hidden">
+                <div class="p-8">
+                    <div class="max-w-4xl mx-auto">
+                        <h2 class="text-2xl font-bold text-gray-800 mb-2">Review Your Selection</h2>
+                        <p class="text-gray-500 mb-8">Confirm the keyword strategy before we create content.</p>
+                        
+                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                            <!-- Client Summary -->
+                            <div class="bg-gray-50 rounded-2xl p-6">
+                                <h3 class="font-semibold text-gray-800 mb-4 flex items-center">
+                                    <svg class="w-5 h-5 mr-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
+                                    </svg>
+                                    Client Details
+                                </h3>
+                                <dl class="space-y-3 text-sm">
+                                    <div class="flex justify-between">
+                                        <dt class="text-gray-500">Business</dt>
+                                        <dd class="font-medium text-gray-800" id="review-business">—</dd>
+                                    </div>
+                                    <div class="flex justify-between">
+                                        <dt class="text-gray-500">Industry</dt>
+                                        <dd class="font-medium text-gray-800" id="review-industry">—</dd>
+                                    </div>
+                                    <div class="flex justify-between">
+                                        <dt class="text-gray-500">Location</dt>
+                                        <dd class="font-medium text-gray-800" id="review-geo">—</dd>
+                                    </div>
+                                    <div class="flex justify-between">
+                                        <dt class="text-gray-500">Website</dt>
+                                        <dd class="font-medium text-gray-800" id="review-website">—</dd>
+                                    </div>
+                                </dl>
+                            </div>
+                            
+                            <!-- Stats -->
+                            <div class="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl p-6">
+                                <h3 class="font-semibold text-gray-800 mb-4 flex items-center">
+                                    <svg class="w-5 h-5 mr-2 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+                                    </svg>
+                                    Keyword Strategy
+                                </h3>
+                                <div class="grid grid-cols-2 gap-4">
+                                    <div class="bg-white rounded-xl p-4 text-center">
+                                        <div class="text-3xl font-bold text-blue-600" id="review-primary-count">0</div>
+                                        <div class="text-xs text-gray-500">Primary Keywords</div>
+                                    </div>
+                                    <div class="bg-white rounded-xl p-4 text-center">
+                                        <div class="text-3xl font-bold text-green-600" id="review-secondary-count">0</div>
+                                        <div class="text-xs text-gray-500">Secondary Keywords</div>
+                                    </div>
+                                    <div class="bg-white rounded-xl p-4 text-center">
+                                        <div class="text-3xl font-bold text-gray-800" id="review-volume">0</div>
+                                        <div class="text-xs text-gray-500">Monthly Searches</div>
+                                    </div>
+                                    <div class="bg-white rounded-xl p-4 text-center">
+                                        <div class="text-3xl font-bold text-gray-800" id="review-content">0</div>
+                                        <div class="text-xs text-gray-500">Content Pieces</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Keywords -->
+                        <div class="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            <div>
+                                <h4 class="font-medium text-blue-800 mb-3 flex items-center">
+                                    <span class="w-2 h-2 rounded-full bg-blue-600 mr-2"></span>
+                                    Primary Keywords (Service Pages)
+                                </h4>
+                                <div id="review-primary-list" class="space-y-2">
+                                    <!-- Populated by JS -->
+                                </div>
+                            </div>
+                            <div>
+                                <h4 class="font-medium text-green-800 mb-3 flex items-center">
+                                    <span class="w-2 h-2 rounded-full bg-green-600 mr-2"></span>
+                                    Secondary Keywords (Blog Posts)
+                                </h4>
+                                <div id="review-secondary-list" class="space-y-2">
+                                    <!-- Populated by JS -->
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Generation Options -->
+                        <div class="mt-8 bg-gray-50 rounded-2xl p-6">
+                            <h3 class="font-semibold text-gray-800 mb-4">What should we create?</h3>
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <label class="flex items-start p-4 bg-white rounded-xl border-2 border-gray-200 cursor-pointer hover:border-blue-300 transition-all has-[:checked]:border-blue-500 has-[:checked]:bg-blue-50">
+                                    <input type="checkbox" id="opt-blogs" checked class="mt-1 w-5 h-5 text-blue-600 rounded">
+                                    <span class="ml-3">
+                                        <span class="font-medium text-gray-800 block">Blog Posts</span>
+                                        <span class="text-sm text-gray-500">SEO-optimized articles for each keyword</span>
+                                    </span>
+                                </label>
+                                <label class="flex items-start p-4 bg-white rounded-xl border-2 border-gray-200 cursor-pointer hover:border-blue-300 transition-all has-[:checked]:border-blue-500 has-[:checked]:bg-blue-50">
+                                    <input type="checkbox" id="opt-social" checked class="mt-1 w-5 h-5 text-blue-600 rounded">
+                                    <span class="ml-3">
+                                        <span class="font-medium text-gray-800 block">Social Posts</span>
+                                        <span class="text-sm text-gray-500">GBP, Facebook, Instagram content</span>
+                                    </span>
+                                </label>
+                                <label class="flex items-start p-4 bg-white rounded-xl border-2 border-gray-200 cursor-pointer hover:border-blue-300 transition-all has-[:checked]:border-blue-500 has-[:checked]:bg-blue-50">
+                                    <input type="checkbox" id="opt-monitor" checked class="mt-1 w-5 h-5 text-blue-600 rounded">
+                                    <span class="ml-3">
+                                        <span class="font-medium text-gray-800 block">Monitoring</span>
+                                        <span class="text-sm text-gray-500">Track competitors & rankings</span>
+                                    </span>
+                                </label>
+                            </div>
+                        </div>
+                        
+                        <div class="mt-10 flex justify-between">
+                            <button onclick="goToStep(2)" class="px-6 py-3 text-gray-600 hover:text-gray-800 font-medium">
+                                ← Back to Keywords
+                            </button>
+                            <button onclick="launchClient()" id="launch-btn"
+                                    class="px-8 py-4 bg-green-600 text-white font-bold rounded-xl hover:bg-green-700 transition-all flex items-center text-lg">
+                                <svg class="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                                </svg>
+                                Launch Client
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ==================== STEP 4: SUCCESS ==================== -->
+            <div id="step-4" class="step-content hidden">
+                <div class="p-8">
+                    <div class="max-w-3xl mx-auto">
+                        <!-- Success Header -->
+                        <div class="text-center mb-8">
+                            <div class="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                                <svg class="w-10 h-10 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                                </svg>
+                            </div>
+                            <h2 class="text-3xl font-bold text-gray-800 mb-2">Client Launched! 🚀</h2>
+                            <p class="text-gray-500" id="success-message">Content generation complete</p>
+                        </div>
+                        
+                        <!-- Generation Progress -->
+                        <div id="generation-progress" class="bg-gradient-to-br from-green-50 to-emerald-50 rounded-2xl p-6 mb-8 border border-green-200">
+                            <h4 class="font-semibold text-green-800 mb-4 flex items-center">
+                                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                </svg>
+                                What We Created
+                            </h4>
+                            <div class="grid grid-cols-2 md:grid-cols-4 gap-4" id="progress-items">
+                                <!-- Populated by JS -->
+                            </div>
+                        </div>
+                        
+                        <!-- Next Steps -->
+                        <div class="mb-8">
+                            <h3 class="font-semibold text-gray-800 mb-4">Recommended Next Steps</h3>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <!-- Generate Service Pages -->
+                                <button onclick="generateServicePages()" id="btn-service-pages"
+                                    class="flex items-start p-4 bg-white rounded-xl border-2 border-gray-200 hover:border-blue-400 hover:bg-blue-50 transition-all text-left group">
+                                    <div class="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center mr-4 group-hover:bg-blue-200 transition-all">
+                                        <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/>
+                                        </svg>
+                                    </div>
+                                    <div>
+                                        <span class="font-medium text-gray-800 block">Generate Service Pages</span>
+                                        <span class="text-sm text-gray-500">Create landing pages for each service</span>
+                                    </div>
+                                </button>
+                                
+                                <!-- View Content -->
+                                <a href="/client" id="link-view-content"
+                                    class="flex items-start p-4 bg-white rounded-xl border-2 border-gray-200 hover:border-purple-400 hover:bg-purple-50 transition-all text-left group">
+                                    <div class="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center mr-4 group-hover:bg-purple-200 transition-all">
+                                        <svg class="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                                        </svg>
+                                    </div>
+                                    <div>
+                                        <span class="font-medium text-gray-800 block">View Generated Content</span>
+                                        <span class="text-sm text-gray-500">Review blogs and social posts</span>
+                                    </div>
+                                </a>
+                                
+                                <!-- WordPress Setup -->
+                                <button onclick="showWordPressSetup()" id="btn-wordpress"
+                                    class="flex items-start p-4 bg-white rounded-xl border-2 border-gray-200 hover:border-orange-400 hover:bg-orange-50 transition-all text-left group">
+                                    <div class="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center mr-4 group-hover:bg-orange-200 transition-all">
+                                        <svg class="w-5 h-5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/>
+                                        </svg>
+                                    </div>
+                                    <div>
+                                        <span class="font-medium text-gray-800 block">Connect WordPress</span>
+                                        <span class="text-sm text-gray-500">Auto-publish content to their site</span>
+                                    </div>
+                                </button>
+                                
+                                <!-- Lead Form Setup -->
+                                <button onclick="showLeadFormSetup()" id="btn-lead-forms"
+                                    class="flex items-start p-4 bg-white rounded-xl border-2 border-gray-200 hover:border-green-400 hover:bg-green-50 transition-all text-left group">
+                                    <div class="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center mr-4 group-hover:bg-green-200 transition-all">
+                                        <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                                        </svg>
+                                    </div>
+                                    <div>
+                                        <span class="font-medium text-gray-800 block">Setup Lead Capture</span>
+                                        <span class="text-sm text-gray-500">Get embeddable lead forms</span>
+                                    </div>
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- Quick Stats (populated after generation) -->
+                        <div id="quick-stats" class="bg-gray-50 rounded-xl p-4 mb-8 hidden">
+                            <div class="grid grid-cols-4 gap-4 text-center">
+                                <div>
+                                    <div class="text-2xl font-bold text-blue-600" id="stat-blogs">0</div>
+                                    <div class="text-xs text-gray-500">Blogs</div>
+                                </div>
+                                <div>
+                                    <div class="text-2xl font-bold text-purple-600" id="stat-social">0</div>
+                                    <div class="text-xs text-gray-500">Social Posts</div>
+                                </div>
+                                <div>
+                                    <div class="text-2xl font-bold text-green-600" id="stat-pages">0</div>
+                                    <div class="text-xs text-gray-500">Service Pages</div>
+                                </div>
+                                <div>
+                                    <div class="text-2xl font-bold text-orange-600" id="stat-keywords">0</div>
+                                    <div class="text-xs text-gray-500">Keywords</div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Action Buttons -->
+                        <div class="flex justify-center gap-4">
+                            <a href="/agency" class="px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold rounded-xl hover:opacity-90 transition-all shadow-lg">
+                                <svg class="w-5 h-5 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
+                                </svg>
+                                Agency Dashboard
+                            </a>
+                            <button onclick="resetAndStartOver()" class="px-6 py-3 border-2 border-gray-300 text-gray-700 font-semibold rounded-xl hover:bg-gray-50 transition-all">
+                                <svg class="w-5 h-5 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+                                </svg>
+                                Add Another Client
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- WordPress Setup Modal -->
+            <div id="wordpress-modal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 hidden">
+                <div class="bg-white rounded-2xl p-8 max-w-md w-full mx-4">
+                    <h3 class="text-xl font-bold text-gray-800 mb-4">Connect WordPress</h3>
+                    <p class="text-gray-500 mb-6">Enter the client's WordPress credentials to enable auto-publishing.</p>
+                    <div class="space-y-4">
+                        <input type="url" id="wp-url" placeholder="WordPress URL (https://site.com)" 
+                            class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        <input type="text" id="wp-username" placeholder="Username or Application Password Name"
+                            class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        <input type="password" id="wp-password" placeholder="Application Password"
+                            class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        <p class="text-xs text-gray-400">Use WordPress Application Passwords (Users → Profile → Application Passwords)</p>
+                    </div>
+                    <div class="flex gap-3 mt-6">
+                        <button onclick="saveWordPressConfig()" class="flex-1 py-3 bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700">
+                            Save & Test Connection
+                        </button>
+                        <button onclick="closeWordPressModal()" class="px-6 py-3 border border-gray-300 rounded-xl hover:bg-gray-50">
+                            Cancel
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Lead Form Modal -->
+            <div id="leadform-modal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 hidden">
+                <div class="bg-white rounded-2xl p-8 max-w-lg w-full mx-4">
+                    <h3 class="text-xl font-bold text-gray-800 mb-4">Lead Capture Form</h3>
+                    <p class="text-gray-500 mb-6">Copy this code and paste it into the client's website.</p>
+                    <div class="bg-gray-900 rounded-xl p-4 mb-4">
+                        <code id="lead-form-code" class="text-green-400 text-sm break-all"></code>
+                    </div>
+                    <button onclick="copyLeadFormCode()" class="w-full py-3 bg-green-600 text-white font-semibold rounded-xl hover:bg-green-700 mb-3">
+                        <svg class="w-5 h-5 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+                        </svg>
+                        Copy to Clipboard
+                    </button>
+                    <button onclick="closeLeadFormModal()" class="w-full py-3 border border-gray-300 rounded-xl hover:bg-gray-50">
+                        Close
+                    </button>
+                </div>
+            </div>
+            
         </div>
 
-        <div id="progressPanel" class="hidden glass rounded-2xl p-6 mb-6 fade-in">
-            <h2 class="text-xl font-bold text-gray-800 mb-4">⏳ Processing...</h2>
-            <div id="progressSteps" class="space-y-3"></div>
-        </div>
-
-        <div id="resultsPanel" class="hidden glass rounded-2xl p-6 fade-in">
-            <h2 class="text-2xl font-bold text-gray-800 mb-4">✅ Complete!</h2>
-            <div id="resultsContent"></div>
+        <!-- Footer -->
+        <div class="mt-6 text-center text-gray-500 text-sm">
+            Karma Marketing + Media • Powered by AI
         </div>
     </div>
 
     <script>
-        function showLogin() { document.getElementById('loginModal').classList.remove('hidden'); }
-        function hideLogin() { document.getElementById('loginModal').classList.add('hidden'); }
+        // ==================== STATE ====================
+        let currentStep = 1;
+        let clientData = {};
+        let keywords = []; // { keyword, volume, difficulty, cpc, score, type: null|'primary'|'secondary', source }
+        
+        const token = localStorage.getItem('mcp_token') || 'demo_token';
+        const headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` };
 
-        async function doLogin() {
-            const email = document.getElementById('loginEmail').value;
-            const password = document.getElementById('loginPassword').value;
-            const apiUrl = document.getElementById('apiUrl').value;
-            const status = document.getElementById('loginStatus');
-            try {
-                status.innerHTML = '<span class="spinner"></span> Logging in...';
-                const res = await fetch(`${apiUrl}/api/auth/login`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ email, password })
-                });
-                const data = await res.json();
-                if (data.token) {
-                    document.getElementById('authToken').value = data.token;
-                    document.getElementById('apiStatus').innerHTML = '<span class="text-green-600">✅ Logged in</span>';
-                    hideLogin();
-                } else {
-                    status.innerHTML = '<span class="text-red-600">❌ ' + (data.error || 'Login failed') + '</span>';
-                }
-            } catch (e) {
-                status.innerHTML = '<span class="text-red-600">❌ ' + e.message + '</span>';
+        // Industry keyword suggestions (comprehensive)
+        const industryKeywords = {
+            'roofing': [
+                'roof repair', 'roof replacement', 'new roof', 'roofing contractor', 'roof inspection',
+                'storm damage roof', 'emergency roof repair', 'metal roofing', 'shingle roof', 'tile roof',
+                'flat roof repair', 'roof leak repair', 'commercial roofing', 'residential roofing', 'roof installation'
+            ],
+            'hvac': [
+                'AC repair', 'air conditioning installation', 'heating repair', 'HVAC contractor', 'furnace repair',
+                'AC replacement', 'HVAC maintenance', 'duct cleaning', 'thermostat installation', 'heat pump',
+                'central air conditioning', 'emergency AC repair', 'HVAC tune up', 'mini split installation', 'commercial HVAC'
+            ],
+            'plumbing': [
+                'plumber', 'plumbing repair', 'drain cleaning', 'water heater installation', 'leak repair',
+                'emergency plumber', 'sewer line repair', 'toilet repair', 'faucet installation', 'garbage disposal',
+                'water line repair', 'bathroom plumbing', 'kitchen plumbing', 'pipe repair', 'water heater repair'
+            ],
+            'electrical': [
+                'electrician', 'electrical repair', 'panel upgrade', 'wiring installation', 'outlet repair',
+                'emergency electrician', 'lighting installation', 'ceiling fan installation', 'electrical inspection',
+                'circuit breaker repair', 'generator installation', 'EV charger installation', 'home rewiring', 'commercial electrician'
+            ],
+            'windows': [
+                'window replacement', 'new windows', 'window installation', 'impact windows', 'energy efficient windows',
+                'vinyl windows', 'window repair', 'door installation', 'sliding glass door', 'french doors',
+                'entry door replacement', 'storm windows', 'bay window installation', 'window contractor'
+            ],
+            'landscaping': [
+                'landscaping', 'lawn care', 'garden design', 'tree trimming', 'irrigation installation',
+                'landscape maintenance', 'sod installation', 'hardscaping', 'outdoor lighting', 'patio installation',
+                'mulching service', 'landscape design', 'sprinkler repair', 'lawn mowing service', 'hedge trimming'
+            ],
+            'painting': [
+                'house painting', 'interior painting', 'exterior painting', 'cabinet painting', 'commercial painting',
+                'residential painting', 'deck staining', 'pressure washing', 'drywall repair', 'wallpaper removal',
+                'paint contractor', 'ceiling painting', 'trim painting', 'paint color consultation'
+            ],
+            'flooring': [
+                'flooring installation', 'hardwood floors', 'tile installation', 'laminate flooring', 'carpet installation',
+                'vinyl flooring', 'floor refinishing', 'flooring contractor', 'LVP flooring', 'bathroom tile',
+                'kitchen flooring', 'commercial flooring', 'floor repair', 'epoxy flooring', 'wood floor sanding'
+            ],
+            'pest_control': [
+                'pest control', 'termite treatment', 'bug exterminator', 'rodent control', 'ant removal',
+                'bed bug treatment', 'mosquito control', 'roach exterminator', 'wildlife removal', 'bee removal',
+                'flea treatment', 'tick control', 'spider removal', 'commercial pest control', 'pest inspection'
+            ],
+            'solar': [
+                'solar panel installation', 'solar energy', 'residential solar', 'solar battery', 'solar financing',
+                'solar contractor', 'solar roof', 'home solar system', 'solar power', 'commercial solar',
+                'solar panel cost', 'solar incentives', 'off grid solar', 'solar maintenance', 'solar consultation'
+            ]
+        };
+
+        // ==================== STEP NAVIGATION ====================
+        function goToStep(step) {
+            // Validate before advancing
+            if (step === 2 && currentStep === 1) {
+                if (!validateStep1()) return;
+                loadKeywordsForIndustry();
             }
-        }
-
-        async function runQuickResearch() {
-            const website = document.getElementById('quickWebsite').value.trim();
-            if (!website) { alert('Please enter a website URL'); return; }
-            const token = document.getElementById('authToken').value;
-            if (!token) { alert('Please login first'); showLogin(); return; }
-
-            const apiUrl = document.getElementById('apiUrl').value;
-            const btn = document.getElementById('researchBtn');
-            const status = document.getElementById('researchStatus');
-
-            btn.disabled = true;
-            btn.innerHTML = '<span class="spinner"></span>';
-            status.innerHTML = '<span class="text-purple-600">Researching domain with SEMRush...</span>';
-
-            try {
-                const res = await fetch(`${apiUrl}/api/intake/quick`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                    body: JSON.stringify({ website })
-                });
-                const data = await res.json();
-
-                if (data.success && data.suggested_profile) {
-                    const profile = data.suggested_profile;
-                    document.getElementById('businessName').value = profile.business_name || '';
-                    document.getElementById('website').value = profile.website || website;
-                    document.getElementById('industry').value = profile.industry || '';
-                    document.getElementById('geo').value = profile.geo || '';
-                    if (profile.primary_keywords) document.getElementById('primaryKeywords').value = profile.primary_keywords.join('\n');
-                    if (profile.competitors) document.getElementById('competitors').value = profile.competitors.join('\n');
-                    showResearchResults(data);
-                    status.innerHTML = '<span class="text-green-600">✅ Research complete!</span>';
-                } else {
-                    status.innerHTML = '<span class="text-orange-600">⚠️ Limited data. ' + (data.errors?.join(', ') || '') + '</span>';
-                }
-            } catch (e) {
-                status.innerHTML = '<span class="text-red-600">❌ ' + e.message + '</span>';
-            } finally {
-                btn.disabled = false;
-                btn.innerHTML = 'Research';
+            if (step === 3 && currentStep === 2) {
+                if (!validateStep2()) return;
+                populateReview();
             }
+            
+            // Hide all
+            document.querySelectorAll('.step-content').forEach(el => el.classList.add('hidden'));
+            
+            // Show target
+            document.getElementById(`step-${step}`).classList.remove('hidden');
+            document.getElementById(`step-${step}`).classList.add('fade-up');
+            
+            // Update progress dots
+            for (let i = 1; i <= 4; i++) {
+                const dot = document.getElementById(`dot-${i}`);
+                const line = document.getElementById(`line-${i}`);
+                dot.classList.remove('active', 'completed');
+                if (line) line.classList.remove('completed');
+                
+                if (i < step) {
+                    dot.classList.add('completed');
+                    dot.innerHTML = '✓';
+                    if (line) line.classList.add('completed');
+                } else if (i === step) {
+                    dot.classList.add('active');
+                    dot.innerHTML = i;
+                } else {
+                    dot.innerHTML = i;
+                }
+            }
+            
+            currentStep = step;
+            saveState();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
         }
 
-        function showResearchResults(data) {
-            const panel = document.getElementById('researchResults');
-            const profile = data.suggested_profile || {};
-            const research = data.research || {};
-
-            document.getElementById('domainOverview').innerHTML = `
-                <p><strong>Traffic:</strong> ${(profile.organic_traffic || 0).toLocaleString()}/mo</p>
-                <p><strong>Keywords:</strong> ${(profile.organic_keywords || 0).toLocaleString()}</p>
-            `;
-
-            const keywords = research.top_keywords?.slice(0, 5) || profile.primary_keywords?.slice(0, 5) || [];
-            document.getElementById('topKeywords').innerHTML = keywords.length > 0
-                ? keywords.map(k => `<span class="tag">${typeof k === 'string' ? k : k.keyword}</span>`).join('')
-                : '<span class="text-gray-500">No data</span>';
-
-            const comps = research.competitors?.slice(0, 5) || profile.competitors?.slice(0, 5) || [];
-            document.getElementById('competitorsFound').innerHTML = comps.length > 0
-                ? comps.map(c => `<span class="tag tag-orange">${typeof c === 'string' ? c : c.domain}</span>`).join('')
-                : '<span class="text-gray-500">No data</span>';
-
-            panel.classList.remove('hidden');
-        }
-
-        async function submitPipeline() {
-            const token = document.getElementById('authToken').value;
-            if (!token) { alert('Please login first'); showLogin(); return; }
-
-            const businessName = document.getElementById('businessName').value.trim();
+        function validateStep1() {
+            const name = document.getElementById('business_name').value.trim();
             const industry = document.getElementById('industry').value;
             const geo = document.getElementById('geo').value.trim();
-            if (!businessName || !industry || !geo) { alert('Please fill required fields'); return; }
-
-            const apiUrl = document.getElementById('apiUrl').value;
-            const btn = document.getElementById('submitBtn');
-            const progressPanel = document.getElementById('progressPanel');
-            const progressSteps = document.getElementById('progressSteps');
-
-            const payload = {
-                business_name: businessName,
-                website: document.getElementById('website').value.trim(),
+            
+            if (!name) {
+                alert('Please enter the business name');
+                document.getElementById('business_name').focus();
+                return false;
+            }
+            if (!industry) {
+                alert('Please select an industry');
+                document.getElementById('industry').focus();
+                return false;
+            }
+            if (!geo) {
+                alert('Please enter the primary location');
+                document.getElementById('geo').focus();
+                return false;
+            }
+            
+            // Store client data
+            clientData = {
+                business_name: name,
                 industry: industry,
                 geo: geo,
+                website: document.getElementById('website').value.trim(),
                 phone: document.getElementById('phone').value.trim(),
                 email: document.getElementById('email').value.trim(),
-                service_areas: document.getElementById('serviceAreas').value.split(',').map(s => s.trim()).filter(s => s),
-                primary_keywords: document.getElementById('primaryKeywords').value.split('\n').map(k => k.trim()).filter(k => k),
-                competitors: document.getElementById('competitors').value.split('\n').map(c => c.trim()).filter(c => c),
-                usps: document.getElementById('usps').value.split('\n').map(u => u.trim()).filter(u => u),
-                tone: document.getElementById('tone').value,
-                blog_count: parseInt(document.getElementById('blogCount').value),
-                social_count: parseInt(document.getElementById('socialCount').value),
-                run_semrush_research: document.getElementById('runResearch').checked,
-                generate_content: document.getElementById('generateContent').checked
+                service_areas: document.getElementById('service_areas').value.split(',').map(s => s.trim()).filter(s => s),
+                usps: document.getElementById('usps').value.split(',').map(s => s.trim()).filter(s => s)
             };
+            
+            return true;
+        }
+        
+        function validateStep2() {
+            const primaryCount = keywords.filter(k => k.type === 'primary').length;
+            if (primaryCount === 0) {
+                alert('Please select at least one primary keyword');
+                return false;
+            }
+            return true;
+        }
 
-            btn.disabled = true;
-            btn.innerHTML = '<span class="spinner"></span> Processing...';
-            progressPanel.classList.remove('hidden');
-            progressSteps.innerHTML = '<div class="flex items-center gap-2 text-gray-600"><span class="spinner"></span> Running pipeline...</div>';
-
+        // ==================== KEYWORD MANAGEMENT ====================
+        async function loadKeywordsForIndustry() {
+            const industry = clientData.industry;
+            const geo = clientData.geo;
+            
+            // Update labels
+            document.getElementById('industry-label').textContent = industry.replace('_', ' ');
+            document.getElementById('geo-label').textContent = geo;
+            
+            // Get seed keywords for industry
+            const seeds = industryKeywords[industry] || industryKeywords['roofing'];
+            
+            // Show loading
+            document.getElementById('loading-keywords').classList.remove('hidden');
+            document.getElementById('keywords-container').classList.add('hidden');
+            
             try {
-                const res = await fetch(`${apiUrl}/api/intake/pipeline`, {
+                // Research keywords
+                const response = await fetch('/api/intake/keyword-research', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                    body: JSON.stringify(payload)
+                    headers: headers,
+                    body: JSON.stringify({
+                        keywords: seeds.slice(0, 10),
+                        location: geo,
+                        include_variations: true,
+                        include_questions: true
+                    })
                 });
-                const data = await res.json();
-
-                if (data.success) {
-                    showResults(data);
-                    progressSteps.innerHTML = '<div class="text-green-600">✅ Pipeline complete!</div>';
-                } else {
-                    progressSteps.innerHTML = '<div class="text-red-600">❌ ' + (data.error || 'Error') + '</div>';
+                
+                const data = await response.json();
+                
+                // Process results
+                keywords = [];
+                
+                // Add main keywords
+                for (const kw of (data.keywords || [])) {
+                    keywords.push(processKeyword(kw));
+                }
+                
+                // Add variations
+                for (const kw of (data.variations || [])) {
+                    keywords.push(processKeyword(kw));
+                }
+                
+                // Add questions
+                for (const kw of (data.questions || [])) {
+                    keywords.push(processKeyword(kw));
+                }
+                
+                // Deduplicate
+                const seen = new Set();
+                keywords = keywords.filter(k => {
+                    const key = k.keyword.toLowerCase();
+                    if (seen.has(key)) return false;
+                    seen.add(key);
+                    return true;
+                });
+                
+                // Sort by opportunity score
+                keywords.sort((a, b) => b.score - a.score);
+                
+            } catch (error) {
+                console.error('Keyword research error:', error);
+                
+                // Fallback: use seeds without data
+                keywords = seeds.map(s => ({
+                    keyword: `${s} ${geo.split(',')[0].toLowerCase()}`,
+                    volume: null,
+                    difficulty: null,
+                    cpc: null,
+                    score: 50,
+                    type: null,
+                    source: 'suggested'
+                }));
+            }
+            
+            // Hide loading, show results
+            document.getElementById('loading-keywords').classList.add('hidden');
+            document.getElementById('keywords-container').classList.remove('hidden');
+            
+            renderKeywords();
+        }
+        
+        function processKeyword(kw) {
+            const volume = kw.volume || 0;
+            const difficulty = kw.difficulty || 50;
+            const cpc = kw.cpc || 0;
+            
+            // Calculate opportunity score (0-100)
+            // High volume + low difficulty + decent CPC = high score
+            let score = 50;
+            if (volume !== null && difficulty !== null) {
+                const volumeScore = Math.min(volume / 10, 40); // Max 40 points from volume
+                const difficultyScore = (100 - difficulty) * 0.5; // Max 50 points from low difficulty
+                const cpcScore = Math.min(cpc * 2, 10); // Max 10 points from CPC
+                score = Math.round(volumeScore + difficultyScore + cpcScore);
+                score = Math.min(Math.max(score, 1), 100);
+            }
+            
+            return {
+                keyword: kw.keyword,
+                volume: volume,
+                difficulty: difficulty,
+                cpc: cpc,
+                score: score,
+                type: null,
+                source: kw.source || 'semrush'
+            };
+        }
+        
+        function renderKeywords() {
+            const container = document.getElementById('keywords-list');
+            
+            if (keywords.length === 0) {
+                document.getElementById('empty-keywords').classList.remove('hidden');
+                container.innerHTML = '';
+                return;
+            }
+            
+            document.getElementById('empty-keywords').classList.add('hidden');
+            
+            container.innerHTML = keywords.map((kw, i) => {
+                const scoreClass = kw.score >= 80 ? 'score-excellent' : 
+                                   kw.score >= 60 ? 'score-good' :
+                                   kw.score >= 40 ? 'score-moderate' : 'score-difficult';
+                
+                const selectedClass = kw.type === 'primary' ? 'selected-primary' :
+                                      kw.type === 'secondary' ? 'selected-secondary' : '';
+                
+                const volumeDisplay = kw.volume ? kw.volume.toLocaleString() : '—';
+                const diffDisplay = kw.difficulty || '—';
+                const cpcDisplay = kw.cpc ? `$${kw.cpc.toFixed(2)}` : '—';
+                
+                const explanation = getKeywordExplanation(kw);
+                
+                return `
+                    <div class="keyword-card ${selectedClass} bg-white rounded-xl p-4 shadow-sm border border-gray-100" data-index="${i}">
+                        <div class="flex items-center justify-between">
+                            <!-- Score Badge -->
+                            <div class="flex items-center gap-4">
+                                <div class="${scoreClass} w-12 h-12 rounded-xl flex items-center justify-center text-white font-bold text-lg tooltip">
+                                    ${kw.score}
+                                    <span class="tooltip-text">${explanation}</span>
+                                </div>
+                                
+                                <div>
+                                    <div class="font-medium text-gray-800">${kw.keyword}</div>
+                                    <div class="flex items-center gap-3 text-sm text-gray-500 mt-1">
+                                        <span class="tooltip">
+                                            📊 ${volumeDisplay}/mo
+                                            <span class="tooltip-text">Monthly search volume</span>
+                                        </span>
+                                        <span class="tooltip">
+                                            🎯 ${diffDisplay}
+                                            <span class="tooltip-text">Ranking difficulty (0-100)</span>
+                                        </span>
+                                        <span class="tooltip">
+                                            💰 ${cpcDisplay}
+                                            <span class="tooltip-text">Cost per click (ad value)</span>
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Action Buttons -->
+                            <div class="flex items-center gap-2">
+                                ${kw.type === 'primary' ? `
+                                    <button onclick="setKeywordType(${i}, null)" class="px-3 py-2 bg-blue-600 text-white text-sm rounded-lg font-medium">
+                                        ✓ Primary
+                                    </button>
+                                ` : kw.type === 'secondary' ? `
+                                    <button onclick="setKeywordType(${i}, null)" class="px-3 py-2 bg-green-600 text-white text-sm rounded-lg font-medium">
+                                        ✓ Secondary
+                                    </button>
+                                ` : `
+                                    <button onclick="setKeywordType(${i}, 'primary')" class="px-3 py-2 bg-blue-100 text-blue-700 text-sm rounded-lg hover:bg-blue-200 font-medium">
+                                        + Primary
+                                    </button>
+                                    <button onclick="setKeywordType(${i}, 'secondary')" class="px-3 py-2 bg-green-100 text-green-700 text-sm rounded-lg hover:bg-green-200 font-medium">
+                                        + Secondary
+                                    </button>
+                                `}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            
+            updateCounts();
+        }
+        
+        function getKeywordExplanation(kw) {
+            if (kw.score >= 80) return 'Excellent opportunity! High volume, low competition.';
+            if (kw.score >= 60) return 'Good target. Solid volume with manageable difficulty.';
+            if (kw.score >= 40) return 'Moderate opportunity. Consider as secondary target.';
+            return 'Difficult to rank. High competition or low volume.';
+        }
+        
+        function setKeywordType(index, type) {
+            // Check limits
+            if (type === 'primary') {
+                const currentPrimary = keywords.filter(k => k.type === 'primary').length;
+                if (currentPrimary >= 5) {
+                    alert('Maximum 5 primary keywords. Remove one first.');
+                    return;
+                }
+            }
+            if (type === 'secondary') {
+                const currentSecondary = keywords.filter(k => k.type === 'secondary').length;
+                if (currentSecondary >= 15) {
+                    alert('Maximum 15 secondary keywords. Remove one first.');
+                    return;
+                }
+            }
+            
+            keywords[index].type = type;
+            renderKeywords();
+            saveState();
+        }
+        
+        function autoSelectBest() {
+            // Clear existing
+            keywords.forEach(k => k.type = null);
+            
+            // Sort by score
+            const sorted = [...keywords].sort((a, b) => b.score - a.score);
+            
+            // Top 5 as primary
+            for (let i = 0; i < Math.min(5, sorted.length); i++) {
+                const idx = keywords.findIndex(k => k.keyword === sorted[i].keyword);
+                if (idx !== -1) keywords[idx].type = 'primary';
+            }
+            
+            // Next 10 as secondary
+            for (let i = 5; i < Math.min(15, sorted.length); i++) {
+                const idx = keywords.findIndex(k => k.keyword === sorted[i].keyword);
+                if (idx !== -1) keywords[idx].type = 'secondary';
+            }
+            
+            renderKeywords();
+            saveState();
+        }
+        
+        function clearSelections() {
+            keywords.forEach(k => k.type = null);
+            renderKeywords();
+            saveState();
+        }
+        
+        function updateCounts() {
+            const primary = keywords.filter(k => k.type === 'primary');
+            const secondary = keywords.filter(k => k.type === 'secondary');
+            const all = [...primary, ...secondary];
+            
+            document.getElementById('primary-count').textContent = primary.length;
+            document.getElementById('secondary-count').textContent = secondary.length;
+            document.getElementById('total-volume').textContent = all.reduce((sum, k) => sum + (k.volume || 0), 0).toLocaleString();
+            
+            // Enable/disable next button
+            document.getElementById('btn-to-step-3').disabled = primary.length === 0;
+        }
+        
+        async function addCustomKeyword() {
+            const input = document.getElementById('keyword-input');
+            const keyword = input.value.trim();
+            if (!keyword) return;
+            
+            input.value = '';
+            
+            // Add with loading state
+            keywords.unshift({
+                keyword: keyword,
+                volume: null,
+                difficulty: null,
+                cpc: null,
+                score: 50,
+                type: null,
+                source: 'custom'
+            });
+            
+            renderKeywords();
+            
+            // Research in background
+            try {
+                const response = await fetch('/api/intake/keyword-research', {
+                    method: 'POST',
+                    headers: headers,
+                    body: JSON.stringify({
+                        keywords: [keyword],
+                        location: clientData.geo,
+                        include_variations: false,
+                        include_questions: false
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.keywords && data.keywords[0]) {
+                    const kw = data.keywords[0];
+                    const idx = keywords.findIndex(k => k.keyword === keyword);
+                    if (idx !== -1) {
+                        keywords[idx] = processKeyword(kw);
+                        renderKeywords();
+                    }
                 }
             } catch (e) {
-                progressSteps.innerHTML = '<div class="text-red-600">❌ ' + e.message + '</div>';
-            } finally {
-                btn.disabled = false;
-                btn.innerHTML = '🚀 Create Client & Generate Content';
+                console.error('Research error:', e);
             }
         }
+        
+        async function analyzeCompetitor() {
+            const input = document.getElementById('competitor-input');
+            const domain = input.value.trim();
+            if (!domain) return;
+            
+            document.getElementById('loading-keywords').classList.remove('hidden');
+            document.getElementById('loading-text').textContent = `Analyzing ${domain}...`;
+            document.getElementById('keywords-container').classList.add('hidden');
+            
+            try {
+                const response = await fetch('/api/intake/competitor-gaps', {
+                    method: 'POST',
+                    headers: headers,
+                    body: JSON.stringify({
+                        competitor_domain: domain,
+                        client_domain: clientData.website || '',
+                        location: clientData.geo
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.gaps && data.gaps.length > 0) {
+                    for (const gap of data.gaps) {
+                        const exists = keywords.some(k => k.keyword.toLowerCase() === gap.keyword.toLowerCase());
+                        if (!exists) {
+                            keywords.push({
+                                ...processKeyword(gap),
+                                source: `Gap vs ${domain}`
+                            });
+                        }
+                    }
+                    
+                    keywords.sort((a, b) => b.score - a.score);
+                }
+                
+            } catch (e) {
+                console.error('Competitor analysis error:', e);
+            }
+            
+            document.getElementById('loading-keywords').classList.add('hidden');
+            document.getElementById('keywords-container').classList.remove('hidden');
+            document.getElementById('loading-text').textContent = 'Researching keywords with SEMRush...';
+            
+            renderKeywords();
+        }
 
-        function showResults(data) {
-            const panel = document.getElementById('resultsPanel');
-            const content = document.getElementById('resultsContent');
-            const summary = data.summary || {};
-            const research = data.research || {};
-            const blogs = data.content?.blogs || [];
-            const social = data.content?.social || [];
-
-            content.innerHTML = `
-                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-                    <div class="bg-green-100 rounded-lg p-4 text-center">
-                        <div class="text-3xl font-bold text-green-700">${summary.blogs_generated || 0}</div>
-                        <div class="text-sm text-green-600">Blogs</div>
+        // ==================== REVIEW & LAUNCH ====================
+        function populateReview() {
+            const primary = keywords.filter(k => k.type === 'primary');
+            const secondary = keywords.filter(k => k.type === 'secondary');
+            
+            document.getElementById('review-business').textContent = clientData.business_name;
+            document.getElementById('review-industry').textContent = clientData.industry.replace('_', ' ');
+            document.getElementById('review-geo').textContent = clientData.geo;
+            document.getElementById('review-website').textContent = clientData.website || '—';
+            
+            document.getElementById('review-primary-count').textContent = primary.length;
+            document.getElementById('review-secondary-count').textContent = secondary.length;
+            document.getElementById('review-volume').textContent = [...primary, ...secondary].reduce((s, k) => s + (k.volume || 0), 0).toLocaleString();
+            document.getElementById('review-content').textContent = primary.length + secondary.length;
+            
+            document.getElementById('review-primary-list').innerHTML = primary.map(k => `
+                <div class="bg-blue-50 rounded-lg px-3 py-2 text-sm text-blue-800">${k.keyword}</div>
+            `).join('');
+            
+            document.getElementById('review-secondary-list').innerHTML = secondary.map(k => `
+                <div class="bg-green-50 rounded-lg px-3 py-2 text-sm text-green-800">${k.keyword}</div>
+            `).join('');
+        }
+        
+        let createdClientId = null; // Store the created client ID
+        
+        async function launchClient() {
+            const btn = document.getElementById('launch-btn');
+            btn.disabled = true;
+            btn.innerHTML = `
+                <svg class="animate-spin w-6 h-6 mr-2" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                </svg>
+                Creating...
+            `;
+            
+            const primary = keywords.filter(k => k.type === 'primary');
+            const secondary = keywords.filter(k => k.type === 'secondary');
+            
+            try {
+                const payload = {
+                    ...clientData,
+                    primary_keywords: primary.map(k => k.keyword),
+                    secondary_keywords: secondary.map(k => k.keyword),
+                    generate_content: document.getElementById('opt-blogs').checked,
+                    generate_social: document.getElementById('opt-social').checked,
+                    setup_monitoring: document.getElementById('opt-monitor').checked,
+                    blog_count: primary.length,
+                    social_count: primary.length
+                };
+                
+                const response = await fetch('/api/intake/pipeline', {
+                    method: 'POST',
+                    headers: headers,
+                    body: JSON.stringify(payload)
+                });
+                
+                const data = await response.json();
+                
+                if (data.error) throw new Error(data.error);
+                
+                // Store client ID for later use
+                createdClientId = data.client?.id;
+                
+                // Show success
+                document.getElementById('success-message').textContent = 
+                    `${clientData.business_name} is ready for marketing success!`;
+                
+                // Count items
+                const blogCount = data.content?.blogs?.filter(b => !b.error).length || 0;
+                const socialCount = data.content?.social?.length || 0;
+                const keywordCount = primary.length + secondary.length;
+                
+                // Show progress cards
+                document.getElementById('progress-items').innerHTML = `
+                    <div class="bg-white rounded-xl p-4 text-center">
+                        <svg class="w-8 h-8 text-green-500 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                        <div class="font-semibold text-gray-800">Client</div>
+                        <div class="text-xs text-green-600">Created</div>
                     </div>
-                    <div class="bg-purple-100 rounded-lg p-4 text-center">
-                        <div class="text-3xl font-bold text-purple-700">${summary.social_generated || 0}</div>
-                        <div class="text-sm text-purple-600">Social Posts</div>
+                    <div class="bg-white rounded-xl p-4 text-center">
+                        <div class="text-2xl font-bold text-blue-600">${blogCount}</div>
+                        <div class="text-xs text-gray-500">Blog Posts</div>
                     </div>
-                    <div class="bg-blue-100 rounded-lg p-4 text-center">
-                        <div class="text-3xl font-bold text-blue-700">${summary.keywords_discovered || 0}</div>
-                        <div class="text-sm text-blue-600">Keywords</div>
+                    <div class="bg-white rounded-xl p-4 text-center">
+                        <div class="text-2xl font-bold text-purple-600">${socialCount}</div>
+                        <div class="text-xs text-gray-500">Social Posts</div>
                     </div>
-                    <div class="bg-orange-100 rounded-lg p-4 text-center">
-                        <div class="text-3xl font-bold text-orange-700">${summary.competitors_found || 0}</div>
-                        <div class="text-sm text-orange-600">Competitors</div>
+                    <div class="bg-white rounded-xl p-4 text-center">
+                        <div class="text-2xl font-bold text-orange-600">${keywordCount}</div>
+                        <div class="text-xs text-gray-500">Keywords</div>
                     </div>
+                `;
+                
+                // Update view content link with client ID
+                if (createdClientId) {
+                    document.getElementById('link-view-content').href = `/client?client_id=${createdClientId}`;
+                }
+                
+                goToStep(4);
+                clearSavedState();
+                
+            } catch (error) {
+                console.error('Launch error:', error);
+                alert('Error: ' + error.message);
+                btn.disabled = false;
+                btn.innerHTML = `
+                    <svg class="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                    </svg>
+                    Launch Client
+                `;
+            }
+        }
+        
+        // ==================== POST-INTAKE ACTIONS ====================
+        
+        async function generateServicePages() {
+            if (!createdClientId) {
+                alert('No client found. Please create client first.');
+                return;
+            }
+            
+            const btn = document.getElementById('btn-service-pages');
+            btn.disabled = true;
+            btn.innerHTML = `
+                <div class="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center mr-4">
+                    <svg class="animate-spin w-5 h-5 text-blue-600" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                    </svg>
                 </div>
-
-                <div class="bg-gray-50 rounded-lg p-4 mb-6">
-                    <h3 class="font-bold text-gray-800 mb-2">📋 Client Created</h3>
-                    <p><strong>${data.client?.business_name}</strong> (ID: ${data.client?.id})</p>
-                    <p class="text-sm text-gray-600">${data.client?.industry} in ${data.client?.geo}</p>
-                </div>
-
-                ${research.discovered_keywords?.length > 0 ? `
-                <div class="bg-blue-50 rounded-lg p-4 mb-6">
-                    <h3 class="font-bold text-gray-800 mb-2">🔍 Discovered Keywords</h3>
-                    <div class="flex flex-wrap gap-1">
-                        ${research.discovered_keywords.slice(0, 15).map(k => `<span class="tag">${k.keyword} (${k.volume}/mo)</span>`).join('')}
-                    </div>
-                </div>` : ''}
-
-                <div class="grid md:grid-cols-2 gap-4 mb-6">
-                    <div class="bg-green-50 rounded-lg p-4">
-                        <h3 class="font-bold text-gray-800 mb-2">📝 Blog Posts</h3>
-                        <ul class="space-y-2">
-                            ${blogs.map(b => `<li class="text-sm ${b.status === 'generated' ? 'text-green-700' : 'text-red-600'}">
-                                ${b.status === 'generated' ? '✅' : '❌'} ${b.title || b.keyword}
-                                ${b.word_count ? `<span class="text-gray-500">(${b.word_count} words)</span>` : ''}
-                            </li>`).join('') || '<li class="text-gray-500">None</li>'}
-                        </ul>
-                    </div>
-                    <div class="bg-purple-50 rounded-lg p-4">
-                        <h3 class="font-bold text-gray-800 mb-2">📱 Social Posts</h3>
-                        <ul class="space-y-1">
-                            ${social.slice(0, 12).map(s => `<li class="text-sm ${s.status === 'generated' ? 'text-green-700' : 'text-red-600'}">
-                                ${s.status === 'generated' ? '✅' : '❌'} ${s.platform.toUpperCase()}
-                            </li>`).join('') || '<li class="text-gray-500">None</li>'}
-                        </ul>
-                    </div>
-                </div>
-
-                ${data.errors?.length > 0 ? `
-                <div class="bg-red-50 rounded-lg p-4 mb-6">
-                    <h3 class="font-bold text-red-800 mb-2">⚠️ Errors</h3>
-                    <ul class="text-sm text-red-700">${data.errors.map(e => `<li>${e}</li>`).join('')}</ul>
-                </div>` : ''}
-
-                <div class="bg-gradient-to-r from-purple-100 to-blue-100 rounded-lg p-4">
-                    <h3 class="font-bold text-gray-800 mb-2">🚀 Next Steps</h3>
-                    <p class="text-sm">View content in <a href="${document.getElementById('apiUrl').value}" target="_blank" class="text-purple-600 underline font-medium">MCP Dashboard</a></p>
+                <div>
+                    <span class="font-medium text-gray-800 block">Generating...</span>
+                    <span class="text-sm text-gray-500">Creating service landing pages</span>
                 </div>
             `;
-            panel.classList.remove('hidden');
-            panel.scrollIntoView({ behavior: 'smooth' });
+            
+            try {
+                const primary = keywords.filter(k => k.type === 'primary');
+                const services = primary.map(k => k.keyword.split(' ')[0]).filter((v, i, a) => a.indexOf(v) === i).slice(0, 5);
+                const locations = clientData.service_areas ? clientData.service_areas.split(',').map(s => s.trim()).slice(0, 5) : [clientData.geo];
+                
+                const response = await fetch('/api/pages/generate/bulk', {
+                    method: 'POST',
+                    headers: headers,
+                    body: JSON.stringify({
+                        client_id: createdClientId,
+                        services: services,
+                        locations: locations
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.error) throw new Error(data.error);
+                
+                const pageCount = data.pages?.length || 0;
+                btn.innerHTML = `
+                    <div class="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center mr-4">
+                        <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <span class="font-medium text-green-700 block">${pageCount} Pages Created!</span>
+                        <span class="text-sm text-gray-500">Service landing pages ready</span>
+                    </div>
+                `;
+                
+            } catch (error) {
+                console.error('Service page error:', error);
+                btn.disabled = false;
+                btn.innerHTML = `
+                    <div class="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center mr-4">
+                        <svg class="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <span class="font-medium text-red-700 block">Error</span>
+                        <span class="text-sm text-gray-500">${error.message}</span>
+                    </div>
+                `;
+            }
         }
+        
+        function showWordPressSetup() {
+            document.getElementById('wordpress-modal').classList.remove('hidden');
+        }
+        
+        function closeWordPressModal() {
+            document.getElementById('wordpress-modal').classList.add('hidden');
+        }
+        
+        async function saveWordPressConfig() {
+            if (!createdClientId) {
+                alert('No client found');
+                return;
+            }
+            
+            const wpUrl = document.getElementById('wp-url').value.trim();
+            const wpUser = document.getElementById('wp-username').value.trim();
+            const wpPass = document.getElementById('wp-password').value;
+            
+            if (!wpUrl || !wpUser || !wpPass) {
+                alert('Please fill in all fields');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/clients/${createdClientId}/integrations`, {
+                    method: 'PUT',
+                    headers: headers,
+                    body: JSON.stringify({
+                        wordpress_url: wpUrl,
+                        wordpress_api_key: btoa(`${wpUser}:${wpPass}`)
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.error) throw new Error(data.error);
+                
+                alert('WordPress connected successfully!');
+                closeWordPressModal();
+                
+                // Update button state
+                document.getElementById('btn-wordpress').innerHTML = `
+                    <div class="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center mr-4">
+                        <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <span class="font-medium text-green-700 block">WordPress Connected</span>
+                        <span class="text-sm text-gray-500">${wpUrl}</span>
+                    </div>
+                `;
+                
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        }
+        
+        async function showLeadFormSetup() {
+            if (!createdClientId) {
+                alert('No client found');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/leads/form-embed', {
+                    method: 'POST',
+                    headers: headers,
+                    body: JSON.stringify({
+                        client_id: createdClientId,
+                        form_title: `Contact ${clientData.business_name}`,
+                        button_text: 'Get Free Quote',
+                        include_phone: true,
+                        include_service: true,
+                        primary_color: '#3b82f6'
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.error) throw new Error(data.error);
+                
+                document.getElementById('lead-form-code').textContent = data.embed_code || data.html || '<!-- Lead form code -->';
+                document.getElementById('leadform-modal').classList.remove('hidden');
+                
+            } catch (error) {
+                alert('Error generating form: ' + error.message);
+            }
+        }
+        
+        function closeLeadFormModal() {
+            document.getElementById('leadform-modal').classList.add('hidden');
+        }
+        
+        function copyLeadFormCode() {
+            const code = document.getElementById('lead-form-code').textContent;
+            navigator.clipboard.writeText(code).then(() => {
+                alert('Code copied to clipboard!');
+            }).catch(err => {
+                console.error('Copy failed:', err);
+            });
+        }
+        
+        function resetAndStartOver() {
+            clientData = {};
+            keywords = [];
+            currentStep = 1;
+            createdClientId = null;
+            
+            document.getElementById('business_name').value = '';
+            document.getElementById('industry').value = '';
+            document.getElementById('geo').value = '';
+            document.getElementById('website').value = '';
+            document.getElementById('phone').value = '';
+            document.getElementById('email').value = '';
+            document.getElementById('service_areas').value = '';
+            document.getElementById('usps').value = '';
+            
+            clearSavedState();
+            goToStep(1);
+        }
+
+        // ==================== STATE PERSISTENCE ====================
+        function saveState() {
+            const state = {
+                step: currentStep,
+                clientData: clientData,
+                keywords: keywords,
+                timestamp: Date.now()
+            };
+            localStorage.setItem('mcp_intake_state', JSON.stringify(state));
+            document.getElementById('last-saved').textContent = 'Just now';
+        }
+        
+        function loadState() {
+            try {
+                const saved = localStorage.getItem('mcp_intake_state');
+                if (!saved) return false;
+                
+                const state = JSON.parse(saved);
+                
+                // Check if less than 24 hours old
+                if (Date.now() - state.timestamp > 86400000) {
+                    clearSavedState();
+                    return false;
+                }
+                
+                clientData = state.clientData || {};
+                keywords = state.keywords || [];
+                
+                // Restore form fields
+                if (clientData.business_name) document.getElementById('business_name').value = clientData.business_name;
+                if (clientData.industry) document.getElementById('industry').value = clientData.industry;
+                if (clientData.geo) document.getElementById('geo').value = clientData.geo;
+                if (clientData.website) document.getElementById('website').value = clientData.website;
+                if (clientData.phone) document.getElementById('phone').value = clientData.phone;
+                if (clientData.email) document.getElementById('email').value = clientData.email;
+                if (clientData.service_areas) document.getElementById('service_areas').value = clientData.service_areas.join(', ');
+                if (clientData.usps) document.getElementById('usps').value = clientData.usps.join(', ');
+                
+                const minutes = Math.round((Date.now() - state.timestamp) / 60000);
+                document.getElementById('last-saved').textContent = minutes < 1 ? 'Just now' : `${minutes}m ago`;
+                
+                return state.step || 1;
+                
+            } catch (e) {
+                return false;
+            }
+        }
+        
+        function clearSavedState() {
+            localStorage.removeItem('mcp_intake_state');
+        }
+
+        // ==================== INIT ====================
+        document.addEventListener('DOMContentLoaded', function() {
+            const savedStep = loadState();
+            
+            if (savedStep && savedStep > 1 && Object.keys(clientData).length > 0) {
+                // Resume from saved state
+                if (savedStep >= 2) {
+                    document.getElementById('industry-label').textContent = clientData.industry?.replace('_', ' ') || '';
+                    document.getElementById('geo-label').textContent = clientData.geo || '';
+                    renderKeywords();
+                }
+                goToStep(savedStep);
+            } else {
+                goToStep(1);
+            }
+        });
     </script>
 </body>
 </html>

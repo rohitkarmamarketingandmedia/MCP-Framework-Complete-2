@@ -1,4 +1,5 @@
-# render.yaml - Render Blueprint for MCP Framework
+# render.yaml - Render Blueprint for MCP Framework v4.5
+# Karma Marketing + Media
 # This file defines the infrastructure for deployment
 
 services:
@@ -8,22 +9,56 @@ services:
     region: oregon
     plan: starter
     buildCommand: chmod +x build.sh && ./build.sh
-    startCommand: gunicorn run:app --bind 0.0.0.0:$PORT --workers 2
+    startCommand: gunicorn run:app --bind 0.0.0.0:$PORT --workers 2 --timeout 120
     envVars:
+      # Environment
       - key: FLASK_ENV
         value: production
+      - key: PYTHON_VERSION
+        value: "3.11.0"
+      
+      # Security (auto-generated)
       - key: SECRET_KEY
         generateValue: true
-      - key: OPENAI_API_KEY
-        sync: false  # User must set this manually
-      - key: SEMRUSH_API_KEY
-        sync: false  # User must set this manually
+      - key: JWT_SECRET_KEY
+        generateValue: true
+      
+      # CORS - IMPORTANT: Set this to your actual domain!
+      - key: CORS_ORIGINS
+        value: "*"  # Change to: https://yourdomain.com
+      
+      # Database (auto-linked)
       - key: DATABASE_URL
         fromDatabase:
           name: mcp-db
           property: connectionString
-      - key: PYTHON_VERSION
-        value: "3.11.0"
+      
+      # AI - Required for content generation
+      - key: OPENAI_API_KEY
+        sync: false  # Set manually in Render dashboard
+      
+      # Optional integrations
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: SEMRUSH_API_KEY
+        sync: false
+      - key: SENDGRID_API_KEY
+        sync: false
+      
+      # Scheduler
+      - key: ENABLE_SCHEDULER
+        value: "true"
+      
+      # JWT Expiration
+      - key: JWT_EXPIRES_HOURS
+        value: "72"
+      
+      # Admin User - Set these to create admin on first deploy
+      - key: ADMIN_EMAIL
+        sync: false  # Set manually: your admin email
+      - key: ADMIN_PASSWORD
+        sync: false  # Set manually: secure password
+    
     healthCheckPath: /health
     autoDeploy: true
 
@@ -33,3 +68,4 @@ databases:
     region: oregon
     databaseName: mcp_framework
     user: mcp_admin
+

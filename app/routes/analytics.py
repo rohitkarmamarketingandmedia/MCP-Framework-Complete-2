@@ -3,14 +3,15 @@ MCP Framework - Analytics Routes
 Traffic, rankings, and performance metrics
 """
 from flask import Blueprint, request, jsonify, current_app
-from app.routes.auth import token_required
-from app.services.analytics_service import AnalyticsService
+from app.routes.auth import token_required, admin_required
+from app.services.analytics_service import AnalyticsService, ComparativeAnalytics
 from app.services.seo_service import SEOService
 from app.services.db_service import DataService
 from datetime import datetime, timedelta
 
 analytics_bp = Blueprint('analytics', __name__)
 analytics_service = AnalyticsService()
+comparative = ComparativeAnalytics()
 seo_service = SEOService()
 data_service = DataService()
 
@@ -287,3 +288,225 @@ def generate_report(current_user, client_id):
     }
     
     return jsonify(report)
+
+
+# ==========================================
+# COMPARATIVE ANALYTICS ENDPOINTS
+# ==========================================
+
+@analytics_bp.route('/compare/leads', methods=['GET'])
+@token_required
+def compare_leads(current_user):
+    """
+    Get lead analytics with period-over-period comparison
+    
+    GET /api/analytics/compare/leads?client_id=xxx&period=month
+    """
+    client_id = request.args.get('client_id')
+    period = request.args.get('period', 'month')
+    
+    if client_id and not current_user.has_access_to_client(client_id):
+        return jsonify({'error': 'Access denied'}), 403
+    
+    # Non-admins must specify client_id
+    if not client_id and current_user.role != 'admin':
+        return jsonify({'error': 'client_id required'}), 400
+    
+    data = comparative.get_lead_analytics(client_id, period)
+    return jsonify(data)
+
+
+@analytics_bp.route('/compare/content', methods=['GET'])
+@token_required
+def compare_content(current_user):
+    """
+    Get content analytics with period-over-period comparison
+    
+    GET /api/analytics/compare/content?client_id=xxx&period=month
+    """
+    client_id = request.args.get('client_id')
+    period = request.args.get('period', 'month')
+    
+    if client_id and not current_user.has_access_to_client(client_id):
+        return jsonify({'error': 'Access denied'}), 403
+    
+    if not client_id and current_user.role != 'admin':
+        return jsonify({'error': 'client_id required'}), 400
+    
+    data = comparative.get_content_analytics(client_id, period)
+    return jsonify(data)
+
+
+@analytics_bp.route('/compare/rankings/<client_id>', methods=['GET'])
+@token_required
+def compare_rankings(current_user, client_id):
+    """
+    Get ranking analytics with top movers
+    
+    GET /api/analytics/compare/rankings/<client_id>?period=month
+    """
+    if not current_user.has_access_to_client(client_id):
+        return jsonify({'error': 'Access denied'}), 403
+    
+    period = request.args.get('period', 'month')
+    data = comparative.get_ranking_analytics(client_id, period)
+    return jsonify(data)
+
+
+@analytics_bp.route('/health/<client_id>', methods=['GET'])
+@token_required
+def get_health_score(current_user, client_id):
+    """
+    Get comprehensive health score for a client
+    
+    GET /api/analytics/health/<client_id>
+    """
+    if not current_user.has_access_to_client(client_id):
+        return jsonify({'error': 'Access denied'}), 403
+    
+    data = comparative.get_client_health_score(client_id)
+    return jsonify(data)
+
+
+@analytics_bp.route('/agency-summary', methods=['GET'])
+@admin_required
+def get_agency_summary(current_user):
+    """
+    Get agency-wide analytics summary (admin only)
+    
+    GET /api/analytics/agency-summary?period=month
+    """
+    period = request.args.get('period', 'month')
+    data = comparative.get_agency_summary(period)
+    return jsonify(data)
+
+
+@analytics_bp.route('/ai-seo-analysis/<client_id>', methods=['POST'])
+@token_required
+def ai_seo_analysis(current_user, client_id):
+    """
+    AI-powered SEO opportunity analysis using seo_analyzer agent
+    
+    POST /api/analytics/ai-seo-analysis/<client_id>
+    {
+        "keywords": ["keyword1", "keyword2"],
+        "rankings": [{"keyword": "x", "position": 15, "volume": 1000}],
+        "industry": "HVAC",
+        "location": "Sarasota, FL"
+    }
+    """
+    if not current_user.has_access_to_client(client_id):
+        return jsonify({'error': 'Access denied'}), 403
+    
+    data = request.get_json()
+    if not data:
+        return jsonify({'error': 'Request body required'}), 400
+    
+    client = data_service.get_client(client_id)
+    if not client:
+        return jsonify({'error': 'Client not found'}), 404
+    
+    # Build analysis input
+    keywords = data.get('keywords', client.primary_keywords if client.primary_keywords else [])
+    rankings = data.get('rankings', [])
+    industry = data.get('industry', client.industry or 'local business')
+    location = data.get('location', client.location or '')
+    
+    user_input = f"""
+Analyze SEO opportunities for a {industry} business in {location}.
+
+Current Keywords: {', '.join(keywords) if keywords else 'None specified'}
+
+Current Rankings:
+{chr(10).join([f"- {r.get('keyword')}: Position {r.get('position')}, Volume {r.get('volume')}" for r in rankings]) if rankings else 'No ranking data available'}
+
+Identify:
+1. High-opportunity keywords (high volume, achievable rankings)
+2. Quick wins (currently ranking 11-20)
+3. Content gaps to fill
+4. Local keyword opportunities
+"""
+    
+    try:
+        from app.services.ai_service import ai_service
+        result = ai_service.generate_with_agent('seo_analyzer', user_input)
+        
+        if 'error' in result:
+            return jsonify({'error': result['error']}), 500
+        
+        return jsonify({
+            'client_id': client_id,
+            'analysis': result.get('content', ''),
+            'usage': result.get('usage', {}),
+            'agent': 'seo_analyzer'
+        })
+    except Exception as e:
+        current_app.logger.error(f"AI SEO analysis failed: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@analytics_bp.route('/ai-competitor-analysis/<client_id>', methods=['POST'])
+@token_required
+def ai_competitor_analysis(current_user, client_id):
+    """
+    AI-powered competitor analysis using competitor_analyzer agent
+    
+    POST /api/analytics/ai-competitor-analysis/<client_id>
+    {
+        "competitors": ["competitor1.com", "competitor2.com"],
+        "competitor_data": [{"name": "X", "strengths": [...], "weaknesses": [...]}],
+        "industry": "HVAC",
+        "location": "Sarasota, FL"
+    }
+    """
+    if not current_user.has_access_to_client(client_id):
+        return jsonify({'error': 'Access denied'}), 403
+    
+    data = request.get_json()
+    if not data:
+        return jsonify({'error': 'Request body required'}), 400
+    
+    client = data_service.get_client(client_id)
+    if not client:
+        return jsonify({'error': 'Client not found'}), 404
+    
+    # Build analysis input
+    competitors = data.get('competitors', client.competitors if client.competitors else [])
+    competitor_data = data.get('competitor_data', [])
+    industry = data.get('industry', client.industry or 'local business')
+    location = data.get('location', client.location or '')
+    
+    user_input = f"""
+Analyze competitors for a {industry} business in {location}.
+
+Business: {client.name}
+
+Competitors to Analyze: {', '.join(competitors) if competitors else 'None specified'}
+
+Competitor Data:
+{chr(10).join([f"- {c.get('name')}: Strengths: {c.get('strengths', [])}, Weaknesses: {c.get('weaknesses', [])}" for c in competitor_data]) if competitor_data else 'No detailed competitor data available'}
+
+Provide:
+1. Key insights about competitor strategies
+2. Content opportunities they're missing
+3. Our competitive advantages to emphasize
+4. Threats to watch
+5. Priority actions to outrank them
+"""
+    
+    try:
+        from app.services.ai_service import ai_service
+        result = ai_service.generate_with_agent('competitor_analyzer', user_input)
+        
+        if 'error' in result:
+            return jsonify({'error': result['error']}), 500
+        
+        return jsonify({
+            'client_id': client_id,
+            'analysis': result.get('content', ''),
+            'usage': result.get('usage', {}),
+            'agent': 'competitor_analyzer'
+        })
+    except Exception as e:
+        current_app.logger.error(f"AI competitor analysis failed: {e}")
+        return jsonify({'error': str(e)}), 500

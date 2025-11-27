@@ -4,8 +4,12 @@ OpenAI and Anthropic API integration for content generation
 """
 import os
 import json
+import time
+import logging
 from typing import Dict, List, Any, Optional
 import requests
+
+logger = logging.getLogger(__name__)
 
 
 class AIService:
@@ -15,6 +19,17 @@ class AIService:
         self.openai_key = os.environ.get('OPENAI_API_KEY', '')
         self.anthropic_key = os.environ.get('ANTHROPIC_API_KEY', '')
         self.default_model = os.environ.get('DEFAULT_AI_MODEL', 'gpt-4o-mini')
+        self._last_call_time = 0
+        self._min_call_interval = 2  # seconds between calls to avoid rate limits
+    
+    def _rate_limit_delay(self):
+        """Enforce minimum delay between API calls"""
+        elapsed = time.time() - self._last_call_time
+        if elapsed < self._min_call_interval:
+            sleep_time = self._min_call_interval - elapsed
+            logger.debug(f"Rate limit delay: sleeping {sleep_time:.1f}s")
+            time.sleep(sleep_time)
+        self._last_call_time = time.time()
     
     def generate_blog_post(
         self,
@@ -30,7 +45,7 @@ class AIService:
         usps: List[str] = None
     ) -> Dict[str, Any]:
         """
-        Generate SEO-optimized blog post
+        Generate SEO-optimized blog post using content_writer agent config
         
         Returns:
             {
@@ -49,7 +64,17 @@ class AIService:
         internal_links = internal_links or []
         usps = usps or []
         
-        # Build the prompt
+        logger.info(f"Generating blog: '{keyword}' for {geo}")
+        
+        # Try to get agent config for system prompt and settings
+        agent_config = None
+        try:
+            from app.services.agent_service import agent_service
+            agent_config = agent_service.get_agent('content_writer')
+        except Exception as e:
+            logger.debug(f"Could not load content_writer agent: {e}")
+        
+        # Build the user prompt (what content to generate)
         prompt = self._build_blog_prompt(
             keyword=keyword,
             geo=geo,
@@ -63,14 +88,54 @@ class AIService:
             usps=usps
         )
         
-        # Call AI
-        response = self._call_openai(prompt, max_tokens=4000)
+        # Enforce rate limiting
+        self._rate_limit_delay()
+        
+        # Get agent settings or use defaults
+        if agent_config:
+            # Use agent's system prompt with variable substitution
+            system_prompt = agent_config.system_prompt
+            system_prompt = system_prompt.replace('{tone}', tone)
+            system_prompt = system_prompt.replace('{industry}', industry)
+            
+            response = self._call_with_retry(
+                prompt, 
+                max_tokens=agent_config.max_tokens,
+                system_prompt=system_prompt,
+                model=agent_config.model,
+                temperature=agent_config.temperature
+            )
+            logger.info(f"Used content_writer agent config (model={agent_config.model})")
+        else:
+            # Fallback to default behavior
+            response = self._call_with_retry(prompt, max_tokens=4000)
         
         if response.get('error'):
+            logger.error(f"Blog generation failed: {response['error']}")
             return response
         
         # Parse the response
-        return self._parse_blog_response(response.get('content', ''))
+        result = self._parse_blog_response(response.get('content', ''))
+        
+        # Validate we got actual content
+        if not result.get('title') and not result.get('body'):
+            logger.error(f"Blog parsing returned empty content")
+            return {
+                'error': 'AI returned invalid response format',
+                'raw_response': response.get('content', '')[:500]
+            }
+        
+        # Ensure we have meta fields - generate if missing
+        if not result.get('meta_title'):
+            result['meta_title'] = f"{keyword.title()} | {business_name or geo}"[:60]
+            logger.warning(f"Generated fallback meta_title: {result['meta_title']}")
+        
+        if not result.get('meta_description'):
+            result['meta_description'] = f"Expert {keyword} services in {geo}. {business_name or 'We'} provide professional {industry} solutions. Contact us today!"[:160]
+            logger.warning(f"Generated fallback meta_description")
+        
+        logger.info(f"Blog generated successfully: {result.get('title', 'no title')[:50]}")
+        return result
     
     def generate_social_post(
         self,
@@ -84,7 +149,9 @@ class AIService:
         hashtag_count: int = 5,
         link_url: str = ''
     ) -> Dict[str, Any]:
-        """Generate social media post for specific platform"""
+        """Generate social media post for specific platform using social_writer agent"""
+        
+        logger.info(f"Generating {platform} post: '{topic}'")
         
         platform_limits = {
             'gbp': 1500,
@@ -96,6 +163,15 @@ class AIService:
         
         char_limit = platform_limits.get(platform, 500)
         
+        # Try to get agent config
+        agent_config = None
+        try:
+            from app.services.agent_service import agent_service
+            agent_config = agent_service.get_agent('social_writer')
+        except Exception as e:
+            logger.debug(f"Could not load social_writer agent: {e}")
+        
+        # Build user prompt
         prompt = f"""Write a {platform.upper()} post for a {industry} business called "{business_name}" in {geo}.
 
 Topic: {topic}
@@ -115,11 +191,28 @@ Return as JSON:
     "hashtags": ["hashtag1", "hashtag2"],
     "cta": "call to action text",
     "image_alt": "suggested image alt text"
-}}"""
+}}
 
-        response = self._call_openai(prompt, max_tokens=500)
+IMPORTANT: Return ONLY valid JSON, no markdown, no explanation."""
+
+        # Enforce rate limiting
+        self._rate_limit_delay()
+        
+        # Use agent config if available
+        if agent_config:
+            response = self._call_with_retry(
+                prompt, 
+                max_tokens=agent_config.max_tokens,
+                system_prompt=agent_config.system_prompt,
+                model=agent_config.model,
+                temperature=agent_config.temperature
+            )
+            logger.info(f"Used social_writer agent config")
+        else:
+            response = self._call_with_retry(prompt, max_tokens=500)
         
         if response.get('error'):
+            logger.error(f"Social generation failed: {response['error']}")
             return response
         
         try:
@@ -129,13 +222,29 @@ Return as JSON:
                 content = content.split('```')[1]
                 if content.startswith('json'):
                     content = content[4:]
-            return json.loads(content.strip())
-        except json.JSONDecodeError:
+            
+            # Try to find JSON object
+            content = content.strip()
+            if not content.startswith('{'):
+                # Try to extract JSON from response
+                start = content.find('{')
+                end = content.rfind('}')
+                if start != -1 and end != -1:
+                    content = content[start:end+1]
+            
+            result = json.loads(content)
+            logger.info(f"Social post generated: {len(result.get('text', ''))} chars")
+            return result
+            
+        except json.JSONDecodeError as e:
+            logger.warning(f"Social JSON parse failed: {e}, using raw content")
+            # Generate a usable fallback
+            raw_text = response.get('content', topic)
             return {
-                'text': response.get('content', ''),
-                'hashtags': [],
-                'cta': '',
-                'image_alt': ''
+                'text': raw_text[:char_limit] if len(raw_text) > char_limit else raw_text,
+                'hashtags': [f"#{industry.replace(' ', '')}", f"#{geo.split(',')[0].replace(' ', '')}", f"#{business_name.replace(' ', '')}"][:hashtag_count],
+                'cta': f"Contact {business_name} today!",
+                'image_alt': f"{topic} - {business_name}"
             }
     
     def generate_social_kit(
@@ -151,6 +260,8 @@ Return as JSON:
         """Generate posts for multiple platforms at once"""
         platforms = platforms or ['gbp', 'facebook', 'instagram', 'linkedin']
         
+        logger.info(f"Generating social kit for {len(platforms)} platforms")
+        
         kit = {}
         for platform in platforms:
             result = self.generate_social_post(
@@ -163,6 +274,11 @@ Return as JSON:
                 link_url=link_url
             )
             kit[platform] = result
+            
+            # Check if we should stop due to errors
+            if result.get('error') and 'rate' in str(result['error']).lower():
+                logger.warning("Rate limit hit, stopping social kit generation")
+                break
         
         return kit
     
@@ -235,18 +351,33 @@ OUTPUT FORMAT (JSON):
 }}
 
 Write engaging, helpful content that serves the reader while optimizing for search.
+IMPORTANT: Return ONLY valid JSON, no markdown code blocks, no explanation before or after.
 """
     
     def _parse_blog_response(self, content: str) -> Dict[str, Any]:
         """Parse AI response into structured blog data"""
         try:
+            original_content = content
+            
             # Clean markdown if present
             if '```' in content:
                 parts = content.split('```')
                 for part in parts:
-                    if part.strip().startswith('json') or part.strip().startswith('{'):
-                        content = part.replace('json', '', 1).strip()
+                    part = part.strip()
+                    if part.startswith('json'):
+                        content = part[4:].strip()
                         break
+                    elif part.startswith('{'):
+                        content = part
+                        break
+            
+            # Try to find JSON object if not starting with {
+            content = content.strip()
+            if not content.startswith('{'):
+                start = content.find('{')
+                end = content.rfind('}')
+                if start != -1 and end != -1 and end > start:
+                    content = content[start:end+1]
             
             data = json.loads(content)
             
@@ -254,27 +385,64 @@ Write engaging, helpful content that serves the reader while optimizing for sear
             if 'html' not in data and 'body' in data:
                 data['html'] = data['body']
             
+            logger.debug(f"Parsed blog: title='{data.get('title', '')[:30]}', body_len={len(data.get('body', ''))}")
             return data
             
-        except json.JSONDecodeError:
-            # Return raw content if JSON parsing fails
+        except json.JSONDecodeError as e:
+            logger.error(f"JSON parse error: {e}")
+            logger.debug(f"Failed content: {content[:500]}")
+            
+            # Try to extract any usable content
             return {
                 'title': '',
                 'h1': '',
-                'body': content,
+                'body': original_content if '<' in original_content else f"<p>{original_content}</p>",
                 'meta_title': '',
                 'meta_description': '',
                 'h2_headings': [],
                 'h3_headings': [],
                 'faq_items': [],
                 'secondary_keywords': [],
-                'html': content
+                'html': original_content,
+                'parse_error': str(e)
             }
     
-    def _call_openai(self, prompt: str, max_tokens: int = 2000) -> Dict[str, Any]:
+    def _call_with_retry(self, prompt: str, max_tokens: int = 2000, max_retries: int = 3, system_prompt: str = None, model: str = None, temperature: float = 0.7) -> Dict[str, Any]:
+        """Call OpenAI with retry logic for rate limits"""
+        
+        for attempt in range(max_retries):
+            response = self._call_openai(prompt, max_tokens, system_prompt=system_prompt, model=model, temperature=temperature)
+            
+            if not response.get('error'):
+                return response
+            
+            error_msg = str(response.get('error', '')).lower()
+            
+            # Check if it's a rate limit error
+            if 'rate' in error_msg or '429' in error_msg:
+                wait_time = (attempt + 1) * 10  # 10s, 20s, 30s
+                logger.warning(f"Rate limited, waiting {wait_time}s before retry {attempt + 1}/{max_retries}")
+                time.sleep(wait_time)
+                continue
+            
+            # Check if quota exceeded
+            if 'quota' in error_msg or 'insufficient' in error_msg:
+                logger.error("OpenAI quota exceeded - need to add credits")
+                return response
+            
+            # Other error, don't retry
+            return response
+        
+        return {'error': 'Max retries exceeded due to rate limits'}
+    
+    def _call_openai(self, prompt: str, max_tokens: int = 2000, system_prompt: str = None, model: str = None, temperature: float = 0.7) -> Dict[str, Any]:
         """Call OpenAI API"""
         if not self.openai_key:
             return {'error': 'OpenAI API key not configured'}
+        
+        # Default system prompt if not provided
+        if system_prompt is None:
+            system_prompt = 'You are an expert SEO content writer. Always respond with valid JSON when requested. Never wrap JSON in markdown code blocks.'
         
         try:
             response = requests.post(
@@ -284,16 +452,19 @@ Write engaging, helpful content that serves the reader while optimizing for sear
                     'Content-Type': 'application/json'
                 },
                 json={
-                    'model': self.default_model,
+                    'model': model or self.default_model,
                     'messages': [
-                        {'role': 'system', 'content': 'You are an expert SEO content writer. Always respond with valid JSON when requested.'},
+                        {'role': 'system', 'content': system_prompt},
                         {'role': 'user', 'content': prompt}
                     ],
                     'max_tokens': max_tokens,
-                    'temperature': 0.7
+                    'temperature': temperature
                 },
                 timeout=120
             )
+            
+            if response.status_code == 429:
+                return {'error': 'Rate limit exceeded (429)'}
             
             response.raise_for_status()
             data = response.json()
@@ -303,15 +474,35 @@ Write engaging, helpful content that serves the reader while optimizing for sear
                 'usage': data.get('usage', {})
             }
             
+        except requests.exceptions.Timeout:
+            return {'error': 'Request timed out after 120 seconds'}
         except requests.RequestException as e:
-            return {'error': f'OpenAI API error: {str(e)}'}
+            error_detail = str(e)
+            if hasattr(e, 'response') and e.response is not None:
+                try:
+                    error_detail = e.response.json().get('error', {}).get('message', str(e))
+                except:
+                    error_detail = e.response.text[:200]
+            return {'error': f'OpenAI API error: {error_detail}'}
     
-    def _call_anthropic(self, prompt: str, max_tokens: int = 2000) -> Dict[str, Any]:
+    def _call_anthropic(self, prompt: str, max_tokens: int = 2000, system_prompt: str = None, model: str = None, temperature: float = 0.7) -> Dict[str, Any]:
         """Call Anthropic Claude API (fallback)"""
         if not self.anthropic_key:
             return {'error': 'Anthropic API key not configured'}
         
         try:
+            payload = {
+                'model': model or 'claude-3-sonnet-20240229',
+                'max_tokens': max_tokens,
+                'messages': [
+                    {'role': 'user', 'content': prompt}
+                ]
+            }
+            
+            # Add system prompt if provided
+            if system_prompt:
+                payload['system'] = system_prompt
+            
             response = requests.post(
                 'https://api.anthropic.com/v1/messages',
                 headers={
@@ -319,13 +510,7 @@ Write engaging, helpful content that serves the reader while optimizing for sear
                     'Content-Type': 'application/json',
                     'anthropic-version': '2023-06-01'
                 },
-                json={
-                    'model': 'claude-3-sonnet-20240229',
-                    'max_tokens': max_tokens,
-                    'messages': [
-                        {'role': 'user', 'content': prompt}
-                    ]
-                },
+                json=payload,
                 timeout=120
             )
             
@@ -339,3 +524,71 @@ Write engaging, helpful content that serves the reader while optimizing for sear
             
         except requests.RequestException as e:
             return {'error': f'Anthropic API error: {str(e)}'}
+    
+    def generate_with_agent(
+        self,
+        agent_name: str,
+        user_input: str,
+        variables: Dict[str, str] = None
+    ) -> Dict[str, Any]:
+        """
+        Generate content using a configured agent
+        
+        Args:
+            agent_name: Name of the agent to use (e.g., 'content_writer', 'review_responder')
+            user_input: The user prompt/input
+            variables: Variables to substitute in the system prompt
+            
+        Returns:
+            {content: str, usage: dict} or {error: str}
+        """
+        from app.services.agent_service import agent_service
+        
+        agent = agent_service.get_agent(agent_name)
+        if not agent:
+            logger.warning(f"Agent '{agent_name}' not found, using default behavior")
+            return self._call_openai(user_input, max_tokens=2000)
+        
+        # Get system prompt with variable substitution
+        system_prompt = agent.system_prompt
+        if variables:
+            for key, value in variables.items():
+                system_prompt = system_prompt.replace(f'{{{key}}}', str(value))
+        
+        logger.info(f"Using agent '{agent_name}' with model {agent.model}")
+        
+        # Determine which API to call based on model
+        model_lower = agent.model.lower()
+        if 'claude' in model_lower or 'anthropic' in model_lower:
+            return self._call_anthropic(
+                prompt=user_input,
+                max_tokens=agent.max_tokens,
+                system_prompt=system_prompt,
+                model=agent.model,
+                temperature=agent.temperature
+            )
+        else:
+            return self._call_openai(
+                prompt=user_input,
+                max_tokens=agent.max_tokens,
+                system_prompt=system_prompt,
+                model=agent.model,
+                temperature=agent.temperature
+            )
+    
+    def generate_raw(self, prompt: str, max_tokens: int = 2000) -> str:
+        """Generate raw text response (for simple prompts)"""
+        self._rate_limit_delay()
+        result = self._call_openai(prompt, max_tokens)
+        return result.get('content', '')
+    
+    def generate_raw_with_agent(
+        self,
+        agent_name: str,
+        user_input: str,
+        variables: Dict[str, str] = None
+    ) -> str:
+        """Generate raw text using an agent (convenience method)"""
+        self._rate_limit_delay()
+        result = self.generate_with_agent(agent_name, user_input, variables)
+        return result.get('content', '')

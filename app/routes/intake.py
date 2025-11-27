@@ -40,11 +40,14 @@ def analyze_transcript(current_user):
     transcript = data['transcript']
     industry_hint = data.get('industry_hint', '')
     
-    # Build extraction prompt
-    prompt = _build_extraction_prompt(transcript, industry_hint)
+    # Build user input for the agent
+    user_input = _build_extraction_prompt(transcript, industry_hint)
     
-    # Call AI for extraction
-    result = ai_service._call_openai(prompt, max_tokens=3000)
+    # Try to use intake_analyzer agent
+    result = ai_service.generate_with_agent(
+        agent_name='intake_analyzer',
+        user_input=user_input
+    )
     
     if result.get('error'):
         return jsonify({'error': result['error']}), 500
@@ -741,4 +744,283 @@ def _infer_location(keywords: list) -> str:
                         return f"{city}, {abbrev}"
     
     return ''
+
+
+# ==========================================
+# NEW KEYWORD-DRIVEN INTAKE ROUTES
+# ==========================================
+
+@intake_bp.route('/keyword-research', methods=['POST'])
+@token_required
+def keyword_research(current_user):
+    """
+    Research keywords with SEMRush and return validated data
+    
+    POST /api/intake/keyword-research
+    {
+        "keywords": ["roof repair", "new roof", "storm damage"],
+        "location": "Sarasota, FL",
+        "include_variations": true,
+        "include_questions": true
+    }
+    
+    Returns keyword data with volume, difficulty, CPC
+    """
+    if not current_user.can_generate_content:
+        return jsonify({'error': 'Permission denied'}), 403
+    
+    data = request.get_json()
+    keywords = data.get('keywords', [])
+    location = data.get('location', '')
+    include_variations = data.get('include_variations', True)
+    include_questions = data.get('include_questions', True)
+    
+    if not keywords:
+        return jsonify({'error': 'keywords list is required'}), 400
+    
+    results = {
+        'keywords': [],
+        'variations': [],
+        'questions': [],
+        'semrush_configured': semrush_service.is_configured()
+    }
+    
+    if not semrush_service.is_configured():
+        # Return keywords without SEMRush data
+        results['keywords'] = [
+            {
+                'keyword': kw,
+                'volume': None,
+                'difficulty': None,
+                'cpc': None,
+                'source': 'user_input'
+            }
+            for kw in keywords
+        ]
+        results['warning'] = 'SEMRush API not configured - showing keywords without metrics'
+        return jsonify(results)
+    
+    # Research each keyword with SEMRush
+    for kw in keywords[:10]:  # Limit to 10 to save API units
+        try:
+            # Get keyword overview
+            kw_with_location = f"{kw} {location}".strip() if location else kw
+            
+            research = semrush_service.keyword_research_package(kw, location)
+            
+            if not research.get('error'):
+                # Add seed keyword metrics
+                seed = research.get('seed_metrics', {})
+                results['keywords'].append({
+                    'keyword': kw_with_location if location else kw,
+                    'volume': seed.get('volume', 0),
+                    'difficulty': seed.get('difficulty', 0),
+                    'cpc': seed.get('cpc', 0),
+                    'trend': seed.get('trend', []),
+                    'source': 'semrush'
+                })
+                
+                # Add variations
+                if include_variations:
+                    for var in research.get('variations', [])[:5]:
+                        results['variations'].append({
+                            'keyword': var.get('keyword', ''),
+                            'volume': var.get('volume', 0),
+                            'difficulty': var.get('difficulty', 0),
+                            'cpc': var.get('cpc', 0),
+                            'source': 'variation'
+                        })
+                
+                # Add questions
+                if include_questions:
+                    for q in research.get('questions', [])[:3]:
+                        results['questions'].append({
+                            'keyword': q.get('keyword', ''),
+                            'volume': q.get('volume', 0),
+                            'difficulty': q.get('difficulty', 0),
+                            'cpc': q.get('cpc', 0),
+                            'source': 'question'
+                        })
+                
+                # Add opportunities (low competition / high volume)
+                for opp in research.get('opportunities', [])[:3]:
+                    results['variations'].append({
+                        'keyword': opp.get('keyword', ''),
+                        'volume': opp.get('volume', 0),
+                        'difficulty': opp.get('difficulty', 0),
+                        'cpc': opp.get('cpc', 0),
+                        'source': 'opportunity'
+                    })
+            else:
+                # Add without metrics
+                results['keywords'].append({
+                    'keyword': kw,
+                    'volume': None,
+                    'difficulty': None,
+                    'cpc': None,
+                    'source': 'user_input',
+                    'error': research.get('error')
+                })
+                
+        except Exception as e:
+            results['keywords'].append({
+                'keyword': kw,
+                'volume': None,
+                'difficulty': None,
+                'cpc': None,
+                'source': 'user_input',
+                'error': str(e)
+            })
+    
+    return jsonify(results)
+
+
+@intake_bp.route('/competitor-gaps', methods=['POST'])
+@token_required
+def competitor_gaps(current_user):
+    """
+    Find keyword gaps between competitor and client domains
+    
+    POST /api/intake/competitor-gaps
+    {
+        "competitor_domain": "competitor.com",
+        "client_domain": "client.com",
+        "location": "Sarasota, FL"
+    }
+    
+    Returns keywords competitor ranks for that client doesn't
+    """
+    if not current_user.can_generate_content:
+        return jsonify({'error': 'Permission denied'}), 403
+    
+    data = request.get_json()
+    competitor_domain = data.get('competitor_domain', '').strip()
+    client_domain = data.get('client_domain', '').strip()
+    location = data.get('location', '')
+    
+    if not competitor_domain:
+        return jsonify({'error': 'competitor_domain is required'}), 400
+    
+    # Clean domains
+    competitor_domain = competitor_domain.replace('https://', '').replace('http://', '').replace('www.', '').split('/')[0]
+    if client_domain:
+        client_domain = client_domain.replace('https://', '').replace('http://', '').replace('www.', '').split('/')[0]
+    
+    results = {
+        'competitor': competitor_domain,
+        'client': client_domain,
+        'gaps': [],
+        'semrush_configured': semrush_service.is_configured()
+    }
+    
+    if not semrush_service.is_configured():
+        results['error'] = 'SEMRush API not configured'
+        return jsonify(results)
+    
+    try:
+        # Get competitor's organic keywords
+        competitor_keywords = semrush_service.get_domain_organic_keywords(competitor_domain, limit=50)
+        
+        if competitor_keywords.get('error'):
+            results['error'] = competitor_keywords['error']
+            return jsonify(results)
+        
+        competitor_kws = competitor_keywords.get('keywords', [])
+        
+        # If we have client domain, find true gaps
+        client_kws_set = set()
+        if client_domain:
+            client_keywords = semrush_service.get_domain_organic_keywords(client_domain, limit=100)
+            if not client_keywords.get('error'):
+                client_kws_set = {k['keyword'].lower() for k in client_keywords.get('keywords', [])}
+        
+        # Find gaps - keywords competitor has that client doesn't
+        for kw in competitor_kws:
+            kw_lower = kw.get('keyword', '').lower()
+            
+            # Skip if client already ranks
+            if kw_lower in client_kws_set:
+                continue
+            
+            # Skip very generic or branded terms
+            if len(kw_lower) < 5:
+                continue
+            
+            results['gaps'].append({
+                'keyword': kw.get('keyword', ''),
+                'volume': kw.get('volume', 0),
+                'difficulty': kw.get('difficulty', 0),
+                'cpc': kw.get('cpc', 0),
+                'competitor_position': kw.get('position', 0),
+                'source': 'competitor_gap'
+            })
+        
+        # Sort by volume
+        results['gaps'].sort(key=lambda x: x.get('volume', 0), reverse=True)
+        
+        # Limit results
+        results['gaps'] = results['gaps'][:25]
+        
+    except Exception as e:
+        results['error'] = str(e)
+    
+    return jsonify(results)
+
+
+@intake_bp.route('/quick-setup', methods=['POST'])
+@token_required
+def quick_setup(current_user):
+    """
+    Quick client setup - create client with keywords, no content generation
+    
+    POST /api/intake/quick-setup
+    {
+        "business_name": "ABC Roofing",
+        "industry": "roofing",
+        "geo": "Sarasota, FL",
+        "website": "https://abcroofing.com",
+        "phone": "941-555-1234",
+        "email": "info@abcroofing.com",
+        "service_areas": ["Sarasota", "Bradenton"],
+        "usps": ["24/7 service", "licensed"],
+        "primary_keywords": ["roof repair sarasota", "new roof sarasota"],
+        "secondary_keywords": ["storm damage repair", "emergency roofer"]
+    }
+    
+    Returns created client without generating content
+    """
+    if not current_user.can_generate_content:
+        return jsonify({'error': 'Permission denied'}), 403
+    
+    data = request.get_json()
+    
+    # Validate required fields
+    required = ['business_name', 'industry', 'geo']
+    for field in required:
+        if not data.get(field):
+            return jsonify({'error': f'{field} is required'}), 400
+    
+    # Create client
+    client = DBClient(
+        business_name=data['business_name'],
+        industry=data['industry'],
+        geo=data['geo'],
+        website_url=data.get('website'),
+        phone=data.get('phone'),
+        email=data.get('email'),
+        service_areas=data.get('service_areas', []),
+        primary_keywords=data.get('primary_keywords', []),
+        secondary_keywords=data.get('secondary_keywords', []),
+        tone=data.get('tone', 'professional'),
+        unique_selling_points=data.get('usps', [])
+    )
+    
+    data_service.save_client(client)
+    
+    return jsonify({
+        'success': True,
+        'client': client.to_dict(),
+        'message': f'Client "{client.business_name}" created successfully'
+    })
+
 

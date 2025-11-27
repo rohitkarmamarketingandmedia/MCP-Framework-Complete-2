@@ -1,0 +1,988 @@
+"""
+MCP Framework - Monitoring Routes
+Competitor tracking, rank checking, content queue management
+"""
+from flask import Blueprint, request, jsonify, current_app
+from datetime import datetime, timedelta
+
+from app.routes.auth import token_required, admin_required
+from app.database import db
+from app.models.db_models import (
+    DBClient, DBCompetitor, DBCompetitorPage, DBRankHistory,
+    DBContentQueue, DBAlert, DBBlogPost, ContentStatus
+)
+from app.services.competitor_monitoring_service import competitor_monitoring_service
+from app.services.seo_scoring_engine import seo_scoring_engine
+from app.services.rank_tracking_service import rank_tracking_service
+from app.services.ai_service import AIService
+
+monitoring_bp = Blueprint('monitoring', __name__)
+ai_service = AIService()
+
+
+# ==========================================
+# COMPETITOR MANAGEMENT
+# ==========================================
+
+@monitoring_bp.route('/competitors', methods=['GET'])
+@token_required
+def list_competitors(current_user):
+    """List all competitors for a client"""
+    client_id = request.args.get('client_id')
+    
+    if not client_id:
+        return jsonify({'error': 'client_id required'}), 400
+    
+    if not current_user.has_access_to_client(client_id):
+        return jsonify({'error': 'Access denied'}), 403
+    
+    competitors = DBCompetitor.query.filter_by(
+        client_id=client_id,
+        is_active=True
+    ).all()
+    
+    return jsonify({
+        'client_id': client_id,
+        'competitors': [c.to_dict() for c in competitors]
+    })
+
+
+@monitoring_bp.route('/competitors', methods=['POST'])
+@token_required
+def add_competitor(current_user):
+    """
+    Add a competitor to monitor
+    
+    POST /api/monitoring/competitors
+    {
+        "client_id": "client_abc123",
+        "domain": "competitor.com",
+        "name": "Main Competitor"
+    }
+    """
+    data = request.get_json()
+    
+    client_id = data.get('client_id')
+    domain = data.get('domain', '').strip()
+    
+    if not client_id or not domain:
+        return jsonify({'error': 'client_id and domain required'}), 400
+    
+    if not current_user.has_access_to_client(client_id):
+        return jsonify({'error': 'Access denied'}), 403
+    
+    # Check limit (max 10 competitors per client)
+    existing_count = DBCompetitor.query.filter_by(
+        client_id=client_id,
+        is_active=True
+    ).count()
+    
+    if existing_count >= 10:
+        return jsonify({'error': 'Maximum 10 competitors per client'}), 400
+    
+    # Create competitor
+    competitor = DBCompetitor(
+        client_id=client_id,
+        domain=domain,
+        name=data.get('name', domain),
+        crawl_frequency=data.get('crawl_frequency', 'daily')
+    )
+    
+    # Set next crawl time
+    competitor.next_crawl_at = datetime.utcnow()
+    
+    db.session.add(competitor)
+    db.session.commit()
+    
+    return jsonify({
+        'message': 'Competitor added',
+        'competitor': competitor.to_dict()
+    })
+
+
+@monitoring_bp.route('/competitors/<competitor_id>', methods=['DELETE'])
+@token_required
+def remove_competitor(current_user, competitor_id):
+    """Remove a competitor from monitoring"""
+    competitor = DBCompetitor.query.get(competitor_id)
+    
+    if not competitor:
+        return jsonify({'error': 'Competitor not found'}), 404
+    
+    if not current_user.has_access_to_client(competitor.client_id):
+        return jsonify({'error': 'Access denied'}), 403
+    
+    competitor.is_active = False
+    db.session.commit()
+    
+    return jsonify({'message': 'Competitor removed'})
+
+
+@monitoring_bp.route('/competitors/<competitor_id>/crawl', methods=['POST'])
+@token_required
+def crawl_competitor(current_user, competitor_id):
+    """
+    Manually trigger a crawl of a competitor
+    Returns new pages detected
+    """
+    competitor = DBCompetitor.query.get(competitor_id)
+    
+    if not competitor:
+        return jsonify({'error': 'Competitor not found'}), 404
+    
+    if not current_user.has_access_to_client(competitor.client_id):
+        return jsonify({'error': 'Access denied'}), 403
+    
+    # Get known pages
+    known_pages = DBCompetitorPage.query.filter_by(
+        competitor_id=competitor_id
+    ).all()
+    
+    known_page_data = [{'url': p.url, 'lastmod': None} for p in known_pages]
+    
+    # Crawl for new content
+    new_pages, updated_pages = competitor_monitoring_service.detect_new_content(
+        competitor.domain,
+        known_page_data,
+        competitor.last_crawl_at
+    )
+    
+    # Save new pages
+    saved_pages = []
+    for page_data in new_pages:
+        # Extract content
+        content = competitor_monitoring_service.extract_page_content(page_data['url'])
+        
+        if content.get('error'):
+            continue
+        
+        # Check if it's a content page worth tracking
+        if content.get('word_count', 0) < 300:
+            continue
+        
+        # Save to database
+        page = DBCompetitorPage(
+            competitor_id=competitor_id,
+            client_id=competitor.client_id,
+            url=page_data['url'],
+            title=content.get('title', ''),
+            content_hash=content.get('content_hash', ''),
+            word_count=content.get('word_count', 0),
+            h1=content.get('h1', ''),
+            meta_description=content.get('meta_description', '')
+        )
+        
+        db.session.add(page)
+        saved_pages.append(page)
+        
+        # Create alert
+        alert = DBAlert(
+            client_id=competitor.client_id,
+            alert_type='new_competitor_content',
+            title=f'New content from {competitor.name}',
+            message=f'"{content.get("title", "Untitled")}" ({content.get("word_count", 0)} words)',
+            related_competitor_id=competitor_id,
+            related_page_id=page.id,
+            priority='high'
+        )
+        db.session.add(alert)
+    
+    # Update competitor stats
+    competitor.last_crawl_at = datetime.utcnow()
+    competitor.next_crawl_at = datetime.utcnow() + timedelta(days=1)
+    competitor.known_pages_count = len(known_pages) + len(saved_pages)
+    competitor.new_pages_detected += len(saved_pages)
+    
+    db.session.commit()
+    
+    return jsonify({
+        'competitor': competitor.to_dict(),
+        'new_pages_found': len(saved_pages),
+        'pages': [p.to_dict() for p in saved_pages]
+    })
+
+
+@monitoring_bp.route('/competitors/<competitor_id>/pages', methods=['GET'])
+@token_required
+def get_competitor_pages(current_user, competitor_id):
+    """Get all pages discovered from a competitor"""
+    competitor = DBCompetitor.query.get(competitor_id)
+    
+    if not competitor:
+        return jsonify({'error': 'Competitor not found'}), 404
+    
+    if not current_user.has_access_to_client(competitor.client_id):
+        return jsonify({'error': 'Access denied'}), 403
+    
+    pages = DBCompetitorPage.query.filter_by(
+        competitor_id=competitor_id
+    ).order_by(DBCompetitorPage.discovered_at.desc()).limit(50).all()
+    
+    return jsonify({
+        'competitor': competitor.to_dict(),
+        'pages': [p.to_dict() for p in pages]
+    })
+
+
+# ==========================================
+# AUTO CONTENT GENERATION
+# ==========================================
+
+@monitoring_bp.route('/counter-content', methods=['POST'])
+@token_required
+def generate_counter_content(current_user):
+    """
+    Generate content to beat a competitor page
+    
+    POST /api/monitoring/counter-content
+    {
+        "competitor_page_id": "cpage_abc123",
+        "target_keyword": "roof repair sarasota"  // Optional override
+    }
+    """
+    data = request.get_json()
+    
+    page_id = data.get('competitor_page_id')
+    
+    if not page_id:
+        return jsonify({'error': 'competitor_page_id required'}), 400
+    
+    # Get competitor page
+    comp_page = DBCompetitorPage.query.get(page_id)
+    if not comp_page:
+        return jsonify({'error': 'Competitor page not found'}), 404
+    
+    if not current_user.has_access_to_client(comp_page.client_id):
+        return jsonify({'error': 'Access denied'}), 403
+    
+    # Get client
+    client = DBClient.query.get(comp_page.client_id)
+    if not client:
+        return jsonify({'error': 'Client not found'}), 404
+    
+    # Extract competitor content
+    comp_content = competitor_monitoring_service.extract_page_content(comp_page.url)
+    
+    if comp_content.get('error'):
+        return jsonify({'error': f'Could not fetch competitor content: {comp_content["error"]}'}), 400
+    
+    # Analyze competitor content
+    analysis = competitor_monitoring_service.analyze_competitor_content(comp_content)
+    
+    # Determine target keyword
+    target_keyword = data.get('target_keyword') or comp_page.h1 or comp_page.title
+    # Clean up keyword
+    target_keyword = target_keyword.split('|')[0].split('-')[0].strip()[:50]
+    
+    # Score competitor content
+    comp_score = seo_scoring_engine.score_content(
+        {
+            'title': comp_content.get('title', ''),
+            'meta_description': comp_content.get('meta_description', ''),
+            'h1': comp_content.get('h1', ''),
+            'body': '',
+            'body_text': comp_content.get('body_text', '')
+        },
+        target_keyword,
+        client.geo
+    )
+    
+    # Generate superior content
+    result = ai_service.generate_blog_post(
+        keyword=target_keyword,
+        geo=client.geo,
+        industry=client.industry,
+        word_count=analysis['recommended_word_count'],
+        tone=client.tone or 'professional',
+        business_name=client.business_name,
+        include_faq=True,
+        faq_count=5,
+        internal_links=client.get_service_pages() if hasattr(client, 'get_service_pages') else [],
+        usps=client.get_unique_selling_points() if hasattr(client, 'get_unique_selling_points') else []
+    )
+    
+    if result.get('error'):
+        return jsonify({'error': f'Content generation failed: {result["error"]}'}), 500
+    
+    # Score our content
+    our_score = seo_scoring_engine.score_content(
+        {
+            'title': result.get('title', ''),
+            'meta_title': result.get('meta_title', ''),
+            'meta_description': result.get('meta_description', ''),
+            'h1': result.get('h1', ''),
+            'body': result.get('body', ''),
+            'body_text': result.get('body', '')
+        },
+        target_keyword,
+        client.geo
+    )
+    
+    # Add to content queue
+    queued_content = DBContentQueue(
+        client_id=client.id,
+        trigger_type='competitor_post',
+        trigger_competitor_id=comp_page.competitor_id,
+        trigger_competitor_page_id=comp_page.id,
+        trigger_keyword=target_keyword,
+        title=result.get('title', ''),
+        body=result.get('body', ''),
+        meta_title=result.get('meta_title', ''),
+        meta_description=result.get('meta_description', ''),
+        primary_keyword=target_keyword,
+        word_count=len(result.get('body', '').split()),
+        our_seo_score=our_score['total_score'],
+        competitor_seo_score=comp_score['total_score']
+    )
+    
+    db.session.add(queued_content)
+    
+    # Mark competitor page as countered
+    comp_page.was_countered = True
+    comp_page.is_new = False
+    
+    # Create alert
+    alert = DBAlert(
+        client_id=client.id,
+        alert_type='content_ready',
+        title='Counter-content ready for review',
+        message=f'"{result.get("title", "")}" - Score: {our_score["total_score"]} vs {comp_score["total_score"]}',
+        related_competitor_id=comp_page.competitor_id,
+        related_page_id=comp_page.id,
+        related_content_id=queued_content.id,
+        related_keyword=target_keyword,
+        priority='high'
+    )
+    db.session.add(alert)
+    
+    db.session.commit()
+    
+    return jsonify({
+        'success': True,
+        'queued_content': queued_content.to_dict(),
+        'comparison': {
+            'our_score': our_score['total_score'],
+            'our_grade': our_score['grade'],
+            'competitor_score': comp_score['total_score'],
+            'competitor_grade': comp_score['grade'],
+            'our_word_count': queued_content.word_count,
+            'competitor_word_count': comp_content.get('word_count', 0),
+            'we_win': our_score['total_score'] > comp_score['total_score']
+        }
+    })
+
+
+# ==========================================
+# CONTENT QUEUE
+# ==========================================
+
+@monitoring_bp.route('/queue', methods=['GET'])
+@token_required
+def get_content_queue(current_user):
+    """Get pending content queue for a client"""
+    client_id = request.args.get('client_id')
+    status = request.args.get('status', 'pending')
+    
+    if not client_id:
+        return jsonify({'error': 'client_id required'}), 400
+    
+    if not current_user.has_access_to_client(client_id):
+        return jsonify({'error': 'Access denied'}), 403
+    
+    query = DBContentQueue.query.filter_by(client_id=client_id)
+    
+    if status != 'all':
+        query = query.filter_by(status=status)
+    
+    items = query.order_by(DBContentQueue.created_at.desc()).limit(50).all()
+    
+    return jsonify({
+        'client_id': client_id,
+        'queue': [item.to_dict() for item in items]
+    })
+
+
+@monitoring_bp.route('/queue/<item_id>', methods=['GET'])
+@token_required
+def get_queue_item(current_user, item_id):
+    """Get full content for a queue item"""
+    item = DBContentQueue.query.get(item_id)
+    
+    if not item:
+        return jsonify({'error': 'Item not found'}), 404
+    
+    if not current_user.has_access_to_client(item.client_id):
+        return jsonify({'error': 'Access denied'}), 403
+    
+    result = item.to_dict()
+    result['body'] = item.body  # Include full body
+    
+    # Get competitor page info if available
+    if item.trigger_competitor_page_id:
+        comp_page = DBCompetitorPage.query.get(item.trigger_competitor_page_id)
+        if comp_page:
+            result['competitor_page'] = comp_page.to_dict()
+    
+    return jsonify(result)
+
+
+@monitoring_bp.route('/queue/<item_id>/approve', methods=['POST'])
+@token_required
+def approve_queue_item(current_user, item_id):
+    """
+    Approve queued content → creates blog post
+    
+    POST /api/monitoring/queue/{id}/approve
+    {
+        "publish_immediately": false  // Optional
+    }
+    """
+    item = DBContentQueue.query.get(item_id)
+    
+    if not item:
+        return jsonify({'error': 'Item not found'}), 404
+    
+    if not current_user.has_access_to_client(item.client_id):
+        return jsonify({'error': 'Access denied'}), 403
+    
+    if item.status != 'pending':
+        return jsonify({'error': f'Item is already {item.status}'}), 400
+    
+    data = request.get_json() or {}
+    
+    # Create blog post
+    blog_post = DBBlogPost(
+        client_id=item.client_id,
+        title=item.title,
+        body=item.body,
+        meta_title=item.meta_title,
+        meta_description=item.meta_description,
+        primary_keyword=item.primary_keyword,
+        secondary_keywords=[],
+        faq_content=[],
+        word_count=item.word_count,
+        status=ContentStatus.APPROVED
+    )
+    
+    db.session.add(blog_post)
+    
+    # Update queue item
+    item.status = 'approved'
+    item.approved_by = current_user.id
+    item.approved_at = datetime.utcnow()
+    item.published_blog_id = blog_post.id
+    
+    # Update competitor page
+    if item.trigger_competitor_page_id:
+        comp_page = DBCompetitorPage.query.get(item.trigger_competitor_page_id)
+        if comp_page:
+            comp_page.counter_content_id = blog_post.id
+    
+    db.session.commit()
+    
+    return jsonify({
+        'message': 'Content approved',
+        'blog_post': blog_post.to_dict()
+    })
+
+
+@monitoring_bp.route('/queue/<item_id>/reject', methods=['POST'])
+@token_required
+def reject_queue_item(current_user, item_id):
+    """Reject queued content"""
+    item = DBContentQueue.query.get(item_id)
+    
+    if not item:
+        return jsonify({'error': 'Item not found'}), 404
+    
+    if not current_user.has_access_to_client(item.client_id):
+        return jsonify({'error': 'Access denied'}), 403
+    
+    data = request.get_json() or {}
+    
+    item.status = 'rejected'
+    item.client_notes = data.get('notes', '')
+    
+    db.session.commit()
+    
+    return jsonify({'message': 'Content rejected'})
+
+
+@monitoring_bp.route('/queue/<item_id>/publish', methods=['POST'])
+@token_required
+def publish_queue_item(current_user, item_id):
+    """
+    Publish approved content to WordPress
+    
+    POST /api/monitoring/queue/{id}/publish
+    """
+    from app.services.wordpress_service import get_wordpress_manager
+    
+    item = DBContentQueue.query.get(item_id)
+    
+    if not item:
+        return jsonify({'error': 'Item not found'}), 404
+    
+    if not current_user.has_access_to_client(item.client_id):
+        return jsonify({'error': 'Access denied'}), 403
+    
+    if item.status != 'approved':
+        return jsonify({'error': 'Content must be approved before publishing'}), 400
+    
+    # Get client's WordPress config
+    client = DBClient.query.get(item.client_id)
+    if not client:
+        return jsonify({'error': 'Client not found'}), 404
+    
+    if not client.wordpress_url:
+        return jsonify({'error': 'WordPress not configured for this client. Add WordPress URL and credentials in client settings.'}), 400
+    
+    # Publish
+    wp_manager = get_wordpress_manager()
+    result = wp_manager.publish_content(item.client_id, item.id)
+    
+    if result.get('success'):
+        return jsonify({
+            'message': 'Published to WordPress',
+            'url': result.get('url'),
+            'post_id': result.get('post_id')
+        })
+    else:
+        return jsonify({'error': result.get('error', 'Publishing failed')}), 500
+
+
+@monitoring_bp.route('/queue/<item_id>/regenerate', methods=['POST'])
+@token_required
+def regenerate_queue_item(current_user, item_id):
+    """
+    Regenerate content with notes
+    
+    POST /api/monitoring/queue/{id}/regenerate
+    {
+        "notes": "Make it more conversational, add more local references"
+    }
+    """
+    item = DBContentQueue.query.get(item_id)
+    
+    if not item:
+        return jsonify({'error': 'Item not found'}), 404
+    
+    if not current_user.has_access_to_client(item.client_id):
+        return jsonify({'error': 'Access denied'}), 403
+    
+    if item.regenerate_count >= 3:
+        return jsonify({'error': 'Maximum regeneration limit reached'}), 400
+    
+    data = request.get_json() or {}
+    notes = data.get('notes', '')
+    
+    # Get client
+    client = DBClient.query.get(item.client_id)
+    
+    # Regenerate with notes incorporated into prompt
+    result = ai_service.generate_blog_post(
+        keyword=item.primary_keyword,
+        geo=client.geo,
+        industry=client.industry,
+        word_count=max(item.word_count, 1200),
+        tone=client.tone or 'professional',
+        business_name=client.business_name,
+        include_faq=True,
+        faq_count=5,
+        usps=client.get_unique_selling_points() if hasattr(client, 'get_unique_selling_points') else []
+        # Note: In production, pass notes to AI prompt
+    )
+    
+    if result.get('error'):
+        return jsonify({'error': f'Regeneration failed: {result["error"]}'}), 500
+    
+    # Score new content
+    our_score = seo_scoring_engine.score_content(
+        {
+            'title': result.get('title', ''),
+            'meta_title': result.get('meta_title', ''),
+            'meta_description': result.get('meta_description', ''),
+            'h1': result.get('h1', ''),
+            'body': result.get('body', ''),
+            'body_text': result.get('body', '')
+        },
+        item.primary_keyword,
+        client.geo
+    )
+    
+    # Update item
+    item.title = result.get('title', '')
+    item.body = result.get('body', '')
+    item.meta_title = result.get('meta_title', '')
+    item.meta_description = result.get('meta_description', '')
+    item.word_count = len(result.get('body', '').split())
+    item.our_seo_score = our_score['total_score']
+    item.client_notes = notes
+    item.regenerate_count += 1
+    item.status = 'pending'
+    
+    db.session.commit()
+    
+    return jsonify({
+        'message': 'Content regenerated',
+        'queued_content': item.to_dict(),
+        'new_score': our_score['total_score']
+    })
+
+
+# ==========================================
+# RANK TRACKING
+# ==========================================
+
+@monitoring_bp.route('/rankings', methods=['GET'])
+@token_required
+def get_rankings(current_user):
+    """Get current rankings for a client"""
+    client_id = request.args.get('client_id')
+    
+    if not client_id:
+        return jsonify({'error': 'client_id required'}), 400
+    
+    if not current_user.has_access_to_client(client_id):
+        return jsonify({'error': 'Access denied'}), 403
+    
+    client = DBClient.query.get(client_id)
+    if not client:
+        return jsonify({'error': 'Client not found'}), 404
+    
+    # Get keywords to track
+    keywords = client.get_primary_keywords() + client.get_secondary_keywords()
+    
+    if not keywords:
+        return jsonify({'error': 'No keywords configured for client'}), 400
+    
+    # Check rankings
+    result = rank_tracking_service.check_all_keywords(
+        client.website_url or client.business_name,
+        keywords[:50]  # Limit to 50 keywords
+    )
+    
+    if result.get('error'):
+        return jsonify({'error': result['error']}), 500
+    
+    # Save to history
+    for kw_data in result.get('keywords', []):
+        history = DBRankHistory(
+            client_id=client_id,
+            keyword=kw_data['keyword'],
+            position=kw_data.get('position'),
+            previous_position=kw_data.get('previous_position'),
+            change=kw_data.get('change', 0),
+            url=kw_data.get('url', ''),
+            search_volume=kw_data.get('search_volume', 0),
+            cpc=kw_data.get('cpc', 0.0)
+        )
+        db.session.add(history)
+    
+    db.session.commit()
+    
+    # Calculate traffic value
+    traffic_value = rank_tracking_service.calculate_traffic_value(result.get('keywords', []))
+    
+    result['traffic_value'] = traffic_value
+    
+    return jsonify(result)
+
+
+@monitoring_bp.route('/rankings/history', methods=['GET'])
+@token_required
+def get_ranking_history(current_user):
+    """Get ranking history for a client"""
+    client_id = request.args.get('client_id')
+    days = int(request.args.get('days', 30))
+    
+    if not client_id:
+        return jsonify({'error': 'client_id required'}), 400
+    
+    if not current_user.has_access_to_client(client_id):
+        return jsonify({'error': 'Access denied'}), 403
+    
+    since = datetime.utcnow() - timedelta(days=days)
+    
+    history = DBRankHistory.query.filter(
+        DBRankHistory.client_id == client_id,
+        DBRankHistory.checked_at >= since
+    ).order_by(DBRankHistory.checked_at.desc()).all()
+    
+    return jsonify({
+        'client_id': client_id,
+        'days': days,
+        'history': [h.to_dict() for h in history]
+    })
+
+
+@monitoring_bp.route('/rankings/heatmap', methods=['GET'])
+@token_required
+def get_ranking_heatmap(current_user):
+    """Get heatmap data for rankings dashboard"""
+    client_id = request.args.get('client_id')
+    
+    if not client_id:
+        return jsonify({'error': 'client_id required'}), 400
+    
+    if not current_user.has_access_to_client(client_id):
+        return jsonify({'error': 'Access denied'}), 403
+    
+    # Get latest rankings
+    latest = DBRankHistory.query.filter_by(client_id=client_id).order_by(
+        DBRankHistory.checked_at.desc()
+    ).limit(100).all()
+    
+    # Get 7-day ago rankings
+    seven_days_ago = datetime.utcnow() - timedelta(days=7)
+    history_7d = DBRankHistory.query.filter(
+        DBRankHistory.client_id == client_id,
+        DBRankHistory.checked_at <= seven_days_ago,
+        DBRankHistory.checked_at >= seven_days_ago - timedelta(hours=24)
+    ).all()
+    
+    # Get 30-day ago rankings
+    thirty_days_ago = datetime.utcnow() - timedelta(days=30)
+    history_30d = DBRankHistory.query.filter(
+        DBRankHistory.client_id == client_id,
+        DBRankHistory.checked_at <= thirty_days_ago,
+        DBRankHistory.checked_at >= thirty_days_ago - timedelta(hours=24)
+    ).all()
+    
+    # Generate heatmap
+    heatmap = rank_tracking_service.generate_heatmap_data(
+        [h.to_dict() for h in latest],
+        [h.to_dict() for h in history_7d],
+        [h.to_dict() for h in history_30d]
+    )
+    
+    return jsonify({
+        'client_id': client_id,
+        'heatmap': heatmap
+    })
+
+
+# ==========================================
+# ALERTS
+# ==========================================
+
+@monitoring_bp.route('/alerts', methods=['GET'])
+@token_required
+def get_alerts(current_user):
+    """Get alerts for a client"""
+    client_id = request.args.get('client_id')
+    unread_only = request.args.get('unread_only', 'false').lower() == 'true'
+    
+    if not client_id:
+        return jsonify({'error': 'client_id required'}), 400
+    
+    if not current_user.has_access_to_client(client_id):
+        return jsonify({'error': 'Access denied'}), 403
+    
+    query = DBAlert.query.filter_by(client_id=client_id)
+    
+    if unread_only:
+        query = query.filter_by(is_read=False)
+    
+    alerts = query.order_by(DBAlert.created_at.desc()).limit(50).all()
+    
+    return jsonify({
+        'client_id': client_id,
+        'alerts': [a.to_dict() for a in alerts]
+    })
+
+
+@monitoring_bp.route('/alerts/<alert_id>/read', methods=['POST'])
+@token_required
+def mark_alert_read(current_user, alert_id):
+    """Mark an alert as read"""
+    alert = DBAlert.query.get(alert_id)
+    
+    if not alert:
+        return jsonify({'error': 'Alert not found'}), 404
+    
+    if not current_user.has_access_to_client(alert.client_id):
+        return jsonify({'error': 'Access denied'}), 403
+    
+    alert.is_read = True
+    db.session.commit()
+    
+    return jsonify({'message': 'Alert marked as read'})
+
+
+# ==========================================
+# SEO SCORING
+# ==========================================
+
+@monitoring_bp.route('/seo-score', methods=['POST'])
+@token_required
+def score_content(current_user):
+    """
+    Score content against SEO best practices
+    
+    POST /api/monitoring/seo-score
+    {
+        "content": {
+            "title": "...",
+            "meta_title": "...",
+            "meta_description": "...",
+            "h1": "...",
+            "body": "HTML content..."
+        },
+        "target_keyword": "roof repair sarasota",
+        "location": "Sarasota, FL"
+    }
+    """
+    data = request.get_json()
+    
+    content = data.get('content', {})
+    keyword = data.get('target_keyword', '')
+    location = data.get('location', '')
+    
+    if not content or not keyword:
+        return jsonify({'error': 'content and target_keyword required'}), 400
+    
+    score = seo_scoring_engine.score_content(content, keyword, location)
+    
+    return jsonify(score)
+
+
+@monitoring_bp.route('/seo-compare', methods=['POST'])
+@token_required
+def compare_content(current_user):
+    """
+    Compare our content against competitor content
+    
+    POST /api/monitoring/seo-compare
+    {
+        "our_content": {...},
+        "competitor_url": "https://...",
+        "target_keyword": "...",
+        "location": "..."
+    }
+    """
+    data = request.get_json()
+    
+    our_content = data.get('our_content', {})
+    competitor_url = data.get('competitor_url', '')
+    keyword = data.get('target_keyword', '')
+    location = data.get('location', '')
+    
+    if not our_content or not competitor_url or not keyword:
+        return jsonify({'error': 'our_content, competitor_url, and target_keyword required'}), 400
+    
+    # Fetch competitor content
+    comp_extracted = competitor_monitoring_service.extract_page_content(competitor_url)
+    
+    if comp_extracted.get('error'):
+        return jsonify({'error': f'Could not fetch competitor: {comp_extracted["error"]}'}), 400
+    
+    comp_content = {
+        'title': comp_extracted.get('title', ''),
+        'meta_description': comp_extracted.get('meta_description', ''),
+        'h1': comp_extracted.get('h1', ''),
+        'body': '',
+        'body_text': comp_extracted.get('body_text', '')
+    }
+    
+    comparison = seo_scoring_engine.compare_content(
+        our_content,
+        comp_content,
+        keyword,
+        location
+    )
+    
+    return jsonify(comparison)
+
+
+# ==========================================
+# DASHBOARD DATA
+# ==========================================
+
+@monitoring_bp.route('/dashboard', methods=['GET'])
+@token_required
+def get_dashboard_data(current_user):
+    """
+    Get all data needed for the monitoring dashboard
+    
+    GET /api/monitoring/dashboard?client_id=xxx
+    """
+    client_id = request.args.get('client_id')
+    
+    if not client_id:
+        return jsonify({'error': 'client_id required'}), 400
+    
+    if not current_user.has_access_to_client(client_id):
+        return jsonify({'error': 'Access denied'}), 403
+    
+    client = DBClient.query.get(client_id)
+    if not client:
+        return jsonify({'error': 'Client not found'}), 404
+    
+    # Competitors
+    competitors = DBCompetitor.query.filter_by(
+        client_id=client_id,
+        is_active=True
+    ).all()
+    
+    # New competitor pages (last 7 days)
+    seven_days_ago = datetime.utcnow() - timedelta(days=7)
+    new_pages = DBCompetitorPage.query.filter(
+        DBCompetitorPage.client_id == client_id,
+        DBCompetitorPage.discovered_at >= seven_days_ago
+    ).order_by(DBCompetitorPage.discovered_at.desc()).limit(10).all()
+    
+    # Content queue
+    pending_content = DBContentQueue.query.filter_by(
+        client_id=client_id,
+        status='pending'
+    ).count()
+    
+    # Recent alerts
+    alerts = DBAlert.query.filter_by(
+        client_id=client_id,
+        is_read=False
+    ).order_by(DBAlert.created_at.desc()).limit(5).all()
+    
+    # Latest rankings
+    latest_rankings = DBRankHistory.query.filter_by(
+        client_id=client_id
+    ).order_by(DBRankHistory.checked_at.desc()).limit(50).all()
+    
+    # Calculate stats
+    keywords = client.get_primary_keywords() + client.get_secondary_keywords()
+    
+    # Ranking summary
+    ranking_summary = {
+        'total_keywords': len(keywords),
+        'in_top_3': 0,
+        'in_top_10': 0,
+        'improved_7d': 0,
+        'declined_7d': 0
+    }
+    
+    seen_keywords = set()
+    for r in latest_rankings:
+        if r.keyword not in seen_keywords:
+            seen_keywords.add(r.keyword)
+            if r.position:
+                if r.position <= 3:
+                    ranking_summary['in_top_3'] += 1
+                if r.position <= 10:
+                    ranking_summary['in_top_10'] += 1
+    
+    return jsonify({
+        'client': client.to_dict(),
+        'stats': {
+            'competitors_tracked': len(competitors),
+            'new_content_detected': len(new_pages),
+            'content_pending_review': pending_content,
+            'unread_alerts': len(alerts),
+            'keywords_tracked': len(keywords)
+        },
+        'ranking_summary': ranking_summary,
+        'competitors': [c.to_dict() for c in competitors],
+        'new_competitor_pages': [p.to_dict() for p in new_pages],
+        'recent_alerts': [a.to_dict() for a in alerts],
+        'system_status': 'active'
+    })
