@@ -127,6 +127,36 @@
     </style>
 </head>
 <body class="gradient-bg min-h-screen">
+    <!-- Auth Modal -->
+    <div id="authModal" class="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
+        <div class="glass rounded-2xl p-8 w-full max-w-md mx-4 shadow-2xl">
+            <div class="text-center mb-6">
+                <div class="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-700 flex items-center justify-center">
+                    <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                    </svg>
+                </div>
+                <h1 class="text-2xl font-bold text-gray-800 mb-1">Client Intake</h1>
+                <p class="text-gray-500">Karma Marketing + Media</p>
+            </div>
+            <div class="space-y-4">
+                <input type="email" id="loginEmail" 
+                    class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-800 placeholder-gray-400 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200" 
+                    placeholder="Email">
+                <input type="password" id="loginPassword" 
+                    class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-800 placeholder-gray-400 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200" 
+                    placeholder="Password"
+                    onkeypress="if(event.key==='Enter')doLogin()">
+                <button onclick="doLogin()" id="loginBtn" class="w-full py-4 bg-gradient-to-r from-blue-600 to-indigo-700 rounded-xl text-white font-bold text-lg hover:opacity-90 transition">
+                    Sign In
+                </button>
+                <p id="authError" class="text-red-500 text-sm text-center hidden"></p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Dashboard (hidden until login) -->
+    <div id="mainDashboard" class="hidden">
     <div class="container mx-auto px-4 py-6 max-w-6xl">
         
         <!-- Header -->
@@ -142,15 +172,28 @@
         </div>
 
         <!-- Progress Bar -->
+        <!-- Progress Steps with Labels -->
         <div class="flex items-center justify-center mb-8">
             <div class="flex items-center">
-                <div class="step-dot active w-8 h-8 rounded-full bg-gray-600 flex items-center justify-center text-white text-sm font-semibold" id="dot-1">1</div>
-                <div class="step-line w-20 h-1 bg-gray-600 mx-2" id="line-1"></div>
-                <div class="step-dot w-8 h-8 rounded-full bg-gray-600 flex items-center justify-center text-white text-sm font-semibold" id="dot-2">2</div>
-                <div class="step-line w-20 h-1 bg-gray-600 mx-2" id="line-2"></div>
-                <div class="step-dot w-8 h-8 rounded-full bg-gray-600 flex items-center justify-center text-white text-sm font-semibold" id="dot-3">3</div>
-                <div class="step-line w-20 h-1 bg-gray-600 mx-2" id="line-3"></div>
-                <div class="step-dot w-8 h-8 rounded-full bg-gray-600 flex items-center justify-center text-white text-sm font-semibold" id="dot-4">4</div>
+                <div class="flex flex-col items-center">
+                    <div class="step-dot active w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center text-white text-sm font-bold shadow-lg" id="dot-1">1</div>
+                    <span class="text-xs text-gray-500 mt-1 font-medium" id="label-1">Business</span>
+                </div>
+                <div class="step-line w-16 md:w-24 h-1 bg-gray-300 mx-2" id="line-1"></div>
+                <div class="flex flex-col items-center">
+                    <div class="step-dot w-10 h-10 rounded-full bg-gray-300 flex items-center justify-center text-gray-500 text-sm font-bold" id="dot-2">2</div>
+                    <span class="text-xs text-gray-400 mt-1 font-medium" id="label-2">Keywords</span>
+                </div>
+                <div class="step-line w-16 md:w-24 h-1 bg-gray-300 mx-2" id="line-2"></div>
+                <div class="flex flex-col items-center">
+                    <div class="step-dot w-10 h-10 rounded-full bg-gray-300 flex items-center justify-center text-gray-500 text-sm font-bold" id="dot-3">3</div>
+                    <span class="text-xs text-gray-400 mt-1 font-medium" id="label-3">Review</span>
+                </div>
+                <div class="step-line w-16 md:w-24 h-1 bg-gray-300 mx-2" id="line-3"></div>
+                <div class="flex flex-col items-center">
+                    <div class="step-dot w-10 h-10 rounded-full bg-gray-300 flex items-center justify-center text-gray-500 text-sm font-bold" id="dot-4">4</div>
+                    <span class="text-xs text-gray-400 mt-1 font-medium" id="label-4">Launch</span>
+                </div>
             </div>
         </div>
 
@@ -160,8 +203,33 @@
             <!-- ==================== STEP 1: BUSINESS INFO ==================== -->
             <div id="step-1" class="step-content p-8">
                 <div class="max-w-2xl mx-auto">
+                    <!-- Value Header -->
+                    <div class="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 rounded-xl p-6 mb-8">
+                        <div class="flex items-start gap-4">
+                            <div class="w-12 h-12 bg-blue-600 rounded-xl flex items-center justify-center flex-shrink-0">
+                                <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                                </svg>
+                            </div>
+                            <div>
+                                <h3 class="font-bold text-gray-900 mb-1">Here's what we're about to build for you:</h3>
+                                <ul class="text-sm text-gray-600 space-y-1">
+                                    <li>✓ <strong>10-20 SEO blog posts</strong> targeting high-opportunity keywords</li>
+                                    <li>✓ <strong>30-60 social media posts</strong> for Facebook, Instagram, LinkedIn</li>
+                                    <li>✓ <strong>Service & location pages</strong> optimized to rank locally</li>
+                                    <li>✓ <strong>Complete 90-day content calendar</strong></li>
+                                </ul>
+                                <p class="text-xs text-blue-600 mt-2 font-medium">⏱️ Total time: ~5 minutes of your input → months of content</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="flex items-center gap-2 mb-2">
+                        <span class="bg-blue-600 text-white text-xs font-bold px-2 py-1 rounded">STEP 1 OF 4</span>
+                        <span class="text-gray-400 text-sm">Business Profile</span>
+                    </div>
                     <h2 class="text-2xl font-bold text-gray-800 mb-2">Tell us about the business</h2>
-                    <p class="text-gray-500 mb-8">We'll use this to find the best keyword opportunities.</p>
+                    <p class="text-gray-500 mb-8">This information helps our AI understand the business and find the best ranking opportunities in their market.</p>
                     
                     <div class="space-y-6">
                         <div>
@@ -202,6 +270,7 @@
                                 <label class="block text-sm font-semibold text-gray-700 mb-2">Primary Location</label>
                                 <input type="text" id="geo" placeholder="e.g., Sarasota, FL" 
                                        class="w-full px-4 py-3 text-lg border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all">
+                                <p class="text-xs text-gray-400 mt-1">We'll optimize all content for this location</p>
                             </div>
                         </div>
                         
@@ -261,8 +330,26 @@
             <div id="step-2" class="step-content hidden">
                 <div class="p-8 border-b border-gray-100">
                     <div class="max-w-4xl mx-auto">
-                        <h2 class="text-2xl font-bold text-gray-800 mb-2">Keyword Discovery</h2>
-                        <p class="text-gray-500">We found these opportunities based on <span id="industry-label" class="font-medium text-gray-700">your industry</span> in <span id="geo-label" class="font-medium text-gray-700">your location</span></p>
+                        <div class="flex items-center gap-2 mb-2">
+                            <span class="bg-blue-600 text-white text-xs font-bold px-2 py-1 rounded">STEP 2 OF 4</span>
+                            <span class="text-gray-400 text-sm">Keyword Strategy</span>
+                        </div>
+                        <h2 class="text-2xl font-bold text-gray-800 mb-2">Choose Your Keywords</h2>
+                        <p class="text-gray-500">We analyzed the <span id="industry-label" class="font-medium text-gray-700">your industry</span> market in <span id="geo-label" class="font-medium text-gray-700">your location</span> and found these ranking opportunities.</p>
+                        
+                        <!-- What's happening callout -->
+                        <div class="mt-4 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-xl p-4">
+                            <div class="flex items-start gap-3">
+                                <div class="w-8 h-8 bg-green-500 rounded-lg flex items-center justify-center flex-shrink-0">
+                                    <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                    </svg>
+                                </div>
+                                <div>
+                                    <p class="text-sm text-gray-700"><strong>How this works:</strong> Select 3-5 <span class="text-blue-600 font-medium">primary keywords</span> (main services) and 5-10 <span class="text-green-600 font-medium">secondary keywords</span> (supporting topics). We'll build your entire content strategy around these.</p>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 
@@ -394,8 +481,53 @@
             <div id="step-3" class="step-content hidden">
                 <div class="p-8">
                     <div class="max-w-4xl mx-auto">
-                        <h2 class="text-2xl font-bold text-gray-800 mb-2">Review Your Selection</h2>
-                        <p class="text-gray-500 mb-8">Confirm the keyword strategy before we create content.</p>
+                        <div class="flex items-center gap-2 mb-2">
+                            <span class="bg-blue-600 text-white text-xs font-bold px-2 py-1 rounded">STEP 3 OF 4</span>
+                            <span class="text-gray-400 text-sm">Review & Launch</span>
+                        </div>
+                        <h2 class="text-2xl font-bold text-gray-800 mb-2">Review Your Strategy</h2>
+                        <p class="text-gray-500 mb-6">One last look before we generate your complete content package.</p>
+                        
+                        <!-- What happens next callout -->
+                        <div class="bg-gradient-to-r from-purple-50 to-indigo-50 border border-purple-200 rounded-xl p-5 mb-8">
+                            <div class="flex items-start gap-4">
+                                <div class="w-10 h-10 bg-purple-600 rounded-xl flex items-center justify-center flex-shrink-0">
+                                    <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                                    </svg>
+                                </div>
+                                <div>
+                                    <h4 class="font-bold text-gray-900 mb-2">When you click "Create Client", our AI will generate:</h4>
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2 text-sm text-gray-700">
+                                        <div class="flex items-center">
+                                            <svg class="w-4 h-4 text-purple-500 mr-2 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+                                            10-20 SEO-optimized blog posts
+                                        </div>
+                                        <div class="flex items-center">
+                                            <svg class="w-4 h-4 text-purple-500 mr-2 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+                                            Service pages for each offering
+                                        </div>
+                                        <div class="flex items-center">
+                                            <svg class="w-4 h-4 text-purple-500 mr-2 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+                                            30-60 social media posts
+                                        </div>
+                                        <div class="flex items-center">
+                                            <svg class="w-4 h-4 text-purple-500 mr-2 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+                                            90-day content calendar
+                                        </div>
+                                        <div class="flex items-center">
+                                            <svg class="w-4 h-4 text-purple-500 mr-2 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+                                            Competitor gap analysis
+                                        </div>
+                                        <div class="flex items-center">
+                                            <svg class="w-4 h-4 text-purple-500 mr-2 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+                                            Schema markup & technical SEO
+                                        </div>
+                                    </div>
+                                    <p class="text-xs text-purple-600 mt-3 font-medium">⏱️ Generation time: 2-5 minutes</p>
+                                </div>
+                            </div>
+                        </div>
                         
                         <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
                             <!-- Client Summary -->
@@ -527,13 +659,42 @@
                     <div class="max-w-3xl mx-auto">
                         <!-- Success Header -->
                         <div class="text-center mb-8">
-                            <div class="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                                <svg class="w-10 h-10 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <div class="w-20 h-20 bg-gradient-to-br from-green-400 to-emerald-500 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg">
+                                <svg class="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
                                 </svg>
                             </div>
                             <h2 class="text-3xl font-bold text-gray-800 mb-2">Client Launched! 🚀</h2>
                             <p class="text-gray-500" id="success-message">Content generation complete</p>
+                        </div>
+                        
+                        <!-- What Was Delivered - Value Highlight -->
+                        <div class="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl p-6 mb-8 text-white">
+                            <div class="flex items-center justify-between mb-4">
+                                <h4 class="font-bold text-lg">What We Just Built For This Client:</h4>
+                                <span class="bg-white/20 text-white text-xs font-bold px-3 py-1 rounded-full">DELIVERED</span>
+                            </div>
+                            <div class="grid grid-cols-2 md:grid-cols-4 gap-4" id="delivery-summary">
+                                <div class="bg-white/10 rounded-xl p-4 text-center">
+                                    <div class="text-3xl font-bold" id="delivered-blogs">0</div>
+                                    <div class="text-xs text-blue-100">Blog Posts</div>
+                                </div>
+                                <div class="bg-white/10 rounded-xl p-4 text-center">
+                                    <div class="text-3xl font-bold" id="delivered-social">0</div>
+                                    <div class="text-xs text-blue-100">Social Posts</div>
+                                </div>
+                                <div class="bg-white/10 rounded-xl p-4 text-center">
+                                    <div class="text-3xl font-bold" id="delivered-keywords">0</div>
+                                    <div class="text-xs text-blue-100">Keywords Targeted</div>
+                                </div>
+                                <div class="bg-white/10 rounded-xl p-4 text-center">
+                                    <div class="text-3xl font-bold" id="delivered-volume">0</div>
+                                    <div class="text-xs text-blue-100">Monthly Searches</div>
+                                </div>
+                            </div>
+                            <div class="mt-4 pt-4 border-t border-white/20 text-center">
+                                <p class="text-sm text-blue-100">💡 <strong class="text-white">Time saved:</strong> What takes agencies 2-3 weeks was done in minutes</p>
+                            </div>
                         </div>
                         
                         <!-- Generation Progress -->
@@ -542,16 +703,19 @@
                                 <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
                                 </svg>
-                                What We Created
+                                Generation Complete
                             </h4>
                             <div class="grid grid-cols-2 md:grid-cols-4 gap-4" id="progress-items">
                                 <!-- Populated by JS -->
                             </div>
                         </div>
                         
-                        <!-- Next Steps -->
+                        <!-- What's Next -->
                         <div class="mb-8">
-                            <h3 class="font-semibold text-gray-800 mb-4">Recommended Next Steps</h3>
+                            <div class="flex items-center gap-2 mb-4">
+                                <span class="bg-gray-800 text-white text-xs font-bold px-2 py-1 rounded">NEXT STEPS</span>
+                                <span class="text-gray-500 text-sm">Choose what to do with this content</span>
+                            </div>
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <!-- Generate Service Pages -->
                                 <button onclick="generateServicePages()" id="btn-service-pages"
@@ -708,12 +872,84 @@
 
     <script>
         // ==================== STATE ====================
+        const API_URL = window.location.origin;
         let currentStep = 1;
         let clientData = {};
         let keywords = []; // { keyword, volume, difficulty, cpc, score, type: null|'primary'|'secondary', source }
         
-        const token = localStorage.getItem('mcp_token') || 'demo_token';
-        const headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` };
+        let token = localStorage.getItem('mcp_token') || '';
+        let headers = { 'Content-Type': 'application/json' };
+        
+        // ==================== AUTH ====================
+        async function doLogin() {
+            const email = document.getElementById('loginEmail').value;
+            const password = document.getElementById('loginPassword').value;
+            const errorEl = document.getElementById('authError');
+            const btn = document.getElementById('loginBtn');
+            
+            if (!email || !password) {
+                errorEl.textContent = 'Please enter email and password';
+                errorEl.classList.remove('hidden');
+                return;
+            }
+            
+            btn.disabled = true;
+            btn.innerHTML = '<svg class="animate-spin h-5 w-5 mr-2 inline" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>Signing in...';
+            errorEl.classList.add('hidden');
+            
+            try {
+                const response = await fetch(`${API_URL}/api/auth/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok && data.token) {
+                    token = data.token;
+                    headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` };
+                    localStorage.setItem('mcp_token', token);
+                    
+                    document.getElementById('authModal').classList.add('hidden');
+                    document.getElementById('mainDashboard').classList.remove('hidden');
+                } else {
+                    errorEl.textContent = data.error || 'Login failed';
+                    errorEl.classList.remove('hidden');
+                    btn.innerHTML = 'Sign In';
+                    btn.disabled = false;
+                }
+            } catch (e) {
+                errorEl.textContent = 'Connection failed: ' + e.message;
+                errorEl.classList.remove('hidden');
+                btn.innerHTML = 'Sign In';
+                btn.disabled = false;
+            }
+        }
+        
+        async function checkExistingToken() {
+            if (!token) return false;
+            try {
+                const response = await fetch(`${API_URL}/api/auth/me`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (response.ok) {
+                    headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` };
+                    return true;
+                }
+            } catch (e) {}
+            localStorage.removeItem('mcp_token');
+            token = '';
+            return false;
+        }
+        
+        // Check token on load
+        (async () => {
+            if (await checkExistingToken()) {
+                document.getElementById('authModal').classList.add('hidden');
+                document.getElementById('mainDashboard').classList.remove('hidden');
+            }
+        })();
 
         // Industry keyword suggestions (comprehensive)
         const industryKeywords = {
@@ -788,22 +1024,35 @@
             document.getElementById(`step-${step}`).classList.remove('hidden');
             document.getElementById(`step-${step}`).classList.add('fade-up');
             
-            // Update progress dots
+            // Update progress dots and labels
             for (let i = 1; i <= 4; i++) {
                 const dot = document.getElementById(`dot-${i}`);
                 const line = document.getElementById(`line-${i}`);
-                dot.classList.remove('active', 'completed');
-                if (line) line.classList.remove('completed');
+                const label = document.getElementById(`label-${i}`);
+                
+                // Reset classes
+                dot.classList.remove('bg-blue-600', 'bg-green-500', 'bg-gray-300', 'text-white', 'text-gray-500', 'shadow-lg');
+                if (label) label.classList.remove('text-gray-500', 'text-gray-400', 'text-green-600', 'text-blue-600');
+                if (line) line.classList.remove('bg-blue-600', 'bg-green-500', 'bg-gray-300');
                 
                 if (i < step) {
-                    dot.classList.add('completed');
+                    // Completed steps
+                    dot.classList.add('bg-green-500', 'text-white');
                     dot.innerHTML = '✓';
-                    if (line) line.classList.add('completed');
+                    if (line) line.classList.add('bg-green-500');
+                    if (label) label.classList.add('text-green-600');
                 } else if (i === step) {
-                    dot.classList.add('active');
+                    // Current step
+                    dot.classList.add('bg-blue-600', 'text-white', 'shadow-lg');
                     dot.innerHTML = i;
+                    if (line) line.classList.add('bg-gray-300');
+                    if (label) label.classList.add('text-blue-600');
                 } else {
+                    // Future steps
+                    dot.classList.add('bg-gray-300', 'text-gray-500');
                     dot.innerHTML = i;
+                    if (line) line.classList.add('bg-gray-300');
+                    if (label) label.classList.add('text-gray-400');
                 }
             }
             
@@ -1287,6 +1536,13 @@
                 const blogCount = data.content?.blogs?.filter(b => !b.error).length || 0;
                 const socialCount = data.content?.social?.length || 0;
                 const keywordCount = primary.length + secondary.length;
+                const totalVolume = keywords.reduce((sum, k) => sum + (k.volume || 0), 0);
+                
+                // Update delivery summary (the blue gradient box)
+                document.getElementById('delivered-blogs').textContent = blogCount;
+                document.getElementById('delivered-social').textContent = socialCount;
+                document.getElementById('delivered-keywords').textContent = keywordCount;
+                document.getElementById('delivered-volume').textContent = totalVolume.toLocaleString();
                 
                 // Show progress cards
                 document.getElementById('progress-items').innerHTML = `
@@ -1595,5 +1851,6 @@
             }
         });
     </script>
+    </div><!-- end mainDashboard -->
 </body>
 </html>
