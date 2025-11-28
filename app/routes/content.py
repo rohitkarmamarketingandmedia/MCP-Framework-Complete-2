@@ -381,3 +381,237 @@ def seo_check(current_user):
         'checks': checks,
         'recommendations': recommendations
     })
+
+
+@content_bp.route('/blog/generate', methods=['POST'])
+@token_required
+def generate_blog_simple(current_user):
+    """
+    Simplified blog generation endpoint for client dashboard
+    
+    POST /api/content/blog/generate
+    {
+        "client_id": "uuid",
+        "keyword": "ac repair sarasota",
+        "word_count": 1500,
+        "include_faq": true,
+        "faq_count": 5,
+        "generate_schema": true
+    }
+    """
+    if not current_user.can_generate_content:
+        return jsonify({'error': 'Permission denied'}), 403
+    
+    data = request.get_json()
+    
+    if not data.get('client_id') or not data.get('keyword'):
+        return jsonify({'error': 'client_id and keyword required'}), 400
+    
+    try:
+        # Get client
+        client = data_service.get_client(data['client_id'])
+        if not client:
+            return jsonify({'error': 'Client not found'}), 404
+        
+        if not current_user.has_access_to_client(data['client_id']):
+            return jsonify({'error': 'Access denied'}), 403
+        
+        # Get internal links from client service pages
+        from app.services.internal_linking_service import internal_linking_service
+        service_pages = client.get_service_pages() or []
+        
+        # Generate blog
+        result = ai_service.generate_blog_post(
+            keyword=data['keyword'],
+            geo=client.geo or '',
+            industry=client.industry or '',
+            word_count=data.get('word_count', 1500),
+            tone=client.tone or 'professional',
+            business_name=client.business_name or '',
+            include_faq=data.get('include_faq', True),
+            faq_count=data.get('faq_count', 5),
+            internal_links=service_pages,
+            usps=client.get_unique_selling_points()
+        )
+        
+        if result.get('error'):
+            return jsonify({'error': result['error']}), 500
+        
+        # Process with internal linking
+        body_content = result.get('body', '')
+        links_added = 0
+        
+        if service_pages and body_content:
+            link_result = internal_linking_service.process_blog_content(
+                content=body_content,
+                service_pages=service_pages,
+                primary_keyword=data['keyword'],
+                location=client.geo or '',
+                business_name=client.business_name or '',
+                fix_headings=True,
+                add_cta=True
+            )
+            body_content = link_result['content']
+            links_added = link_result['links_added']
+        
+        # Create blog post
+        blog_post = DBBlogPost(
+            client_id=data['client_id'],
+            title=result.get('title', data['keyword']),
+            body=body_content,
+            meta_title=result.get('meta_title', ''),
+            meta_description=result.get('meta_description', ''),
+            primary_keyword=data['keyword'],
+            secondary_keywords=result.get('secondary_keywords', []),
+            internal_links=service_pages,
+            faq_content=result.get('faq_items', []),
+            word_count=len(body_content.split()),
+            status=ContentStatus.DRAFT
+        )
+        
+        data_service.save_blog_post(blog_post)
+        
+        # Auto-generate schema if requested
+        schema_data = {}
+        if data.get('generate_schema', True):
+            try:
+                # Generate Article schema
+                article_schema = {
+                    "@context": "https://schema.org",
+                    "@type": "Article",
+                    "headline": result.get('meta_title', result.get('title', '')),
+                    "description": result.get('meta_description', ''),
+                    "author": {
+                        "@type": "Organization",
+                        "name": client.business_name or ''
+                    },
+                    "publisher": {
+                        "@type": "Organization", 
+                        "name": client.business_name or ''
+                    },
+                    "mainEntityOfPage": {
+                        "@type": "WebPage"
+                    }
+                }
+                
+                # Generate FAQ schema if FAQs exist
+                faq_schema = None
+                if result.get('faq_items'):
+                    faq_schema = {
+                        "@context": "https://schema.org",
+                        "@type": "FAQPage",
+                        "mainEntity": [
+                            {
+                                "@type": "Question",
+                                "name": faq.get('question', faq.get('q', '')),
+                                "acceptedAnswer": {
+                                    "@type": "Answer",
+                                    "text": faq.get('answer', faq.get('a', ''))
+                                }
+                            }
+                            for faq in result.get('faq_items', [])
+                        ]
+                    }
+                
+                schema_data = {
+                    'article': article_schema,
+                    'faq': faq_schema
+                }
+            except Exception as e:
+                schema_data = {'error': str(e)}
+        
+        return jsonify({
+            'success': True,
+            'id': blog_post.id,
+            'title': blog_post.title,
+            'word_count': blog_post.word_count,
+            'links_added': links_added,
+            'schema': schema_data
+        })
+        
+    except Exception as e:
+        import traceback
+        error_detail = traceback.format_exc()
+        print(f"Blog generation error: {error_detail}")
+        return jsonify({
+            'error': str(e),
+            'detail': 'Blog generation failed. Check server logs.'
+        }), 500
+
+
+@content_bp.route('/social/generate', methods=['POST'])
+@token_required
+def generate_social_simple(current_user):
+    """
+    Generate a social media post
+    
+    POST /api/content/social/generate
+    {
+        "client_id": "uuid",
+        "topic": "summer AC tips",
+        "platform": "gbp"  // gbp, facebook, instagram
+    }
+    """
+    if not current_user.can_generate_content:
+        return jsonify({'error': 'Permission denied'}), 403
+    
+    data = request.get_json()
+    
+    if not data.get('client_id') or not data.get('topic') or not data.get('platform'):
+        return jsonify({'error': 'client_id, topic, and platform required'}), 400
+    
+    try:
+        client = data_service.get_client(data['client_id'])
+        if not client:
+            return jsonify({'error': 'Client not found'}), 404
+        
+        if not current_user.has_access_to_client(data['client_id']):
+            return jsonify({'error': 'Access denied'}), 403
+        
+        platform = data['platform'].lower()
+        if platform not in ['gbp', 'facebook', 'instagram']:
+            return jsonify({'error': 'Invalid platform. Use: gbp, facebook, instagram'}), 400
+        
+        # Generate social post
+        result = ai_service.generate_social_post(
+            platform=platform,
+            topic=data['topic'],
+            geo=client.geo or '',
+            business_name=client.business_name or '',
+            industry=client.industry or '',
+            tone=client.tone or 'professional'
+        )
+        
+        if result.get('error'):
+            return jsonify({'error': result['error']}), 500
+        
+        # Save to database
+        from app.models.db_models import DBSocialPost
+        
+        social_post = DBSocialPost(
+            client_id=data['client_id'],
+            platform=platform,
+            content=result.get('content', ''),
+            hashtags=result.get('hashtags', []),
+            topic=data['topic'],
+            status=ContentStatus.DRAFT
+        )
+        
+        data_service.save_social_post(social_post)
+        
+        return jsonify({
+            'success': True,
+            'id': social_post.id,
+            'platform': platform,
+            'content': social_post.content,
+            'hashtags': social_post.hashtags
+        })
+        
+    except Exception as e:
+        import traceback
+        error_detail = traceback.format_exc()
+        print(f"Social generation error: {error_detail}")
+        return jsonify({
+            'error': str(e),
+            'detail': 'Social post generation failed. Check server logs.'
+        }), 500

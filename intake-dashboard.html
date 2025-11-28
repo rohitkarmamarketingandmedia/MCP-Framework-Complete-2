@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>New Client Setup | Karma Marketing + Media</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
         body { font-family: 'Inter', sans-serif; }
@@ -157,6 +158,35 @@
 
     <!-- Main Dashboard (hidden until login) -->
     <div id="mainDashboard" class="hidden">
+    
+    <!-- Navigation Bar -->
+    <nav class="bg-slate-900 border-b border-white/10 mb-6">
+        <div class="max-w-6xl mx-auto px-4">
+            <div class="flex items-center justify-between h-12">
+                <div class="flex items-center gap-6 text-sm">
+                    <a href="/agency" class="text-gray-400 hover:text-white transition flex items-center gap-2">
+                        <i class="fas fa-building"></i> Agency
+                    </a>
+                    <a href="/client" class="text-gray-400 hover:text-white transition flex items-center gap-2">
+                        <i class="fas fa-file-alt"></i> Content
+                    </a>
+                    <a href="/elite" class="text-gray-400 hover:text-white transition flex items-center gap-2">
+                        <i class="fas fa-chart-line"></i> SEO Elite
+                    </a>
+                    <a href="/intake" class="text-white font-medium flex items-center gap-2">
+                        <i class="fas fa-plus-circle"></i> New Client
+                    </a>
+                    <a href="/admin" class="text-gray-400 hover:text-white transition flex items-center gap-2">
+                        <i class="fas fa-cog"></i> Admin
+                    </a>
+                </div>
+                <div class="text-xs text-gray-500">
+                    <span class="text-blue-400">MCP</span> Framework
+                </div>
+            </div>
+        </div>
+    </nav>
+    
     <div class="container mx-auto px-4 py-6 max-w-6xl">
         
         <!-- Header -->

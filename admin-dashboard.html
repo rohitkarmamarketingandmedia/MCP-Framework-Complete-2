@@ -108,7 +108,36 @@
     </div>
 
     <!-- Main Dashboard -->
-    <div id="dashboard" class="hidden flex">
+    <div id="dashboard" class="hidden">
+        <!-- Navigation Bar -->
+        <nav class="bg-slate-900 border-b border-white/10">
+            <div class="max-w-full mx-auto px-4">
+                <div class="flex items-center justify-between h-12">
+                    <div class="flex items-center gap-6 text-sm">
+                        <a href="/agency" class="text-gray-400 hover:text-white transition flex items-center gap-2">
+                            <i class="fas fa-building"></i> Agency
+                        </a>
+                        <a href="/client" class="text-gray-400 hover:text-white transition flex items-center gap-2">
+                            <i class="fas fa-file-alt"></i> Content
+                        </a>
+                        <a href="/elite" class="text-gray-400 hover:text-white transition flex items-center gap-2">
+                            <i class="fas fa-chart-line"></i> SEO Elite
+                        </a>
+                        <a href="/intake" class="text-gray-400 hover:text-white transition flex items-center gap-2">
+                            <i class="fas fa-plus-circle"></i> New Client
+                        </a>
+                        <a href="/admin" class="text-white font-medium flex items-center gap-2">
+                            <i class="fas fa-cog"></i> Admin
+                        </a>
+                    </div>
+                    <div class="text-xs text-gray-500">
+                        <span class="text-blue-400">MCP</span> Framework
+                    </div>
+                </div>
+            </div>
+        </nav>
+        
+        <div class="flex">
         <!-- Sidebar -->
         <aside class="w-64 glass min-h-screen p-4 flex flex-col">
             <div class="flex items-center gap-3 mb-8 p-2">
@@ -678,6 +707,7 @@
                     Cancel
                 </button>
             </div>
+        </div>
         </div>
     </div>
 

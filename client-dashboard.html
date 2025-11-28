@@ -60,24 +60,79 @@
 
     <!-- Main Dashboard -->
     <div id="dashboard" class="hidden">
+        <!-- Navigation Bar -->
+        <nav class="bg-slate-900 border-b border-white/10">
+            <div class="max-w-7xl mx-auto px-4">
+                <div class="flex items-center justify-between h-12">
+                    <!-- Mobile menu button -->
+                    <button onclick="toggleMobileNav()" class="md:hidden p-2 text-gray-400 hover:text-white">
+                        <i class="fas fa-bars"></i>
+                    </button>
+                    
+                    <!-- Desktop nav -->
+                    <div class="hidden md:flex items-center gap-6 text-sm">
+                        <a href="/agency" class="text-gray-400 hover:text-white transition flex items-center gap-2">
+                            <i class="fas fa-building"></i> Agency
+                        </a>
+                        <a href="/client" class="text-white font-medium flex items-center gap-2">
+                            <i class="fas fa-file-alt"></i> Content
+                        </a>
+                        <a href="/elite" class="text-gray-400 hover:text-white transition flex items-center gap-2">
+                            <i class="fas fa-chart-line"></i> SEO Elite
+                        </a>
+                        <a href="/intake" class="text-gray-400 hover:text-white transition flex items-center gap-2">
+                            <i class="fas fa-plus-circle"></i> New Client
+                        </a>
+                        <a href="/admin" class="text-gray-400 hover:text-white transition flex items-center gap-2">
+                            <i class="fas fa-cog"></i> Admin
+                        </a>
+                    </div>
+                    <div class="text-xs text-gray-500">
+                        <span class="text-purple-400">MCP</span> Framework
+                    </div>
+                </div>
+                
+                <!-- Mobile nav dropdown -->
+                <div id="mobileNav" class="hidden md:hidden pb-4">
+                    <div class="flex flex-col gap-2 text-sm">
+                        <a href="/agency" class="text-gray-400 hover:text-white transition flex items-center gap-2 py-2">
+                            <i class="fas fa-building w-5"></i> Agency
+                        </a>
+                        <a href="/client" class="text-white font-medium flex items-center gap-2 py-2">
+                            <i class="fas fa-file-alt w-5"></i> Content
+                        </a>
+                        <a href="/elite" class="text-gray-400 hover:text-white transition flex items-center gap-2 py-2">
+                            <i class="fas fa-chart-line w-5"></i> SEO Elite
+                        </a>
+                        <a href="/intake" class="text-gray-400 hover:text-white transition flex items-center gap-2 py-2">
+                            <i class="fas fa-plus-circle w-5"></i> New Client
+                        </a>
+                        <a href="/admin" class="text-gray-400 hover:text-white transition flex items-center gap-2 py-2">
+                            <i class="fas fa-cog w-5"></i> Admin
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </nav>
+
         <!-- Header -->
         <header class="glass border-b border-white/10 sticky top-0 z-40">
             <div class="max-w-7xl mx-auto px-4 py-4">
-                <div class="flex items-center justify-between">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div class="flex items-center gap-4">
-                        <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-600 to-pink-600 flex items-center justify-center">
+                        <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-600 to-pink-600 flex items-center justify-center flex-shrink-0">
                             <i class="fas fa-rocket text-white"></i>
                         </div>
-                        <div>
-                            <h1 id="clientName" class="text-xl font-bold text-white">Loading...</h1>
-                            <p id="clientMeta" class="text-sm text-gray-400">Content Dashboard</p>
+                        <div class="min-w-0">
+                            <h1 id="clientName" class="text-lg sm:text-xl font-bold text-white truncate">Loading...</h1>
+                            <p id="clientMeta" class="text-xs sm:text-sm text-gray-400 truncate">Content Dashboard</p>
                         </div>
                     </div>
-                    <div class="flex items-center gap-4">
-                        <select id="clientSelector" onchange="loadClient(this.value)" class="px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white text-sm focus:outline-none">
+                    <div class="flex items-center gap-2 sm:gap-4">
+                        <select id="clientSelector" onchange="loadClient(this.value)" class="flex-1 sm:flex-none px-3 sm:px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white text-sm focus:outline-none truncate max-w-[200px]">
                             <option value="">Select Client</option>
                         </select>
-                        <button onclick="refreshData()" class="p-2 glass rounded-lg text-gray-400 hover:text-white transition">
+                        <button onclick="refreshData()" class="p-2 glass rounded-lg text-gray-400 hover:text-white transition flex-shrink-0">
                             <i class="fas fa-sync-alt"></i>
                         </button>
                     </div>
@@ -137,21 +192,199 @@
 
         <!-- Tabs -->
         <div class="max-w-7xl mx-auto px-4 mb-6">
-            <div class="flex gap-2 overflow-x-auto pb-2">
-                <button onclick="showTab('blogs')" id="tab-blogs" class="tab-active px-6 py-2 rounded-lg text-sm font-medium transition whitespace-nowrap">
-                    <i class="fas fa-file-alt mr-2"></i>Blog Posts
+            <div class="flex gap-2 overflow-x-auto pb-2 scrollbar-thin">
+                <button onclick="showTab('generate')" id="tab-generate" class="px-3 sm:px-6 py-2 rounded-lg text-xs sm:text-sm font-medium text-gray-400 hover:text-white transition whitespace-nowrap glass bg-gradient-to-r from-green-600 to-emerald-600 text-white">
+                    <i class="fas fa-magic sm:mr-2"></i><span class="hidden sm:inline">Generate Content</span><span class="sm:hidden">Generate</span>
                 </button>
-                <button onclick="showTab('social')" id="tab-social" class="px-6 py-2 rounded-lg text-sm font-medium text-gray-400 hover:text-white transition whitespace-nowrap glass">
-                    <i class="fas fa-share-alt mr-2"></i>Social Posts
+                <button onclick="showTab('blogs')" id="tab-blogs" class="tab-active px-3 sm:px-6 py-2 rounded-lg text-xs sm:text-sm font-medium transition whitespace-nowrap">
+                    <i class="fas fa-file-alt sm:mr-2"></i><span class="hidden sm:inline">Blog Posts</span><span class="sm:hidden">Blogs</span>
                 </button>
-                <button onclick="showTab('seo')" id="tab-seo" class="px-6 py-2 rounded-lg text-sm font-medium text-gray-400 hover:text-white transition whitespace-nowrap glass">
-                    <i class="fas fa-chart-line mr-2"></i>SEO Overview
+                <button onclick="showTab('social')" id="tab-social" class="px-3 sm:px-6 py-2 rounded-lg text-xs sm:text-sm font-medium text-gray-400 hover:text-white transition whitespace-nowrap glass">
+                    <i class="fas fa-share-alt sm:mr-2"></i><span class="hidden sm:inline">Social Posts</span><span class="sm:hidden">Social</span>
+                </button>
+                <button onclick="showTab('seo')" id="tab-seo" class="px-3 sm:px-6 py-2 rounded-lg text-xs sm:text-sm font-medium text-gray-400 hover:text-white transition whitespace-nowrap glass">
+                    <i class="fas fa-chart-line sm:mr-2"></i><span class="hidden sm:inline">SEO Overview</span><span class="sm:hidden">SEO</span>
+                </button>
+                <button onclick="showTab('calendar')" id="tab-calendar" class="px-3 sm:px-6 py-2 rounded-lg text-xs sm:text-sm font-medium text-gray-400 hover:text-white transition whitespace-nowrap glass">
+                    <i class="fas fa-calendar-alt sm:mr-2"></i><span class="hidden sm:inline">Calendar</span><span class="sm:hidden">Cal</span>
                 </button>
             </div>
         </div>
 
         <!-- Content Panels -->
         <div class="max-w-7xl mx-auto px-4 pb-12">
+            <!-- Generate Panel -->
+            <div id="panel-generate" class="hidden fade-in">
+                <div class="grid md:grid-cols-2 gap-6">
+                    <!-- Blog Generation -->
+                    <div class="glass rounded-2xl p-6">
+                        <div class="flex items-center gap-3 mb-6">
+                            <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center">
+                                <i class="fas fa-file-alt text-white text-xl"></i>
+                            </div>
+                            <div>
+                                <h3 class="text-lg font-bold text-white">Generate Blog Post</h3>
+                                <p class="text-sm text-gray-400">1,500 words with FAQs & internal links</p>
+                            </div>
+                        </div>
+                        
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-300 mb-2">Select Keyword</label>
+                                <select id="blogKeyword" class="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white focus:outline-none focus:border-purple-500">
+                                    <option value="">Choose a keyword...</option>
+                                </select>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-300 mb-2">Or Enter Custom Keyword</label>
+                                <input type="text" id="customBlogKeyword" placeholder="e.g., emergency AC repair" 
+                                    class="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-purple-500">
+                            </div>
+                            
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-300 mb-2">Word Count</label>
+                                    <select id="blogWordCount" class="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white focus:outline-none focus:border-purple-500">
+                                        <option value="1200">1,200 words</option>
+                                        <option value="1500" selected>1,500 words</option>
+                                        <option value="2000">2,000 words</option>
+                                        <option value="2500">2,500 words</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-300 mb-2">Include FAQs</label>
+                                    <select id="blogFaqs" class="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white focus:outline-none focus:border-purple-500">
+                                        <option value="5" selected>5 FAQs</option>
+                                        <option value="3">3 FAQs</option>
+                                        <option value="0">No FAQs</option>
+                                    </select>
+                                </div>
+                            </div>
+                            
+                            <button onclick="generateBlog()" id="btnGenerateBlog" 
+                                class="w-full py-4 bg-gradient-to-r from-green-600 to-emerald-600 rounded-xl text-white font-bold hover:opacity-90 transition flex items-center justify-center gap-2">
+                                <i class="fas fa-magic"></i> Generate Blog Post
+                            </button>
+                        </div>
+                        
+                        <div id="blogProgress" class="hidden mt-4 p-4 bg-white/5 rounded-xl">
+                            <div class="flex items-center gap-3">
+                                <div class="spinner w-6 h-6"></div>
+                                <span id="blogProgressText" class="text-gray-300">Generating...</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Social Generation -->
+                    <div class="glass rounded-2xl p-6">
+                        <div class="flex items-center gap-3 mb-6">
+                            <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-600 flex items-center justify-center">
+                                <i class="fas fa-share-alt text-white text-xl"></i>
+                            </div>
+                            <div>
+                                <h3 class="text-lg font-bold text-white">Generate Social Posts</h3>
+                                <p class="text-sm text-gray-400">GBP, Facebook & Instagram</p>
+                            </div>
+                        </div>
+                        
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-300 mb-2">Topic / Keyword</label>
+                                <input type="text" id="socialTopic" placeholder="e.g., summer AC maintenance tips" 
+                                    class="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-purple-500">
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-300 mb-2">Platforms</label>
+                                <div class="grid grid-cols-3 gap-2">
+                                    <label class="flex items-center gap-2 p-3 bg-white/5 rounded-lg cursor-pointer hover:bg-white/10 transition">
+                                        <input type="checkbox" id="platformGbp" checked class="w-4 h-4 text-blue-600 rounded">
+                                        <i class="fab fa-google text-blue-400"></i>
+                                        <span class="text-sm text-white">GBP</span>
+                                    </label>
+                                    <label class="flex items-center gap-2 p-3 bg-white/5 rounded-lg cursor-pointer hover:bg-white/10 transition">
+                                        <input type="checkbox" id="platformFacebook" checked class="w-4 h-4 text-blue-600 rounded">
+                                        <i class="fab fa-facebook text-blue-500"></i>
+                                        <span class="text-sm text-white">FB</span>
+                                    </label>
+                                    <label class="flex items-center gap-2 p-3 bg-white/5 rounded-lg cursor-pointer hover:bg-white/10 transition">
+                                        <input type="checkbox" id="platformInstagram" checked class="w-4 h-4 text-pink-600 rounded">
+                                        <i class="fab fa-instagram text-pink-500"></i>
+                                        <span class="text-sm text-white">IG</span>
+                                    </label>
+                                </div>
+                            </div>
+                            
+                            <button onclick="generateSocial()" id="btnGenerateSocial" 
+                                class="w-full py-4 bg-gradient-to-r from-blue-600 to-cyan-600 rounded-xl text-white font-bold hover:opacity-90 transition flex items-center justify-center gap-2">
+                                <i class="fas fa-magic"></i> Generate Social Posts
+                            </button>
+                        </div>
+                        
+                        <div id="socialProgress" class="hidden mt-4 p-4 bg-white/5 rounded-xl">
+                            <div class="flex items-center gap-3">
+                                <div class="spinner w-6 h-6"></div>
+                                <span id="socialProgressText" class="text-gray-300">Generating...</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Bulk Generation -->
+                <div class="glass rounded-2xl p-6 mt-6">
+                    <div class="flex items-center gap-3 mb-6">
+                        <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500 to-pink-600 flex items-center justify-center">
+                            <i class="fas fa-layer-group text-white text-xl"></i>
+                        </div>
+                        <div>
+                            <h3 class="text-lg font-bold text-white">Bulk Generate</h3>
+                            <p class="text-sm text-gray-400">Generate multiple posts at once</p>
+                        </div>
+                    </div>
+                    
+                    <div class="grid md:grid-cols-3 gap-4 mb-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-300 mb-2">Blog Posts to Generate</label>
+                            <select id="bulkBlogCount" class="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white focus:outline-none focus:border-purple-500">
+                                <option value="0">0 blogs</option>
+                                <option value="3">3 blogs</option>
+                                <option value="5" selected>5 blogs</option>
+                                <option value="10">10 blogs</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-300 mb-2">Social Posts Per Platform</label>
+                            <select id="bulkSocialCount" class="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white focus:outline-none focus:border-purple-500">
+                                <option value="0">0 social</option>
+                                <option value="3">3 per platform</option>
+                                <option value="5" selected>5 per platform</option>
+                                <option value="10">10 per platform</option>
+                            </select>
+                        </div>
+                        <div class="flex items-end">
+                            <button onclick="generateBulk()" id="btnGenerateBulk" 
+                                class="w-full py-3 bg-gradient-to-r from-purple-600 to-pink-600 rounded-xl text-white font-bold hover:opacity-90 transition flex items-center justify-center gap-2">
+                                <i class="fas fa-rocket"></i> Generate All
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div id="bulkProgress" class="hidden">
+                        <div class="bg-white/5 rounded-xl p-4">
+                            <div class="flex items-center justify-between mb-2">
+                                <span class="text-gray-300">Generating content...</span>
+                                <span id="bulkProgressCount" class="text-purple-400 font-bold">0 / 0</span>
+                            </div>
+                            <div class="w-full bg-white/10 rounded-full h-2">
+                                <div id="bulkProgressBar" class="bg-gradient-to-r from-purple-500 to-pink-500 h-2 rounded-full transition-all" style="width: 0%"></div>
+                            </div>
+                            <div id="bulkProgressLog" class="mt-3 text-sm text-gray-400 max-h-32 overflow-y-auto"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Blogs Panel -->
             <div id="panel-blogs" class="fade-in">
                 <div id="blogsList" class="space-y-4">
@@ -213,6 +446,70 @@
                     </div>
                 </div>
             </div>
+            
+            <!-- Calendar Panel -->
+            <div id="panel-calendar" class="hidden fade-in">
+                <div class="glass rounded-2xl p-6 mb-6">
+                    <div class="flex items-center justify-between mb-6">
+                        <div class="flex items-center gap-3">
+                            <button onclick="changeMonth(-1)" class="p-2 glass rounded-lg hover:bg-white/10 transition">
+                                <i class="fas fa-chevron-left text-white"></i>
+                            </button>
+                            <h2 id="calendarMonth" class="text-xl font-bold text-white">December 2024</h2>
+                            <button onclick="changeMonth(1)" class="p-2 glass rounded-lg hover:bg-white/10 transition">
+                                <i class="fas fa-chevron-right text-white"></i>
+                            </button>
+                        </div>
+                        <div class="flex gap-2">
+                            <button onclick="autoSchedule()" class="px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 rounded-lg text-white text-sm font-medium hover:opacity-90 transition">
+                                <i class="fas fa-magic mr-2"></i>Auto-Schedule
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Calendar Grid -->
+                    <div class="grid grid-cols-7 gap-2 mb-4">
+                        <div class="text-center text-gray-400 text-sm font-medium py-2">Sun</div>
+                        <div class="text-center text-gray-400 text-sm font-medium py-2">Mon</div>
+                        <div class="text-center text-gray-400 text-sm font-medium py-2">Tue</div>
+                        <div class="text-center text-gray-400 text-sm font-medium py-2">Wed</div>
+                        <div class="text-center text-gray-400 text-sm font-medium py-2">Thu</div>
+                        <div class="text-center text-gray-400 text-sm font-medium py-2">Fri</div>
+                        <div class="text-center text-gray-400 text-sm font-medium py-2">Sat</div>
+                    </div>
+                    <div id="calendarGrid" class="grid grid-cols-7 gap-2">
+                        <!-- Calendar days populated by JS -->
+                    </div>
+                    
+                    <!-- Legend -->
+                    <div class="flex items-center gap-6 mt-6 pt-4 border-t border-white/10">
+                        <div class="flex items-center gap-2">
+                            <div class="w-3 h-3 rounded-full bg-green-500"></div>
+                            <span class="text-sm text-gray-400">Blog Post</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <div class="w-3 h-3 rounded-full bg-blue-500"></div>
+                            <span class="text-sm text-gray-400">GBP Post</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <div class="w-3 h-3 rounded-full bg-indigo-500"></div>
+                            <span class="text-sm text-gray-400">Facebook</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <div class="w-3 h-3 rounded-full bg-pink-500"></div>
+                            <span class="text-sm text-gray-400">Instagram</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Scheduled Content List -->
+                <div class="glass rounded-2xl p-6">
+                    <h3 class="text-lg font-semibold text-white mb-4"><i class="fas fa-list mr-2 text-purple-400"></i>Scheduled Content</h3>
+                    <div id="scheduledList" class="space-y-3">
+                        <p class="text-gray-500 text-sm">No content scheduled yet. Click "Auto-Schedule" to create a posting schedule.</p>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -237,6 +534,46 @@
                     </div>
                 </div>
                 <div class="p-6 md:p-8">
+                    <!-- SEO Score Card -->
+                    <div id="seoScoreCard" class="mb-6 p-4 bg-gradient-to-r from-slate-800 to-slate-900 rounded-xl text-white">
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="font-bold text-lg"><i class="fas fa-chart-line mr-2 text-green-400"></i>SEO Score</h3>
+                            <div class="flex items-center gap-2">
+                                <span id="seoScoreValue" class="text-3xl font-bold text-green-400">--</span>
+                                <span class="text-gray-400">/100</span>
+                            </div>
+                        </div>
+                        <div class="w-full bg-gray-700 rounded-full h-2 mb-4">
+                            <div id="seoScoreBar" class="bg-gradient-to-r from-green-500 to-emerald-400 h-2 rounded-full transition-all" style="width: 0%"></div>
+                        </div>
+                        <div class="grid grid-cols-2 md:grid-cols-3 gap-3 text-sm">
+                            <div id="seoWordCount" class="flex items-center gap-2 p-2 rounded-lg bg-white/5">
+                                <i class="fas fa-check-circle text-green-400"></i>
+                                <span>Word Count</span>
+                            </div>
+                            <div id="seoKeywordDensity" class="flex items-center gap-2 p-2 rounded-lg bg-white/5">
+                                <i class="fas fa-check-circle text-green-400"></i>
+                                <span>Keyword Density</span>
+                            </div>
+                            <div id="seoInternalLinks" class="flex items-center gap-2 p-2 rounded-lg bg-white/5">
+                                <i class="fas fa-check-circle text-green-400"></i>
+                                <span>Internal Links</span>
+                            </div>
+                            <div id="seoMetaTitle" class="flex items-center gap-2 p-2 rounded-lg bg-white/5">
+                                <i class="fas fa-check-circle text-green-400"></i>
+                                <span>Meta Title</span>
+                            </div>
+                            <div id="seoMetaDesc" class="flex items-center gap-2 p-2 rounded-lg bg-white/5">
+                                <i class="fas fa-check-circle text-green-400"></i>
+                                <span>Meta Description</span>
+                            </div>
+                            <div id="seoHeadings" class="flex items-center gap-2 p-2 rounded-lg bg-white/5">
+                                <i class="fas fa-check-circle text-green-400"></i>
+                                <span>Heading Structure</span>
+                            </div>
+                        </div>
+                    </div>
+                    
                     <div class="mb-6 p-4 bg-gray-50 rounded-xl">
                         <p class="text-sm text-gray-500 mb-1">Meta Title</p>
                         <p id="modalMetaTitle" class="font-medium text-gray-800"></p>
@@ -250,15 +587,21 @@
                     </div>
                 </div>
                 <div class="border-t p-4 flex justify-between items-center bg-gray-50">
-                    <div class="flex gap-2">
+                    <div class="flex gap-2 flex-wrap">
                         <button onclick="copyBlogContent()" class="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg text-sm font-medium transition">
-                            <i class="fas fa-copy mr-1"></i>Copy Content
+                            <i class="fas fa-copy mr-1"></i>Copy
                         </button>
                         <button onclick="downloadBlog()" class="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg text-sm font-medium transition">
-                            <i class="fas fa-download mr-1"></i>Download
+                            <i class="fas fa-file-alt mr-1"></i>Markdown
+                        </button>
+                        <button onclick="downloadBlogHTML()" class="px-4 py-2 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-lg text-sm font-medium transition">
+                            <i class="fas fa-code mr-1"></i>HTML
+                        </button>
+                        <button onclick="downloadBlogWord()" class="px-4 py-2 bg-indigo-100 hover:bg-indigo-200 text-indigo-700 rounded-lg text-sm font-medium transition">
+                            <i class="fas fa-file-word mr-1"></i>Word
                         </button>
                     </div>
-                    <button class="px-6 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-lg text-sm font-medium hover:opacity-90 transition">
+                    <button onclick="publishBlog()" class="px-6 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-lg text-sm font-medium hover:opacity-90 transition">
                         <i class="fas fa-check mr-1"></i>Approve
                     </button>
                 </div>
@@ -267,6 +610,12 @@
     </div>
 
     <script>
+        // Mobile navigation toggle
+        function toggleMobileNav() {
+            const nav = document.getElementById('mobileNav');
+            nav.classList.toggle('hidden');
+        }
+        
         let API_URL = window.location.origin;
         let AUTH_TOKEN = '';
         let currentClient = null;
@@ -287,6 +636,17 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ email, password })
                 });
+                
+                if (!res.ok) {
+                    const errorText = await res.text();
+                    try {
+                        const errorData = JSON.parse(errorText);
+                        throw new Error(errorData.error || `Login failed: ${res.status}`);
+                    } catch {
+                        throw new Error(`Server error: ${res.status}`);
+                    }
+                }
+                
                 const data = await res.json();
 
                 if (data.token) {
@@ -299,7 +659,7 @@
                     errorEl.classList.remove('hidden');
                 }
             } catch (e) {
-                errorEl.textContent = 'Connection failed: ' + e.message;
+                errorEl.textContent = e.message || 'Connection failed';
                 errorEl.classList.remove('hidden');
             }
         }
@@ -312,6 +672,9 @@
                 const res = await fetch(`${API_URL}/api/clients/`, {
                     headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
                 });
+                if (!res.ok) {
+                    throw new Error(`Failed to load clients: ${res.status}`);
+                }
                 const data = await res.json();
                 const clients = data.clients || [];
 
@@ -338,6 +701,9 @@
                 const clientRes = await fetch(`${API_URL}/api/clients/${clientId}`, {
                     headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
                 });
+                if (!clientRes.ok) {
+                    throw new Error(`Failed to load client: ${clientRes.status}`);
+                }
                 currentClient = await clientRes.json();
 
                 // Update header
@@ -345,18 +711,26 @@
                 document.getElementById('clientMeta').textContent = `${currentClient.industry || ''} • ${currentClient.geo || ''}`;
 
                 // Load blogs
-                const blogsRes = await fetch(`${API_URL}/api/content/blogs?client_id=${clientId}`, {
+                const blogsRes = await fetch(`${API_URL}/api/content/client/${clientId}`, {
                     headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
                 });
-                const blogsData = await blogsRes.json();
-                allBlogs = blogsData.blogs || [];
+                if (blogsRes.ok) {
+                    const blogsData = await blogsRes.json();
+                    allBlogs = blogsData.content || blogsData.blogs || [];
+                } else {
+                    allBlogs = [];
+                }
 
                 // Load social
-                const socialRes = await fetch(`${API_URL}/api/social/posts?client_id=${clientId}`, {
+                const socialRes = await fetch(`${API_URL}/api/social/client/${clientId}`, {
                     headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
                 });
-                const socialData = await socialRes.json();
-                allSocial = socialData.posts || [];
+                if (socialRes.ok) {
+                    const socialData = await socialRes.json();
+                    allSocial = socialData.posts || [];
+                } else {
+                    allSocial = [];
+                }
 
                 // Update stats
                 updateStats();
@@ -366,6 +740,7 @@
 
             } catch (e) {
                 console.error('Failed to load client:', e);
+                alert('Failed to load client data. Please try again.');
             }
         }
 
@@ -386,14 +761,209 @@
         // TABS
         // ==========================================
         function showTab(tab) {
-            ['blogs', 'social', 'seo'].forEach(t => {
+            ['generate', 'blogs', 'social', 'seo', 'calendar'].forEach(t => {
                 document.getElementById(`panel-${t}`).classList.add('hidden');
                 document.getElementById(`tab-${t}`).classList.remove('tab-active');
-                document.getElementById(`tab-${t}`).classList.add('glass', 'text-gray-400');
+                if (t !== 'generate') {
+                    document.getElementById(`tab-${t}`).classList.add('glass', 'text-gray-400');
+                }
             });
             document.getElementById(`panel-${tab}`).classList.remove('hidden');
             document.getElementById(`tab-${tab}`).classList.add('tab-active');
-            document.getElementById(`tab-${tab}`).classList.remove('glass', 'text-gray-400');
+            if (tab !== 'generate') {
+                document.getElementById(`tab-${tab}`).classList.remove('glass', 'text-gray-400');
+            }
+            
+            // Populate keyword dropdown when generate tab is shown
+            if (tab === 'generate') {
+                populateKeywordDropdown();
+            }
+            
+            // Render calendar when calendar tab is shown
+            if (tab === 'calendar') {
+                renderCalendar();
+            }
+        }
+        
+        // ==========================================
+        // CALENDAR
+        // ==========================================
+        let calendarDate = new Date();
+        let scheduledContent = [];
+        
+        function changeMonth(delta) {
+            calendarDate.setMonth(calendarDate.getMonth() + delta);
+            renderCalendar();
+        }
+        
+        function renderCalendar() {
+            const year = calendarDate.getFullYear();
+            const month = calendarDate.getMonth();
+            
+            // Update header
+            const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 
+                               'July', 'August', 'September', 'October', 'November', 'December'];
+            document.getElementById('calendarMonth').textContent = `${monthNames[month]} ${year}`;
+            
+            // Get first day and days in month
+            const firstDay = new Date(year, month, 1).getDay();
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+            const today = new Date();
+            
+            // Build calendar grid
+            const grid = document.getElementById('calendarGrid');
+            grid.innerHTML = '';
+            
+            // Empty cells before first day
+            for (let i = 0; i < firstDay; i++) {
+                grid.innerHTML += `<div class="h-24 rounded-lg bg-white/5"></div>`;
+            }
+            
+            // Days of month
+            for (let day = 1; day <= daysInMonth; day++) {
+                const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                const isToday = today.getDate() === day && today.getMonth() === month && today.getFullYear() === year;
+                const dayContent = getScheduledForDate(dateStr);
+                
+                grid.innerHTML += `
+                    <div class="h-24 rounded-lg ${isToday ? 'bg-purple-500/20 border border-purple-500' : 'bg-white/5 hover:bg-white/10'} p-2 transition cursor-pointer" onclick="showDateContent('${dateStr}')">
+                        <div class="text-sm font-medium ${isToday ? 'text-purple-400' : 'text-gray-300'}">${day}</div>
+                        <div class="mt-1 space-y-1 overflow-hidden">
+                            ${dayContent}
+                        </div>
+                    </div>
+                `;
+            }
+            
+            // Update scheduled list
+            renderScheduledList();
+        }
+        
+        function getScheduledForDate(dateStr) {
+            const items = scheduledContent.filter(c => c.scheduled_date === dateStr);
+            if (items.length === 0) return '';
+            
+            return items.slice(0, 3).map(item => {
+                const colors = {
+                    blog: 'bg-green-500',
+                    gbp: 'bg-blue-500',
+                    facebook: 'bg-indigo-500',
+                    instagram: 'bg-pink-500'
+                };
+                return `<div class="w-full h-1.5 rounded ${colors[item.type] || 'bg-gray-500'}" title="${item.title || item.topic}"></div>`;
+            }).join('');
+        }
+        
+        function renderScheduledList() {
+            const container = document.getElementById('scheduledList');
+            
+            // Combine blogs and social posts with dates
+            scheduledContent = [];
+            
+            // Add blogs
+            allBlogs.forEach((blog, idx) => {
+                const date = new Date();
+                date.setDate(date.getDate() + (idx * 3)); // Every 3 days
+                scheduledContent.push({
+                    type: 'blog',
+                    title: blog.title,
+                    scheduled_date: date.toISOString().split('T')[0],
+                    status: blog.status
+                });
+            });
+            
+            // Add social posts
+            allSocial.forEach((post, idx) => {
+                const date = new Date();
+                date.setDate(date.getDate() + idx + 1); // Daily
+                scheduledContent.push({
+                    type: post.platform,
+                    topic: post.topic || post.content?.substring(0, 50),
+                    scheduled_date: date.toISOString().split('T')[0],
+                    status: post.status
+                });
+            });
+            
+            // Sort by date
+            scheduledContent.sort((a, b) => a.scheduled_date.localeCompare(b.scheduled_date));
+            
+            if (scheduledContent.length === 0) {
+                container.innerHTML = '<p class="text-gray-500 text-sm">No content scheduled yet. Generate content first, then click "Auto-Schedule".</p>';
+                return;
+            }
+            
+            container.innerHTML = scheduledContent.slice(0, 10).map(item => {
+                const colors = {
+                    blog: 'from-green-500 to-emerald-600',
+                    gbp: 'from-blue-500 to-cyan-600',
+                    facebook: 'from-indigo-500 to-blue-600',
+                    instagram: 'from-pink-500 to-rose-600'
+                };
+                const icons = {
+                    blog: 'fa-file-alt',
+                    gbp: 'fab fa-google',
+                    facebook: 'fab fa-facebook',
+                    instagram: 'fab fa-instagram'
+                };
+                return `
+                    <div class="flex items-center gap-4 p-3 glass rounded-lg">
+                        <div class="w-10 h-10 rounded-lg bg-gradient-to-br ${colors[item.type] || 'from-gray-500 to-gray-600'} flex items-center justify-center">
+                            <i class="${icons[item.type] || 'fas fa-file'} text-white"></i>
+                        </div>
+                        <div class="flex-1">
+                            <p class="text-white font-medium text-sm">${item.title || item.topic || 'Untitled'}</p>
+                            <p class="text-gray-400 text-xs">${item.type.charAt(0).toUpperCase() + item.type.slice(1)} • ${formatDate(item.scheduled_date)}</p>
+                        </div>
+                        <span class="px-2 py-1 ${item.status === 'published' ? 'bg-green-500/20 text-green-400' : 'bg-yellow-500/20 text-yellow-400'} rounded text-xs">
+                            ${item.status || 'draft'}
+                        </span>
+                    </div>
+                `;
+            }).join('');
+        }
+        
+        function formatDate(dateStr) {
+            const date = new Date(dateStr + 'T00:00:00');
+            return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+        }
+        
+        function autoSchedule() {
+            // Auto-schedule unscheduled content
+            const today = new Date();
+            let blogDay = 0;
+            let socialDay = 0;
+            
+            allBlogs.forEach((blog, idx) => {
+                if (!blog.scheduled_date) {
+                    const date = new Date(today);
+                    date.setDate(date.getDate() + (blogDay * 3) + 1); // Blogs every 3 days
+                    blog.scheduled_date = date.toISOString().split('T')[0];
+                    blogDay++;
+                }
+            });
+            
+            allSocial.forEach((post, idx) => {
+                if (!post.scheduled_date) {
+                    const date = new Date(today);
+                    date.setDate(date.getDate() + socialDay + 1); // Social daily
+                    post.scheduled_date = date.toISOString().split('T')[0];
+                    socialDay++;
+                }
+            });
+            
+            renderCalendar();
+            alert(`Auto-scheduled ${allBlogs.length} blogs and ${allSocial.length} social posts!`);
+        }
+        
+        function showDateContent(dateStr) {
+            const items = scheduledContent.filter(c => c.scheduled_date === dateStr);
+            if (items.length === 0) {
+                alert(`No content scheduled for ${formatDate(dateStr)}`);
+                return;
+            }
+            
+            const content = items.map(i => `• ${i.type}: ${i.title || i.topic}`).join('\n');
+            alert(`Content for ${formatDate(dateStr)}:\n\n${content}`);
         }
 
         // ==========================================
@@ -446,6 +1016,122 @@
             const matches = body.match(/<a[^>]*href=[^>]*>/gi);
             return matches ? matches.length : 0;
         }
+        
+        function calculateSEOScore(blog) {
+            if (!blog) return { score: 0, checks: {} };
+            
+            const checks = {};
+            let score = 0;
+            
+            // Word count (20 points) - target 1200+
+            const wordCount = blog.word_count || 0;
+            checks.wordCount = wordCount >= 1200;
+            if (wordCount >= 1500) score += 20;
+            else if (wordCount >= 1200) score += 15;
+            else if (wordCount >= 800) score += 10;
+            else if (wordCount >= 500) score += 5;
+            
+            // Keyword density (15 points) - target 1-2%
+            const body = blog.body || '';
+            const bodyText = body.replace(/<[^>]*>/g, '').toLowerCase();
+            const keyword = (blog.primary_keyword || '').toLowerCase();
+            if (keyword && bodyText) {
+                const keywordCount = (bodyText.match(new RegExp(keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g')) || []).length;
+                const totalWords = bodyText.split(/\s+/).filter(w => w.length > 0).length;
+                const density = totalWords > 0 ? (keywordCount / totalWords) * 100 : 0;
+                checks.keywordDensity = density >= 0.5 && density <= 3;
+                if (density >= 1 && density <= 2) score += 15;
+                else if (density >= 0.5 && density <= 3) score += 10;
+                else if (density > 0) score += 5;
+            } else {
+                checks.keywordDensity = false;
+            }
+            
+            // Internal links (15 points) - target 3+
+            const linkCount = countInternalLinks(body);
+            checks.internalLinks = linkCount >= 3;
+            if (linkCount >= 5) score += 15;
+            else if (linkCount >= 3) score += 12;
+            else if (linkCount >= 1) score += 5;
+            
+            // Meta title (15 points) - target 50-60 chars with keyword
+            const metaTitle = blog.meta_title || '';
+            const titleLen = metaTitle.length;
+            const titleHasKeyword = keyword && metaTitle.toLowerCase().includes(keyword);
+            checks.metaTitle = titleLen >= 50 && titleLen <= 60 && titleHasKeyword;
+            if (titleLen >= 50 && titleLen <= 60) score += 8;
+            else if (titleLen >= 40 && titleLen <= 70) score += 5;
+            if (titleHasKeyword) score += 7;
+            
+            // Meta description (15 points) - target 150-160 chars
+            const metaDesc = blog.meta_description || '';
+            const descLen = metaDesc.length;
+            const descHasKeyword = keyword && metaDesc.toLowerCase().includes(keyword);
+            checks.metaDesc = descLen >= 150 && descLen <= 160 && descHasKeyword;
+            if (descLen >= 150 && descLen <= 160) score += 8;
+            else if (descLen >= 120 && descLen <= 180) score += 5;
+            if (descHasKeyword) score += 7;
+            
+            // Heading structure (20 points) - H2s and H3s with location
+            const h2Count = (body.match(/<h2/gi) || []).length;
+            const h3Count = (body.match(/<h3/gi) || []).length;
+            checks.headings = h2Count >= 3 && h3Count >= 2;
+            if (h2Count >= 4) score += 10;
+            else if (h2Count >= 3) score += 8;
+            else if (h2Count >= 2) score += 5;
+            if (h3Count >= 3) score += 10;
+            else if (h3Count >= 2) score += 8;
+            else if (h3Count >= 1) score += 4;
+            
+            return { score: Math.min(100, score), checks };
+        }
+        
+        function updateSEOScoreDisplay(seoResult) {
+            const { score, checks } = seoResult;
+            
+            // Update score value and bar
+            const scoreValueEl = document.getElementById('seoScoreValue');
+            const scoreBarEl = document.getElementById('seoScoreBar');
+            
+            if (scoreValueEl) scoreValueEl.textContent = score;
+            if (scoreBarEl) scoreBarEl.style.width = `${score}%`;
+            
+            // Update color based on score
+            const scoreEl = document.getElementById('seoScoreValue');
+            const barEl = document.getElementById('seoScoreBar');
+            if (scoreEl && barEl) {
+                if (score >= 80) {
+                    scoreEl.className = 'text-3xl font-bold text-green-400';
+                    barEl.className = 'bg-gradient-to-r from-green-500 to-emerald-400 h-2 rounded-full transition-all';
+                } else if (score >= 60) {
+                    scoreEl.className = 'text-3xl font-bold text-yellow-400';
+                    barEl.className = 'bg-gradient-to-r from-yellow-500 to-orange-400 h-2 rounded-full transition-all';
+                } else {
+                    scoreEl.className = 'text-3xl font-bold text-red-400';
+                    barEl.className = 'bg-gradient-to-r from-red-500 to-orange-400 h-2 rounded-full transition-all';
+                }
+            }
+            
+            // Update check indicators
+            const updateCheck = (id, passed) => {
+                const el = document.getElementById(id);
+                if (!el) return;
+                const icon = el.querySelector('i');
+                if (!icon) return;
+                if (passed) {
+                    icon.className = 'fas fa-check-circle text-green-400';
+                } else {
+                    icon.className = 'fas fa-times-circle text-red-400';
+                }
+            };
+            
+            updateCheck('seoWordCount', checks.wordCount);
+            updateCheck('seoKeywordDensity', checks.keywordDensity);
+            updateCheck('seoInternalLinks', checks.internalLinks);
+            updateCheck('seoMetaTitle', checks.metaTitle);
+            updateCheck('seoMetaDesc', checks.metaDesc);
+            updateCheck('seoHeadings', checks.headings);
+        }
 
         let currentBlog = null;
 
@@ -461,6 +1147,10 @@
             document.getElementById('modalMetaTitle').textContent = currentBlog.meta_title || '';
             document.getElementById('modalMetaDesc').textContent = currentBlog.meta_description || '';
             document.getElementById('modalBody').innerHTML = currentBlog.body || '';
+            
+            // Calculate and display SEO score
+            const seoResult = calculateSEOScore(currentBlog);
+            updateSEOScoreDisplay(seoResult);
 
             // FAQs
             const faqSection = document.getElementById('modalFaq');
@@ -502,6 +1192,135 @@
             a.href = url;
             a.download = `${currentBlog.title?.replace(/[^a-z0-9]/gi, '-').toLowerCase() || 'blog'}.md`;
             a.click();
+        }
+        
+        // Helper to escape HTML attributes
+        function escapeHtml(str) {
+            if (!str) return '';
+            return str.replace(/&/g, '&amp;')
+                     .replace(/</g, '&lt;')
+                     .replace(/>/g, '&gt;')
+                     .replace(/"/g, '&quot;')
+                     .replace(/'/g, '&#39;');
+        }
+        
+        function downloadBlogHTML() {
+            if (!currentBlog) return;
+            
+            const safeTitle = escapeHtml(currentBlog.meta_title || currentBlog.title);
+            const safeDesc = escapeHtml(currentBlog.meta_description || '');
+            
+            const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>${safeTitle}</title>
+    <meta name="description" content="${safeDesc}">
+    <style>
+        body { font-family: system-ui, sans-serif; max-width: 800px; margin: 0 auto; padding: 2rem; line-height: 1.6; color: #333; }
+        h1 { color: #1a1a1a; margin-bottom: 0.5rem; }
+        h2 { color: #2a2a2a; margin-top: 2rem; }
+        h3 { color: #3a3a3a; margin-top: 1.5rem; }
+        a { color: #6366f1; }
+        .meta { color: #666; font-size: 0.9rem; margin-bottom: 2rem; padding-bottom: 1rem; border-bottom: 1px solid #eee; }
+        .faq { background: #f9fafb; padding: 1.5rem; border-radius: 8px; margin-top: 2rem; }
+        .faq h3 { margin-top: 0; }
+        .faq-item { margin-bottom: 1rem; }
+        .faq-q { font-weight: 600; color: #1a1a1a; }
+        .faq-a { color: #4a4a4a; margin-top: 0.25rem; }
+    </style>
+</head>
+<body>
+    <article>
+        <h1>${currentBlog.title}</h1>
+        <div class="meta">
+            <strong>Keyword:</strong> ${escapeHtml(currentBlog.primary_keyword || '')} | 
+            <strong>Words:</strong> ${currentBlog.word_count || 0}
+        </div>
+        ${currentBlog.body || ''}
+        ${currentBlog.faq_content?.length > 0 ? `
+        <div class="faq">
+            <h3>Frequently Asked Questions</h3>
+            ${currentBlog.faq_content.map(faq => `
+            <div class="faq-item">
+                <p class="faq-q">${escapeHtml(faq.question || faq.q)}</p>
+                <p class="faq-a">${escapeHtml(faq.answer || faq.a)}</p>
+            </div>
+            `).join('')}
+        </div>
+        ` : ''}
+    </article>
+</body>
+</html>`;
+            
+            const blob = new Blob([html], { type: 'text/html' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${currentBlog.title?.replace(/[^a-z0-9]/gi, '-').toLowerCase() || 'blog'}.html`;
+            a.click();
+        }
+        
+        function downloadBlogWord() {
+            if (!currentBlog) return;
+            
+            // Create Word-compatible HTML
+            const safeTitle = escapeHtml(currentBlog.title);
+            const safeKeyword = escapeHtml(currentBlog.primary_keyword || '');
+            const safeMetaTitle = escapeHtml(currentBlog.meta_title || '');
+            const safeMetaDesc = escapeHtml(currentBlog.meta_description || '');
+            
+            const wordDoc = `
+<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word'>
+<head>
+    <meta charset="UTF-8">
+    <title>${safeTitle}</title>
+    <style>
+        body { font-family: Calibri, sans-serif; font-size: 11pt; line-height: 1.5; }
+        h1 { font-size: 24pt; color: #1a1a1a; margin-bottom: 12pt; }
+        h2 { font-size: 16pt; color: #2a2a2a; margin-top: 18pt; margin-bottom: 6pt; }
+        h3 { font-size: 13pt; color: #3a3a3a; margin-top: 12pt; margin-bottom: 6pt; }
+        p { margin-bottom: 10pt; }
+        a { color: #0563C1; }
+        .meta { color: #666; font-size: 10pt; border-bottom: 1pt solid #ccc; padding-bottom: 12pt; margin-bottom: 18pt; }
+        .faq { background: #f5f5f5; padding: 12pt; margin-top: 24pt; }
+        .faq-q { font-weight: bold; margin-bottom: 3pt; }
+        .faq-a { margin-bottom: 12pt; color: #444; }
+    </style>
+</head>
+<body>
+    <h1>${safeTitle}</h1>
+    <div class="meta">
+        <b>Target Keyword:</b> ${safeKeyword}<br>
+        <b>Meta Title:</b> ${safeMetaTitle}<br>
+        <b>Meta Description:</b> ${safeMetaDesc}<br>
+        <b>Word Count:</b> ${currentBlog.word_count || 0}
+    </div>
+    ${currentBlog.body || ''}
+    ${currentBlog.faq_content?.length > 0 ? `
+    <div class="faq">
+        <h2>Frequently Asked Questions</h2>
+        ${currentBlog.faq_content.map(faq => `
+        <p class="faq-q">${escapeHtml(faq.question || faq.q)}</p>
+        <p class="faq-a">${escapeHtml(faq.answer || faq.a)}</p>
+        `).join('')}
+    </div>
+    ` : ''}
+</body>
+</html>`;
+            
+            const blob = new Blob([wordDoc], { type: 'application/msword' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${currentBlog.title?.replace(/[^a-z0-9]/gi, '-').toLowerCase() || 'blog'}.doc`;
+            a.click();
+        }
+        
+        function publishBlog() {
+            if (!currentBlog) return;
+            alert('Blog approved! In a full implementation, this would publish to WordPress or update the status.');
         }
 
         // ==========================================
@@ -622,6 +1441,313 @@
                     </div>
                 `).join('')
                 : '<p class="text-gray-500 text-sm">No USPs defined</p>';
+        }
+
+        // ==========================================
+        // CONTENT GENERATION
+        // ==========================================
+        
+        function populateKeywordDropdown() {
+            const select = document.getElementById('blogKeyword');
+            if (!currentClient) return;
+            
+            select.innerHTML = '<option value="">Choose a keyword...</option>';
+            
+            // Add primary keywords
+            if (currentClient.primary_keywords?.length > 0) {
+                const primaryGroup = document.createElement('optgroup');
+                primaryGroup.label = '🎯 Primary Keywords';
+                currentClient.primary_keywords.forEach(kw => {
+                    const option = document.createElement('option');
+                    option.value = kw;
+                    option.textContent = kw;
+                    primaryGroup.appendChild(option);
+                });
+                select.appendChild(primaryGroup);
+            }
+            
+            // Add secondary keywords
+            if (currentClient.secondary_keywords?.length > 0) {
+                const secondaryGroup = document.createElement('optgroup');
+                secondaryGroup.label = '📝 Secondary Keywords';
+                currentClient.secondary_keywords.forEach(kw => {
+                    const option = document.createElement('option');
+                    option.value = kw;
+                    option.textContent = kw;
+                    secondaryGroup.appendChild(option);
+                });
+                select.appendChild(secondaryGroup);
+            }
+        }
+        
+        async function generateBlog() {
+            const keyword = document.getElementById('customBlogKeyword').value.trim() || 
+                           document.getElementById('blogKeyword').value;
+            
+            if (!keyword) {
+                alert('Please select or enter a keyword');
+                return;
+            }
+            
+            if (!currentClient) {
+                alert('Please select a client first');
+                return;
+            }
+            
+            const wordCount = parseInt(document.getElementById('blogWordCount').value);
+            const faqCount = parseInt(document.getElementById('blogFaqs').value);
+            
+            const btn = document.getElementById('btnGenerateBlog');
+            const progress = document.getElementById('blogProgress');
+            
+            btn.disabled = true;
+            btn.innerHTML = '<div class="spinner w-5 h-5 mr-2"></div> Generating...';
+            progress.classList.remove('hidden');
+            document.getElementById('blogProgressText').textContent = 'Generating 1,500+ word SEO blog post...';
+            
+            try {
+                const response = await fetch('/api/content/blog/generate', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        client_id: currentClient.id,
+                        keyword: keyword,
+                        word_count: wordCount,
+                        include_faq: faqCount > 0,
+                        faq_count: faqCount,
+                        generate_schema: true
+                    })
+                });
+                
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+                    throw new Error(errorData.error || `Server error: ${response.status}`);
+                }
+                
+                const result = await response.json();
+                
+                document.getElementById('blogProgressText').textContent = '✓ Blog post generated successfully!';
+                
+                // Refresh the blogs list
+                setTimeout(() => {
+                    progress.classList.add('hidden');
+                    loadClient(currentClient.id);
+                    showTab('blogs');
+                    alert(`Blog post "${result.title || keyword}" generated successfully!`);
+                }, 1500);
+                
+            } catch (error) {
+                console.error('Blog generation error:', error);
+                document.getElementById('blogProgressText').textContent = `Error: ${error.message}`;
+                alert(`Failed to generate blog: ${error.message}`);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-magic"></i> Generate Blog Post';
+            }
+        }
+        
+        async function generateSocial() {
+            const topic = document.getElementById('socialTopic').value.trim();
+            
+            if (!topic) {
+                alert('Please enter a topic');
+                return;
+            }
+            
+            if (!currentClient) {
+                alert('Please select a client first');
+                return;
+            }
+            
+            const platforms = [];
+            if (document.getElementById('platformGbp').checked) platforms.push('gbp');
+            if (document.getElementById('platformFacebook').checked) platforms.push('facebook');
+            if (document.getElementById('platformInstagram').checked) platforms.push('instagram');
+            
+            if (platforms.length === 0) {
+                alert('Please select at least one platform');
+                return;
+            }
+            
+            const btn = document.getElementById('btnGenerateSocial');
+            const progress = document.getElementById('socialProgress');
+            
+            btn.disabled = true;
+            btn.innerHTML = '<div class="spinner w-5 h-5 mr-2"></div> Generating...';
+            progress.classList.remove('hidden');
+            
+            let generated = 0;
+            
+            for (const platform of platforms) {
+                document.getElementById('socialProgressText').textContent = `Generating ${platform.toUpperCase()} post...`;
+                
+                try {
+                    await fetch('/api/content/social/generate', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}`
+                        },
+                        body: JSON.stringify({
+                            client_id: currentClient.id,
+                            topic: topic,
+                            platform: platform
+                        })
+                    });
+                    generated++;
+                } catch (error) {
+                    console.error(`Social generation error (${platform}):`, error);
+                }
+            }
+            
+            document.getElementById('socialProgressText').textContent = `✓ Generated ${generated} social posts!`;
+            
+            setTimeout(() => {
+                progress.classList.add('hidden');
+                loadClient(currentClient.id);
+                showTab('social');
+            }, 1500);
+            
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-magic"></i> Generate Social Posts';
+        }
+        
+        async function generateBulk() {
+            if (!currentClient) {
+                alert('Please select a client first');
+                return;
+            }
+            
+            const blogCount = parseInt(document.getElementById('bulkBlogCount').value);
+            const socialCount = parseInt(document.getElementById('bulkSocialCount').value);
+            
+            if (blogCount === 0 && socialCount === 0) {
+                alert('Please select at least one item to generate');
+                return;
+            }
+            
+            // Check if client has keywords
+            const availableKeywords = [
+                ...(currentClient.primary_keywords || []),
+                ...(currentClient.secondary_keywords || [])
+            ];
+            
+            if (blogCount > 0 && availableKeywords.length === 0) {
+                alert('This client has no keywords defined. Please add keywords first or use the single blog generator with a custom keyword.');
+                return;
+            }
+            
+            if (blogCount > availableKeywords.length) {
+                if (!confirm(`This client only has ${availableKeywords.length} keyword(s). Generate ${availableKeywords.length} blogs instead of ${blogCount}?`)) {
+                    return;
+                }
+            }
+            
+            const btn = document.getElementById('btnGenerateBulk');
+            const progress = document.getElementById('bulkProgress');
+            const progressBar = document.getElementById('bulkProgressBar');
+            const progressCount = document.getElementById('bulkProgressCount');
+            const progressLog = document.getElementById('bulkProgressLog');
+            
+            btn.disabled = true;
+            btn.innerHTML = '<div class="spinner w-5 h-5 mr-2"></div> Generating...';
+            progress.classList.remove('hidden');
+            progressLog.innerHTML = '';
+            
+            const actualBlogCount = Math.min(blogCount, availableKeywords.length);
+            const actualSocialTopics = Math.min(socialCount, availableKeywords.length);
+            const totalItems = actualBlogCount + (actualSocialTopics * 3); // 3 platforms
+            let completed = 0;
+            
+            // Get keywords for blogs
+            const keywords = availableKeywords.slice(0, actualBlogCount);
+            
+            // Generate blogs
+            for (let i = 0; i < keywords.length; i++) {
+                const keyword = keywords[i];
+                progressLog.innerHTML += `<div class="text-blue-400">📝 Generating blog: ${keyword}...</div>`;
+                progressLog.scrollTop = progressLog.scrollHeight;
+                
+                try {
+                    const response = await fetch('/api/content/blog/generate', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}`
+                        },
+                        body: JSON.stringify({
+                            client_id: currentClient.id,
+                            keyword: keyword,
+                            word_count: 1500,
+                            include_faq: true,
+                            faq_count: 5,
+                            generate_schema: true
+                        })
+                    });
+                    
+                    if (response.ok) {
+                        progressLog.innerHTML += `<div class="text-green-400">✓ Blog: ${keyword}</div>`;
+                    } else {
+                        progressLog.innerHTML += `<div class="text-red-400">✗ Failed: ${keyword}</div>`;
+                    }
+                } catch (error) {
+                    progressLog.innerHTML += `<div class="text-red-400">✗ Error: ${keyword}</div>`;
+                }
+                
+                completed++;
+                progressCount.textContent = `${completed} / ${totalItems}`;
+                progressBar.style.width = totalItems > 0 ? `${(completed / totalItems) * 100}%` : '100%';
+            }
+            
+            // Generate social posts
+            const platforms = ['gbp', 'facebook', 'instagram'];
+            const topics = availableKeywords.slice(0, socialCount);
+            
+            if (socialCount > 0 && topics.length === 0) {
+                progressLog.innerHTML += `<div class="text-yellow-400">⚠ No keywords for social posts - skipping</div>`;
+            }
+            
+            for (const topic of topics) {
+                for (const platform of platforms) {
+                    progressLog.innerHTML += `<div class="text-blue-400">📱 Generating ${platform}: ${topic}...</div>`;
+                    progressLog.scrollTop = progressLog.scrollHeight;
+                    
+                    try {
+                        await fetch('/api/content/social/generate', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Authorization': `Bearer ${token}`
+                            },
+                            body: JSON.stringify({
+                                client_id: currentClient.id,
+                                topic: topic,
+                                platform: platform
+                            })
+                        });
+                        progressLog.innerHTML += `<div class="text-green-400">✓ ${platform}: ${topic}</div>`;
+                    } catch (error) {
+                        progressLog.innerHTML += `<div class="text-red-400">✗ ${platform}: ${topic}</div>`;
+                    }
+                    
+                    completed++;
+                    progressCount.textContent = `${completed} / ${totalItems}`;
+                    progressBar.style.width = totalItems > 0 ? `${(completed / totalItems) * 100}%` : '100%';
+                }
+            }
+            
+            progressLog.innerHTML += `<div class="text-purple-400 font-bold mt-2">🎉 Bulk generation complete!</div>`;
+            
+            setTimeout(() => {
+                loadClient(currentClient.id);
+                showTab('blogs');
+            }, 2000);
+            
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-rocket"></i> Generate All';
         }
 
         // Close modal on escape
