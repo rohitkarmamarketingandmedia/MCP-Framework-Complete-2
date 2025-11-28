@@ -140,6 +140,13 @@ def update_client(current_user, client_id):
         client.subscription_tier = data['subscription_tier']
     if 'is_active' in data:
         client.is_active = data['is_active']
+    # WordPress fields
+    if 'wordpress_url' in data:
+        client.wordpress_url = data['wordpress_url']
+    if 'wordpress_user' in data:
+        client.wordpress_user = data['wordpress_user']
+    if 'wordpress_app_password' in data:
+        client.wordpress_app_password = data['wordpress_app_password']
     
     data_service.save_client(client)
     
@@ -152,17 +159,50 @@ def update_client(current_user, client_id):
 @clients_bp.route('/<client_id>', methods=['DELETE'])
 @admin_required
 def delete_client(current_user, client_id):
-    """Deactivate a client (soft delete)"""
+    """Delete a client (hard or soft delete based on query param)"""
     client = data_service.get_client(client_id)
     
     if not client:
         return jsonify({'error': 'Client not found'}), 404
     
-    client.is_active = False
-    client.updated_at = datetime.utcnow()
-    data_service.save_client(client)
+    # Check for hard delete flag
+    hard_delete = request.args.get('hard', 'false').lower() == 'true'
     
-    return jsonify({'message': 'Client deactivated'})
+    if hard_delete:
+        # Hard delete - remove client and all associated content
+        from app import db
+        from app.models.db_models import DBClient, DBBlogPost, DBSocialPost, DBChatbotConfig, DBChatConversation
+        
+        try:
+            # Delete associated content first
+            DBBlogPost.query.filter_by(client_id=client_id).delete()
+            DBSocialPost.query.filter_by(client_id=client_id).delete()
+            
+            # Delete chatbot config and conversations
+            chatbot = DBChatbotConfig.query.filter_by(client_id=client_id).first()
+            if chatbot:
+                DBChatConversation.query.filter_by(chatbot_id=chatbot.id).delete()
+                db.session.delete(chatbot)
+            
+            # Delete the client
+            db_client = DBClient.query.filter_by(id=client_id).first()
+            if db_client:
+                db.session.delete(db_client)
+            
+            db.session.commit()
+            
+            return jsonify({'message': 'Client and all content permanently deleted'})
+            
+        except Exception as e:
+            db.session.rollback()
+            return jsonify({'error': f'Delete failed: {str(e)}'}), 500
+    else:
+        # Soft delete - just deactivate
+        client.is_active = False
+        client.updated_at = datetime.utcnow()
+        data_service.save_client(client)
+        
+        return jsonify({'message': 'Client deactivated'})
 
 
 @clients_bp.route('/<client_id>/keywords', methods=['PUT'])

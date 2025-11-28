@@ -304,6 +304,22 @@ def full_pipeline(current_user):
             [k['keyword'] for k in discovered_keywords]
         ))[:20]
         
+        # Auto-generate service pages from keywords if not provided
+        auto_service_pages = data.get('service_pages', [])
+        if not auto_service_pages and data.get('primary_keywords'):
+            website_base = data.get('website', '').rstrip('/')
+            if not website_base:
+                website_base = f"https://{data['business_name'].lower().replace(' ', '')}.com"
+            
+            for pk in data.get('primary_keywords', [])[:8]:
+                # Create a service page entry for each primary keyword
+                slug = pk.lower().replace(' ', '-').replace(',', '')
+                auto_service_pages.append({
+                    'keyword': pk,
+                    'url': f"{website_base}/{slug}/",
+                    'title': f"{pk.title()} - {data['business_name']}"
+                })
+        
         client = DBClient(
             business_name=data['business_name'],
             industry=data['industry'],
@@ -317,7 +333,7 @@ def full_pipeline(current_user):
             competitors=final_competitors,
             tone=data.get('tone', 'professional'),
             unique_selling_points=data.get('usps', []),
-            service_pages=data.get('service_pages', [])  # For internal linking
+            service_pages=auto_service_pages  # Auto-generated for internal linking
         )
         
         data_service.save_client(client)
@@ -359,7 +375,7 @@ def full_pipeline(current_user):
         for pk in data.get('primary_keywords', [])[:blog_count]:
             blog_topics.append({
                 'keyword': pk,
-                'word_count': 1500,  # Full SEO length
+                'word_count': 1800,  # Full SEO length for high scores
                 'include_faq': True  # Include FAQ for featured snippets
             })
         
@@ -376,7 +392,7 @@ def full_pipeline(current_user):
                 if kw['keyword'] not in [t['keyword'] for t in blog_topics]:
                     blog_topics.append({
                         'keyword': kw['keyword'],
-                        'word_count': 1200,
+                        'word_count': 1800,  # Same for consistency
                         'include_faq': True
                     })
         

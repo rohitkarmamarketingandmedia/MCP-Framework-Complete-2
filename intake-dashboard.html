@@ -164,6 +164,9 @@
         <div class="max-w-6xl mx-auto px-4">
             <div class="flex items-center justify-between h-12">
                 <div class="flex items-center gap-6 text-sm">
+                    <a href="/intake" class="text-white font-medium flex items-center gap-2">
+                        <i class="fas fa-plus-circle"></i> New Client
+                    </a>
                     <a href="/agency" class="text-gray-400 hover:text-white transition flex items-center gap-2">
                         <i class="fas fa-building"></i> Agency
                     </a>
@@ -172,9 +175,6 @@
                     </a>
                     <a href="/elite" class="text-gray-400 hover:text-white transition flex items-center gap-2">
                         <i class="fas fa-chart-line"></i> SEO Elite
-                    </a>
-                    <a href="/intake" class="text-white font-medium flex items-center gap-2">
-                        <i class="fas fa-plus-circle"></i> New Client
                     </a>
                     <a href="/admin" class="text-gray-400 hover:text-white transition flex items-center gap-2">
                         <i class="fas fa-cog"></i> Admin
@@ -195,9 +195,35 @@
                 <h1 class="text-2xl font-bold text-white">New Client Setup</h1>
                 <p class="text-gray-400 text-sm">Data-driven keyword targeting</p>
             </div>
-            <div class="text-right">
-                <div class="text-xs text-gray-500">Auto-saved</div>
-                <div class="text-xs text-gray-400" id="last-saved">—</div>
+            <div class="flex items-center gap-4">
+                <button onclick="startFresh()" class="px-4 py-2 bg-red-500/20 border border-red-500/50 text-red-400 rounded-lg text-sm hover:bg-red-500/30 transition flex items-center gap-2">
+                    <i class="fas fa-plus"></i> Start Fresh
+                </button>
+                <div class="text-right">
+                    <div class="text-xs text-gray-500">Auto-saved</div>
+                    <div class="text-xs text-gray-400" id="last-saved">—</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Resume Banner (shown if saved state exists) -->
+        <div id="resume-banner" class="hidden mb-6 bg-amber-500/20 border border-amber-500/50 rounded-xl p-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <i class="fas fa-exclamation-triangle text-amber-400 text-xl"></i>
+                    <div>
+                        <p class="text-white font-medium">You have a saved session</p>
+                        <p class="text-gray-400 text-sm" id="resume-info">Client: Loading...</p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button onclick="resumeSavedSession()" class="px-4 py-2 bg-amber-500 text-white rounded-lg text-sm font-medium hover:bg-amber-600 transition">
+                        <i class="fas fa-play mr-1"></i> Resume
+                    </button>
+                    <button onclick="startFresh()" class="px-4 py-2 bg-gray-600 text-white rounded-lg text-sm hover:bg-gray-500 transition">
+                        <i class="fas fa-times mr-1"></i> Discard
+                    </button>
+                </div>
             </div>
         </div>
 
@@ -736,9 +762,11 @@
                                     </span>
                                 </label>
                             </div>
-                            <p class="text-xs text-blue-600 mt-3" id="timeout-warning">
-                                ⏱️ Full content generation takes 2-5 minutes. Each post is 1,500 words with internal links, meta tags, and FAQs.
-                            </p>
+                            <div class="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg" id="timeout-warning">
+                                <p class="text-sm text-amber-700">
+                                    <span class="font-semibold">⏱️ Note:</span> Full content generation takes 2-5 minutes per post. If you experience timeouts, use <strong>"Quick setup"</strong> and generate content from the dashboard.
+                                </p>
+                            </div>
                         </div>
                         
                         <div class="mt-10 flex justify-between">
@@ -1605,17 +1633,19 @@
                 document.getElementById('opt-monitor').checked = false;
                 options.style.opacity = '0.5';
                 options.style.pointerEvents = 'none';
-                warning.textContent = '✓ Quick setup selected - client will be saved without content. Generate content from the dashboard.';
-                warning.classList.remove('text-amber-600');
-                warning.classList.add('text-green-600');
+                warning.innerHTML = `<p class="text-sm text-green-700">
+                    <span class="font-semibold">✓ Quick setup selected</span> - Client will be saved without content. Generate content from the dashboard later.
+                </p>`;
+                warning.className = 'mt-4 p-3 bg-green-50 border border-green-200 rounded-lg';
             } else {
                 document.getElementById('opt-blogs').checked = true;
                 document.getElementById('opt-social').checked = true;
                 options.style.opacity = '1';
                 options.style.pointerEvents = 'auto';
-                warning.textContent = '⚠️ Content generation takes ~60-90 seconds. If it times out, use "Quick setup" and generate content from the dashboard.';
-                warning.classList.remove('text-green-600');
-                warning.classList.add('text-amber-600');
+                warning.innerHTML = `<p class="text-sm text-amber-700">
+                    <span class="font-semibold">⏱️ Note:</span> Full content generation takes 2-5 minutes per post. If you experience timeouts, use <strong>"Quick setup"</strong> and generate content from the dashboard.
+                </p>`;
+                warning.className = 'mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg';
             }
         }
         
@@ -1721,8 +1751,26 @@
                 
                 // Check if it's a timeout or 500 error
                 let errorMsg = error.message;
-                if (errorMsg.includes('500') || errorMsg.includes('timeout') || errorMsg.includes('html>')) {
-                    errorMsg = 'Server timeout - content generation took too long.\n\nTry checking "Quick setup" to save the client without generating content, then generate content from the dashboard.';
+                let isTimeout = errorMsg.includes('500') || errorMsg.includes('timeout') || errorMsg.includes('html>') || errorMsg.includes('504');
+                
+                if (isTimeout) {
+                    // Show retry dialog with quick setup option
+                    const retry = confirm('⏱️ Server timeout - content generation took too long.\n\nWould you like to retry with "Quick Setup" mode?\n\n(This will save your client without generating content. You can generate content from the dashboard later.)');
+                    
+                    if (retry) {
+                        // Enable quick setup and retry
+                        document.getElementById('opt-quick').checked = true;
+                        toggleQuickSetup();
+                        btn.disabled = false;
+                        btn.innerHTML = `<svg class="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                        </svg>Launch Client`;
+                        // Auto-retry
+                        setTimeout(() => launchClient(), 500);
+                        return;
+                    } else {
+                        errorMsg = 'Timeout cancelled. Check "Quick setup" to save without content, then generate from the dashboard.';
+                    }
                 }
                 
                 alert('Error: ' + errorMsg);
@@ -1980,20 +2028,73 @@
         
         function clearSavedState() {
             localStorage.removeItem('mcp_intake_state');
+            // Also clear in-memory state
+            clientData = {};
+            keywords = [];
         }
-
-        // ==================== INIT ====================
-        document.addEventListener('DOMContentLoaded', function() {
+        
+        function startFresh() {
+            clearSavedState();
+            // Reset form fields
+            document.getElementById('business_name').value = '';
+            document.getElementById('industry').value = '';
+            document.getElementById('geo').value = '';
+            document.getElementById('website').value = '';
+            document.getElementById('phone').value = '';
+            document.getElementById('email').value = '';
+            document.getElementById('service_areas').value = '';
+            document.getElementById('usps').value = '';
+            // Hide resume banner
+            document.getElementById('resume-banner').classList.add('hidden');
+            // Reset to step 1
+            goToStep(1);
+            // Clear last saved indicator
+            document.getElementById('last-saved').textContent = '—';
+        }
+        
+        function resumeSavedSession() {
+            document.getElementById('resume-banner').classList.add('hidden');
             const savedStep = loadState();
-            
-            if (savedStep && savedStep > 1 && Object.keys(clientData).length > 0) {
-                // Resume from saved state
+            if (savedStep && savedStep > 1) {
                 if (savedStep >= 2) {
                     document.getElementById('industry-label').textContent = clientData.industry?.replace('_', ' ') || '';
                     document.getElementById('geo-label').textContent = clientData.geo || '';
                     renderKeywords();
                 }
                 goToStep(savedStep);
+            }
+        }
+        
+        function checkForSavedState() {
+            try {
+                const saved = localStorage.getItem('mcp_intake_state');
+                if (!saved) return null;
+                
+                const state = JSON.parse(saved);
+                
+                // Check if less than 24 hours old
+                if (Date.now() - state.timestamp > 86400000) {
+                    clearSavedState();
+                    return null;
+                }
+                
+                return state;
+            } catch (e) {
+                return null;
+            }
+        }
+
+        // ==================== INIT ====================
+        document.addEventListener('DOMContentLoaded', function() {
+            const savedState = checkForSavedState();
+            
+            if (savedState && savedState.step > 1 && savedState.clientData && Object.keys(savedState.clientData).length > 0) {
+                // Show resume banner instead of auto-resuming
+                document.getElementById('resume-banner').classList.remove('hidden');
+                document.getElementById('resume-info').textContent = 
+                    `Client: ${savedState.clientData.business_name || 'Unknown'} | Step ${savedState.step} of 4 | ${savedState.keywords?.length || 0} keywords`;
+                // Stay on step 1 until user chooses
+                goToStep(1);
             } else {
                 goToStep(1);
             }

@@ -125,6 +125,42 @@ class AIService:
                 'raw_response': response.get('content', '')[:500]
             }
         
+        # ===== POST-PROCESSING FOR SEO QUALITY =====
+        body_content = result.get('body', '')
+        actual_word_count = len(body_content.split())
+        
+        logger.info(f"Blog raw word count: {actual_word_count} (target: {word_count})")
+        
+        # Post-process: Inject internal links if not already present
+        if internal_links and body_content:
+            try:
+                from app.services.internal_linking_service import internal_linking_service
+                
+                # Check how many links already in content
+                existing_links = body_content.count('<a href=')
+                
+                if existing_links < 3:  # Need more links
+                    logger.info(f"Adding internal links (current: {existing_links})")
+                    body_content, links_added = internal_linking_service.inject_internal_links(
+                        content=body_content,
+                        service_pages=internal_links,
+                        primary_keyword=keyword,
+                        max_links=6
+                    )
+                    result['body'] = body_content
+                    result['internal_links_added'] = links_added
+                    logger.info(f"Injected {links_added} internal links")
+                else:
+                    result['internal_links_added'] = existing_links
+                    logger.info(f"Content already has {existing_links} internal links")
+            except Exception as e:
+                logger.warning(f"Failed to inject internal links: {e}")
+        
+        # Post-process: Ensure H2s have location
+        if geo and body_content:
+            body_content = self._fix_h2_locations(body_content, geo, keyword)
+            result['body'] = body_content
+        
         # Ensure we have meta fields - generate if missing
         if not result.get('meta_title'):
             result['meta_title'] = f"{keyword.title()} | {business_name or geo}"[:60]
@@ -134,8 +170,38 @@ class AIService:
             result['meta_description'] = f"Expert {keyword} services in {geo}. {business_name or 'We'} provide professional {industry} solutions. Contact us today!"[:160]
             logger.warning(f"Generated fallback meta_description")
         
-        logger.info(f"Blog generated successfully: {result.get('title', 'no title')[:50]}")
+        # Calculate final word count
+        result['word_count'] = len(result.get('body', '').split())
+        
+        logger.info(f"Blog generated successfully: {result.get('title', 'no title')[:50]} ({result['word_count']} words)")
         return result
+    
+    def _fix_h2_locations(self, content: str, geo: str, keyword: str) -> str:
+        """Ensure H2 headings contain location references"""
+        import re
+        
+        def fix_h2(match):
+            h2_content = match.group(1)
+            # Check if location is already present
+            if geo.lower() in h2_content.lower():
+                return match.group(0)
+            # Add location to H2
+            # Common patterns to enhance
+            h2_lower = h2_content.lower()
+            if 'why' in h2_lower or 'how' in h2_lower or 'what' in h2_lower:
+                return f'<h2>{h2_content} in {geo}</h2>'
+            elif 'benefits' in h2_lower or 'advantages' in h2_lower:
+                return f'<h2>{h2_content} for {geo} Residents</h2>'
+            elif 'cost' in h2_lower or 'price' in h2_lower:
+                return f'<h2>{h2_content} in the {geo} Area</h2>'
+            else:
+                return f'<h2>{h2_content} in {geo}</h2>'
+        
+        # Fix H2s that don't have location
+        pattern = r'<h2>([^<]+)</h2>'
+        fixed_content = re.sub(pattern, fix_h2, content)
+        
+        return fixed_content
     
     def generate_social_post(
         self,
@@ -295,63 +361,127 @@ IMPORTANT: Return ONLY valid JSON, no markdown, no explanation."""
         internal_links: List[Dict],
         usps: List[str]
     ) -> str:
-        """Build the blog generation prompt"""
+        """Build the blog generation prompt - optimized for long-form SEO content"""
         
-        links_instruction = ""
+        # Build internal links section with clear instructions
+        links_section = ""
         if internal_links:
-            links_instruction = f"""
-Internal links to include (use natural anchor text):
-{json.dumps(internal_links, indent=2)}
-"""
-        
-        usp_instruction = ""
-        if usps:
-            usp_instruction = f"""
-Unique selling points to weave in naturally:
-- {chr(10).join('- ' + usp for usp in usps)}
-"""
-        
-        faq_instruction = ""
-        if include_faq:
-            faq_instruction = f"""
-Include {faq_count} FAQs at the end with questions real customers ask about {keyword} in {geo}.
-"""
-        
-        return f"""Write a comprehensive, SEO-optimized blog post for a {industry} business{"called " + business_name if business_name else ""} in {geo}.
+            links_section = f"""
+INTERNAL LINKING (MANDATORY - Include ALL of these):
+You MUST include these internal links naturally within your content. Use the exact URLs provided.
+Each link should appear ONCE in the body content with natural anchor text.
 
-PRIMARY KEYWORD: {keyword}
-TARGET WORD COUNT: {word_count} words
+Links to include:
+"""
+            for link in internal_links[:8]:  # Max 8 links
+                kw = link.get('keyword', link.get('title', ''))
+                url = link.get('url', '')
+                if kw and url:
+                    links_section += f'- Link to "{url}" using anchor text related to: {kw}\n'
+            
+            links_section += """
+Format links as: <a href="URL">anchor text</a>
+IMPORTANT: Actually include the <a href> tags in your body content. Do not just mention links.
+"""
+        
+        # Build USP section
+        usp_section = ""
+        if usps:
+            usp_section = f"""
+UNIQUE SELLING POINTS (weave these into content naturally):
+"""
+            for usp in usps[:5]:
+                usp_section += f"- {usp}\n"
+        
+        # Build FAQ section
+        faq_section = ""
+        if include_faq:
+            faq_section = f"""
+FAQ SECTION (REQUIRED):
+Include exactly {faq_count} frequently asked questions at the end.
+- Questions should be what real customers in {geo} would ask about {keyword}
+- Each answer should be 50-100 words
+- Use <h3> for questions
+- Format as proper FAQ schema-ready content
+"""
+        
+        return f"""You are an expert SEO content writer. Write a comprehensive, in-depth blog post.
+
+BUSINESS: {business_name or f'A {industry} company'} in {geo}
+PRIMARY KEYWORD: "{keyword}"
+TARGET LOCATION: {geo}
 TONE: {tone}
 
-SEO REQUIREMENTS (CRITICAL):
-1. H1 must contain "{keyword}" and "{geo}"
-2. All H2s must contain location reference ({geo} or nearby areas)
-3. All H3s should include keyword variations
-4. Meta title: 50-60 characters, keyword at start
-5. Meta description: 150-160 characters, includes keyword and CTA
-6. First paragraph must contain keyword within first 100 words
-7. Keyword density: 1-2% naturally distributed
-{links_instruction}
-{usp_instruction}
-{faq_instruction}
+===== WORD COUNT REQUIREMENT (CRITICAL) =====
+MINIMUM WORD COUNT: {word_count} words
+This is NON-NEGOTIABLE. The body content MUST be at least {word_count} words.
+Write detailed, comprehensive content. Include examples, explanations, and actionable advice.
+DO NOT write short, thin content. Expand every section thoroughly.
 
-OUTPUT FORMAT (JSON):
+===== CONTENT STRUCTURE (REQUIRED) =====
+1. H1 HEADING: Must contain "{keyword}" AND "{geo}"
+   Example: "{keyword.title()} in {geo}: Complete Guide for [Year]"
+
+2. INTRODUCTION (150+ words):
+   - Hook the reader
+   - Include primary keyword in first sentence
+   - Mention {geo} location
+   - Preview what the article covers
+
+3. BODY SECTIONS (minimum 5 H2 sections, each 200+ words):
+   Each H2 heading MUST include a location reference ({geo}, nearby cities, or "local")
+   Examples of good H2s:
+   - "Why {geo} Residents Choose [Service]"
+   - "Top [Service] Options in {geo}"
+   - "What to Expect from {geo} [Industry] Professionals"
+   - "Cost of [Service] in the {geo} Area"
+   - "How to Find the Best [Service] Near {geo}"
+
+4. H3 SUBHEADINGS: Use under each H2 to break up content
+   Include keyword variations in H3s
+
+5. CONCLUSION (100+ words):
+   - Summarize key points
+   - Include call-to-action mentioning {geo}
+   - End with the primary keyword
+{links_section}
+{usp_section}
+{faq_section}
+===== SEO CHECKLIST (ALL REQUIRED) =====
+✓ Primary keyword "{keyword}" appears 8-15 times throughout
+✓ "{geo}" or location references appear 10+ times
+✓ Keyword in first 100 words
+✓ Keyword in last 100 words
+✓ Meta title: 55-60 characters, keyword at START
+✓ Meta description: 150-160 characters with keyword and CTA
+✓ Use bullet points and numbered lists where appropriate
+✓ Include statistics or specific numbers where relevant
+
+===== OUTPUT FORMAT =====
+Return ONLY valid JSON (no markdown, no code blocks, no explanation):
+
 {{
-    "title": "SEO title for the page",
-    "h1": "Main heading with keyword and location",
-    "meta_title": "50-60 char meta title",
-    "meta_description": "150-160 char meta description",
-    "body": "Full HTML content with proper h2, h3, p tags",
-    "h2_headings": ["list of h2 headings used"],
-    "h3_headings": ["list of h3 headings used"],
-    "secondary_keywords": ["related keywords used"],
+    "title": "SEO-optimized page title with keyword",
+    "h1": "Main H1 heading with {keyword} and {geo}",
+    "meta_title": "55-60 char title starting with keyword",
+    "meta_description": "150-160 char description with keyword and CTA",
+    "body": "<p>Introduction paragraph...</p><h2>First Section in {geo}</h2><p>Content...</p>...",
+    "h2_headings": ["list", "of", "h2", "headings", "used"],
+    "h3_headings": ["list", "of", "h3", "headings"],
+    "secondary_keywords": ["related", "keywords", "used"],
     "faq_items": [
-        {{"question": "FAQ question?", "answer": "Detailed answer"}}
-    ]
+        {{"question": "Question about {keyword}?", "answer": "Detailed 50-100 word answer..."}},
+        {{"question": "Another question?", "answer": "Another detailed answer..."}}
+    ],
+    "word_count": {word_count}
 }}
 
-Write engaging, helpful content that serves the reader while optimizing for search.
-IMPORTANT: Return ONLY valid JSON, no markdown code blocks, no explanation before or after.
+CRITICAL REMINDERS:
+1. Body must be {word_count}+ words - this is mandatory
+2. Include proper HTML tags: <p>, <h2>, <h3>, <ul>, <li>, <strong>
+3. Every H2 must mention {geo} or a nearby location
+4. Include internal links with actual <a href="..."> tags if provided above
+5. Return ONLY the JSON object, nothing else
 """
     
     def _parse_blog_response(self, content: str) -> Dict[str, Any]:

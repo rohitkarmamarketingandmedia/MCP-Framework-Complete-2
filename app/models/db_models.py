@@ -1294,3 +1294,252 @@ class DBAgentVersion(db.Model):
             'change_note': self.change_note,
             'created_at': self.created_at.isoformat() if self.created_at else None
         }
+
+
+# ============================================
+# Chatbot Models
+# ============================================
+
+class DBChatbotConfig(db.Model):
+    """Configuration for client website chatbots"""
+    __tablename__ = 'chatbot_configs'
+    
+    id: Mapped[str] = mapped_column(String(50), primary_key=True)
+    client_id: Mapped[str] = mapped_column(String(50), ForeignKey('clients.id'), index=True)
+    
+    # Branding
+    name: Mapped[str] = mapped_column(String(100), default='Support Assistant')
+    welcome_message: Mapped[str] = mapped_column(Text, default='Hi! How can I help you today?')
+    placeholder_text: Mapped[str] = mapped_column(String(200), default='Type your message...')
+    
+    # Appearance
+    primary_color: Mapped[str] = mapped_column(String(20), default='#3b82f6')
+    secondary_color: Mapped[str] = mapped_column(String(20), default='#1e40af')
+    position: Mapped[str] = mapped_column(String(20), default='bottom-right')  # bottom-right, bottom-left
+    avatar_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    
+    # Behavior
+    auto_open_delay: Mapped[int] = mapped_column(Integer, default=0)  # 0 = don't auto open
+    show_on_mobile: Mapped[bool] = mapped_column(Boolean, default=True)
+    collect_email: Mapped[bool] = mapped_column(Boolean, default=True)
+    collect_phone: Mapped[bool] = mapped_column(Boolean, default=True)
+    collect_name: Mapped[bool] = mapped_column(Boolean, default=True)
+    
+    # AI Configuration
+    system_prompt_override: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    temperature: Mapped[float] = mapped_column(db.Float, default=0.7)
+    max_tokens: Mapped[int] = mapped_column(Integer, default=500)
+    
+    # Lead capture
+    lead_capture_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    lead_capture_trigger: Mapped[str] = mapped_column(String(50), default='after_3_messages')
+    
+    # Notifications
+    email_notifications: Mapped[bool] = mapped_column(Boolean, default=True)
+    notification_email: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    sms_notifications: Mapped[bool] = mapped_column(Boolean, default=False)
+    notification_phone: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+    
+    # Business hours
+    business_hours_only: Mapped[bool] = mapped_column(Boolean, default=False)
+    business_hours_start: Mapped[Optional[str]] = mapped_column(String(10), nullable=True)  # "09:00"
+    business_hours_end: Mapped[Optional[str]] = mapped_column(String(10), nullable=True)    # "17:00"
+    timezone: Mapped[str] = mapped_column(String(50), default='America/New_York')
+    offline_message: Mapped[str] = mapped_column(Text, default="We're currently offline. Leave your info and we'll get back to you!")
+    
+    # Analytics
+    total_conversations: Mapped[int] = mapped_column(Integer, default=0)
+    total_leads_captured: Mapped[int] = mapped_column(Integer, default=0)
+    avg_response_rating: Mapped[Optional[float]] = mapped_column(db.Float, nullable=True)
+    
+    # Status
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relationships
+    conversations = relationship('DBChatConversation', backref='chatbot', lazy='dynamic')
+    
+    def __init__(self, client_id: str, **kwargs):
+        self.id = f"chatbot_{uuid.uuid4().hex[:12]}"
+        self.client_id = client_id
+        for key, value in kwargs.items():
+            if hasattr(self, key):
+                setattr(self, key, value)
+    
+    def to_dict(self) -> dict:
+        return {
+            'id': self.id,
+            'client_id': self.client_id,
+            'name': self.name,
+            'welcome_message': self.welcome_message,
+            'placeholder_text': self.placeholder_text,
+            'primary_color': self.primary_color,
+            'secondary_color': self.secondary_color,
+            'position': self.position,
+            'avatar_url': self.avatar_url,
+            'auto_open_delay': self.auto_open_delay,
+            'show_on_mobile': self.show_on_mobile,
+            'collect_email': self.collect_email,
+            'collect_phone': self.collect_phone,
+            'collect_name': self.collect_name,
+            'lead_capture_enabled': self.lead_capture_enabled,
+            'lead_capture_trigger': self.lead_capture_trigger,
+            'email_notifications': self.email_notifications,
+            'notification_email': self.notification_email,
+            'sms_notifications': self.sms_notifications,
+            'business_hours_only': self.business_hours_only,
+            'business_hours_start': self.business_hours_start,
+            'business_hours_end': self.business_hours_end,
+            'timezone': self.timezone,
+            'offline_message': self.offline_message,
+            'total_conversations': self.total_conversations,
+            'total_leads_captured': self.total_leads_captured,
+            'avg_response_rating': self.avg_response_rating,
+            'is_active': self.is_active,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None
+        }
+
+
+class DBChatConversation(db.Model):
+    """Individual chat conversation with a website visitor"""
+    __tablename__ = 'chat_conversations'
+    
+    id: Mapped[str] = mapped_column(String(50), primary_key=True)
+    chatbot_id: Mapped[str] = mapped_column(String(50), ForeignKey('chatbot_configs.id'), index=True)
+    client_id: Mapped[str] = mapped_column(String(50), ForeignKey('clients.id'), index=True)
+    
+    # Visitor info
+    visitor_id: Mapped[str] = mapped_column(String(100), index=True)  # Browser fingerprint/cookie
+    visitor_name: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
+    visitor_email: Mapped[Optional[str]] = mapped_column(String(255), nullable=True, index=True)
+    visitor_phone: Mapped[Optional[str]] = mapped_column(String(30), nullable=True)
+    
+    # Context
+    page_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    page_title: Mapped[Optional[str]] = mapped_column(String(300), nullable=True)
+    referrer: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    user_agent: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    ip_address: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    
+    # Conversation metadata
+    message_count: Mapped[int] = mapped_column(Integer, default=0)
+    is_lead_captured: Mapped[bool] = mapped_column(Boolean, default=False)
+    lead_id: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    
+    # Status
+    status: Mapped[str] = mapped_column(String(30), default='active')  # active, closed, escalated
+    rating: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)  # 1-5 stars
+    feedback: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    
+    # Timestamps
+    started_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    last_message_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    ended_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    
+    # Relationships
+    messages = relationship('DBChatMessage', backref='conversation', lazy='dynamic', order_by='DBChatMessage.created_at')
+    
+    def __init__(self, chatbot_id: str, client_id: str, visitor_id: str, **kwargs):
+        self.id = f"conv_{uuid.uuid4().hex[:12]}"
+        self.chatbot_id = chatbot_id
+        self.client_id = client_id
+        self.visitor_id = visitor_id
+        for key, value in kwargs.items():
+            if hasattr(self, key):
+                setattr(self, key, value)
+    
+    def to_dict(self, include_messages: bool = False) -> dict:
+        result = {
+            'id': self.id,
+            'chatbot_id': self.chatbot_id,
+            'client_id': self.client_id,
+            'visitor_id': self.visitor_id,
+            'visitor_name': self.visitor_name,
+            'visitor_email': self.visitor_email,
+            'visitor_phone': self.visitor_phone,
+            'page_url': self.page_url,
+            'page_title': self.page_title,
+            'message_count': self.message_count,
+            'is_lead_captured': self.is_lead_captured,
+            'lead_id': self.lead_id,
+            'status': self.status,
+            'rating': self.rating,
+            'feedback': self.feedback,
+            'started_at': self.started_at.isoformat() if self.started_at else None,
+            'last_message_at': self.last_message_at.isoformat() if self.last_message_at else None,
+            'ended_at': self.ended_at.isoformat() if self.ended_at else None
+        }
+        if include_messages:
+            result['messages'] = [m.to_dict() for m in self.messages.all()]
+        return result
+
+
+class DBChatMessage(db.Model):
+    """Individual message in a chat conversation"""
+    __tablename__ = 'chat_messages'
+    
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    conversation_id: Mapped[str] = mapped_column(String(50), ForeignKey('chat_conversations.id'), index=True)
+    
+    # Message content
+    role: Mapped[str] = mapped_column(String(20))  # 'user', 'assistant', 'system'
+    content: Mapped[str] = mapped_column(Text)
+    
+    # AI metadata
+    tokens_used: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    response_time_ms: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    
+    # Status
+    is_read: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    
+    def to_dict(self) -> dict:
+        return {
+            'id': self.id,
+            'conversation_id': self.conversation_id,
+            'role': self.role,
+            'content': self.content,
+            'tokens_used': self.tokens_used,
+            'response_time_ms': self.response_time_ms,
+            'is_read': self.is_read,
+            'created_at': self.created_at.isoformat() if self.created_at else None
+        }
+
+
+class DBChatbotFAQ(db.Model):
+    """Pre-defined FAQ responses for chatbot"""
+    __tablename__ = 'chatbot_faqs'
+    
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    client_id: Mapped[str] = mapped_column(String(50), ForeignKey('clients.id'), index=True)
+    
+    question: Mapped[str] = mapped_column(Text)
+    answer: Mapped[str] = mapped_column(Text)
+    keywords: Mapped[str] = mapped_column(Text, default='[]')  # JSON array for matching
+    
+    category: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    times_used: Mapped[int] = mapped_column(Integer, default=0)
+    
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    
+    def get_keywords(self) -> list:
+        return json.loads(self.keywords) if self.keywords else []
+    
+    def set_keywords(self, kws: list):
+        self.keywords = json.dumps(kws)
+    
+    def to_dict(self) -> dict:
+        return {
+            'id': self.id,
+            'client_id': self.client_id,
+            'question': self.question,
+            'answer': self.answer,
+            'keywords': self.get_keywords(),
+            'category': self.category,
+            'is_active': self.is_active,
+            'times_used': self.times_used,
+            'created_at': self.created_at.isoformat() if self.created_at else None
+        }

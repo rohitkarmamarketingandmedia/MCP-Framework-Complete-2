@@ -293,3 +293,40 @@ def schedule_posts(current_user):
         'scheduled_at': scheduled_at.isoformat(),
         'results': results
     })
+
+
+@social_bp.route('/bulk-delete', methods=['POST'])
+@token_required
+def bulk_delete_social(current_user):
+    """
+    Bulk delete social posts
+    
+    POST /api/social/bulk-delete
+    {
+        "ids": ["id1", "id2", "id3"]
+    }
+    """
+    if not current_user.can_generate_content:
+        return jsonify({'error': 'Permission denied'}), 403
+    
+    data = request.get_json()
+    ids = data.get('ids', [])
+    
+    if not ids:
+        return jsonify({'error': 'No IDs provided'}), 400
+    
+    deleted = 0
+    
+    for post_id in ids:
+        try:
+            post = data_service.get_social_post(post_id)
+            if post and current_user.has_access_to_client(post.client_id):
+                data_service.delete_social_post(post_id)
+                deleted += 1
+        except Exception:
+            pass
+    
+    return jsonify({
+        'deleted': deleted,
+        'message': f'Deleted {deleted} posts'
+    })

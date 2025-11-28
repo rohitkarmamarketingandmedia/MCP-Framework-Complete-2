@@ -18,7 +18,11 @@ logger = logging.getLogger(__name__)
 
 def create_app(config_name=None):
     """Application factory pattern"""
-    app = Flask(__name__, static_folder=None)
+    # Get the root directory (parent of app/)
+    root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    static_dir = os.path.join(root_dir, 'static')
+    
+    app = Flask(__name__, static_folder=static_dir, static_url_path='/static')
     
     # Load config
     if config_name is None:

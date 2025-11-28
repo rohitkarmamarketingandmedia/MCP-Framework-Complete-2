@@ -65,6 +65,41 @@ def token_required(f):
     return decorated
 
 
+def optional_token(f):
+    """Decorator that allows optional authentication - passes None if no token"""
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        token = None
+        current_user = None
+        
+        # Check header
+        if 'Authorization' in request.headers:
+            auth_header = request.headers['Authorization']
+            if auth_header.startswith('Bearer '):
+                token = auth_header.split(' ')[1]
+        
+        # Check query param
+        if not token:
+            token = request.args.get('token')
+        
+        if token:
+            try:
+                payload = jwt.decode(
+                    token, 
+                    current_app.config['JWT_SECRET_KEY'],
+                    algorithms=['HS256']
+                )
+                current_user = data_service.get_user(payload['user_id'])
+                if current_user and not current_user.is_active:
+                    current_user = None
+            except (jwt.ExpiredSignatureError, jwt.InvalidTokenError):
+                pass
+        
+        return f(current_user, *args, **kwargs)
+    
+    return decorated
+
+
 def admin_required(f):
     """Decorator to require admin role"""
     @wraps(f)

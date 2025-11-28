@@ -27,6 +27,7 @@ def register_routes(app: Flask):
     from app.routes.reviews import reviews_bp
     from app.routes.settings import settings_bp
     from app.routes.agents import agents_bp
+    from app.routes.chatbot import chatbot_bp
     
     # Register with /api prefix
     app.register_blueprint(auth_bp, url_prefix='/api/auth')
@@ -48,3 +49,4 @@ def register_routes(app: Flask):
     app.register_blueprint(reviews_bp, url_prefix='/api/reviews')
     app.register_blueprint(settings_bp, url_prefix='/api/settings')
     app.register_blueprint(agents_bp, url_prefix='/api/agents')
+    app.register_blueprint(chatbot_bp, url_prefix='/api/chatbot')

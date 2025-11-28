@@ -59,6 +59,11 @@ def generate_content(current_user):
         return jsonify({'error': 'Access denied to this client'}), 403
     
     # Build generation params
+    # Auto-use client's service pages for internal linking if not explicitly provided
+    internal_links = data.get('internal_links', [])
+    if not internal_links:
+        internal_links = client.get_service_pages()
+    
     params = {
         'keyword': data['keyword'],
         'geo': data['geo'],
@@ -68,7 +73,7 @@ def generate_content(current_user):
         'business_name': client.business_name,
         'include_faq': data.get('include_faq', True),
         'faq_count': data.get('faq_count', 5),
-        'internal_links': data.get('internal_links', []),
+        'internal_links': internal_links,
         'usps': client.get_unique_selling_points()
     }
     
@@ -78,18 +83,36 @@ def generate_content(current_user):
     if result.get('error'):
         return jsonify({'error': result['error']}), 500
     
+    # Post-process with internal linking service to ensure links are added
+    from app.services.internal_linking_service import internal_linking_service
+    body_content = result.get('body', '')
+    links_added = 0
+    
+    if internal_links and body_content:
+        link_result = internal_linking_service.process_blog_content(
+            content=body_content,
+            service_pages=internal_links,
+            primary_keyword=data['keyword'],
+            location=data['geo'],
+            business_name=client.business_name,
+            fix_headings=True,
+            add_cta=True
+        )
+        body_content = link_result['content']
+        links_added = link_result.get('links_added', 0)
+    
     # Create BlogPost object
     blog_post = DBBlogPost(
         client_id=data['client_id'],
         title=result['title'],
-        body=result['body'],
+        body=body_content,  # Use processed body with links
         meta_title=result['meta_title'],
         meta_description=result['meta_description'],
         primary_keyword=data['keyword'],
         secondary_keywords=result.get('secondary_keywords', []),
-        internal_links=data.get('internal_links', []),
+        internal_links=internal_links,
         faq_content=result.get('faq_items', []),
-        word_count=len(result.get('body', '').split()),
+        word_count=len(body_content.split()),
         status=ContentStatus.DRAFT
     )
     
@@ -277,6 +300,16 @@ def update_content(current_user, content_id):
         content.meta_description = data['meta_description']
     if 'status' in data:
         content.status = data['status']
+    if 'scheduled_for' in data:
+        from datetime import datetime
+        scheduled = data['scheduled_for']
+        if scheduled:
+            if isinstance(scheduled, str):
+                # Parse ISO format
+                scheduled = datetime.fromisoformat(scheduled.replace('Z', '+00:00'))
+            content.scheduled_for = scheduled
+        else:
+            content.scheduled_for = None
     
     data_service.save_blog_post(content)
     
@@ -615,3 +648,237 @@ def generate_social_simple(current_user):
             'error': str(e),
             'detail': 'Social post generation failed. Check server logs.'
         }), 500
+
+
+# ==========================================
+# WORDPRESS INTEGRATION
+# ==========================================
+
+@content_bp.route('/wordpress/test', methods=['POST'])
+@token_required
+def test_wordpress_connection(current_user):
+    """
+    Test WordPress connection for a client
+    
+    POST /api/content/wordpress/test
+    {
+        "client_id": "...",
+        "wordpress_url": "https://example.com",
+        "wordpress_user": "admin",
+        "wordpress_app_password": "xxxx xxxx xxxx xxxx"
+    }
+    """
+    data = request.get_json()
+    
+    wp_url = data.get('wordpress_url', '').strip()
+    wp_user = data.get('wordpress_user', '').strip()
+    wp_pass = data.get('wordpress_app_password', '').strip()
+    
+    if not all([wp_url, wp_user, wp_pass]):
+        return jsonify({
+            'success': False,
+            'message': 'WordPress URL, username, and app password are required'
+        }), 400
+    
+    try:
+        from app.services.wordpress_service import WordPressService
+        
+        wp = WordPressService(
+            site_url=wp_url,
+            username=wp_user,
+            app_password=wp_pass
+        )
+        
+        result = wp.test_connection()
+        return jsonify(result)
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': f'Connection error: {str(e)}'
+        }), 500
+
+
+@content_bp.route('/<content_id>/publish-wordpress', methods=['POST'])
+@token_required
+def publish_to_wordpress(current_user, content_id):
+    """
+    Publish a blog post to WordPress
+    
+    POST /api/content/{id}/publish-wordpress
+    {
+        "status": "draft|publish|future"  // optional, defaults based on blog status
+    }
+    """
+    content = data_service.get_blog_post(content_id)
+    
+    if not content:
+        return jsonify({'error': 'Content not found'}), 404
+    
+    if not current_user.has_access_to_client(content.client_id):
+        return jsonify({'error': 'Access denied'}), 403
+    
+    # Get client
+    client = data_service.get_client(content.client_id)
+    if not client:
+        return jsonify({'error': 'Client not found'}), 404
+    
+    # Check WordPress config
+    if not client.wordpress_url or not client.wordpress_user or not client.wordpress_app_password:
+        return jsonify({
+            'success': False,
+            'message': 'WordPress not configured for this client. Add WordPress credentials in client settings.'
+        }), 400
+    
+    try:
+        from app.services.wordpress_service import WordPressService
+        
+        wp = WordPressService(
+            site_url=client.wordpress_url,
+            username=client.wordpress_user,
+            app_password=client.wordpress_app_password
+        )
+        
+        # Test connection first
+        test = wp.test_connection()
+        if not test.get('success'):
+            return jsonify(test), 400
+        
+        # Determine WordPress status
+        data = request.get_json() or {}
+        wp_status = data.get('status')
+        
+        if not wp_status:
+            # Auto-determine based on blog status
+            if content.status == 'approved' or content.status == 'published':
+                wp_status = 'publish'
+            elif content.status == 'scheduled' and content.scheduled_for:
+                wp_status = 'future'
+            else:
+                wp_status = 'draft'
+        
+        # Prepare meta for Yoast SEO
+        meta = None
+        if content.meta_title or content.meta_description or content.primary_keyword:
+            meta = {
+                'meta_title': content.meta_title,
+                'meta_description': content.meta_description,
+                'focus_keyword': content.primary_keyword
+            }
+        
+        # Check if updating existing post
+        if content.wordpress_post_id:
+            result = wp.update_post(
+                post_id=content.wordpress_post_id,
+                title=content.title,
+                content=content.body,
+                status=wp_status,
+                excerpt=content.meta_description
+            )
+        else:
+            # Create new post
+            result = wp.create_post(
+                title=content.title,
+                content=content.body,
+                status=wp_status,
+                excerpt=content.meta_description,
+                meta=meta,
+                date=content.scheduled_for if wp_status == 'future' else None
+            )
+        
+        if result.get('success'):
+            # Update blog with WordPress post ID
+            content.wordpress_post_id = result.get('post_id')
+            content.status = 'published' if wp_status == 'publish' else content.status
+            data_service.save_blog_post(content)
+            
+            result['blog_status'] = content.status
+        
+        return jsonify(result)
+        
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'success': False,
+            'message': f'Publish error: {str(e)}'
+        }), 500
+
+
+@content_bp.route('/bulk-delete', methods=['POST'])
+@token_required
+def bulk_delete_content(current_user):
+    """
+    Bulk delete blog posts
+    
+    POST /api/content/bulk-delete
+    {
+        "ids": ["id1", "id2", "id3"]
+    }
+    """
+    if not current_user.can_generate_content:
+        return jsonify({'error': 'Permission denied'}), 403
+    
+    data = request.get_json()
+    ids = data.get('ids', [])
+    
+    if not ids:
+        return jsonify({'error': 'No IDs provided'}), 400
+    
+    deleted = 0
+    errors = []
+    
+    for content_id in ids:
+        try:
+            content = data_service.get_blog_post(content_id)
+            if content and current_user.has_access_to_client(content.client_id):
+                data_service.delete_blog_post(content_id)
+                deleted += 1
+            else:
+                errors.append(f"{content_id}: not found or access denied")
+        except Exception as e:
+            errors.append(f"{content_id}: {str(e)}")
+    
+    return jsonify({
+        'deleted': deleted,
+        'errors': errors,
+        'message': f'Deleted {deleted} posts' + (f', {len(errors)} errors' if errors else '')
+    })
+
+
+@content_bp.route('/bulk-approve', methods=['POST'])
+@token_required
+def bulk_approve_content(current_user):
+    """
+    Bulk approve blog posts
+    
+    POST /api/content/bulk-approve
+    {
+        "ids": ["id1", "id2", "id3"]
+    }
+    """
+    if not current_user.can_generate_content:
+        return jsonify({'error': 'Permission denied'}), 403
+    
+    data = request.get_json()
+    ids = data.get('ids', [])
+    
+    if not ids:
+        return jsonify({'error': 'No IDs provided'}), 400
+    
+    approved = 0
+    
+    for content_id in ids:
+        try:
+            content = data_service.get_blog_post(content_id)
+            if content and current_user.has_access_to_client(content.client_id):
+                content.status = 'approved'
+                data_service.save_blog_post(content)
+                approved += 1
+        except Exception:
+            pass
+    
+    return jsonify({
+        'approved': approved,
+        'message': f'Approved {approved} posts'
+    })
