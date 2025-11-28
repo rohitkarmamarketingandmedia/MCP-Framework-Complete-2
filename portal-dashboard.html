@@ -599,14 +599,16 @@
                         
                         renderKeywordsList(keywords);
                         
-                        // Calculate average
-                        const avg = Math.round(keywords.reduce((s, k) => s + k.position, 0) / keywords.length);
-                        document.getElementById('avg-ranking').textContent = '#' + avg;
+                        // Calculate average (with division guard)
+                        const avg = keywords.length > 0 
+                            ? Math.round(keywords.reduce((s, k) => s + k.position, 0) / keywords.length)
+                            : 0;
+                        document.getElementById('avg-ranking').textContent = avg > 0 ? '#' + avg : '--';
                         document.getElementById('keywords-tracked').textContent = `${keywords.length} keywords tracked`;
                         
                         const improved = keywords.filter(k => k.change > 0).length;
                         document.getElementById('improved-count').textContent = `${improved} improved`;
-                        setTrend('ranking-trend', improved > 0 ? Math.round((improved / keywords.length) * 100) : 0);
+                        setTrend('ranking-trend', keywords.length > 0 && improved > 0 ? Math.round((improved / keywords.length) * 100) : 0);
                         
                         return;
                     }

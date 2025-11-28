@@ -819,7 +819,12 @@
         
         function loadBranding() {
             const saved = localStorage.getItem('mcp_branding');
-            const branding = saved ? JSON.parse(saved) : DEFAULT_BRANDING;
+            let branding = DEFAULT_BRANDING;
+            try {
+                branding = saved ? JSON.parse(saved) : DEFAULT_BRANDING;
+            } catch (e) {
+                console.warn('Invalid branding data, using defaults');
+            }
             
             document.getElementById('setting-agency-name').value = branding.agencyName || DEFAULT_BRANDING.agencyName;
             document.getElementById('setting-agency-tagline').value = branding.tagline || '';
