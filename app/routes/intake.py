@@ -293,34 +293,43 @@ def full_pipeline(current_user):
     # ==========================================
     response['steps'].append('create_client')
     
-    # Merge discovered data with provided data
-    final_competitors = list(set(
-        (data.get('competitors') or []) + discovered_competitors
-    ))[:10]
-    
-    final_secondary_keywords = list(set(
-        (data.get('secondary_keywords') or []) + 
-        [k['keyword'] for k in discovered_keywords]
-    ))[:20]
-    
-    client = DBClient(
-        business_name=data['business_name'],
-        industry=data['industry'],
-        geo=data['geo'],
-        website_url=data.get('website'),
-        phone=data.get('phone'),
-        email=data.get('email'),
-        service_areas=data.get('service_areas', []),
-        primary_keywords=data.get('primary_keywords', []),
-        secondary_keywords=final_secondary_keywords,
-        competitors=final_competitors,
-        tone=data.get('tone', 'professional'),
-        unique_selling_points=data.get('usps', []),
-        service_pages=data.get('service_pages', [])  # For internal linking
-    )
-    
-    data_service.save_client(client)
-    response['client'] = client.to_dict()
+    try:
+        # Merge discovered data with provided data
+        final_competitors = list(set(
+            (data.get('competitors') or []) + discovered_competitors
+        ))[:10]
+        
+        final_secondary_keywords = list(set(
+            (data.get('secondary_keywords') or []) + 
+            [k['keyword'] for k in discovered_keywords]
+        ))[:20]
+        
+        client = DBClient(
+            business_name=data['business_name'],
+            industry=data['industry'],
+            geo=data['geo'],
+            website_url=data.get('website'),
+            phone=data.get('phone'),
+            email=data.get('email'),
+            service_areas=data.get('service_areas', []),
+            primary_keywords=data.get('primary_keywords', []),
+            secondary_keywords=final_secondary_keywords,
+            competitors=final_competitors,
+            tone=data.get('tone', 'professional'),
+            unique_selling_points=data.get('usps', []),
+            service_pages=data.get('service_pages', [])  # For internal linking
+        )
+        
+        data_service.save_client(client)
+        response['client'] = client.to_dict()
+    except Exception as e:
+        response['errors'].append(f"Client creation failed: {str(e)}")
+        return jsonify({
+            'error': f'Failed to create client: {str(e)}',
+            'success': False,
+            'steps': response['steps'],
+            'errors': response['errors']
+        }), 500
     
     # ==========================================
     # STEP 3: Generate Content (if enabled)
@@ -328,8 +337,20 @@ def full_pipeline(current_user):
     if data.get('generate_content', False):
         response['steps'].append('generate_content')
         
-        blog_count = min(data.get('blog_count', 3), 5)  # Max 5 to avoid timeout
-        social_count = min(data.get('social_count', 3), 5)
+        # Check if AI is configured before trying to generate
+        if not ai_service.openai_key and not ai_service.anthropic_key:
+            response['errors'].append('No AI API key configured (OPENAI_API_KEY or ANTHROPIC_API_KEY required)')
+            return jsonify({
+                'success': False,
+                'error': 'No AI API key configured. Set OPENAI_API_KEY or ANTHROPIC_API_KEY in Render environment variables.',
+                'client': response.get('client'),
+                'steps': response['steps'],
+                'errors': response['errors']
+            }), 500
+        
+        # Full content generation - paid Render has longer timeouts
+        blog_count = min(data.get('blog_count', 5), 10)  # Up to 10 posts
+        social_count = min(data.get('social_count', 5), 10)
         
         # Build blog topics from keywords
         blog_topics = []
@@ -338,8 +359,8 @@ def full_pipeline(current_user):
         for pk in data.get('primary_keywords', [])[:blog_count]:
             blog_topics.append({
                 'keyword': pk,
-                'word_count': 1200,
-                'include_faq': True
+                'word_count': 1500,  # Full SEO length
+                'include_faq': True  # Include FAQ for featured snippets
             })
         
         # Fill remaining with discovered keywords (sorted by volume)

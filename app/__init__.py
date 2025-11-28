@@ -136,6 +136,27 @@ def create_app(config_name=None):
     def health():
         return {'status': 'healthy', 'version': __version__}
     
+    # Diagnostic endpoint - check configuration
+    @app.route('/health/config')
+    def health_config():
+        """Check if critical environment variables are configured"""
+        import os
+        openai_key = os.environ.get('OPENAI_API_KEY', '')
+        anthropic_key = os.environ.get('ANTHROPIC_API_KEY', '')
+        semrush_key = os.environ.get('SEMRUSH_API_KEY', '')
+        
+        return {
+            'status': 'ok' if openai_key or anthropic_key else 'missing_ai_key',
+            'version': __version__,
+            'config': {
+                'openai_configured': bool(openai_key) and openai_key.startswith('sk-'),
+                'anthropic_configured': bool(anthropic_key),
+                'semrush_configured': bool(semrush_key),
+                'database_configured': bool(os.environ.get('DATABASE_URL', '')),
+            },
+            'message': 'All good!' if (openai_key or anthropic_key) else 'Set OPENAI_API_KEY in Render environment variables'
+        }
+    
     # API info endpoint
     @app.route('/api')
     def api_info():

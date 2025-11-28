@@ -242,27 +242,92 @@
                             <div>
                                 <label class="block text-sm font-semibold text-gray-700 mb-2">Industry</label>
                                 <select id="industry" class="w-full px-4 py-3 text-lg border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all">
-                                    <option value="">Select...</option>
-                                    <option value="roofing">🏠 Roofing</option>
-                                    <option value="hvac">❄️ HVAC</option>
-                                    <option value="plumbing">🔧 Plumbing</option>
-                                    <option value="electrical">⚡ Electrical</option>
-                                    <option value="windows">🪟 Windows & Doors</option>
-                                    <option value="landscaping">🌳 Landscaping</option>
-                                    <option value="painting">🎨 Painting</option>
-                                    <option value="flooring">🪵 Flooring</option>
-                                    <option value="remodeling">🔨 Remodeling</option>
-                                    <option value="pest_control">🐜 Pest Control</option>
-                                    <option value="cleaning">🧹 Cleaning Services</option>
-                                    <option value="garage_doors">🚗 Garage Doors</option>
-                                    <option value="solar">☀️ Solar</option>
-                                    <option value="pool">🏊 Pool Services</option>
-                                    <option value="fencing">🏗️ Fencing</option>
-                                    <option value="concrete">🧱 Concrete</option>
-                                    <option value="tree_service">🌲 Tree Service</option>
-                                    <option value="moving">📦 Moving Services</option>
-                                    <option value="locksmith">🔐 Locksmith</option>
-                                    <option value="appliance_repair">🔌 Appliance Repair</option>
+                                    <option value="">Select industry...</option>
+                                    
+                                    <optgroup label="🏥 Medical & Healthcare">
+                                        <option value="dentist">🦷 Dentist / Dental Practice</option>
+                                        <option value="doctor">👨‍⚕️ Doctor / Physician</option>
+                                        <option value="chiropractor">🦴 Chiropractor</option>
+                                        <option value="optometrist">👁️ Optometrist / Eye Care</option>
+                                        <option value="dermatologist">🧴 Dermatologist</option>
+                                        <option value="plastic_surgeon">💉 Plastic Surgeon / Med Spa</option>
+                                        <option value="veterinarian">🐾 Veterinarian</option>
+                                        <option value="physical_therapy">🏃 Physical Therapy</option>
+                                        <option value="mental_health">🧠 Mental Health / Therapist</option>
+                                        <option value="urgent_care">🏨 Urgent Care / Clinic</option>
+                                        <option value="home_health">🏠 Home Health Care</option>
+                                    </optgroup>
+                                    
+                                    <optgroup label="💼 Professional Services">
+                                        <option value="web_design">🌐 Web Design / Development</option>
+                                        <option value="seo">📈 SEO / Digital Marketing</option>
+                                        <option value="marketing_agency">📣 Marketing Agency</option>
+                                        <option value="lawyer">⚖️ Lawyer / Attorney</option>
+                                        <option value="accountant">📊 Accountant / CPA</option>
+                                        <option value="financial_advisor">💰 Financial Advisor</option>
+                                        <option value="insurance">🛡️ Insurance Agency</option>
+                                        <option value="real_estate">🏡 Real Estate Agent</option>
+                                        <option value="mortgage">🏦 Mortgage / Lending</option>
+                                        <option value="consultant">💡 Business Consultant</option>
+                                        <option value="it_services">💻 IT Services / Tech Support</option>
+                                    </optgroup>
+                                    
+                                    <optgroup label="🔧 Home Services & Trades">
+                                        <option value="hvac">❄️ HVAC / Air Conditioning</option>
+                                        <option value="plumbing">🔧 Plumbing</option>
+                                        <option value="electrical">⚡ Electrical</option>
+                                        <option value="roofing">🏠 Roofing</option>
+                                        <option value="windows">🪟 Windows & Doors</option>
+                                        <option value="remodeling">🔨 Remodeling / General Contractor</option>
+                                        <option value="painting">🎨 Painting</option>
+                                        <option value="flooring">🪵 Flooring</option>
+                                        <option value="landscaping">🌳 Landscaping</option>
+                                        <option value="pool">🏊 Pool Services</option>
+                                        <option value="pest_control">🐜 Pest Control</option>
+                                        <option value="cleaning">🧹 Cleaning Services</option>
+                                        <option value="garage_doors">🚗 Garage Doors</option>
+                                        <option value="solar">☀️ Solar</option>
+                                        <option value="fencing">🏗️ Fencing</option>
+                                        <option value="concrete">🧱 Concrete / Masonry</option>
+                                        <option value="tree_service">🌲 Tree Service</option>
+                                        <option value="locksmith">🔐 Locksmith</option>
+                                        <option value="appliance_repair">🔌 Appliance Repair</option>
+                                    </optgroup>
+                                    
+                                    <optgroup label="🚗 Automotive">
+                                        <option value="auto_repair">🔧 Auto Repair / Mechanic</option>
+                                        <option value="auto_body">🚙 Auto Body / Collision</option>
+                                        <option value="car_dealer">🚗 Car Dealership</option>
+                                        <option value="towing">🚛 Towing Service</option>
+                                        <option value="auto_detailing">✨ Auto Detailing</option>
+                                    </optgroup>
+                                    
+                                    <optgroup label="🍽️ Food & Hospitality">
+                                        <option value="restaurant">🍽️ Restaurant</option>
+                                        <option value="catering">🍴 Catering</option>
+                                        <option value="bakery">🥐 Bakery</option>
+                                        <option value="bar">🍺 Bar / Nightclub</option>
+                                        <option value="hotel">🏨 Hotel / Lodging</option>
+                                    </optgroup>
+                                    
+                                    <optgroup label="💇 Personal Services">
+                                        <option value="salon">💇 Hair Salon / Barbershop</option>
+                                        <option value="spa">💆 Spa / Massage</option>
+                                        <option value="fitness">🏋️ Gym / Fitness</option>
+                                        <option value="personal_trainer">💪 Personal Trainer</option>
+                                        <option value="photography">📷 Photography</option>
+                                        <option value="wedding">💒 Wedding Services</option>
+                                    </optgroup>
+                                    
+                                    <optgroup label="📦 Other">
+                                        <option value="moving">📦 Moving Services</option>
+                                        <option value="storage">🗄️ Storage Facility</option>
+                                        <option value="pet_services">🐕 Pet Services / Grooming</option>
+                                        <option value="daycare">👶 Daycare / Childcare</option>
+                                        <option value="tutoring">📚 Tutoring / Education</option>
+                                        <option value="nonprofit">❤️ Nonprofit</option>
+                                        <option value="other">📋 Other</option>
+                                    </optgroup>
                                 </select>
                             </div>
                             
@@ -611,20 +676,26 @@
                         
                         <!-- Generation Options -->
                         <div class="mt-8 bg-gray-50 rounded-2xl p-6">
-                            <h3 class="font-semibold text-gray-800 mb-4">What should we create?</h3>
-                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div class="flex items-center justify-between mb-4">
+                                <h3 class="font-semibold text-gray-800">What should we create?</h3>
+                                <label class="flex items-center text-sm cursor-pointer">
+                                    <input type="checkbox" id="opt-quick" class="w-4 h-4 text-blue-600 rounded mr-2" onchange="toggleQuickSetup()">
+                                    <span class="text-gray-600">Quick setup only (skip content)</span>
+                                </label>
+                            </div>
+                            <div id="generation-options" class="grid grid-cols-1 md:grid-cols-3 gap-4">
                                 <label class="flex items-start p-4 bg-white rounded-xl border-2 border-gray-200 cursor-pointer hover:border-blue-300 transition-all has-[:checked]:border-blue-500 has-[:checked]:bg-blue-50">
                                     <input type="checkbox" id="opt-blogs" checked class="mt-1 w-5 h-5 text-blue-600 rounded">
                                     <span class="ml-3">
                                         <span class="font-medium text-gray-800 block">Blog Posts</span>
-                                        <span class="text-sm text-gray-500">SEO-optimized articles for each keyword</span>
+                                        <span class="text-sm text-gray-500">1,500-word SEO articles with FAQs</span>
                                     </span>
                                 </label>
                                 <label class="flex items-start p-4 bg-white rounded-xl border-2 border-gray-200 cursor-pointer hover:border-blue-300 transition-all has-[:checked]:border-blue-500 has-[:checked]:bg-blue-50">
                                     <input type="checkbox" id="opt-social" checked class="mt-1 w-5 h-5 text-blue-600 rounded">
                                     <span class="ml-3">
                                         <span class="font-medium text-gray-800 block">Social Posts</span>
-                                        <span class="text-sm text-gray-500">GBP, Facebook, Instagram content</span>
+                                        <span class="text-sm text-gray-500">GBP, Facebook, Instagram</span>
                                     </span>
                                 </label>
                                 <label class="flex items-start p-4 bg-white rounded-xl border-2 border-gray-200 cursor-pointer hover:border-blue-300 transition-all has-[:checked]:border-blue-500 has-[:checked]:bg-blue-50">
@@ -635,6 +706,9 @@
                                     </span>
                                 </label>
                             </div>
+                            <p class="text-xs text-blue-600 mt-3" id="timeout-warning">
+                                ⏱️ Full content generation takes 2-5 minutes. Each post is 1,500 words with internal links, meta tags, and FAQs.
+                            </p>
                         </div>
                         
                         <div class="mt-10 flex justify-between">
@@ -703,7 +777,7 @@
                                 <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
                                 </svg>
-                                Generation Complete
+                                Content Generated
                             </h4>
                             <div class="grid grid-cols-2 md:grid-cols-4 gap-4" id="progress-items">
                                 <!-- Populated by JS -->
@@ -714,9 +788,27 @@
                         <div class="mb-8">
                             <div class="flex items-center gap-2 mb-4">
                                 <span class="bg-gray-800 text-white text-xs font-bold px-2 py-1 rounded">NEXT STEPS</span>
-                                <span class="text-gray-500 text-sm">Choose what to do with this content</span>
+                                <span class="text-gray-500 text-sm">Review and publish content</span>
                             </div>
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <!-- View Content - PRIMARY ACTION -->
+                                <a href="/client" id="link-view-content"
+                                    class="flex items-start p-4 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-xl border-2 border-transparent hover:from-blue-600 hover:to-indigo-600 transition-all text-left group col-span-2">
+                                    <div class="w-12 h-12 bg-white/20 rounded-lg flex items-center justify-center mr-4">
+                                        <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                                        </svg>
+                                    </div>
+                                    <div class="text-white">
+                                        <span class="font-bold text-lg block">Review Generated Content</span>
+                                        <span class="text-sm text-blue-100">View blog posts, social content, and publish to WordPress</span>
+                                    </div>
+                                    <svg class="w-6 h-6 text-white ml-auto self-center" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
+                                    </svg>
+                                </a>
+                                
                                 <!-- Generate Service Pages -->
                                 <button onclick="generateServicePages()" id="btn-service-pages"
                                     class="flex items-start p-4 bg-white rounded-xl border-2 border-gray-200 hover:border-blue-400 hover:bg-blue-50 transition-all text-left group">
@@ -730,21 +822,6 @@
                                         <span class="text-sm text-gray-500">Create landing pages for each service</span>
                                     </div>
                                 </button>
-                                
-                                <!-- View Content -->
-                                <a href="/client" id="link-view-content"
-                                    class="flex items-start p-4 bg-white rounded-xl border-2 border-gray-200 hover:border-purple-400 hover:bg-purple-50 transition-all text-left group">
-                                    <div class="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center mr-4 group-hover:bg-purple-200 transition-all">
-                                        <svg class="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
-                                        </svg>
-                                    </div>
-                                    <div>
-                                        <span class="font-medium text-gray-800 block">View Generated Content</span>
-                                        <span class="text-sm text-gray-500">Review blogs and social posts</span>
-                                    </div>
-                                </a>
                                 
                                 <!-- WordPress Setup -->
                                 <button onclick="showWordPressSetup()" id="btn-wordpress"
@@ -1487,6 +1564,31 @@
             `).join('');
         }
         
+        function toggleQuickSetup() {
+            const quickMode = document.getElementById('opt-quick').checked;
+            const options = document.getElementById('generation-options');
+            const warning = document.getElementById('timeout-warning');
+            
+            if (quickMode) {
+                document.getElementById('opt-blogs').checked = false;
+                document.getElementById('opt-social').checked = false;
+                document.getElementById('opt-monitor').checked = false;
+                options.style.opacity = '0.5';
+                options.style.pointerEvents = 'none';
+                warning.textContent = '✓ Quick setup selected - client will be saved without content. Generate content from the dashboard.';
+                warning.classList.remove('text-amber-600');
+                warning.classList.add('text-green-600');
+            } else {
+                document.getElementById('opt-blogs').checked = true;
+                document.getElementById('opt-social').checked = true;
+                options.style.opacity = '1';
+                options.style.pointerEvents = 'auto';
+                warning.textContent = '⚠️ Content generation takes ~60-90 seconds. If it times out, use "Quick setup" and generate content from the dashboard.';
+                warning.classList.remove('text-green-600');
+                warning.classList.add('text-amber-600');
+            }
+        }
+        
         let createdClientId = null; // Store the created client ID
         
         async function launchClient() {
@@ -1586,7 +1688,14 @@
                 
             } catch (error) {
                 console.error('Launch error:', error);
-                alert('Error: ' + error.message);
+                
+                // Check if it's a timeout or 500 error
+                let errorMsg = error.message;
+                if (errorMsg.includes('500') || errorMsg.includes('timeout') || errorMsg.includes('html>')) {
+                    errorMsg = 'Server timeout - content generation took too long.\n\nTry checking "Quick setup" to save the client without generating content, then generate content from the dashboard.';
+                }
+                
+                alert('Error: ' + errorMsg);
                 btn.disabled = false;
                 btn.innerHTML = `
                     <svg class="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
