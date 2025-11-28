@@ -3,6 +3,8 @@ MCP Framework - Intake Routes
 Client onboarding with SEMRush research integration
 """
 from flask import Blueprint, request, jsonify
+from functools import wraps
+import traceback
 from app.routes.auth import token_required
 from app.services.ai_service import AIService
 from app.services.seo_service import SEOService
@@ -15,6 +17,33 @@ ai_service = AIService()
 seo_service = SEOService()
 data_service = DataService()
 semrush_service = SEMRushService()
+
+
+def handle_errors(f):
+    """Decorator to catch all errors and return JSON"""
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        try:
+            return f(*args, **kwargs)
+        except Exception as e:
+            error_detail = traceback.format_exc()
+            print(f"Intake route error: {error_detail}")
+            return jsonify({
+                'error': str(e),
+                'detail': error_detail
+            }), 500
+    return decorated
+
+
+@intake_bp.errorhandler(Exception)
+def handle_blueprint_error(e):
+    """Catch-all error handler for intake blueprint"""
+    error_detail = traceback.format_exc()
+    print(f"Intake blueprint error: {error_detail}")
+    return jsonify({
+        'error': str(e),
+        'detail': error_detail
+    }), 500
 
 
 @intake_bp.route('/analyze', methods=['POST'])
@@ -136,6 +165,7 @@ def research_domain(current_user):
 
 @intake_bp.route('/pipeline', methods=['POST'])
 @token_required
+@handle_errors
 def full_pipeline(current_user):
     """
     Complete intake-to-content pipeline with SEMRush research

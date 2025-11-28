@@ -1515,11 +1515,20 @@
                     social_count: primary.length
                 };
                 
+                console.log('Launching client with payload:', payload);
+                
                 const response = await fetch('/api/intake/pipeline', {
                     method: 'POST',
                     headers: headers,
                     body: JSON.stringify(payload)
                 });
+                
+                // Check if response is OK before parsing JSON
+                if (!response.ok) {
+                    const text = await response.text();
+                    console.error('Server error:', response.status, text);
+                    throw new Error(`Server error ${response.status}: ${text.substring(0, 100)}`);
+                }
                 
                 const data = await response.json();
                 
