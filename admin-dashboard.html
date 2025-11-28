@@ -252,7 +252,7 @@
                     <div class="card rounded-xl p-6">
                         <h3 class="text-lg font-semibold mb-4 flex items-center gap-2">
                             <i class="fas fa-building text-blue-400"></i>
-                            Agency Branding
+                            Agency Branding (White-Label)
                         </h3>
                         <div class="space-y-4">
                             <div>
@@ -261,15 +261,55 @@
                                     class="w-full px-4 py-2 input-dark rounded-lg">
                             </div>
                             <div>
+                                <label class="block text-sm text-gray-400 mb-1">Agency Tagline</label>
+                                <input type="text" id="setting-agency-tagline" placeholder="Your marketing partner" 
+                                    class="w-full px-4 py-2 input-dark rounded-lg">
+                            </div>
+                            <div>
                                 <label class="block text-sm text-gray-400 mb-1">Support Email</label>
                                 <input type="email" id="setting-support-email" placeholder="support@youragency.com"
                                     class="w-full px-4 py-2 input-dark rounded-lg">
                             </div>
                             <div>
-                                <label class="block text-sm text-gray-400 mb-1">Primary Color</label>
-                                <input type="color" id="setting-primary-color" value="#3b82f6" 
-                                    class="w-16 h-10 rounded cursor-pointer">
+                                <label class="block text-sm text-gray-400 mb-1">Website URL</label>
+                                <input type="url" id="setting-website-url" placeholder="https://youragency.com"
+                                    class="w-full px-4 py-2 input-dark rounded-lg">
                             </div>
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-sm text-gray-400 mb-1">Primary Color</label>
+                                    <div class="flex items-center gap-2">
+                                        <input type="color" id="setting-primary-color" value="#8b5cf6" 
+                                            class="w-12 h-10 rounded cursor-pointer border-0">
+                                        <input type="text" id="setting-primary-hex" value="#8b5cf6" 
+                                            class="flex-1 px-3 py-2 input-dark rounded-lg text-sm font-mono">
+                                    </div>
+                                </div>
+                                <div>
+                                    <label class="block text-sm text-gray-400 mb-1">Secondary Color</label>
+                                    <div class="flex items-center gap-2">
+                                        <input type="color" id="setting-secondary-color" value="#ec4899" 
+                                            class="w-12 h-10 rounded cursor-pointer border-0">
+                                        <input type="text" id="setting-secondary-hex" value="#ec4899" 
+                                            class="flex-1 px-3 py-2 input-dark rounded-lg text-sm font-mono">
+                                    </div>
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-sm text-gray-400 mb-1">Logo URL (optional)</label>
+                                <input type="url" id="setting-logo-url" placeholder="https://youragency.com/logo.png"
+                                    class="w-full px-4 py-2 input-dark rounded-lg">
+                            </div>
+                            <div id="logoPreview" class="hidden p-4 bg-slate-800 rounded-lg">
+                                <p class="text-xs text-gray-500 mb-2">Logo Preview:</p>
+                                <img id="logoPreviewImg" src="" alt="Logo preview" class="max-h-16">
+                            </div>
+                            <button onclick="saveBranding()" class="w-full px-4 py-3 bg-gradient-to-r from-purple-600 to-pink-600 rounded-lg text-white font-medium hover:opacity-90 transition">
+                                <i class="fas fa-save mr-2"></i>Save Branding Settings
+                            </button>
+                            <p id="brandingSaveStatus" class="text-sm text-center text-green-400 hidden">
+                                <i class="fas fa-check-circle mr-1"></i>Branding saved! Refresh other dashboards to see changes.
+                            </p>
                         </div>
                     </div>
                     
@@ -764,8 +804,122 @@
         let allAgents = [];
         let selectedAgentId = null;
         
+        // ==========================================
+        // BRANDING SYSTEM
+        // ==========================================
+        const DEFAULT_BRANDING = {
+            agencyName: 'Karma Marketing + Media',
+            tagline: 'AI-Powered Marketing',
+            supportEmail: '',
+            websiteUrl: '',
+            primaryColor: '#8b5cf6',
+            secondaryColor: '#ec4899',
+            logoUrl: ''
+        };
+        
+        function loadBranding() {
+            const saved = localStorage.getItem('mcp_branding');
+            const branding = saved ? JSON.parse(saved) : DEFAULT_BRANDING;
+            
+            document.getElementById('setting-agency-name').value = branding.agencyName || DEFAULT_BRANDING.agencyName;
+            document.getElementById('setting-agency-tagline').value = branding.tagline || '';
+            document.getElementById('setting-support-email').value = branding.supportEmail || '';
+            document.getElementById('setting-website-url').value = branding.websiteUrl || '';
+            document.getElementById('setting-primary-color').value = branding.primaryColor || DEFAULT_BRANDING.primaryColor;
+            document.getElementById('setting-primary-hex').value = branding.primaryColor || DEFAULT_BRANDING.primaryColor;
+            document.getElementById('setting-secondary-color').value = branding.secondaryColor || DEFAULT_BRANDING.secondaryColor;
+            document.getElementById('setting-secondary-hex').value = branding.secondaryColor || DEFAULT_BRANDING.secondaryColor;
+            document.getElementById('setting-logo-url').value = branding.logoUrl || '';
+            
+            if (branding.logoUrl) {
+                document.getElementById('logoPreview').classList.remove('hidden');
+                document.getElementById('logoPreviewImg').src = branding.logoUrl;
+            }
+            
+            return branding;
+        }
+        
+        function saveBranding() {
+            const branding = {
+                agencyName: document.getElementById('setting-agency-name').value || DEFAULT_BRANDING.agencyName,
+                tagline: document.getElementById('setting-agency-tagline').value,
+                supportEmail: document.getElementById('setting-support-email').value,
+                websiteUrl: document.getElementById('setting-website-url').value,
+                primaryColor: document.getElementById('setting-primary-color').value,
+                secondaryColor: document.getElementById('setting-secondary-color').value,
+                logoUrl: document.getElementById('setting-logo-url').value
+            };
+            
+            localStorage.setItem('mcp_branding', JSON.stringify(branding));
+            
+            // Show success message
+            const status = document.getElementById('brandingSaveStatus');
+            status.classList.remove('hidden');
+            setTimeout(() => status.classList.add('hidden'), 3000);
+            
+            // Apply immediately
+            applyBranding(branding);
+        }
+        
+        function applyBranding(branding) {
+            // Update page title
+            document.title = `Admin Panel | ${branding.agencyName}`;
+            
+            // Update any visible branding elements
+            document.querySelectorAll('[data-brand="name"]').forEach(el => {
+                el.textContent = branding.agencyName;
+            });
+            
+            // Update CSS variables for colors
+            document.documentElement.style.setProperty('--brand-primary', branding.primaryColor);
+            document.documentElement.style.setProperty('--brand-secondary', branding.secondaryColor);
+        }
+        
+        // Color picker sync
+        document.addEventListener('DOMContentLoaded', () => {
+            const primaryColor = document.getElementById('setting-primary-color');
+            const primaryHex = document.getElementById('setting-primary-hex');
+            const secondaryColor = document.getElementById('setting-secondary-color');
+            const secondaryHex = document.getElementById('setting-secondary-hex');
+            const logoUrl = document.getElementById('setting-logo-url');
+            
+            if (primaryColor && primaryHex) {
+                primaryColor.addEventListener('input', (e) => primaryHex.value = e.target.value);
+                primaryHex.addEventListener('input', (e) => {
+                    if (/^#[0-9A-Fa-f]{6}$/.test(e.target.value)) {
+                        primaryColor.value = e.target.value;
+                    }
+                });
+            }
+            
+            if (secondaryColor && secondaryHex) {
+                secondaryColor.addEventListener('input', (e) => secondaryHex.value = e.target.value);
+                secondaryHex.addEventListener('input', (e) => {
+                    if (/^#[0-9A-Fa-f]{6}$/.test(e.target.value)) {
+                        secondaryColor.value = e.target.value;
+                    }
+                });
+            }
+            
+            if (logoUrl) {
+                logoUrl.addEventListener('input', (e) => {
+                    const preview = document.getElementById('logoPreview');
+                    const img = document.getElementById('logoPreviewImg');
+                    if (e.target.value) {
+                        preview.classList.remove('hidden');
+                        img.src = e.target.value;
+                        img.onerror = () => preview.classList.add('hidden');
+                    } else {
+                        preview.classList.add('hidden');
+                    }
+                });
+            }
+        });
+        
         // Initialize
         document.addEventListener('DOMContentLoaded', async () => {
+            loadBranding();
+            
             if (token) {
                 try {
                     const valid = await validateToken();

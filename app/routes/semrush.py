@@ -370,3 +370,75 @@ def client_research(current_user, client_id):
         results['client'] = client.to_dict()
     
     return jsonify(results)
+
+
+@semrush_bp.route('/keyword-gap/<client_id>', methods=['GET'])
+@token_required
+def client_keyword_gap(current_user, client_id):
+    """
+    Get keyword gap analysis for a client vs their tracked competitors
+    
+    GET /api/semrush/keyword-gap/{client_id}
+    
+    Returns keywords where competitors rank but client doesn't (or ranks worse)
+    """
+    from app.models.db_models import DBClient, DBCompetitor
+    
+    if not current_user.has_access_to_client(client_id):
+        return jsonify({'error': 'Access denied'}), 403
+    
+    client = DBClient.query.get(client_id)
+    if not client:
+        return jsonify({'error': 'Client not found'}), 404
+    
+    # Get competitors
+    competitors = DBCompetitor.query.filter_by(
+        client_id=client_id,
+        is_active=True
+    ).limit(2).all()
+    
+    # If no SEMRush API, return sample gap data based on client keywords
+    if not semrush_service.is_configured():
+        gaps = []
+        keywords = client.get_primary_keywords() + client.get_secondary_keywords()
+        geo = client.geo or ''
+        
+        for kw in keywords[:15]:
+            full_kw = f"{kw} {geo}".strip()
+            gaps.append({
+                'keyword': full_kw,
+                'you': None if len(gaps) % 3 == 0 else (len(gaps) % 20 + 5),
+                'comp1': (len(gaps) % 15 + 1) if competitors else None,
+                'comp2': (len(gaps) % 18 + 3) if len(competitors) > 1 else None,
+                'volume': (len(gaps) + 1) * 200,
+                'priority': 'HIGH' if len(gaps) % 3 == 0 else ('MEDIUM' if len(gaps) % 2 == 0 else 'LOW')
+            })
+        
+        return jsonify({
+            'client_id': client_id,
+            'gaps': gaps,
+            'competitors': [c.domain for c in competitors],
+            'source': 'simulated'
+        })
+    
+    # Use real SEMRush data
+    client_domain = client.website_url.replace('https://', '').replace('http://', '').split('/')[0] if client.website_url else ''
+    competitor_domains = [c.domain for c in competitors]
+    
+    if not client_domain or not competitor_domains:
+        return jsonify({
+            'error': 'Client domain or competitors not configured',
+            'gaps': []
+        }), 400
+    
+    result = semrush_service.get_keyword_gap(client_domain, competitor_domains, 30)
+    
+    if result.get('error'):
+        return jsonify(result), 500
+    
+    return jsonify({
+        'client_id': client_id,
+        'gaps': result.get('gap_keywords', []),
+        'competitors': competitor_domains,
+        'source': 'semrush'
+    })

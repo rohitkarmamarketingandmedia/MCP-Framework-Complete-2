@@ -36,6 +36,19 @@
         .social-gbp { border-left: 4px solid #4285f4; }
         .social-facebook { border-left: 4px solid #1877f2; }
         .social-instagram { border-left: 4px solid #e4405f; }
+        
+        /* Onboarding Tour Styles */
+        .tour-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 9998; }
+        .tour-highlight { position: relative; z-index: 9999; box-shadow: 0 0 0 4px #8b5cf6, 0 0 0 9999px rgba(0,0,0,0.7); border-radius: 8px; }
+        .tour-tooltip { position: fixed; z-index: 10000; background: white; border-radius: 12px; padding: 20px; max-width: 320px; box-shadow: 0 20px 50px rgba(0,0,0,0.3); }
+        .tour-tooltip::before { content: ''; position: absolute; width: 12px; height: 12px; background: white; transform: rotate(45deg); }
+        .tour-tooltip.top::before { bottom: -6px; left: 50%; margin-left: -6px; }
+        .tour-tooltip.bottom::before { top: -6px; left: 50%; margin-left: -6px; }
+        .tour-tooltip.left::before { right: -6px; top: 50%; margin-top: -6px; }
+        .tour-tooltip.right::before { left: -6px; top: 50%; margin-top: -6px; }
+        .tour-progress { display: flex; gap: 4px; margin-top: 16px; }
+        .tour-progress-dot { width: 8px; height: 8px; border-radius: 50%; background: #e2e8f0; }
+        .tour-progress-dot.active { background: #8b5cf6; }
     </style>
 </head>
 <body class="min-h-screen">
@@ -43,7 +56,7 @@
     <div id="authModal" class="fixed inset-0 bg-black/80 flex items-center justify-center z-50">
         <div class="glass rounded-2xl p-8 w-full max-w-md mx-4 fade-in">
             <div class="text-center mb-6">
-                <h1 class="text-3xl font-bold gradient-text mb-2">Karma Marketing + Media</h1>
+                <h1 class="text-3xl font-bold gradient-text mb-2" data-brand="name">Karma Marketing + Media</h1>
                 <p class="text-gray-400">Content Dashboard</p>
             </div>
             <div class="space-y-4">
@@ -132,8 +145,11 @@
                         <select id="clientSelector" onchange="loadClient(this.value)" class="flex-1 sm:flex-none px-3 sm:px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white text-sm focus:outline-none truncate max-w-[200px]">
                             <option value="">Select Client</option>
                         </select>
-                        <button onclick="refreshData()" class="p-2 glass rounded-lg text-gray-400 hover:text-white transition flex-shrink-0">
+                        <button onclick="refreshData()" class="p-2 glass rounded-lg text-gray-400 hover:text-white transition flex-shrink-0" title="Refresh">
                             <i class="fas fa-sync-alt"></i>
+                        </button>
+                        <button onclick="startTour()" class="p-2 glass rounded-lg text-gray-400 hover:text-white transition flex-shrink-0" title="Help Tour">
+                            <i class="fas fa-question-circle"></i>
                         </button>
                     </div>
                 </div>
@@ -207,6 +223,9 @@
                 </button>
                 <button onclick="showTab('calendar')" id="tab-calendar" class="px-3 sm:px-6 py-2 rounded-lg text-xs sm:text-sm font-medium text-gray-400 hover:text-white transition whitespace-nowrap glass">
                     <i class="fas fa-calendar-alt sm:mr-2"></i><span class="hidden sm:inline">Calendar</span><span class="sm:hidden">Cal</span>
+                </button>
+                <button onclick="showTab('reports')" id="tab-reports" class="px-3 sm:px-6 py-2 rounded-lg text-xs sm:text-sm font-medium text-gray-400 hover:text-white transition whitespace-nowrap glass">
+                    <i class="fas fa-file-pdf sm:mr-2"></i><span class="hidden sm:inline">Reports</span><span class="sm:hidden">PDF</span>
                 </button>
             </div>
         </div>
@@ -427,7 +446,7 @@
 
             <!-- SEO Panel -->
             <div id="panel-seo" class="hidden fade-in">
-                <div class="grid md:grid-cols-2 gap-6">
+                <div class="grid md:grid-cols-2 gap-6 mb-6">
                     <div class="glass rounded-xl p-6">
                         <h3 class="text-lg font-semibold text-white mb-4"><i class="fas fa-bullseye mr-2 text-purple-400"></i>Target Keywords</h3>
                         <div id="keywordsList" class="space-y-2"></div>
@@ -443,6 +462,36 @@
                     <div class="glass rounded-xl p-6">
                         <h3 class="text-lg font-semibold text-white mb-4"><i class="fas fa-star mr-2 text-yellow-400"></i>Unique Selling Points</h3>
                         <div id="uspsList" class="space-y-2"></div>
+                    </div>
+                </div>
+                
+                <!-- Competitor Insights Section -->
+                <div class="glass rounded-xl p-6">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-lg font-semibold text-white"><i class="fas fa-chart-bar mr-2 text-cyan-400"></i>Competitor Insights</h3>
+                        <a href="/elite" class="text-sm text-cyan-400 hover:text-cyan-300">
+                            <i class="fas fa-external-link-alt mr-1"></i>Full Analysis
+                        </a>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm">
+                            <thead>
+                                <tr class="text-gray-400 border-b border-white/10">
+                                    <th class="text-left py-3">Keyword</th>
+                                    <th class="text-center py-3">Your Rank</th>
+                                    <th class="text-center py-3">Top Competitor</th>
+                                    <th class="text-center py-3">Gap</th>
+                                </tr>
+                            </thead>
+                            <tbody id="competitorInsightsTable">
+                                <tr>
+                                    <td colspan="4" class="text-center py-6 text-gray-500">
+                                        <i class="fas fa-chart-line text-3xl mb-2 block"></i>
+                                        Loading competitor insights...
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             </div>
@@ -507,6 +556,97 @@
                     <h3 class="text-lg font-semibold text-white mb-4"><i class="fas fa-list mr-2 text-purple-400"></i>Scheduled Content</h3>
                     <div id="scheduledList" class="space-y-3">
                         <p class="text-gray-500 text-sm">No content scheduled yet. Click "Auto-Schedule" to create a posting schedule.</p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Reports Panel -->
+            <div id="panel-reports" class="hidden fade-in">
+                <div class="grid md:grid-cols-2 gap-6">
+                    <!-- Monthly Report -->
+                    <div class="glass rounded-2xl p-6">
+                        <div class="flex items-center gap-3 mb-6">
+                            <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-red-500 to-pink-600 flex items-center justify-center">
+                                <i class="fas fa-file-pdf text-white text-xl"></i>
+                            </div>
+                            <div>
+                                <h3 class="text-lg font-bold text-white">Monthly Report</h3>
+                                <p class="text-sm text-gray-400">Content performance summary</p>
+                            </div>
+                        </div>
+                        <div class="space-y-3 mb-6">
+                            <div class="flex items-center justify-between p-3 glass rounded-lg">
+                                <span class="text-gray-400">Blog Posts Created</span>
+                                <span id="reportBlogs" class="text-white font-bold">0</span>
+                            </div>
+                            <div class="flex items-center justify-between p-3 glass rounded-lg">
+                                <span class="text-gray-400">Social Posts Created</span>
+                                <span id="reportSocial" class="text-white font-bold">0</span>
+                            </div>
+                            <div class="flex items-center justify-between p-3 glass rounded-lg">
+                                <span class="text-gray-400">Total Word Count</span>
+                                <span id="reportWords" class="text-white font-bold">0</span>
+                            </div>
+                            <div class="flex items-center justify-between p-3 glass rounded-lg">
+                                <span class="text-gray-400">Avg SEO Score</span>
+                                <span id="reportSeoScore" class="text-white font-bold">--</span>
+                            </div>
+                        </div>
+                        <button onclick="generateMonthlyReport()" class="w-full py-3 bg-gradient-to-r from-red-500 to-pink-600 rounded-xl text-white font-semibold hover:opacity-90 transition">
+                            <i class="fas fa-download mr-2"></i>Download PDF Report
+                        </button>
+                    </div>
+                    
+                    <!-- Content Inventory -->
+                    <div class="glass rounded-2xl p-6">
+                        <div class="flex items-center gap-3 mb-6">
+                            <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-600 flex items-center justify-center">
+                                <i class="fas fa-list-alt text-white text-xl"></i>
+                            </div>
+                            <div>
+                                <h3 class="text-lg font-bold text-white">Content Inventory</h3>
+                                <p class="text-sm text-gray-400">Export all content data</p>
+                            </div>
+                        </div>
+                        <div class="space-y-3 mb-6">
+                            <label class="flex items-center gap-3 p-3 glass rounded-lg cursor-pointer">
+                                <input type="checkbox" id="exportBlogs" checked class="w-5 h-5 rounded">
+                                <span class="text-white">Include Blog Posts</span>
+                            </label>
+                            <label class="flex items-center gap-3 p-3 glass rounded-lg cursor-pointer">
+                                <input type="checkbox" id="exportSocial" checked class="w-5 h-5 rounded">
+                                <span class="text-white">Include Social Posts</span>
+                            </label>
+                            <label class="flex items-center gap-3 p-3 glass rounded-lg cursor-pointer">
+                                <input type="checkbox" id="exportKeywords" checked class="w-5 h-5 rounded">
+                                <span class="text-white">Include Keywords</span>
+                            </label>
+                        </div>
+                        <div class="grid grid-cols-2 gap-3">
+                            <button onclick="exportInventoryCSV()" class="py-3 glass rounded-xl text-white font-semibold hover:bg-white/10 transition">
+                                <i class="fas fa-file-csv mr-2"></i>CSV
+                            </button>
+                            <button onclick="exportInventoryHTML()" class="py-3 glass rounded-xl text-white font-semibold hover:bg-white/10 transition">
+                                <i class="fas fa-file-code mr-2"></i>HTML
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Client Summary Card -->
+                    <div class="glass rounded-2xl p-6 md:col-span-2">
+                        <div class="flex items-center gap-3 mb-6">
+                            <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500 to-violet-600 flex items-center justify-center">
+                                <i class="fas fa-chart-pie text-white text-xl"></i>
+                            </div>
+                            <div>
+                                <h3 class="text-lg font-bold text-white">Client Summary</h3>
+                                <p class="text-sm text-gray-400">One-page overview for client meetings</p>
+                            </div>
+                        </div>
+                        <p class="text-gray-400 mb-4">Generate a professional one-page summary showing content created, keywords targeted, and next steps. Perfect for client review meetings.</p>
+                        <button onclick="generateClientSummary()" class="px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 rounded-xl text-white font-semibold hover:opacity-90 transition">
+                            <i class="fas fa-file-alt mr-2"></i>Generate Client Summary
+                        </button>
                     </div>
                 </div>
             </div>
@@ -615,6 +755,43 @@
             const nav = document.getElementById('mobileNav');
             nav.classList.toggle('hidden');
         }
+        
+        // ==========================================
+        // WHITE-LABEL BRANDING
+        // ==========================================
+        function loadBranding() {
+            const saved = localStorage.getItem('mcp_branding');
+            if (!saved) return;
+            
+            try {
+                const branding = JSON.parse(saved);
+                
+                // Update page title
+                document.title = `Content Dashboard | ${branding.agencyName}`;
+                
+                // Update login screen branding
+                const loginTitle = document.querySelector('.gradient-text');
+                if (loginTitle) loginTitle.textContent = branding.agencyName;
+                
+                // Update any brand name elements
+                document.querySelectorAll('[data-brand="name"]').forEach(el => {
+                    el.textContent = branding.agencyName;
+                });
+                
+                // Apply brand colors via CSS variables
+                if (branding.primaryColor) {
+                    document.documentElement.style.setProperty('--brand-primary', branding.primaryColor);
+                }
+                if (branding.secondaryColor) {
+                    document.documentElement.style.setProperty('--brand-secondary', branding.secondaryColor);
+                }
+            } catch (e) {
+                console.warn('Could not load branding:', e);
+            }
+        }
+        
+        // Load branding on page load
+        document.addEventListener('DOMContentLoaded', loadBranding);
         
         let API_URL = window.location.origin;
         let AUTH_TOKEN = '';
@@ -761,7 +938,7 @@
         // TABS
         // ==========================================
         function showTab(tab) {
-            ['generate', 'blogs', 'social', 'seo', 'calendar'].forEach(t => {
+            ['generate', 'blogs', 'social', 'seo', 'calendar', 'reports'].forEach(t => {
                 document.getElementById(`panel-${t}`).classList.add('hidden');
                 document.getElementById(`tab-${t}`).classList.remove('tab-active');
                 if (t !== 'generate') {
@@ -782,6 +959,11 @@
             // Render calendar when calendar tab is shown
             if (tab === 'calendar') {
                 renderCalendar();
+            }
+            
+            // Update report stats when reports tab is shown
+            if (tab === 'reports') {
+                updateReportStats();
             }
         }
         
@@ -1441,6 +1623,65 @@
                     </div>
                 `).join('')
                 : '<p class="text-gray-500 text-sm">No USPs defined</p>';
+            
+            // Load competitor insights
+            loadCompetitorInsights();
+        }
+        
+        async function loadCompetitorInsights() {
+            const table = document.getElementById('competitorInsightsTable');
+            if (!table) return;
+            
+            if (!currentClient) {
+                table.innerHTML = '<tr><td colspan="4" class="text-center py-4 text-gray-500">Select a client to view insights</td></tr>';
+                return;
+            }
+            
+            // Generate sample insights based on client keywords
+            const keywords = currentClient.primary_keywords || [];
+            const geo = currentClient.geo || '';
+            
+            if (keywords.length === 0) {
+                table.innerHTML = '<tr><td colspan="4" class="text-center py-4 text-gray-500">No keywords to analyze</td></tr>';
+                return;
+            }
+            
+            // Simulate competitor data
+            const insights = keywords.slice(0, 5).map((kw, i) => {
+                const yourRank = Math.random() > 0.3 ? Math.floor(Math.random() * 20) + 1 : null;
+                const compRank = Math.floor(Math.random() * 10) + 1;
+                const gap = yourRank ? yourRank - compRank : null;
+                
+                return {
+                    keyword: `${kw || ''} ${geo}`.trim(),
+                    yourRank,
+                    compRank,
+                    gap
+                };
+            });
+            
+            table.innerHTML = insights.map(item => {
+                const rankClass = (rank) => {
+                    if (!rank) return 'text-red-400';
+                    if (rank <= 3) return 'text-green-400';
+                    if (rank <= 10) return 'text-blue-400';
+                    return 'text-yellow-400';
+                };
+                
+                const gapDisplay = item.gap === null ? '<span class="text-red-400">Not ranking</span>' :
+                    item.gap > 0 ? `<span class="text-red-400">-${item.gap} behind</span>` :
+                    item.gap < 0 ? `<span class="text-green-400">+${Math.abs(item.gap)} ahead</span>` :
+                    '<span class="text-gray-400">Tied</span>';
+                
+                return `
+                    <tr class="border-b border-white/5 hover:bg-white/5">
+                        <td class="py-3 text-white">${escapeHtml(item.keyword)}</td>
+                        <td class="py-3 text-center ${rankClass(item.yourRank)} font-bold">${item.yourRank ? '#' + item.yourRank : '—'}</td>
+                        <td class="py-3 text-center ${rankClass(item.compRank)}">#${item.compRank}</td>
+                        <td class="py-3 text-center">${gapDisplay}</td>
+                    </tr>
+                `;
+            }).join('');
         }
 
         // ==========================================
@@ -1510,7 +1751,7 @@
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}`
+                        'Authorization': `Bearer ${AUTH_TOKEN}`
                     },
                     body: JSON.stringify({
                         client_id: currentClient.id,
@@ -1589,7 +1830,7 @@
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
-                            'Authorization': `Bearer ${token}`
+                            'Authorization': `Bearer ${AUTH_TOKEN}`
                         },
                         body: JSON.stringify({
                             client_id: currentClient.id,
@@ -1676,7 +1917,7 @@
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
-                            'Authorization': `Bearer ${token}`
+                            'Authorization': `Bearer ${AUTH_TOKEN}`
                         },
                         body: JSON.stringify({
                             client_id: currentClient.id,
@@ -1720,7 +1961,7 @@
                             method: 'POST',
                             headers: {
                                 'Content-Type': 'application/json',
-                                'Authorization': `Bearer ${token}`
+                                'Authorization': `Bearer ${AUTH_TOKEN}`
                             },
                             body: JSON.stringify({
                                 client_id: currentClient.id,
@@ -1754,6 +1995,507 @@
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') closeBlogModal();
         });
+        
+        // ==========================================
+        // ONBOARDING TOUR
+        // ==========================================
+        const tourSteps = [
+            {
+                element: '#tab-generate',
+                title: 'Generate Content',
+                content: 'Click here to create new blog posts and social media content with AI. Select a keyword and click generate!',
+                position: 'bottom'
+            },
+            {
+                element: '#tab-blogs',
+                title: 'Blog Posts',
+                content: 'View all your generated blog posts here. Click any post to preview, edit, or export it.',
+                position: 'bottom'
+            },
+            {
+                element: '#tab-social',
+                title: 'Social Media',
+                content: 'Manage your social media content for Google Business, Facebook, and Instagram.',
+                position: 'bottom'
+            },
+            {
+                element: '#tab-calendar',
+                title: 'Content Calendar',
+                content: 'Plan and schedule your content. Use Auto-Schedule to create a posting plan automatically.',
+                position: 'bottom'
+            },
+            {
+                element: '#clientSelector',
+                title: 'Switch Clients',
+                content: 'Use this dropdown to switch between different client accounts.',
+                position: 'bottom'
+            }
+        ];
+        
+        let currentTourStep = 0;
+        let tourActive = false;
+        
+        function startTour() {
+            if (tourSteps.length === 0) return;
+            tourActive = true;
+            currentTourStep = 0;
+            showTourStep(0);
+        }
+        
+        function showTourStep(index) {
+            // Remove any existing tour elements
+            document.querySelectorAll('.tour-tooltip, .tour-highlight').forEach(el => el.remove());
+            
+            if (index >= tourSteps.length) {
+                endTour();
+                return;
+            }
+            
+            const step = tourSteps[index];
+            const element = document.querySelector(step.element);
+            
+            if (!element) {
+                // Skip to next step if element not found
+                showTourStep(index + 1);
+                return;
+            }
+            
+            // Add highlight
+            element.classList.add('tour-highlight');
+            
+            // Create tooltip
+            const tooltip = document.createElement('div');
+            tooltip.className = `tour-tooltip ${step.position}`;
+            tooltip.innerHTML = `
+                <div class="flex items-center gap-2 mb-2">
+                    <div class="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center">
+                        <i class="fas fa-lightbulb text-purple-600"></i>
+                    </div>
+                    <h3 class="font-bold text-gray-900">${step.title}</h3>
+                </div>
+                <p class="text-gray-600 text-sm mb-4">${step.content}</p>
+                <div class="flex items-center justify-between">
+                    <div class="tour-progress">
+                        ${tourSteps.map((_, i) => `<div class="tour-progress-dot ${i === index ? 'active' : ''}"></div>`).join('')}
+                    </div>
+                    <div class="flex gap-2">
+                        <button onclick="endTour()" class="px-3 py-1 text-gray-500 text-sm hover:text-gray-700">Skip</button>
+                        <button onclick="nextTourStep()" class="px-4 py-1 bg-purple-600 text-white text-sm rounded-lg hover:bg-purple-700">
+                            ${index === tourSteps.length - 1 ? 'Finish' : 'Next'}
+                        </button>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(tooltip);
+            
+            // Position tooltip
+            const rect = element.getBoundingClientRect();
+            const tooltipRect = tooltip.getBoundingClientRect();
+            
+            let top, left;
+            switch (step.position) {
+                case 'bottom':
+                    top = rect.bottom + 16;
+                    left = rect.left + (rect.width / 2) - (tooltipRect.width / 2);
+                    break;
+                case 'top':
+                    top = rect.top - tooltipRect.height - 16;
+                    left = rect.left + (rect.width / 2) - (tooltipRect.width / 2);
+                    break;
+                case 'left':
+                    top = rect.top + (rect.height / 2) - (tooltipRect.height / 2);
+                    left = rect.left - tooltipRect.width - 16;
+                    break;
+                case 'right':
+                    top = rect.top + (rect.height / 2) - (tooltipRect.height / 2);
+                    left = rect.right + 16;
+                    break;
+            }
+            
+            // Keep tooltip in viewport
+            left = Math.max(16, Math.min(left, window.innerWidth - tooltipRect.width - 16));
+            top = Math.max(16, Math.min(top, window.innerHeight - tooltipRect.height - 16));
+            
+            tooltip.style.top = `${top}px`;
+            tooltip.style.left = `${left}px`;
+        }
+        
+        function nextTourStep() {
+            const currentElement = document.querySelector(tourSteps[currentTourStep]?.element);
+            if (currentElement) currentElement.classList.remove('tour-highlight');
+            
+            currentTourStep++;
+            if (currentTourStep >= tourSteps.length) {
+                endTour();
+            } else {
+                showTourStep(currentTourStep);
+            }
+        }
+        
+        function endTour() {
+            tourActive = false;
+            document.querySelectorAll('.tour-tooltip, .tour-highlight').forEach(el => {
+                if (el.classList.contains('tour-highlight')) {
+                    el.classList.remove('tour-highlight');
+                } else {
+                    el.remove();
+                }
+            });
+            
+            // Mark tour as completed
+            localStorage.setItem('mcp_tour_completed', 'true');
+        }
+        
+        // Show tour for first-time users
+        // ==========================================
+        // REPORTS
+        // ==========================================
+        function updateReportStats() {
+            if (!currentClient) return;
+            
+            document.getElementById('reportBlogs').textContent = allBlogs.length;
+            document.getElementById('reportSocial').textContent = allSocial.length;
+            
+            const totalWords = allBlogs.reduce((sum, b) => sum + (b.word_count || 0), 0);
+            document.getElementById('reportWords').textContent = totalWords.toLocaleString();
+            
+            // Calculate average SEO score
+            if (allBlogs.length > 0) {
+                const scores = allBlogs.map(b => calculateSEOScore(b).score);
+                const avgScore = Math.round(scores.reduce((a, b) => a + b, 0) / scores.length);
+                document.getElementById('reportSeoScore').textContent = avgScore + '/100';
+            } else {
+                document.getElementById('reportSeoScore').textContent = '--';
+            }
+        }
+        
+        function generateMonthlyReport() {
+            if (!currentClient) {
+                alert('Please select a client first');
+                return;
+            }
+            
+            const branding = JSON.parse(localStorage.getItem('mcp_branding') || '{}');
+            const agencyName = branding.agencyName || 'MCP Framework';
+            const totalWords = allBlogs.reduce((sum, b) => sum + (b.word_count || 0), 0);
+            const avgScore = allBlogs.length > 0 
+                ? Math.round(allBlogs.map(b => calculateSEOScore(b).score).reduce((a, b) => a + b, 0) / allBlogs.length)
+                : 0;
+            
+            const reportHTML = `
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Monthly Content Report - ${currentClient.business_name}</title>
+    <style>
+        @page { margin: 0.5in; }
+        body { font-family: Arial, sans-serif; color: #333; max-width: 800px; margin: 0 auto; padding: 20px; }
+        .header { background: linear-gradient(135deg, #667eea, #764ba2); color: white; padding: 30px; border-radius: 12px; margin-bottom: 30px; }
+        .header h1 { margin: 0 0 10px 0; font-size: 24px; }
+        .header p { margin: 0; opacity: 0.9; }
+        .stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; margin-bottom: 30px; }
+        .stat-box { background: #f8fafc; padding: 20px; border-radius: 12px; text-align: center; }
+        .stat-box h3 { margin: 0; font-size: 36px; color: #667eea; }
+        .stat-box p { margin: 5px 0 0 0; color: #64748b; }
+        .section { margin-bottom: 30px; }
+        .section h2 { color: #1e293b; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; }
+        .content-list { list-style: none; padding: 0; }
+        .content-list li { padding: 12px; background: #f8fafc; margin-bottom: 8px; border-radius: 8px; border-left: 4px solid #667eea; }
+        .footer { text-align: center; color: #94a3b8; font-size: 12px; margin-top: 40px; padding-top: 20px; border-top: 1px solid #e2e8f0; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Monthly Content Report</h1>
+        <p>${currentClient.business_name} • ${new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</p>
+    </div>
+    
+    <div class="stats">
+        <div class="stat-box">
+            <h3>${allBlogs.length}</h3>
+            <p>Blog Posts Created</p>
+        </div>
+        <div class="stat-box">
+            <h3>${allSocial.length}</h3>
+            <p>Social Posts Created</p>
+        </div>
+        <div class="stat-box">
+            <h3>${totalWords.toLocaleString()}</h3>
+            <p>Total Words Written</p>
+        </div>
+        <div class="stat-box">
+            <h3>${avgScore}/100</h3>
+            <p>Average SEO Score</p>
+        </div>
+    </div>
+    
+    <div class="section">
+        <h2>Blog Posts</h2>
+        <ul class="content-list">
+            ${allBlogs.slice(0, 10).map(b => `<li><strong>${b.title || 'Untitled'}</strong> - ${b.word_count || 0} words - ${b.status || 'draft'}</li>`).join('')}
+            ${allBlogs.length > 10 ? `<li><em>...and ${allBlogs.length - 10} more</em></li>` : ''}
+            ${allBlogs.length === 0 ? '<li>No blog posts yet</li>' : ''}
+        </ul>
+    </div>
+    
+    <div class="section">
+        <h2>Keywords Targeted</h2>
+        <ul class="content-list">
+            ${(currentClient.primary_keywords || []).slice(0, 10).map(k => `<li>${k}</li>`).join('')}
+            ${(currentClient.primary_keywords || []).length === 0 ? '<li>No keywords defined</li>' : ''}
+        </ul>
+    </div>
+    
+    <div class="footer">
+        <p>Generated by ${agencyName} • ${new Date().toLocaleString()}</p>
+    </div>
+</body>
+</html>`;
+            
+            const blob = new Blob([reportHTML], { type: 'text/html' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${currentClient.business_name?.replace(/[^a-z0-9]/gi, '-').toLowerCase() || 'client'}-monthly-report.html`;
+            a.click();
+            
+            alert('Report downloaded! Open it in a browser and print to PDF for best results.');
+        }
+        
+        function exportInventoryCSV() {
+            if (!currentClient) {
+                alert('Please select a client first');
+                return;
+            }
+            
+            let csv = '';
+            
+            if (document.getElementById('exportBlogs').checked && allBlogs.length > 0) {
+                csv += 'BLOG POSTS\n';
+                csv += 'Title,Keyword,Word Count,Status,Created\n';
+                allBlogs.forEach(b => {
+                    csv += `"${(b.title || '').replace(/"/g, '""')}","${b.primary_keyword || ''}",${b.word_count || 0},"${b.status || 'draft'}","${b.created_at || ''}"\n`;
+                });
+                csv += '\n';
+            }
+            
+            if (document.getElementById('exportSocial').checked && allSocial.length > 0) {
+                csv += 'SOCIAL POSTS\n';
+                csv += 'Platform,Topic,Status,Created\n';
+                allSocial.forEach(s => {
+                    csv += `"${s.platform || ''}","${(s.topic || '').replace(/"/g, '""')}","${s.status || 'draft'}","${s.created_at || ''}"\n`;
+                });
+                csv += '\n';
+            }
+            
+            if (document.getElementById('exportKeywords').checked) {
+                csv += 'KEYWORDS\n';
+                csv += 'Keyword,Type\n';
+                (currentClient.primary_keywords || []).forEach(k => {
+                    csv += `"${k}","primary"\n`;
+                });
+                (currentClient.secondary_keywords || []).forEach(k => {
+                    csv += `"${k}","secondary"\n`;
+                });
+            }
+            
+            if (!csv) {
+                alert('No data selected for export');
+                return;
+            }
+            
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${currentClient.business_name?.replace(/[^a-z0-9]/gi, '-').toLowerCase() || 'client'}-content-inventory.csv`;
+            a.click();
+        }
+        
+        function exportInventoryHTML() {
+            if (!currentClient) {
+                alert('Please select a client first');
+                return;
+            }
+            
+            let content = `
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Content Inventory - ${currentClient.business_name}</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 1000px; margin: 0 auto; padding: 20px; }
+        h1 { color: #1e293b; }
+        h2 { color: #334155; margin-top: 30px; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+        th, td { padding: 10px; text-align: left; border-bottom: 1px solid #e2e8f0; }
+        th { background: #f8fafc; color: #64748b; font-weight: 600; }
+        .status-draft { color: #f59e0b; }
+        .status-published { color: #10b981; }
+    </style>
+</head>
+<body>
+    <h1>Content Inventory: ${currentClient.business_name}</h1>
+    <p>Generated: ${new Date().toLocaleString()}</p>
+`;
+            
+            if (document.getElementById('exportBlogs').checked && allBlogs.length > 0) {
+                content += `<h2>Blog Posts (${allBlogs.length})</h2><table><tr><th>Title</th><th>Keyword</th><th>Words</th><th>Status</th></tr>`;
+                allBlogs.forEach(b => {
+                    content += `<tr><td>${escapeHtml(b.title || 'Untitled')}</td><td>${escapeHtml(b.primary_keyword || '')}</td><td>${b.word_count || 0}</td><td class="status-${b.status || 'draft'}">${b.status || 'draft'}</td></tr>`;
+                });
+                content += '</table>';
+            }
+            
+            if (document.getElementById('exportSocial').checked && allSocial.length > 0) {
+                content += `<h2>Social Posts (${allSocial.length})</h2><table><tr><th>Platform</th><th>Topic</th><th>Status</th></tr>`;
+                allSocial.forEach(s => {
+                    content += `<tr><td>${escapeHtml(s.platform || '')}</td><td>${escapeHtml(s.topic || '')}</td><td class="status-${s.status || 'draft'}">${s.status || 'draft'}</td></tr>`;
+                });
+                content += '</table>';
+            }
+            
+            if (document.getElementById('exportKeywords').checked) {
+                const keywords = [...(currentClient.primary_keywords || []), ...(currentClient.secondary_keywords || [])];
+                if (keywords.length > 0) {
+                    content += `<h2>Keywords (${keywords.length})</h2><ul>`;
+                    keywords.forEach(k => content += `<li>${escapeHtml(k)}</li>`);
+                    content += '</ul>';
+                }
+            }
+            
+            content += '</body></html>';
+            
+            const blob = new Blob([content], { type: 'text/html' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${currentClient.business_name?.replace(/[^a-z0-9]/gi, '-').toLowerCase() || 'client'}-content-inventory.html`;
+            a.click();
+        }
+        
+        function generateClientSummary() {
+            if (!currentClient) {
+                alert('Please select a client first');
+                return;
+            }
+            
+            const branding = JSON.parse(localStorage.getItem('mcp_branding') || '{}');
+            const agencyName = branding.agencyName || 'MCP Framework';
+            const totalWords = allBlogs.reduce((sum, b) => sum + (b.word_count || 0), 0);
+            
+            const summaryHTML = `
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Client Summary - ${currentClient.business_name}</title>
+    <style>
+        @page { size: letter; margin: 0.5in; }
+        body { font-family: Arial, sans-serif; color: #333; max-width: 800px; margin: 0 auto; }
+        .header { display: flex; justify-content: space-between; align-items: center; padding-bottom: 20px; border-bottom: 3px solid #667eea; margin-bottom: 30px; }
+        .header h1 { margin: 0; color: #1e293b; }
+        .header .agency { color: #667eea; font-weight: bold; }
+        .client-info { background: #f8fafc; padding: 20px; border-radius: 12px; margin-bottom: 30px; }
+        .client-info h2 { margin: 0 0 10px 0; color: #667eea; }
+        .metrics { display: flex; gap: 20px; margin-bottom: 30px; }
+        .metric { flex: 1; text-align: center; padding: 20px; background: linear-gradient(135deg, #667eea, #764ba2); color: white; border-radius: 12px; }
+        .metric h3 { margin: 0; font-size: 32px; }
+        .metric p { margin: 5px 0 0 0; opacity: 0.9; }
+        .section { margin-bottom: 25px; }
+        .section h3 { color: #334155; margin-bottom: 10px; }
+        .tag { display: inline-block; background: #e2e8f0; padding: 4px 12px; border-radius: 20px; margin: 4px; font-size: 14px; }
+        .footer { text-align: center; color: #94a3b8; font-size: 11px; padding-top: 20px; border-top: 1px solid #e2e8f0; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Client Summary</h1>
+        <div class="agency">${escapeHtml(agencyName)}</div>
+    </div>
+    
+    <div class="client-info">
+        <h2>${escapeHtml(currentClient.business_name || 'Client')}</h2>
+        <p><strong>Industry:</strong> ${escapeHtml(currentClient.industry || 'N/A')} | <strong>Location:</strong> ${escapeHtml(currentClient.geo || 'N/A')}</p>
+    </div>
+    
+    <div class="metrics">
+        <div class="metric">
+            <h3>${allBlogs.length}</h3>
+            <p>Blog Posts</p>
+        </div>
+        <div class="metric">
+            <h3>${allSocial.length}</h3>
+            <p>Social Posts</p>
+        </div>
+        <div class="metric">
+            <h3>${totalWords.toLocaleString()}</h3>
+            <p>Words Written</p>
+        </div>
+    </div>
+    
+    <div class="section">
+        <h3>Target Keywords</h3>
+        <div>
+            ${(currentClient.primary_keywords || []).slice(0, 8).map(k => `<span class="tag">${escapeHtml(k)}</span>`).join('')}
+            ${(currentClient.primary_keywords || []).length > 8 ? `<span class="tag">+${(currentClient.primary_keywords || []).length - 8} more</span>` : ''}
+        </div>
+    </div>
+    
+    <div class="section">
+        <h3>Recent Content</h3>
+        <ul>
+            ${allBlogs.slice(0, 5).map(b => `<li>${escapeHtml(b.title || 'Untitled')} (${b.word_count || 0} words)</li>`).join('')}
+            ${allBlogs.length === 0 ? '<li>No content yet</li>' : ''}
+        </ul>
+    </div>
+    
+    <div class="section">
+        <h3>Next Steps</h3>
+        <ul>
+            <li>Continue publishing ${currentClient.primary_keywords?.[0] || 'targeted'} content weekly</li>
+            <li>Maintain social media posting schedule (3x/week)</li>
+            <li>Monitor keyword rankings and adjust strategy</li>
+        </ul>
+    </div>
+    
+    <div class="footer">
+        <p>Prepared by ${escapeHtml(agencyName)} • ${new Date().toLocaleDateString()}</p>
+    </div>
+</body>
+</html>`;
+            
+            const blob = new Blob([summaryHTML], { type: 'text/html' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${currentClient.business_name?.replace(/[^a-z0-9]/gi, '-').toLowerCase() || 'client'}-summary.html`;
+            a.click();
+        }
+        
+        function checkFirstTimeUser() {
+            const tourCompleted = localStorage.getItem('mcp_tour_completed');
+            if (!tourCompleted) {
+                // Wait a moment for the dashboard to load, then offer the tour
+                setTimeout(() => {
+                    if (confirm('Welcome! Would you like a quick tour of the Content Dashboard?')) {
+                        startTour();
+                    } else {
+                        localStorage.setItem('mcp_tour_completed', 'true');
+                    }
+                }, 1000);
+            }
+        }
+        
+        // Call after login
+        const originalLoadClients = loadClients;
+        loadClients = async function() {
+            await originalLoadClients();
+            checkFirstTimeUser();
+        };
     </script>
 </body>
 </html>

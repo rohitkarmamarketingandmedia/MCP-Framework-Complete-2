@@ -986,3 +986,103 @@ def get_dashboard_data(current_user):
         'recent_alerts': [a.to_dict() for a in alerts],
         'system_status': 'active'
     })
+
+
+# ==========================================
+# CONTENT CHANGE DETECTION
+# ==========================================
+
+@monitoring_bp.route('/content-changes/<client_id>', methods=['GET'])
+@token_required
+def get_content_changes(current_user, client_id):
+    """
+    Get recent content changes detected from competitors
+    
+    GET /api/monitoring/content-changes/{client_id}
+    
+    Returns list of new pages and content updates
+    """
+    if not current_user.has_access_to_client(client_id):
+        return jsonify({'error': 'Access denied'}), 403
+    
+    # Get competitors for this client
+    competitors = DBCompetitor.query.filter_by(
+        client_id=client_id,
+        is_active=True
+    ).all()
+    
+    changes = []
+    
+    for competitor in competitors:
+        # Get pages discovered in last 7 days
+        recent_pages = DBCompetitorPage.query.filter(
+            DBCompetitorPage.competitor_id == competitor.id,
+            DBCompetitorPage.discovered_at >= datetime.utcnow() - timedelta(days=7)
+        ).order_by(DBCompetitorPage.discovered_at.desc()).limit(10).all()
+        
+        for page in recent_pages:
+            changes.append({
+                'type': 'new_page',
+                'competitor': competitor.domain or '',
+                'competitor_id': competitor.id,
+                'url': page.url or '',
+                'title': page.title or 'Untitled',
+                'word_count': page.word_count or 0,
+                'detected_at': page.discovered_at.isoformat() if page.discovered_at else None
+            })
+    
+    # Sort by detected_at descending
+    changes.sort(key=lambda x: x.get('detected_at') or '', reverse=True)
+    
+    return jsonify({
+        'client_id': client_id,
+        'changes': changes[:20],  # Limit to 20 most recent
+        'scanned_at': datetime.utcnow().isoformat()
+    })
+
+
+@monitoring_bp.route('/rank-history/<client_id>', methods=['GET'])
+@token_required
+def get_rank_history(current_user, client_id):
+    """
+    Get rank history for a keyword
+    
+    GET /api/monitoring/rank-history/{client_id}?keyword=ac+repair+tampa
+    
+    Returns 30-day position history
+    """
+    if not current_user.has_access_to_client(client_id):
+        return jsonify({'error': 'Access denied'}), 403
+    
+    keyword = request.args.get('keyword', '')
+    if not keyword:
+        return jsonify({'error': 'keyword parameter required'}), 400
+    
+    # Get rank history for this keyword
+    history = DBRankHistory.query.filter(
+        DBRankHistory.client_id == client_id,
+        DBRankHistory.keyword == keyword,
+        DBRankHistory.checked_at >= datetime.utcnow() - timedelta(days=30)
+    ).order_by(DBRankHistory.checked_at.asc()).all()
+    
+    if not history:
+        # Return empty but valid response
+        return jsonify({
+            'client_id': client_id,
+            'keyword': keyword,
+            'history': [],
+            'message': 'No rank history found for this keyword'
+        })
+    
+    return jsonify({
+        'client_id': client_id,
+        'keyword': keyword,
+        'history': [
+            {
+                'date': h.checked_at.isoformat() if h.checked_at else None,
+                'position': h.position,
+                'url': h.ranking_url
+            }
+            for h in history
+        ]
+    })

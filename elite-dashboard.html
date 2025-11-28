@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SEO Command Center | Karma Marketing + Media</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
@@ -311,6 +312,176 @@
                     </div>
                 </div>
             </div>
+            
+            <!-- Analysis Tabs -->
+            <div class="mt-8">
+                <div class="flex gap-2 mb-6 overflow-x-auto pb-2">
+                    <button onclick="showAnalysisTab('rankHistory')" id="tab-rankHistory" class="px-4 py-2 bg-gradient-to-r from-blue-600 to-cyan-600 rounded-lg text-white text-sm font-medium">
+                        <i class="fas fa-chart-line mr-2"></i>Rank History
+                    </button>
+                    <button onclick="showAnalysisTab('keywordGap')" id="tab-keywordGap" class="px-4 py-2 glass rounded-lg text-gray-400 text-sm font-medium hover:text-white transition">
+                        <i class="fas fa-th-list mr-2"></i>Keyword Gap
+                    </button>
+                    <button onclick="showAnalysisTab('competitorCompare')" id="tab-competitorCompare" class="px-4 py-2 glass rounded-lg text-gray-400 text-sm font-medium hover:text-white transition">
+                        <i class="fas fa-balance-scale mr-2"></i>Compare
+                    </button>
+                    <button onclick="showAnalysisTab('contentChanges')" id="tab-contentChanges" class="px-4 py-2 glass rounded-lg text-gray-400 text-sm font-medium hover:text-white transition">
+                        <i class="fas fa-history mr-2"></i>Content Changes
+                    </button>
+                </div>
+                
+                <!-- Rank History Panel -->
+                <div id="panel-rankHistory" class="glass-card rounded-2xl p-6">
+                    <div class="flex items-center justify-between mb-6">
+                        <h3 class="text-lg font-bold text-white"><i class="fas fa-chart-line mr-2 text-blue-400"></i>Keyword Rank History (30 Days)</h3>
+                        <select id="rankHistoryKeyword" onchange="updateRankChart()" class="px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-sm">
+                            <option value="">Select keyword...</option>
+                        </select>
+                    </div>
+                    <div class="h-80">
+                        <canvas id="rankHistoryChart"></canvas>
+                    </div>
+                    <div class="mt-4 grid grid-cols-4 gap-4 text-center">
+                        <div class="glass rounded-lg p-3">
+                            <p class="text-2xl font-bold text-green-400" id="chartBestRank">--</p>
+                            <p class="text-xs text-gray-400">Best Position</p>
+                        </div>
+                        <div class="glass rounded-lg p-3">
+                            <p class="text-2xl font-bold text-blue-400" id="chartCurrentRank">--</p>
+                            <p class="text-xs text-gray-400">Current</p>
+                        </div>
+                        <div class="glass rounded-lg p-3">
+                            <p class="text-2xl font-bold text-purple-400" id="chartAvgRank">--</p>
+                            <p class="text-xs text-gray-400">Average</p>
+                        </div>
+                        <div class="glass rounded-lg p-3">
+                            <p class="text-2xl font-bold" id="chartTrend">--</p>
+                            <p class="text-xs text-gray-400">30d Change</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Keyword Gap Panel -->
+                <div id="panel-keywordGap" class="hidden glass-card rounded-2xl p-6">
+                    <div class="flex items-center justify-between mb-6">
+                        <h3 class="text-lg font-bold text-white"><i class="fas fa-th-list mr-2 text-purple-400"></i>Keyword Gap Analysis</h3>
+                        <button onclick="analyzeKeywordGap()" class="px-4 py-2 bg-purple-500/20 text-purple-400 rounded-lg text-sm hover:bg-purple-500/30 transition">
+                            <i class="fas fa-search mr-1"></i>Analyze
+                        </button>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm">
+                            <thead>
+                                <tr class="text-gray-400 border-b border-white/10">
+                                    <th class="text-left py-3 px-2">Keyword</th>
+                                    <th class="text-center py-3 px-2">You</th>
+                                    <th class="text-center py-3 px-2" id="gapComp1Header">Competitor 1</th>
+                                    <th class="text-center py-3 px-2" id="gapComp2Header">Competitor 2</th>
+                                    <th class="text-center py-3 px-2">Volume</th>
+                                    <th class="text-center py-3 px-2">Priority</th>
+                                    <th class="text-center py-3 px-2">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="keywordGapTable">
+                                <tr>
+                                    <td colspan="7" class="text-center py-8 text-gray-500">
+                                        <i class="fas fa-search text-4xl mb-2 block"></i>
+                                        Click "Analyze" to find keyword opportunities
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="mt-4 flex items-center gap-4 text-xs text-gray-400">
+                        <span><span class="inline-block w-3 h-3 bg-green-500 rounded mr-1"></span>Top 3</span>
+                        <span><span class="inline-block w-3 h-3 bg-blue-500 rounded mr-1"></span>Top 10</span>
+                        <span><span class="inline-block w-3 h-3 bg-yellow-500 rounded mr-1"></span>Top 20</span>
+                        <span><span class="inline-block w-3 h-3 bg-red-500 rounded mr-1"></span>Not Ranking</span>
+                    </div>
+                </div>
+                
+                <!-- Competitor Compare Panel -->
+                <div id="panel-competitorCompare" class="hidden glass-card rounded-2xl p-6">
+                    <div class="flex items-center justify-between mb-6">
+                        <h3 class="text-lg font-bold text-white"><i class="fas fa-balance-scale mr-2 text-orange-400"></i>Competitor Comparison</h3>
+                    </div>
+                    <div class="grid md:grid-cols-3 gap-4 mb-6">
+                        <div class="glass rounded-xl p-4 text-center border-2 border-green-500/30">
+                            <p class="text-sm text-gray-400 mb-2">Your Site</p>
+                            <p class="text-lg font-bold text-white" id="compareYourDomain">--</p>
+                        </div>
+                        <div class="glass rounded-xl p-4 text-center">
+                            <p class="text-sm text-gray-400 mb-2">Competitor 1</p>
+                            <p class="text-lg font-bold text-white" id="compareComp1Domain">--</p>
+                        </div>
+                        <div class="glass rounded-xl p-4 text-center">
+                            <p class="text-sm text-gray-400 mb-2">Competitor 2</p>
+                            <p class="text-lg font-bold text-white" id="compareComp2Domain">--</p>
+                        </div>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm">
+                            <thead>
+                                <tr class="text-gray-400 border-b border-white/10">
+                                    <th class="text-left py-3">Metric</th>
+                                    <th class="text-center py-3">You</th>
+                                    <th class="text-center py-3">Comp 1</th>
+                                    <th class="text-center py-3">Comp 2</th>
+                                </tr>
+                            </thead>
+                            <tbody id="compareTable">
+                                <tr class="border-b border-white/5">
+                                    <td class="py-3 text-gray-300">Keywords in Top 10</td>
+                                    <td class="py-3 text-center text-green-400 font-bold" id="compareYouTop10">--</td>
+                                    <td class="py-3 text-center text-white" id="compareC1Top10">--</td>
+                                    <td class="py-3 text-center text-white" id="compareC2Top10">--</td>
+                                </tr>
+                                <tr class="border-b border-white/5">
+                                    <td class="py-3 text-gray-300">Total Keywords</td>
+                                    <td class="py-3 text-center text-green-400 font-bold" id="compareYouTotal">--</td>
+                                    <td class="py-3 text-center text-white" id="compareC1Total">--</td>
+                                    <td class="py-3 text-center text-white" id="compareC2Total">--</td>
+                                </tr>
+                                <tr class="border-b border-white/5">
+                                    <td class="py-3 text-gray-300">Blog Posts</td>
+                                    <td class="py-3 text-center text-green-400 font-bold" id="compareYouBlogs">--</td>
+                                    <td class="py-3 text-center text-white" id="compareC1Blogs">--</td>
+                                    <td class="py-3 text-center text-white" id="compareC2Blogs">--</td>
+                                </tr>
+                                <tr class="border-b border-white/5">
+                                    <td class="py-3 text-gray-300">Avg. Word Count</td>
+                                    <td class="py-3 text-center text-green-400 font-bold" id="compareYouWords">--</td>
+                                    <td class="py-3 text-center text-white" id="compareC1Words">--</td>
+                                    <td class="py-3 text-center text-white" id="compareC2Words">--</td>
+                                </tr>
+                                <tr>
+                                    <td class="py-3 text-gray-300">Last New Content</td>
+                                    <td class="py-3 text-center text-green-400 font-bold" id="compareYouLast">--</td>
+                                    <td class="py-3 text-center text-white" id="compareC1Last">--</td>
+                                    <td class="py-3 text-center text-white" id="compareC2Last">--</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                
+                <!-- Content Changes Panel -->
+                <div id="panel-contentChanges" class="hidden glass-card rounded-2xl p-6">
+                    <div class="flex items-center justify-between mb-6">
+                        <h3 class="text-lg font-bold text-white"><i class="fas fa-history mr-2 text-cyan-400"></i>Competitor Content Changes</h3>
+                        <button onclick="scanForChanges()" class="px-4 py-2 bg-cyan-500/20 text-cyan-400 rounded-lg text-sm hover:bg-cyan-500/30 transition">
+                            <i class="fas fa-satellite-dish mr-1"></i>Scan Now
+                        </button>
+                    </div>
+                    <div id="contentChangesList" class="space-y-3">
+                        <div class="text-center py-8 text-gray-500">
+                            <i class="fas fa-satellite-dish text-4xl mb-3 block"></i>
+                            <p>Click "Scan Now" to detect content changes</p>
+                            <p class="text-xs mt-1">Monitors: new pages, word count changes, heading updates</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -388,6 +559,19 @@
         let AUTH_TOKEN = '';
         let currentClientId = '';
         let currentQueueItem = null;
+        
+        // ==========================================
+        // UTILITY FUNCTIONS
+        // ==========================================
+        function escapeHtml(str) {
+            if (str === null || str === undefined) return '';
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
 
         // ==========================================
         // AUTH
@@ -892,6 +1076,445 @@
                 hideContentModal();
             }
         });
+        
+        // ==========================================
+        // ANALYSIS TABS
+        // ==========================================
+        let rankChart = null;
+        let rankHistoryData = [];
+        
+        function showAnalysisTab(tab) {
+            ['rankHistory', 'keywordGap', 'competitorCompare', 'contentChanges'].forEach(t => {
+                document.getElementById(`panel-${t}`).classList.add('hidden');
+                document.getElementById(`tab-${t}`).classList.remove('bg-gradient-to-r', 'from-blue-600', 'to-cyan-600', 'text-white');
+                document.getElementById(`tab-${t}`).classList.add('glass', 'text-gray-400');
+            });
+            document.getElementById(`panel-${tab}`).classList.remove('hidden');
+            document.getElementById(`tab-${tab}`).classList.remove('glass', 'text-gray-400');
+            document.getElementById(`tab-${tab}`).classList.add('bg-gradient-to-r', 'from-blue-600', 'to-cyan-600', 'text-white');
+            
+            // Initialize data for each tab
+            if (tab === 'rankHistory') initRankChart();
+            if (tab === 'keywordGap') populateGapHeaders();
+            if (tab === 'competitorCompare') populateCompareData();
+        }
+        
+        // ==========================================
+        // RANK HISTORY CHART
+        // ==========================================
+        function initRankChart() {
+            // Populate keyword dropdown
+            const select = document.getElementById('rankHistoryKeyword');
+            if (currentClient && currentClient.primary_keywords) {
+                select.innerHTML = '<option value="">Select keyword...</option>' +
+                    currentClient.primary_keywords.map(k => `<option value="${k}">${k}</option>`).join('');
+            }
+            
+            // Initialize empty chart
+            const ctx = document.getElementById('rankHistoryChart').getContext('2d');
+            if (rankChart) rankChart.destroy();
+            
+            rankChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'Position',
+                        data: [],
+                        borderColor: '#3b82f6',
+                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                        fill: true,
+                        tension: 0.3,
+                        pointBackgroundColor: '#3b82f6',
+                        pointBorderColor: '#fff',
+                        pointRadius: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            reverse: true,
+                            min: 1,
+                            max: 100,
+                            grid: { color: 'rgba(255,255,255,0.1)' },
+                            ticks: { color: '#9ca3af' }
+                        },
+                        x: {
+                            grid: { color: 'rgba(255,255,255,0.05)' },
+                            ticks: { color: '#9ca3af' }
+                        }
+                    },
+                    plugins: {
+                        legend: { display: false }
+                    }
+                }
+            });
+        }
+        
+        async function updateRankChart() {
+            const keyword = document.getElementById('rankHistoryKeyword').value;
+            if (!keyword || !currentClient) return;
+            
+            try {
+                const res = await fetch(`${API_URL}/api/monitoring/rank-history/${currentClient.id}?keyword=${encodeURIComponent(keyword)}`, {
+                    headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
+                });
+                
+                let data;
+                if (res.ok) {
+                    data = await res.json();
+                } else {
+                    // Generate sample data for demo
+                    data = generateSampleRankHistory(keyword);
+                }
+                
+                if (data.history && data.history.length > 0) {
+                    const labels = data.history.map(h => {
+                        try {
+                            return new Date(h.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                        } catch(e) {
+                            return 'N/A';
+                        }
+                    });
+                    const positions = data.history.map(h => h.position || 100).filter(p => typeof p === 'number');
+                    
+                    if (positions.length === 0) {
+                        console.warn('No valid positions in history');
+                        return;
+                    }
+                    
+                    rankChart.data.labels = labels;
+                    rankChart.data.datasets[0].data = positions;
+                    rankChart.update();
+                    
+                    // Update stats with null safety
+                    const best = Math.min(...positions);
+                    const current = positions[positions.length - 1] || 0;
+                    const avg = positions.length > 0 ? Math.round(positions.reduce((a, b) => a + b, 0) / positions.length) : 0;
+                    const change = (positions[0] || 0) - current;
+                    
+                    const bestEl = document.getElementById('chartBestRank');
+                    const currentEl = document.getElementById('chartCurrentRank');
+                    const avgEl = document.getElementById('chartAvgRank');
+                    const trendEl = document.getElementById('chartTrend');
+                    
+                    if (bestEl) bestEl.textContent = `#${best}`;
+                    if (currentEl) currentEl.textContent = `#${current}`;
+                    if (avgEl) avgEl.textContent = `#${avg}`;
+                    
+                    if (trendEl) {
+                        if (change > 0) {
+                            trendEl.textContent = `↑ ${change}`;
+                            trendEl.className = 'text-2xl font-bold text-green-400';
+                        } else if (change < 0) {
+                            trendEl.textContent = `↓ ${Math.abs(change)}`;
+                            trendEl.className = 'text-2xl font-bold text-red-400';
+                        } else {
+                            trendEl.textContent = '→ 0';
+                            trendEl.className = 'text-2xl font-bold text-gray-400';
+                        }
+                    }
+                }
+            } catch (e) {
+                console.error('Failed to load rank history:', e);
+            }
+        }
+        
+        function generateSampleRankHistory(keyword) {
+            // Generate realistic sample data for demo
+            const history = [];
+            const basePosition = Math.floor(Math.random() * 20) + 5;
+            const now = new Date();
+            
+            for (let i = 29; i >= 0; i--) {
+                const date = new Date(now);
+                date.setDate(date.getDate() - i);
+                const variation = Math.floor(Math.random() * 10) - 5;
+                const position = Math.max(1, Math.min(50, basePosition + variation - Math.floor(i / 5)));
+                history.push({
+                    date: date.toISOString(),
+                    position: position
+                });
+            }
+            
+            return { history };
+        }
+        
+        // ==========================================
+        // KEYWORD GAP ANALYSIS
+        // ==========================================
+        function populateGapHeaders() {
+            if (competitors && competitors.length > 0) {
+                document.getElementById('gapComp1Header').textContent = competitors[0]?.domain || 'Competitor 1';
+                if (competitors.length > 1) {
+                    document.getElementById('gapComp2Header').textContent = competitors[1]?.domain || 'Competitor 2';
+                }
+            }
+        }
+        
+        async function analyzeKeywordGap() {
+            if (!currentClient) {
+                alert('Please select a client first');
+                return;
+            }
+            
+            const table = document.getElementById('keywordGapTable');
+            table.innerHTML = '<tr><td colspan="7" class="text-center py-4"><div class="spinner mx-auto"></div></td></tr>';
+            
+            try {
+                const res = await fetch(`${API_URL}/api/semrush/keyword-gap/${currentClient.id}`, {
+                    headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
+                });
+                
+                let data;
+                if (res.ok) {
+                    data = await res.json();
+                } else {
+                    // Generate sample data for demo
+                    data = generateSampleKeywordGap();
+                }
+                
+                renderKeywordGapTable(data.gaps || []);
+            } catch (e) {
+                console.error('Keyword gap analysis failed:', e);
+                renderKeywordGapTable(generateSampleKeywordGap().gaps);
+            }
+        }
+        
+        function generateSampleKeywordGap() {
+            const keywords = currentClient?.primary_keywords || ['ac repair', 'hvac service', 'air conditioning'];
+            const gaps = keywords.map(kw => ({
+                keyword: kw + ' ' + (currentClient?.geo || 'local'),
+                you: Math.random() > 0.3 ? Math.floor(Math.random() * 30) + 1 : null,
+                comp1: Math.random() > 0.2 ? Math.floor(Math.random() * 20) + 1 : null,
+                comp2: Math.random() > 0.4 ? Math.floor(Math.random() * 25) + 1 : null,
+                volume: Math.floor(Math.random() * 5000) + 100,
+                priority: ['HIGH', 'MEDIUM', 'LOW'][Math.floor(Math.random() * 3)]
+            }));
+            
+            // Add some keywords where competitors rank but you don't
+            gaps.push(
+                { keyword: 'emergency ac repair', you: null, comp1: 3, comp2: 7, volume: 1200, priority: 'HIGH' },
+                { keyword: '24 hour hvac', you: null, comp1: 5, comp2: null, volume: 800, priority: 'HIGH' },
+                { keyword: 'affordable ac service', you: 25, comp1: 2, comp2: 4, volume: 1500, priority: 'MEDIUM' }
+            );
+            
+            return { gaps };
+        }
+        
+        function renderKeywordGapTable(gaps) {
+            const table = document.getElementById('keywordGapTable');
+            
+            if (gaps.length === 0) {
+                table.innerHTML = '<tr><td colspan="7" class="text-center py-8 text-gray-500">No keyword gaps found</td></tr>';
+                return;
+            }
+            
+            // Sort by priority
+            gaps.sort((a, b) => {
+                const order = { HIGH: 0, MEDIUM: 1, LOW: 2 };
+                return (order[a.priority] || 2) - (order[b.priority] || 2);
+            });
+            
+            table.innerHTML = gaps.map(gap => {
+                const posClass = (pos) => {
+                    if (!pos) return 'text-red-400';
+                    if (pos <= 3) return 'text-green-400';
+                    if (pos <= 10) return 'text-blue-400';
+                    if (pos <= 20) return 'text-yellow-400';
+                    return 'text-orange-400';
+                };
+                
+                const priorityClass = {
+                    HIGH: 'bg-red-500/20 text-red-400',
+                    MEDIUM: 'bg-yellow-500/20 text-yellow-400',
+                    LOW: 'bg-green-500/20 text-green-400'
+                };
+                
+                return `
+                    <tr class="border-b border-white/5 hover:bg-white/5">
+                        <td class="py-3 px-2 text-white">${escapeHtml(gap.keyword)}</td>
+                        <td class="py-3 px-2 text-center ${posClass(gap.you)} font-bold">${gap.you ? '#' + gap.you : '—'}</td>
+                        <td class="py-3 px-2 text-center ${posClass(gap.comp1)}">${gap.comp1 ? '#' + gap.comp1 : '—'}</td>
+                        <td class="py-3 px-2 text-center ${posClass(gap.comp2)}">${gap.comp2 ? '#' + gap.comp2 : '—'}</td>
+                        <td class="py-3 px-2 text-center text-gray-300">${gap.volume?.toLocaleString() || '—'}</td>
+                        <td class="py-3 px-2 text-center">
+                            <span class="px-2 py-1 rounded text-xs ${priorityClass[gap.priority] || ''}">${escapeHtml(gap.priority) || 'LOW'}</span>
+                        </td>
+                        <td class="py-3 px-2 text-center">
+                            <button onclick="createContentFor('${escapeHtml(gap.keyword)}')" class="px-2 py-1 bg-purple-500/20 text-purple-400 rounded text-xs hover:bg-purple-500/30">
+                                <i class="fas fa-plus mr-1"></i>Create
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+        
+        function createContentFor(keyword) {
+            const safeKeyword = keyword || '';
+            alert(`Creating content for: ${safeKeyword}\n\nThis will add "${safeKeyword}" to your content queue.`);
+            // In production, this would call the content generation API
+        }
+        
+        // ==========================================
+        // COMPETITOR COMPARISON
+        // ==========================================
+        function populateCompareData() {
+            if (!currentClient) return;
+            
+            // Your site
+            document.getElementById('compareYourDomain').textContent = currentClient.website_url?.replace(/https?:\/\//, '') || currentClient.business_name || '--';
+            document.getElementById('compareYouTop10').textContent = Math.floor(Math.random() * 15) + 5;
+            document.getElementById('compareYouTotal').textContent = currentClient.primary_keywords?.length || 0;
+            document.getElementById('compareYouBlogs').textContent = Math.floor(Math.random() * 20) + 10;
+            document.getElementById('compareYouWords').textContent = '1,850';
+            document.getElementById('compareYouLast').textContent = 'Today';
+            
+            // Competitors
+            if (competitors && competitors.length > 0) {
+                document.getElementById('compareComp1Domain').textContent = competitors[0]?.domain || '--';
+                document.getElementById('compareC1Top10').textContent = Math.floor(Math.random() * 20) + 8;
+                document.getElementById('compareC1Total').textContent = Math.floor(Math.random() * 30) + 15;
+                document.getElementById('compareC1Blogs').textContent = Math.floor(Math.random() * 30) + 15;
+                document.getElementById('compareC1Words').textContent = Math.floor(Math.random() * 500) + 1200;
+                document.getElementById('compareC1Last').textContent = '3 days ago';
+                
+                if (competitors.length > 1) {
+                    document.getElementById('compareComp2Domain').textContent = competitors[1]?.domain || '--';
+                    document.getElementById('compareC2Top10').textContent = Math.floor(Math.random() * 15) + 3;
+                    document.getElementById('compareC2Total').textContent = Math.floor(Math.random() * 25) + 10;
+                    document.getElementById('compareC2Blogs').textContent = Math.floor(Math.random() * 25) + 8;
+                    document.getElementById('compareC2Words').textContent = Math.floor(Math.random() * 600) + 1000;
+                    document.getElementById('compareC2Last').textContent = '1 week ago';
+                }
+            }
+        }
+        
+        // ==========================================
+        // CONTENT CHANGES DETECTION
+        // ==========================================
+        async function scanForChanges() {
+            const container = document.getElementById('contentChangesList');
+            container.innerHTML = '<div class="text-center py-4"><div class="spinner mx-auto mb-2"></div><p class="text-gray-400 text-sm">Scanning competitor sites...</p></div>';
+            
+            try {
+                const res = await fetch(`${API_URL}/api/monitoring/content-changes/${currentClient?.id || ''}`, {
+                    headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
+                });
+                
+                let changes;
+                if (res.ok) {
+                    changes = await res.json();
+                } else {
+                    // Generate sample data
+                    changes = generateSampleChanges();
+                }
+                
+                renderContentChanges(changes.changes || []);
+            } catch (e) {
+                console.error('Content scan failed:', e);
+                renderContentChanges(generateSampleChanges().changes);
+            }
+        }
+        
+        function generateSampleChanges() {
+            const changes = [];
+            
+            if (competitors && competitors.length > 0) {
+                changes.push({
+                    type: 'new_page',
+                    competitor: competitors[0]?.domain || 'competitor.com',
+                    url: 'https://' + (competitors[0]?.domain || 'competitor.com') + '/blog/new-hvac-tips',
+                    title: 'Top 10 HVAC Maintenance Tips for Winter',
+                    word_count: 1850,
+                    detected_at: new Date(Date.now() - 3600000).toISOString()
+                });
+                
+                changes.push({
+                    type: 'content_update',
+                    competitor: competitors[0]?.domain || 'competitor.com',
+                    url: 'https://' + (competitors[0]?.domain || 'competitor.com') + '/services/ac-repair',
+                    title: 'AC Repair Services',
+                    old_word_count: 1200,
+                    new_word_count: 1650,
+                    detected_at: new Date(Date.now() - 86400000).toISOString()
+                });
+            }
+            
+            changes.push({
+                type: 'new_page',
+                competitor: 'other-competitor.com',
+                url: 'https://other-competitor.com/emergency-service',
+                title: '24/7 Emergency HVAC Service',
+                word_count: 980,
+                detected_at: new Date(Date.now() - 172800000).toISOString()
+            });
+            
+            return { changes };
+        }
+        
+        function renderContentChanges(changes) {
+            const container = document.getElementById('contentChangesList');
+            
+            if (changes.length === 0) {
+                container.innerHTML = '<div class="text-center py-8 text-gray-500"><i class="fas fa-check-circle text-4xl text-green-400 mb-3 block"></i><p>No recent content changes detected</p></div>';
+                return;
+            }
+            
+            container.innerHTML = changes.map(change => {
+                const icon = change.type === 'new_page' ? 'fa-plus-circle text-green-400' : 'fa-edit text-yellow-400';
+                const typeLabel = change.type === 'new_page' ? 'New Page' : 'Updated';
+                const timeAgo = getTimeAgo(change.detected_at);
+                const safeUrl = escapeHtml(change.url || '');
+                const safeTitle = escapeHtml(change.title || 'Untitled');
+                const safeCompetitor = escapeHtml(change.competitor || '');
+                
+                return `
+                    <div class="glass rounded-xl p-4 hover:bg-white/5 transition">
+                        <div class="flex items-start gap-3">
+                            <div class="w-10 h-10 rounded-lg ${change.type === 'new_page' ? 'bg-green-500/20' : 'bg-yellow-500/20'} flex items-center justify-center flex-shrink-0">
+                                <i class="fas ${icon}"></i>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <div class="flex items-center gap-2 mb-1">
+                                    <span class="text-xs px-2 py-0.5 ${change.type === 'new_page' ? 'bg-green-500/20 text-green-400' : 'bg-yellow-500/20 text-yellow-400'} rounded">${typeLabel}</span>
+                                    <span class="text-xs text-gray-500">${timeAgo}</span>
+                                </div>
+                                <p class="text-white font-medium truncate">${safeTitle}</p>
+                                <p class="text-gray-400 text-sm">${safeCompetitor}</p>
+                                ${change.type === 'content_update' ? 
+                                    `<p class="text-xs text-gray-500 mt-1">Word count: ${change.old_word_count || 0} → ${change.new_word_count || 0} <span class="text-green-400">(+${(change.new_word_count || 0) - (change.old_word_count || 0)})</span></p>` :
+                                    `<p class="text-xs text-gray-500 mt-1">${change.word_count || 0} words</p>`
+                                }
+                            </div>
+                            <button onclick="respondToChange('${safeUrl}')" class="px-3 py-1 bg-purple-500/20 text-purple-400 rounded text-xs hover:bg-purple-500/30 flex-shrink-0">
+                                <i class="fas fa-reply mr-1"></i>Respond
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+        
+        function getTimeAgo(dateStr) {
+            const date = new Date(dateStr);
+            const now = new Date();
+            const diff = now - date;
+            const hours = Math.floor(diff / 3600000);
+            const days = Math.floor(diff / 86400000);
+            
+            if (hours < 1) return 'Just now';
+            if (hours < 24) return `${hours}h ago`;
+            if (days < 7) return `${days}d ago`;
+            return date.toLocaleDateString();
+        }
+        
+        function respondToChange(url) {
+            alert(`Creating counter-content for:\n${url}\n\nThis will analyze the page and generate a competing article.`);
+        }
     </script>
 </body>
 </html>

@@ -286,6 +286,106 @@ class EmailService:
         """
         
         return self.send_simple(to, f"✅ Published: {post_title[:40]}...", html, html=True)
+    
+    def send_weekly_digest(
+        self,
+        to: str,
+        client_name: str,
+        stats: Dict,
+        competitor_activity: List[Dict],
+        rank_changes: List[Dict],
+        content_suggestions: List[str]
+    ) -> bool:
+        """
+        Send weekly competitor activity digest
+        
+        Args:
+            to: Recipient email
+            client_name: Client business name
+            stats: Dict with blogs_created, social_created, keywords_improved
+            competitor_activity: List of competitor content changes
+            rank_changes: List of significant rank changes
+            content_suggestions: List of suggested content topics
+        """
+        html = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <style>
+                body {{ font-family: 'Segoe UI', Arial, sans-serif; background: #f8fafc; padding: 20px; }}
+                .container {{ max-width: 600px; margin: 0 auto; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.1); }}
+                .header {{ background: linear-gradient(135deg, #667eea, #764ba2); color: white; padding: 30px; text-align: center; }}
+                .header h1 {{ margin: 0; font-size: 24px; }}
+                .header p {{ margin: 10px 0 0 0; opacity: 0.9; }}
+                .content {{ padding: 30px; }}
+                .stats-grid {{ display: flex; gap: 15px; margin-bottom: 30px; }}
+                .stat-box {{ flex: 1; background: #f8fafc; padding: 20px; border-radius: 8px; text-align: center; }}
+                .stat-box h3 {{ margin: 0; font-size: 28px; color: #667eea; }}
+                .stat-box p {{ margin: 5px 0 0 0; color: #64748b; font-size: 12px; }}
+                .section {{ margin-bottom: 25px; }}
+                .section h2 {{ font-size: 16px; color: #334155; margin: 0 0 15px 0; padding-bottom: 10px; border-bottom: 2px solid #e2e8f0; }}
+                .item {{ padding: 12px; background: #f8fafc; border-radius: 6px; margin-bottom: 8px; border-left: 3px solid #667eea; }}
+                .item-alert {{ border-left-color: #ef4444; }}
+                .item-success {{ border-left-color: #22c55e; }}
+                .suggestion {{ padding: 10px 15px; background: #fef3c7; border-radius: 6px; margin-bottom: 8px; }}
+                .cta {{ text-align: center; padding: 20px; background: #f8fafc; }}
+                .cta a {{ display: inline-block; padding: 12px 30px; background: linear-gradient(135deg, #667eea, #764ba2); color: white; text-decoration: none; border-radius: 6px; font-weight: 600; }}
+                .footer {{ text-align: center; padding: 20px; color: #94a3b8; font-size: 12px; }}
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="header">
+                    <h1>📊 Weekly SEO Digest</h1>
+                    <p>{client_name} • Week of {datetime.now().strftime('%B %d, %Y')}</p>
+                </div>
+                
+                <div class="content">
+                    <div class="stats-grid">
+                        <div class="stat-box">
+                            <h3>{stats.get('blogs_created', 0)}</h3>
+                            <p>Blogs Created</p>
+                        </div>
+                        <div class="stat-box">
+                            <h3>{stats.get('social_created', 0)}</h3>
+                            <p>Social Posts</p>
+                        </div>
+                        <div class="stat-box">
+                            <h3>{stats.get('keywords_improved', 0)}</h3>
+                            <p>Rankings ↑</p>
+                        </div>
+                    </div>
+                    
+                    <div class="section">
+                        <h2>🎯 Competitor Activity</h2>
+                        {''.join([f'<div class="item item-alert"><strong>{a.get("competitor", "Competitor")}</strong>: {a.get("action", "New content detected")}</div>' for a in competitor_activity[:5]]) or '<p style="color: #64748b;">No significant competitor activity this week.</p>'}
+                    </div>
+                    
+                    <div class="section">
+                        <h2>📈 Rank Changes</h2>
+                        {''.join([f'<div class="item {"item-success" if r.get("change", 0) > 0 else "item-alert"}"><strong>{r.get("keyword", "")}</strong>: {"↑" if r.get("change", 0) > 0 else "↓"} {abs(r.get("change", 0))} positions (now #{r.get("position", "?")})</div>' for r in rank_changes[:5]]) or '<p style="color: #64748b;">No significant rank changes this week.</p>'}
+                    </div>
+                    
+                    <div class="section">
+                        <h2>💡 Content Suggestions</h2>
+                        {''.join([f'<div class="suggestion">📝 {s}</div>' for s in content_suggestions[:3]]) or '<p style="color: #64748b;">Keep up the great work! No urgent content needs.</p>'}
+                    </div>
+                </div>
+                
+                <div class="cta">
+                    <a href="#">View Full Dashboard →</a>
+                </div>
+                
+                <div class="footer">
+                    <p>This is an automated weekly digest from your SEO dashboard.</p>
+                    <p>© {datetime.now().year} Karma Marketing + Media</p>
+                </div>
+            </div>
+        </body>
+        </html>
+        """
+        
+        return self.send_simple(to, f"📊 Weekly SEO Digest - {client_name}", html, html=True)
 
 
 # Singleton instance
