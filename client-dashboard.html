@@ -233,6 +233,9 @@
                 <button onclick="showTab('reports')" id="tab-reports" class="px-3 sm:px-6 py-2 rounded-lg text-xs sm:text-sm font-medium text-gray-400 hover:text-white transition whitespace-nowrap glass">
                     <i class="fas fa-file-pdf sm:mr-2"></i><span class="hidden sm:inline">Reports</span><span class="sm:hidden">PDF</span>
                 </button>
+                <button onclick="showTab('rankings')" id="tab-rankings" class="px-3 sm:px-6 py-2 rounded-lg text-xs sm:text-sm font-medium text-gray-400 hover:text-white transition whitespace-nowrap glass">
+                    <i class="fas fa-trophy sm:mr-2"></i><span class="hidden sm:inline">Rankings</span><span class="sm:hidden">Rank</span>
+                </button>
                 <button onclick="showTab('chatbot')" id="tab-chatbot" class="px-3 sm:px-6 py-2 rounded-lg text-xs sm:text-sm font-medium text-gray-400 hover:text-white transition whitespace-nowrap glass">
                     <i class="fas fa-robot sm:mr-2"></i><span class="hidden sm:inline">AI Chatbot</span><span class="sm:hidden">Bot</span>
                 </button>
@@ -684,6 +687,126 @@
                         <button onclick="generateClientSummary()" class="px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 rounded-xl text-white font-semibold hover:opacity-90 transition">
                             <i class="fas fa-file-alt mr-2"></i>Generate Client Summary
                         </button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Rankings Panel -->
+            <div id="panel-rankings" class="hidden fade-in">
+                <div class="grid md:grid-cols-4 gap-6 mb-8">
+                    <!-- Average Position -->
+                    <div class="glass rounded-2xl p-6">
+                        <div class="flex items-center gap-3 mb-4">
+                            <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center">
+                                <i class="fas fa-trophy text-white"></i>
+                            </div>
+                            <span class="text-gray-400 text-sm">Avg Position</span>
+                        </div>
+                        <div class="text-3xl font-bold text-white" id="rankAvgPosition">#--</div>
+                        <div class="text-sm text-gray-500 mt-1" id="rankPositionChange">-- vs last check</div>
+                    </div>
+                    
+                    <!-- Top 3 Keywords -->
+                    <div class="glass rounded-2xl p-6">
+                        <div class="flex items-center gap-3 mb-4">
+                            <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center">
+                                <i class="fas fa-medal text-white"></i>
+                            </div>
+                            <span class="text-gray-400 text-sm">Top 3</span>
+                        </div>
+                        <div class="text-3xl font-bold text-green-400" id="rankTop3">0</div>
+                        <div class="text-sm text-gray-500 mt-1">keywords in top 3</div>
+                    </div>
+                    
+                    <!-- Top 10 Keywords -->
+                    <div class="glass rounded-2xl p-6">
+                        <div class="flex items-center gap-3 mb-4">
+                            <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-600 flex items-center justify-center">
+                                <i class="fas fa-chart-line text-white"></i>
+                            </div>
+                            <span class="text-gray-400 text-sm">Top 10</span>
+                        </div>
+                        <div class="text-3xl font-bold text-blue-400" id="rankTop10">0</div>
+                        <div class="text-sm text-gray-500 mt-1">keywords in top 10</div>
+                    </div>
+                    
+                    <!-- Traffic Value -->
+                    <div class="glass rounded-2xl p-6">
+                        <div class="flex items-center gap-3 mb-4">
+                            <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 to-pink-600 flex items-center justify-center">
+                                <i class="fas fa-dollar-sign text-white"></i>
+                            </div>
+                            <span class="text-gray-400 text-sm">Traffic Value</span>
+                        </div>
+                        <div class="text-3xl font-bold text-purple-400" id="rankTrafficValue">$0</div>
+                        <div class="text-sm text-gray-500 mt-1">monthly SEO value</div>
+                    </div>
+                </div>
+                
+                <div class="grid lg:grid-cols-3 gap-6">
+                    <!-- Keywords Table -->
+                    <div class="lg:col-span-2 glass rounded-2xl p-6">
+                        <div class="flex items-center justify-between mb-6">
+                            <h3 class="text-lg font-bold text-white">Keyword Rankings</h3>
+                            <button onclick="refreshRankings()" class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium rounded-lg transition" id="refreshRankBtn">
+                                <i class="fas fa-sync-alt mr-2"></i>Check Rankings
+                            </button>
+                        </div>
+                        
+                        <div class="overflow-x-auto">
+                            <table class="w-full">
+                                <thead>
+                                    <tr class="text-left text-sm text-gray-400 border-b border-white/10">
+                                        <th class="pb-3">Keyword</th>
+                                        <th class="pb-3 text-center">Position</th>
+                                        <th class="pb-3 text-center">Change</th>
+                                        <th class="pb-3 text-right">Volume</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="rankingsTable">
+                                    <tr>
+                                        <td colspan="4" class="py-8 text-center text-gray-500">
+                                            <i class="fas fa-search text-2xl mb-2"></i>
+                                            <p>Click "Check Rankings" to scan Google</p>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    
+                    <!-- Position History Chart -->
+                    <div class="glass rounded-2xl p-6">
+                        <h3 class="text-lg font-bold text-white mb-4">Position History</h3>
+                        <div class="h-64">
+                            <canvas id="rankHistoryChart"></canvas>
+                        </div>
+                        <div class="mt-4 space-y-2" id="rankHistoryList">
+                            <p class="text-gray-500 text-sm text-center">Historical data will appear after multiple checks</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Movement Analysis -->
+                <div class="grid md:grid-cols-2 gap-6 mt-6">
+                    <!-- Improved -->
+                    <div class="glass rounded-2xl p-6">
+                        <h3 class="text-lg font-bold text-green-400 mb-4">
+                            <i class="fas fa-arrow-up mr-2"></i>Improved Rankings
+                        </h3>
+                        <div id="improvedKeywords" class="space-y-2">
+                            <p class="text-gray-500 text-sm">No improvements detected yet</p>
+                        </div>
+                    </div>
+                    
+                    <!-- Declined -->
+                    <div class="glass rounded-2xl p-6">
+                        <h3 class="text-lg font-bold text-red-400 mb-4">
+                            <i class="fas fa-arrow-down mr-2"></i>Declined Rankings
+                        </h3>
+                        <div id="declinedKeywords" class="space-y-2">
+                            <p class="text-gray-500 text-sm">No declines detected</p>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -1277,6 +1400,117 @@
         // ==========================================
         // AUTH
         // ==========================================
+        
+        // Check if bootstrap is needed on page load
+        (async function checkBootstrap() {
+            try {
+                const res = await fetch(`${API_URL}/api/auth/health`);
+                const health = await res.json();
+                
+                if (!health.admin_exists) {
+                    // Show bootstrap UI
+                    showBootstrapUI();
+                }
+            } catch (e) {
+                console.log('Health check failed:', e);
+            }
+        })();
+        
+        function showBootstrapUI() {
+            const authContent = document.querySelector('#authModal .relative.bg-white');
+            if (authContent) {
+                authContent.innerHTML = `
+                    <div class="p-8">
+                        <div class="text-center mb-8">
+                            <div class="w-16 h-16 bg-gradient-to-br from-amber-500 to-orange-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                                <i class="fas fa-cog text-2xl text-white"></i>
+                            </div>
+                            <h1 class="text-2xl font-bold text-gray-800">System Setup</h1>
+                            <p class="text-gray-500 mt-2">Create your admin account</p>
+                        </div>
+                        
+                        <div id="bootstrapError" class="hidden mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-600 text-sm"></div>
+                        
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                                <input type="email" id="bootstrapEmail" value="admin@karma.marketing"
+                                    class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Password</label>
+                                <input type="password" id="bootstrapPassword" placeholder="Min 8 characters"
+                                    class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Confirm Password</label>
+                                <input type="password" id="bootstrapConfirm"
+                                    class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500">
+                            </div>
+                            <button onclick="doBootstrap()" id="bootstrapBtn" 
+                                class="w-full py-3 bg-gradient-to-r from-amber-500 to-orange-600 text-white rounded-xl font-semibold hover:opacity-90">
+                                Create Admin Account
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }
+        }
+        
+        async function doBootstrap() {
+            const email = document.getElementById('bootstrapEmail').value;
+            const password = document.getElementById('bootstrapPassword').value;
+            const confirm = document.getElementById('bootstrapConfirm').value;
+            const errorEl = document.getElementById('bootstrapError');
+            const btn = document.getElementById('bootstrapBtn');
+            
+            if (!email || !password) {
+                errorEl.textContent = 'Email and password required';
+                errorEl.classList.remove('hidden');
+                return;
+            }
+            if (password !== confirm) {
+                errorEl.textContent = 'Passwords do not match';
+                errorEl.classList.remove('hidden');
+                return;
+            }
+            if (password.length < 8) {
+                errorEl.textContent = 'Password must be at least 8 characters';
+                errorEl.classList.remove('hidden');
+                return;
+            }
+            
+            btn.disabled = true;
+            btn.textContent = 'Creating...';
+            
+            try {
+                const res = await fetch(`${API_URL}/api/auth/bootstrap`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password, name: 'Admin' })
+                });
+                const data = await res.json();
+                
+                if (res.ok && data.token) {
+                    AUTH_TOKEN = data.token;
+                    alert('✓ Admin created! Email: ' + email);
+                    document.getElementById('authModal').classList.add('hidden');
+                    document.getElementById('dashboard').classList.remove('hidden');
+                    loadClients();
+                } else {
+                    errorEl.textContent = data.error || 'Setup failed';
+                    errorEl.classList.remove('hidden');
+                    btn.textContent = 'Create Admin Account';
+                    btn.disabled = false;
+                }
+            } catch (e) {
+                errorEl.textContent = e.message;
+                errorEl.classList.remove('hidden');
+                btn.textContent = 'Create Admin Account';
+                btn.disabled = false;
+            }
+        }
+        
         async function doLogin() {
             const email = document.getElementById('loginEmail').value;
             const password = document.getElementById('loginPassword').value;
@@ -1631,7 +1865,7 @@
         // TABS
         // ==========================================
         function showTab(tab) {
-            ['generate', 'blogs', 'social', 'seo', 'calendar', 'reports', 'chatbot'].forEach(t => {
+            ['generate', 'blogs', 'social', 'seo', 'calendar', 'reports', 'rankings', 'chatbot'].forEach(t => {
                 document.getElementById(`panel-${t}`).classList.add('hidden');
                 document.getElementById(`tab-${t}`).classList.remove('tab-active');
                 if (t !== 'generate') {
@@ -1662,6 +1896,11 @@
             // Load chatbot config when chatbot tab is shown
             if (tab === 'chatbot') {
                 loadChatbotConfig();
+            }
+            
+            // Load rankings when rankings tab is shown
+            if (tab === 'rankings') {
+                loadRankingHistory();
             }
         }
         
@@ -3994,6 +4233,235 @@
             await originalLoadClients();
             checkFirstTimeUser();
         };
+        
+        // ==========================================
+        // RANK TRACKING
+        // ==========================================
+        
+        let rankingsData = null;
+        let rankHistoryChart = null;
+        
+        async function refreshRankings() {
+            if (!currentClient) {
+                alert('Please select a client first');
+                return;
+            }
+            
+            const btn = document.getElementById('refreshRankBtn');
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Checking...';
+            btn.disabled = true;
+            
+            try {
+                const response = await fetch(`${API_URL}/api/monitoring/rankings?client_id=${currentClient.id}`, {
+                    headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
+                });
+                
+                if (!response.ok) {
+                    const err = await response.json();
+                    throw new Error(err.error || 'Failed to check rankings');
+                }
+                
+                rankingsData = await response.json();
+                renderRankings();
+                
+            } catch (error) {
+                console.error('Rankings error:', error);
+                alert('Error checking rankings: ' + error.message);
+            } finally {
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+            }
+        }
+        
+        async function loadRankingHistory() {
+            if (!currentClient) return;
+            
+            try {
+                const response = await fetch(`${API_URL}/api/monitoring/rankings/history?client_id=${currentClient.id}&days=30`, {
+                    headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.history && data.history.length > 0) {
+                        renderRankingHistory(data.history);
+                    }
+                }
+            } catch (e) {
+                console.log('No ranking history yet');
+            }
+        }
+        
+        function renderRankings() {
+            if (!rankingsData || !rankingsData.keywords) return;
+            
+            const keywords = rankingsData.keywords;
+            
+            // Update stats
+            const positions = keywords.filter(k => k.position && k.position <= 100).map(k => k.position);
+            const avgPos = positions.length > 0 
+                ? Math.round(positions.reduce((a, b) => a + b, 0) / positions.length) 
+                : '--';
+            
+            document.getElementById('rankAvgPosition').textContent = positions.length > 0 ? `#${avgPos}` : '#--';
+            document.getElementById('rankTop3').textContent = keywords.filter(k => k.position && k.position <= 3).length;
+            document.getElementById('rankTop10').textContent = keywords.filter(k => k.position && k.position <= 10).length;
+            document.getElementById('rankTrafficValue').textContent = `$${Math.round(rankingsData.traffic_value || 0).toLocaleString()}`;
+            
+            // Render table
+            const tbody = document.getElementById('rankingsTable');
+            
+            if (keywords.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="4" class="py-8 text-center text-gray-500">
+                            No keywords configured. Add keywords in client settings.
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+            
+            // Sort by position (ranked first)
+            keywords.sort((a, b) => {
+                if (!a.position) return 1;
+                if (!b.position) return -1;
+                return a.position - b.position;
+            });
+            
+            tbody.innerHTML = keywords.map(kw => {
+                const pos = kw.position ? `#${kw.position}` : '--';
+                const posClass = kw.position 
+                    ? (kw.position <= 3 ? 'text-green-400' : kw.position <= 10 ? 'text-blue-400' : kw.position <= 20 ? 'text-yellow-400' : 'text-gray-400')
+                    : 'text-gray-500';
+                
+                let changeHtml = '--';
+                if (kw.change) {
+                    if (kw.change > 0) {
+                        changeHtml = `<span class="text-green-400"><i class="fas fa-arrow-up mr-1"></i>${kw.change}</span>`;
+                    } else if (kw.change < 0) {
+                        changeHtml = `<span class="text-red-400"><i class="fas fa-arrow-down mr-1"></i>${Math.abs(kw.change)}</span>`;
+                    } else {
+                        changeHtml = '<span class="text-gray-500">-</span>';
+                    }
+                }
+                
+                return `
+                    <tr class="border-b border-white/5 hover:bg-white/5">
+                        <td class="py-3 text-white">${kw.keyword}</td>
+                        <td class="py-3 text-center font-bold ${posClass}">${pos}</td>
+                        <td class="py-3 text-center">${changeHtml}</td>
+                        <td class="py-3 text-right text-gray-400">${kw.search_volume ? kw.search_volume.toLocaleString() : '--'}</td>
+                    </tr>
+                `;
+            }).join('');
+            
+            // Update improved/declined sections
+            const improved = keywords.filter(k => k.change && k.change > 0);
+            const declined = keywords.filter(k => k.change && k.change < 0);
+            
+            document.getElementById('improvedKeywords').innerHTML = improved.length > 0
+                ? improved.slice(0, 5).map(k => `
+                    <div class="flex justify-between items-center p-2 bg-green-500/10 rounded">
+                        <span class="text-white">${k.keyword}</span>
+                        <span class="text-green-400">+${k.change}</span>
+                    </div>
+                `).join('')
+                : '<p class="text-gray-500 text-sm">No improvements detected yet</p>';
+            
+            document.getElementById('declinedKeywords').innerHTML = declined.length > 0
+                ? declined.slice(0, 5).map(k => `
+                    <div class="flex justify-between items-center p-2 bg-red-500/10 rounded">
+                        <span class="text-white">${k.keyword}</span>
+                        <span class="text-red-400">${k.change}</span>
+                    </div>
+                `).join('')
+                : '<p class="text-gray-500 text-sm">No declines detected</p>';
+        }
+        
+        function renderRankingHistory(history) {
+            // Group by keyword and date
+            const byKeyword = {};
+            history.forEach(h => {
+                if (!byKeyword[h.keyword]) {
+                    byKeyword[h.keyword] = [];
+                }
+                byKeyword[h.keyword].push({
+                    date: h.checked_at,
+                    position: h.position
+                });
+            });
+            
+            // Get top 5 keywords by frequency
+            const topKeywords = Object.entries(byKeyword)
+                .sort((a, b) => b[1].length - a[1].length)
+                .slice(0, 5);
+            
+            if (topKeywords.length === 0) return;
+            
+            // Get unique dates
+            const allDates = [...new Set(history.map(h => h.checked_at.split('T')[0]))].sort();
+            const recentDates = allDates.slice(-14); // Last 14 days
+            
+            // Prepare chart data
+            const datasets = topKeywords.map(([keyword, data], idx) => {
+                const colors = ['#8b5cf6', '#3b82f6', '#10b981', '#f59e0b', '#ef4444'];
+                
+                const positions = recentDates.map(date => {
+                    const match = data.find(d => d.date.startsWith(date));
+                    return match ? match.position : null;
+                });
+                
+                return {
+                    label: keyword.length > 20 ? keyword.substring(0, 20) + '...' : keyword,
+                    data: positions,
+                    borderColor: colors[idx % colors.length],
+                    backgroundColor: colors[idx % colors.length] + '20',
+                    tension: 0.3,
+                    fill: false
+                };
+            });
+            
+            // Create or update chart
+            const ctx = document.getElementById('rankHistoryChart').getContext('2d');
+            
+            if (rankHistoryChart) {
+                rankHistoryChart.destroy();
+            }
+            
+            rankHistoryChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: recentDates.map(d => new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })),
+                    datasets: datasets
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'bottom',
+                            labels: { color: '#9ca3af', font: { size: 10 } }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            reverse: true, // Lower position = better
+                            min: 1,
+                            max: 50,
+                            grid: { color: 'rgba(255,255,255,0.1)' },
+                            ticks: { color: '#9ca3af' }
+                        },
+                        x: {
+                            grid: { color: 'rgba(255,255,255,0.1)' },
+                            ticks: { color: '#9ca3af' }
+                        }
+                    }
+                }
+            });
+        }
         
         // ==========================================
         // CHATBOT MANAGEMENT

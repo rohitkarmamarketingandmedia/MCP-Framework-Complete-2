@@ -1072,14 +1072,146 @@
                     headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` };
                     return true;
                 }
-            } catch (e) {}
-            localStorage.removeItem('mcp_token');
-            token = '';
+                // Token invalid - clear it
+                localStorage.removeItem('mcp_token');
+                token = '';
+            } catch (e) {
+                localStorage.removeItem('mcp_token');
+                token = '';
+            }
             return false;
+        }
+        
+        async function checkSystemHealth() {
+            try {
+                const response = await fetch(`${API_URL}/api/auth/health`);
+                const data = await response.json();
+                return data;
+            } catch (e) {
+                return { status: 'error', admin_exists: false };
+            }
+        }
+        
+        async function showBootstrapUI() {
+            // Show bootstrap form instead of login
+            const authContent = document.querySelector('#authModal .relative.glass');
+            if (authContent) {
+                authContent.innerHTML = `
+                    <div class="text-center mb-8">
+                        <div class="w-20 h-20 bg-gradient-to-br from-amber-500 to-orange-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-orange-500/20">
+                            <svg class="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"/>
+                            </svg>
+                        </div>
+                        <h1 class="text-2xl font-bold bg-gradient-to-r from-amber-400 to-orange-500 bg-clip-text text-transparent">System Setup</h1>
+                        <p class="text-gray-400 mt-2">Create your admin account to get started</p>
+                    </div>
+                    
+                    <div id="bootstrapError" class="hidden mb-4 p-3 bg-red-500/10 border border-red-500/30 rounded-lg text-red-400 text-sm"></div>
+                    
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-300 mb-2">Admin Email</label>
+                            <input type="email" id="bootstrapEmail" value="admin@karma.marketing"
+                                class="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white focus:outline-none focus:border-purple-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-300 mb-2">Password</label>
+                            <input type="password" id="bootstrapPassword" placeholder="Enter a strong password"
+                                class="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white focus:outline-none focus:border-purple-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-300 mb-2">Confirm Password</label>
+                            <input type="password" id="bootstrapConfirm" placeholder="Confirm password"
+                                class="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white focus:outline-none focus:border-purple-500">
+                        </div>
+                        
+                        <button onclick="doBootstrap()" id="bootstrapBtn" 
+                            class="w-full py-3 bg-gradient-to-r from-amber-500 to-orange-600 text-white rounded-xl font-semibold hover:opacity-90 transition shadow-lg shadow-orange-500/20">
+                            Create Admin Account
+                        </button>
+                        
+                        <p class="text-center text-xs text-gray-500">
+                            This will create the first admin user for your MCP installation.
+                        </p>
+                    </div>
+                `;
+            }
+        }
+        
+        async function doBootstrap() {
+            const email = document.getElementById('bootstrapEmail').value;
+            const password = document.getElementById('bootstrapPassword').value;
+            const confirm = document.getElementById('bootstrapConfirm').value;
+            const errorEl = document.getElementById('bootstrapError');
+            const btn = document.getElementById('bootstrapBtn');
+            
+            if (!email || !password) {
+                errorEl.textContent = 'Email and password are required';
+                errorEl.classList.remove('hidden');
+                return;
+            }
+            
+            if (password !== confirm) {
+                errorEl.textContent = 'Passwords do not match';
+                errorEl.classList.remove('hidden');
+                return;
+            }
+            
+            if (password.length < 8) {
+                errorEl.textContent = 'Password must be at least 8 characters';
+                errorEl.classList.remove('hidden');
+                return;
+            }
+            
+            btn.disabled = true;
+            btn.innerHTML = '<svg class="animate-spin h-5 w-5 mr-2 inline" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>Creating...';
+            errorEl.classList.add('hidden');
+            
+            try {
+                const response = await fetch(`${API_URL}/api/auth/bootstrap`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password, name: 'Admin' })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok && data.token) {
+                    token = data.token;
+                    headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` };
+                    localStorage.setItem('mcp_token', token);
+                    
+                    alert('✓ Admin account created successfully!\\n\\nEmail: ' + email + '\\n\\nYou are now logged in.');
+                    
+                    document.getElementById('authModal').classList.add('hidden');
+                    document.getElementById('mainDashboard').classList.remove('hidden');
+                } else {
+                    errorEl.textContent = data.error || 'Setup failed';
+                    errorEl.classList.remove('hidden');
+                    btn.innerHTML = 'Create Admin Account';
+                    btn.disabled = false;
+                }
+            } catch (e) {
+                errorEl.textContent = 'Connection failed: ' + e.message;
+                errorEl.classList.remove('hidden');
+                btn.innerHTML = 'Create Admin Account';
+                btn.disabled = false;
+            }
         }
         
         // Check token on load
         (async () => {
+            // First check system health
+            const health = await checkSystemHealth();
+            
+            if (!health.admin_exists) {
+                // No admin - show bootstrap UI
+                await showBootstrapUI();
+                return;
+            }
+            
+            // Admin exists - check token
             if (await checkExistingToken()) {
                 document.getElementById('authModal').classList.add('hidden');
                 document.getElementById('mainDashboard').classList.remove('hidden');

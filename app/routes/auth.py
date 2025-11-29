@@ -5,6 +5,9 @@ User login, registration, and token management
 from flask import Blueprint, request, jsonify, current_app
 from functools import wraps
 import jwt
+import os
+import secrets
+import string
 from datetime import datetime, timedelta
 
 from app.models.db_models import DBUser, UserRole
@@ -18,11 +21,103 @@ data_service = DataService()
 @auth_bp.route('/health', methods=['GET'])
 def health_check():
     """Health check endpoint for monitoring"""
+    from app.database import db
+    
+    # Check if admin exists
+    admin_exists = DBUser.query.filter_by(role='admin', is_active=True).first() is not None
+    
     return jsonify({
         'status': 'healthy',
         'service': 'Karma Marketing + Media',
-        'version': '4.4.0'
+        'version': '5.0.0',
+        'admin_exists': admin_exists,
+        'setup_required': not admin_exists
     })
+
+
+@auth_bp.route('/bootstrap', methods=['POST'])
+def bootstrap_admin():
+    """
+    Bootstrap the system by creating the first admin user.
+    Only works if NO admin users exist yet.
+    
+    POST /api/auth/bootstrap
+    {
+        "email": "admin@example.com",
+        "password": "securepassword123",
+        "name": "Admin User"
+    }
+    
+    Or without body to auto-generate credentials (returned in response)
+    """
+    from app.database import db
+    
+    # Check if any admin exists
+    existing_admin = DBUser.query.filter_by(role='admin').first()
+    if existing_admin:
+        return jsonify({
+            'error': 'Admin already exists. Use login instead.',
+            'hint': 'If you forgot your password, contact support or reset the database.'
+        }), 400
+    
+    data = request.get_json() or {}
+    
+    # Get or generate credentials
+    email = data.get('email') or os.environ.get('ADMIN_EMAIL') or 'admin@karma.marketing'
+    name = data.get('name') or 'Admin'
+    
+    # Generate password if not provided
+    password = data.get('password') or os.environ.get('ADMIN_PASSWORD')
+    generated_password = None
+    
+    if not password:
+        # Generate secure random password
+        alphabet = string.ascii_letters + string.digits + "!@#$%^&*"
+        generated_password = ''.join(secrets.choice(alphabet) for _ in range(16))
+        password = generated_password
+    
+    try:
+        # Create admin user
+        admin = DBUser(
+            email=email,
+            name=name,
+            role=UserRole.ADMIN,
+            is_active=True,
+            can_generate_content=True,
+            can_manage_clients=True,
+            can_view_reports=True
+        )
+        admin.set_password(password)
+        
+        db.session.add(admin)
+        db.session.commit()
+        
+        # Generate token for immediate use
+        token = generate_token(admin)
+        
+        response = {
+            'success': True,
+            'message': 'Admin user created successfully',
+            'email': email,
+            'token': token,
+            'user': {
+                'id': admin.id,
+                'email': admin.email,
+                'name': admin.name,
+                'role': admin.role
+            }
+        }
+        
+        # Only include password if it was auto-generated
+        if generated_password:
+            response['password'] = generated_password
+            response['warning'] = 'SAVE THIS PASSWORD - it will not be shown again!'
+        
+        return jsonify(response), 201
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': f'Failed to create admin: {str(e)}'}), 500
 
 
 def token_required(f):

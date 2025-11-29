@@ -107,3 +107,72 @@ def manual_ranks(current_user):
         return jsonify({'success': True, 'message': 'Rank check triggered'})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+
+@scheduler_bp.route('/run-publish', methods=['POST'])
+@token_required
+@admin_required
+def manual_publish(current_user):
+    """
+    Manually run auto-publish for scheduled content
+    
+    POST /api/scheduler/run-publish
+    """
+    from flask import current_app
+    from app.services.scheduler_service import run_auto_publish
+    
+    try:
+        result = run_auto_publish(current_app._get_current_object())
+        return jsonify({
+            'success': True, 
+            'message': f"Published {result['published_blogs']} blogs, {result['published_social']} social posts",
+            'details': result
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@scheduler_bp.route('/publish-queue', methods=['GET'])
+@token_required
+def get_publish_queue(current_user):
+    """
+    Get list of content scheduled to be auto-published
+    
+    GET /api/scheduler/publish-queue
+    """
+    from app.models.db_models import DBBlogPost, DBSocialPost
+    from datetime import datetime
+    
+    now = datetime.utcnow()
+    
+    # Get all scheduled content
+    blogs = DBBlogPost.query.filter(
+        DBBlogPost.status == 'scheduled',
+        DBBlogPost.scheduled_for.isnot(None)
+    ).order_by(DBBlogPost.scheduled_for).all()
+    
+    social = DBSocialPost.query.filter(
+        DBSocialPost.status == 'scheduled',
+        DBSocialPost.scheduled_for.isnot(None)
+    ).order_by(DBSocialPost.scheduled_for).all()
+    
+    return jsonify({
+        'blogs': [{
+            'id': b.id,
+            'title': b.title,
+            'client_id': b.client_id,
+            'scheduled_for': b.scheduled_for.isoformat() if b.scheduled_for else None,
+            'is_due': b.scheduled_for <= now if b.scheduled_for else False
+        } for b in blogs],
+        'social': [{
+            'id': s.id,
+            'platform': s.platform,
+            'topic': s.topic,
+            'client_id': s.client_id,
+            'scheduled_for': s.scheduled_for.isoformat() if s.scheduled_for else None,
+            'is_due': s.scheduled_for <= now if s.scheduled_for else False
+        } for s in social],
+        'total_pending': len(blogs) + len(social),
+        'total_due': len([b for b in blogs if b.scheduled_for and b.scheduled_for <= now]) + 
+                     len([s for s in social if s.scheduled_for and s.scheduled_for <= now])
+    })

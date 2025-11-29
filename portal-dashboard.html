@@ -193,6 +193,26 @@
 
         <main class="container mx-auto px-4 py-8 max-w-7xl">
             
+            <!-- Tab Navigation -->
+            <div class="flex gap-4 mb-8 border-b border-gray-200">
+                <button onclick="showTab('performance')" id="tab-performance" 
+                    class="px-6 py-3 text-sm font-semibold text-blue-600 border-b-2 border-blue-600 transition">
+                    <i class="fas fa-chart-line mr-2"></i>Performance
+                </button>
+                <button onclick="showTab('content')" id="tab-content"
+                    class="px-6 py-3 text-sm font-semibold text-gray-500 hover:text-gray-700 border-b-2 border-transparent transition">
+                    <i class="fas fa-file-alt mr-2"></i>Content Review
+                    <span id="pending-badge" class="hidden ml-2 px-2 py-0.5 bg-orange-500 text-white text-xs rounded-full">0</span>
+                </button>
+                <button onclick="showTab('calendar')" id="tab-calendar"
+                    class="px-6 py-3 text-sm font-semibold text-gray-500 hover:text-gray-700 border-b-2 border-transparent transition">
+                    <i class="fas fa-calendar mr-2"></i>Schedule
+                </button>
+            </div>
+            
+            <!-- Performance Panel -->
+            <div id="panel-performance">
+            
             <!-- Key Metrics -->
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
                 <!-- Total Leads -->
@@ -343,6 +363,98 @@
                             <tr><td colspan="6" class="py-8 text-center text-gray-400">Loading...</td></tr>
                         </tbody>
                     </table>
+                </div>
+            </div>
+            
+            </div><!-- End Performance Panel -->
+            
+            <!-- Content Review Panel -->
+            <div id="panel-content" class="hidden">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                    <div class="stat-card card-blue glass rounded-2xl p-6 shadow-md">
+                        <div class="flex items-center justify-between mb-2">
+                            <div class="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
+                                <i class="fas fa-file-alt text-blue-600"></i>
+                            </div>
+                        </div>
+                        <div class="text-3xl font-bold text-gray-800" id="content-total">0</div>
+                        <div class="text-sm text-gray-500">Total Content</div>
+                    </div>
+                    <div class="stat-card card-orange glass rounded-2xl p-6 shadow-md">
+                        <div class="flex items-center justify-between mb-2">
+                            <div class="w-10 h-10 bg-orange-100 rounded-xl flex items-center justify-center">
+                                <i class="fas fa-clock text-orange-600"></i>
+                            </div>
+                        </div>
+                        <div class="text-3xl font-bold text-gray-800" id="content-pending">0</div>
+                        <div class="text-sm text-gray-500">Pending Review</div>
+                    </div>
+                    <div class="stat-card card-green glass rounded-2xl p-6 shadow-md">
+                        <div class="flex items-center justify-between mb-2">
+                            <div class="w-10 h-10 bg-green-100 rounded-xl flex items-center justify-center">
+                                <i class="fas fa-check-circle text-green-600"></i>
+                            </div>
+                        </div>
+                        <div class="text-3xl font-bold text-gray-800" id="content-approved">0</div>
+                        <div class="text-sm text-gray-500">Approved</div>
+                    </div>
+                </div>
+                
+                <!-- Content Filters -->
+                <div class="glass rounded-2xl p-4 shadow-md mb-6 flex flex-wrap items-center gap-4">
+                    <span class="text-sm text-gray-500">Filter:</span>
+                    <button onclick="filterContent('all')" class="content-filter active px-4 py-1.5 rounded-full text-sm font-medium bg-blue-100 text-blue-700">All</button>
+                    <button onclick="filterContent('draft')" class="content-filter px-4 py-1.5 rounded-full text-sm font-medium bg-gray-100 text-gray-600 hover:bg-gray-200">Drafts</button>
+                    <button onclick="filterContent('scheduled')" class="content-filter px-4 py-1.5 rounded-full text-sm font-medium bg-gray-100 text-gray-600 hover:bg-gray-200">Scheduled</button>
+                    <button onclick="filterContent('approved')" class="content-filter px-4 py-1.5 rounded-full text-sm font-medium bg-gray-100 text-gray-600 hover:bg-gray-200">Approved</button>
+                    <button onclick="filterContent('published')" class="content-filter px-4 py-1.5 rounded-full text-sm font-medium bg-gray-100 text-gray-600 hover:bg-gray-200">Published</button>
+                </div>
+                
+                <!-- Content List -->
+                <div id="content-list" class="space-y-4">
+                    <div class="text-center py-12 text-gray-400">Loading content...</div>
+                </div>
+            </div>
+            
+            <!-- Calendar Panel -->
+            <div id="panel-calendar" class="hidden">
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <!-- Calendar Grid -->
+                    <div class="lg:col-span-2 glass rounded-2xl p-6 shadow-md">
+                        <div class="flex items-center justify-between mb-6">
+                            <h3 class="text-lg font-bold text-gray-800">Content Schedule</h3>
+                            <div class="flex items-center gap-2">
+                                <button onclick="prevMonth()" class="p-2 hover:bg-gray-100 rounded-lg">
+                                    <i class="fas fa-chevron-left text-gray-600"></i>
+                                </button>
+                                <span id="calendar-month" class="font-semibold text-gray-800 min-w-[150px] text-center">December 2024</span>
+                                <button onclick="nextMonth()" class="p-2 hover:bg-gray-100 rounded-lg">
+                                    <i class="fas fa-chevron-right text-gray-600"></i>
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div class="grid grid-cols-7 gap-1 mb-2">
+                            <div class="text-center text-xs font-semibold text-gray-500 py-2">Sun</div>
+                            <div class="text-center text-xs font-semibold text-gray-500 py-2">Mon</div>
+                            <div class="text-center text-xs font-semibold text-gray-500 py-2">Tue</div>
+                            <div class="text-center text-xs font-semibold text-gray-500 py-2">Wed</div>
+                            <div class="text-center text-xs font-semibold text-gray-500 py-2">Thu</div>
+                            <div class="text-center text-xs font-semibold text-gray-500 py-2">Fri</div>
+                            <div class="text-center text-xs font-semibold text-gray-500 py-2">Sat</div>
+                        </div>
+                        <div id="calendar-grid" class="grid grid-cols-7 gap-1">
+                            <!-- Calendar days rendered by JS -->
+                        </div>
+                    </div>
+                    
+                    <!-- Upcoming Content -->
+                    <div class="glass rounded-2xl p-6 shadow-md">
+                        <h3 class="text-lg font-bold text-gray-800 mb-4">Upcoming Content</h3>
+                        <div id="upcoming-content" class="space-y-3">
+                            <div class="text-center py-6 text-gray-400">Loading...</div>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -910,6 +1022,389 @@
         async function downloadReport() {
             // TODO: Implement PDF generation
             alert('Report generation coming soon! Your report will include all metrics and leads for the selected period.');
+        }
+        
+        // ==========================================
+        // TAB NAVIGATION
+        // ==========================================
+        function showTab(tab) {
+            // Hide all panels
+            document.getElementById('panel-performance').classList.add('hidden');
+            document.getElementById('panel-content').classList.add('hidden');
+            document.getElementById('panel-calendar').classList.add('hidden');
+            
+            // Deactivate all tabs
+            document.querySelectorAll('[id^="tab-"]').forEach(t => {
+                t.classList.remove('text-blue-600', 'border-blue-600');
+                t.classList.add('text-gray-500', 'border-transparent');
+            });
+            
+            // Show selected panel and activate tab
+            document.getElementById(`panel-${tab}`).classList.remove('hidden');
+            const activeTab = document.getElementById(`tab-${tab}`);
+            activeTab.classList.remove('text-gray-500', 'border-transparent');
+            activeTab.classList.add('text-blue-600', 'border-blue-600');
+            
+            // Load content if switching to content tab
+            if (tab === 'content' && allContent.length === 0) {
+                loadContent();
+            }
+            if (tab === 'calendar') {
+                renderCalendar();
+                loadUpcoming();
+            }
+        }
+        
+        // ==========================================
+        // CONTENT REVIEW
+        // ==========================================
+        let allContent = [];
+        let currentFilter = 'all';
+        
+        async function loadContent() {
+            if (!clientId) return;
+            
+            try {
+                const response = await fetch(`${API_URL}/api/content/client/${clientId}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    allContent = data.content || [];
+                    
+                    // Update stats
+                    const total = allContent.length;
+                    const pending = allContent.filter(c => c.status === 'draft' || c.status === 'scheduled').length;
+                    const approved = allContent.filter(c => c.status === 'approved' || c.status === 'published').length;
+                    
+                    document.getElementById('content-total').textContent = total;
+                    document.getElementById('content-pending').textContent = pending;
+                    document.getElementById('content-approved').textContent = approved;
+                    
+                    // Update badge
+                    const badge = document.getElementById('pending-badge');
+                    if (pending > 0) {
+                        badge.textContent = pending;
+                        badge.classList.remove('hidden');
+                    } else {
+                        badge.classList.add('hidden');
+                    }
+                    
+                    renderContent();
+                }
+            } catch (e) {
+                console.error('Failed to load content:', e);
+            }
+        }
+        
+        function filterContent(filter) {
+            currentFilter = filter;
+            
+            // Update filter buttons
+            document.querySelectorAll('.content-filter').forEach(btn => {
+                btn.classList.remove('active', 'bg-blue-100', 'text-blue-700');
+                btn.classList.add('bg-gray-100', 'text-gray-600');
+            });
+            event.target.classList.add('active', 'bg-blue-100', 'text-blue-700');
+            event.target.classList.remove('bg-gray-100', 'text-gray-600');
+            
+            renderContent();
+        }
+        
+        function renderContent() {
+            const container = document.getElementById('content-list');
+            
+            let filtered = allContent;
+            if (currentFilter !== 'all') {
+                filtered = allContent.filter(c => c.status === currentFilter);
+            }
+            
+            if (filtered.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-12 text-gray-400">
+                        <i class="fas fa-file-alt text-4xl mb-3"></i>
+                        <p>No content ${currentFilter !== 'all' ? 'with status "' + currentFilter + '"' : 'yet'}</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            const statusColors = {
+                'draft': 'bg-gray-100 text-gray-600',
+                'scheduled': 'bg-blue-100 text-blue-700',
+                'approved': 'bg-green-100 text-green-700',
+                'published': 'bg-emerald-100 text-emerald-700'
+            };
+            
+            container.innerHTML = filtered.map(content => `
+                <div class="glass rounded-2xl p-6 shadow-md hover:shadow-lg transition">
+                    <div class="flex items-start justify-between gap-4">
+                        <div class="flex-1">
+                            <div class="flex items-center gap-2 mb-2">
+                                <span class="px-2 py-1 ${statusColors[content.status] || statusColors.draft} rounded-full text-xs font-medium">
+                                    ${content.status || 'draft'}
+                                </span>
+                                ${content.scheduled_for ? `
+                                <span class="text-xs text-gray-500">
+                                    <i class="fas fa-calendar mr-1"></i>${new Date(content.scheduled_for).toLocaleDateString()}
+                                </span>
+                                ` : ''}
+                            </div>
+                            <h3 class="text-lg font-bold text-gray-800 mb-2">${content.title || 'Untitled'}</h3>
+                            <p class="text-gray-600 text-sm line-clamp-2">${content.meta_description || ''}</p>
+                            <div class="flex items-center gap-4 mt-3 text-xs text-gray-500">
+                                <span><i class="fas fa-align-left mr-1"></i>${content.word_count || 0} words</span>
+                                ${content.primary_keyword ? `<span><i class="fas fa-key mr-1"></i>${content.primary_keyword}</span>` : ''}
+                            </div>
+                        </div>
+                        <div class="flex flex-col gap-2">
+                            <button onclick="viewContent('${content.id}')" 
+                                class="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium rounded-lg transition">
+                                <i class="fas fa-eye mr-1"></i>View
+                            </button>
+                            ${content.status === 'draft' || content.status === 'scheduled' ? `
+                            <button onclick="approveContent('${content.id}')"
+                                class="px-4 py-2 bg-green-500 hover:bg-green-600 text-white text-sm font-medium rounded-lg transition">
+                                <i class="fas fa-check mr-1"></i>Approve
+                            </button>
+                            <button onclick="requestChanges('${content.id}')"
+                                class="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white text-sm font-medium rounded-lg transition">
+                                <i class="fas fa-edit mr-1"></i>Changes
+                            </button>
+                            ` : ''}
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+        async function viewContent(contentId) {
+            const content = allContent.find(c => c.id === contentId);
+            if (!content) return;
+            
+            // Create modal to view content
+            const modal = document.createElement('div');
+            modal.className = 'fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4';
+            modal.id = 'content-modal';
+            modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
+            
+            modal.innerHTML = `
+                <div class="bg-white rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden shadow-2xl">
+                    <div class="p-6 border-b flex items-center justify-between">
+                        <h2 class="text-xl font-bold text-gray-800">${content.title || 'Untitled'}</h2>
+                        <button onclick="document.getElementById('content-modal').remove()" class="text-gray-400 hover:text-gray-600">
+                            <i class="fas fa-times text-xl"></i>
+                        </button>
+                    </div>
+                    <div class="p-6 overflow-y-auto max-h-[calc(90vh-140px)]">
+                        <div class="mb-4 p-4 bg-gray-50 rounded-xl">
+                            <p class="text-sm text-gray-500 mb-1">Meta Description</p>
+                            <p class="text-gray-700">${content.meta_description || 'No description'}</p>
+                        </div>
+                        <div class="prose max-w-none">
+                            ${content.body || '<p class="text-gray-400">No content body</p>'}
+                        </div>
+                    </div>
+                    <div class="p-4 border-t flex justify-end gap-3">
+                        ${content.status === 'draft' || content.status === 'scheduled' ? `
+                        <button onclick="requestChanges('${content.id}'); document.getElementById('content-modal').remove();"
+                            class="px-6 py-2 bg-orange-500 hover:bg-orange-600 text-white font-medium rounded-lg transition">
+                            <i class="fas fa-edit mr-2"></i>Request Changes
+                        </button>
+                        <button onclick="approveContent('${content.id}'); document.getElementById('content-modal').remove();"
+                            class="px-6 py-2 bg-green-500 hover:bg-green-600 text-white font-medium rounded-lg transition">
+                            <i class="fas fa-check mr-2"></i>Approve
+                        </button>
+                        ` : `
+                        <span class="px-4 py-2 bg-green-100 text-green-700 rounded-lg">
+                            <i class="fas fa-check-circle mr-1"></i>Already approved
+                        </span>
+                        `}
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+        }
+        
+        async function approveContent(contentId) {
+            if (!confirm('Approve this content for publishing?')) return;
+            
+            try {
+                const response = await fetch(`${API_URL}/api/content/${contentId}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ status: 'approved' })
+                });
+                
+                if (response.ok) {
+                    alert('✓ Content approved!');
+                    // Update local data
+                    const idx = allContent.findIndex(c => c.id === contentId);
+                    if (idx !== -1) allContent[idx].status = 'approved';
+                    loadContent(); // Refresh
+                } else {
+                    const err = await response.json();
+                    alert('Error: ' + (err.error || 'Failed to approve'));
+                }
+            } catch (e) {
+                alert('Error: ' + e.message);
+            }
+        }
+        
+        async function requestChanges(contentId) {
+            const notes = prompt('What changes would you like? (Enter your feedback)');
+            if (!notes) return;
+            
+            try {
+                // For now, just send an email/notification - we could add a feedback system later
+                const content = allContent.find(c => c.id === contentId);
+                
+                // Store feedback (could be enhanced to actually send notification)
+                const response = await fetch(`${API_URL}/api/content/${contentId}/feedback`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ 
+                        feedback: notes,
+                        type: 'change_request'
+                    })
+                });
+                
+                if (response.ok) {
+                    alert('✓ Change request sent! Your agency will review your feedback.');
+                } else {
+                    // If endpoint doesn't exist yet, just show confirmation
+                    alert('✓ Change request noted! Please also email your agency with specific feedback.');
+                }
+            } catch (e) {
+                alert('✓ Change request noted! Please also email your agency with specific feedback.');
+            }
+        }
+        
+        // ==========================================
+        // CALENDAR
+        // ==========================================
+        let currentCalendarDate = new Date();
+        let scheduledContent = [];
+        
+        function renderCalendar() {
+            const year = currentCalendarDate.getFullYear();
+            const month = currentCalendarDate.getMonth();
+            
+            document.getElementById('calendar-month').textContent = 
+                new Date(year, month).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+            
+            const firstDay = new Date(year, month, 1).getDay();
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+            const today = new Date();
+            
+            let html = '';
+            
+            // Empty cells before first day
+            for (let i = 0; i < firstDay; i++) {
+                html += '<div class="h-20 p-1 border border-gray-100 bg-gray-50/50 rounded"></div>';
+            }
+            
+            // Days of month
+            for (let day = 1; day <= daysInMonth; day++) {
+                const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                const isToday = today.getFullYear() === year && today.getMonth() === month && today.getDate() === day;
+                const dayContent = getContentForDate(dateStr);
+                
+                html += `
+                    <div class="h-20 p-1 border border-gray-100 rounded ${isToday ? 'bg-blue-50 border-blue-200' : 'hover:bg-gray-50'}">
+                        <div class="text-xs font-medium ${isToday ? 'text-blue-600' : 'text-gray-600'} mb-1">${day}</div>
+                        <div class="space-y-0.5">
+                            ${dayContent.slice(0, 2).map(c => `
+                                <div class="text-xs px-1 py-0.5 rounded truncate ${c.type === 'blog' ? 'bg-purple-100 text-purple-700' : 'bg-cyan-100 text-cyan-700'}">
+                                    ${c.title || c.topic || c.platform}
+                                </div>
+                            `).join('')}
+                            ${dayContent.length > 2 ? `<div class="text-xs text-gray-400">+${dayContent.length - 2} more</div>` : ''}
+                        </div>
+                    </div>
+                `;
+            }
+            
+            document.getElementById('calendar-grid').innerHTML = html;
+        }
+        
+        function getContentForDate(dateStr) {
+            return scheduledContent.filter(c => {
+                if (!c.scheduled_for) return false;
+                return c.scheduled_for.split('T')[0] === dateStr;
+            });
+        }
+        
+        function prevMonth() {
+            currentCalendarDate.setMonth(currentCalendarDate.getMonth() - 1);
+            renderCalendar();
+        }
+        
+        function nextMonth() {
+            currentCalendarDate.setMonth(currentCalendarDate.getMonth() + 1);
+            renderCalendar();
+        }
+        
+        async function loadUpcoming() {
+            if (!clientId) return;
+            
+            try {
+                // Load blogs
+                const blogsRes = await fetch(`${API_URL}/api/content/client/${clientId}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const blogsData = await blogsRes.json();
+                
+                // Load social
+                const socialRes = await fetch(`${API_URL}/api/social/client/${clientId}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const socialData = await socialRes.json();
+                
+                scheduledContent = [
+                    ...(blogsData.content || []).map(b => ({ ...b, type: 'blog' })),
+                    ...(socialData.posts || []).map(s => ({ ...s, type: 'social' }))
+                ].filter(c => c.scheduled_for);
+                
+                // Sort by date
+                scheduledContent.sort((a, b) => new Date(a.scheduled_for) - new Date(b.scheduled_for));
+                
+                // Render calendar with data
+                renderCalendar();
+                
+                // Render upcoming list
+                const upcoming = scheduledContent.filter(c => new Date(c.scheduled_for) >= new Date());
+                const container = document.getElementById('upcoming-content');
+                
+                if (upcoming.length === 0) {
+                    container.innerHTML = '<div class="text-center py-6 text-gray-400">No upcoming content</div>';
+                    return;
+                }
+                
+                container.innerHTML = upcoming.slice(0, 10).map(c => `
+                    <div class="p-3 bg-gray-50 rounded-xl hover:bg-gray-100 transition">
+                        <div class="flex items-center gap-2 mb-1">
+                            <i class="fas ${c.type === 'blog' ? 'fa-file-alt text-purple-500' : 'fa-share-alt text-cyan-500'}"></i>
+                            <span class="text-sm font-medium text-gray-800 truncate">${c.title || c.topic || c.platform}</span>
+                        </div>
+                        <div class="text-xs text-gray-500">
+                            <i class="fas fa-calendar mr-1"></i>
+                            ${new Date(c.scheduled_for).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
+                        </div>
+                    </div>
+                `).join('');
+                
+            } catch (e) {
+                console.error('Failed to load upcoming content:', e);
+            }
         }
 
         // Handle enter key on login

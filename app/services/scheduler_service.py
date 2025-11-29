@@ -68,6 +68,16 @@ def _add_scheduled_jobs(app):
         kwargs={'app': app}
     )
     
+    # Auto-publish scheduled content every 5 minutes
+    scheduler.add_job(
+        func=run_auto_publish,
+        trigger=IntervalTrigger(minutes=5),
+        id='auto_publish_content',
+        name='Auto-Publish Scheduled Content',
+        replace_existing=True,
+        kwargs={'app': app}
+    )
+    
     # Hourly alert digest (only sends if there are alerts)
     scheduler.add_job(
         func=send_alert_digest,
@@ -88,7 +98,7 @@ def _add_scheduled_jobs(app):
         kwargs={'app': app}
     )
     
-    logger.info("Scheduled jobs added: competitor_crawl(3AM), rank_check(5AM), alert_digest(hourly), daily_summary(8AM)")
+    logger.info("Scheduled jobs added: competitor_crawl(3AM), rank_check(5AM), auto_publish(5min), alert_digest(hourly), daily_summary(8AM)")
 
 
 def run_competitor_crawl(app):
@@ -352,3 +362,134 @@ def run_job_now(job_id):
         job.modify(next_run_time=datetime.now())
         return {'success': True, 'message': f'Job {job_id} triggered'}
     return {'error': f'Job {job_id} not found'}
+
+
+def run_auto_publish(app):
+    """
+    Auto-publish scheduled content that is due
+    Runs every 5 minutes to check for content where:
+    - status = 'scheduled'
+    - scheduled_for <= now
+    - client has WordPress credentials
+    """
+    with app.app_context():
+        from app.database import db
+        from app.models.db_models import DBBlogPost, DBSocialPost, DBClient
+        from app.services.wordpress_service import WordPressService
+        
+        now = datetime.utcnow()
+        published_blogs = 0
+        published_social = 0
+        errors = []
+        
+        logger.info(f"Auto-publish check running at {now.isoformat()}")
+        
+        # Find scheduled blogs that are due
+        due_blogs = DBBlogPost.query.filter(
+            DBBlogPost.status == 'scheduled',
+            DBBlogPost.scheduled_for <= now,
+            DBBlogPost.scheduled_for.isnot(None)
+        ).all()
+        
+        for blog in due_blogs:
+            try:
+                client = DBClient.query.get(blog.client_id)
+                if not client:
+                    continue
+                
+                # Check if WordPress is configured
+                if client.wordpress_url and client.wordpress_user and client.wordpress_app_password:
+                    # Publish to WordPress
+                    wp = WordPressService(
+                        site_url=client.wordpress_url,
+                        username=client.wordpress_user,
+                        app_password=client.wordpress_app_password
+                    )
+                    
+                    # Test connection
+                    test = wp.test_connection()
+                    if not test.get('success'):
+                        logger.warning(f"WordPress connection failed for client {client.id}: {test.get('message')}")
+                        errors.append(f"Blog '{blog.title}': WP connection failed")
+                        continue
+                    
+                    # Prepare meta for Yoast
+                    meta = {
+                        'meta_title': blog.meta_title,
+                        'meta_description': blog.meta_description,
+                        'focus_keyword': blog.primary_keyword
+                    }
+                    
+                    # Publish
+                    if blog.wordpress_post_id:
+                        result = wp.update_post(
+                            post_id=blog.wordpress_post_id,
+                            title=blog.title,
+                            content=blog.body,
+                            status='publish'
+                        )
+                    else:
+                        result = wp.create_post(
+                            title=blog.title,
+                            content=blog.body,
+                            status='publish',
+                            excerpt=blog.meta_description,
+                            meta=meta
+                        )
+                    
+                    if result.get('success'):
+                        blog.wordpress_post_id = result.get('post_id')
+                        blog.status = 'published'
+                        blog.published_at = now
+                        published_blogs += 1
+                        logger.info(f"Auto-published blog '{blog.title}' to WordPress (ID: {result.get('post_id')})")
+                    else:
+                        errors.append(f"Blog '{blog.title}': {result.get('message')}")
+                else:
+                    # No WordPress - just mark as published
+                    blog.status = 'published'
+                    blog.published_at = now
+                    published_blogs += 1
+                    logger.info(f"Auto-published blog '{blog.title}' (no WordPress)")
+                    
+            except Exception as e:
+                logger.error(f"Error auto-publishing blog {blog.id}: {e}")
+                errors.append(f"Blog '{blog.title}': {str(e)}")
+        
+        # Find scheduled social posts that are due
+        due_social = DBSocialPost.query.filter(
+            DBSocialPost.status == 'scheduled',
+            DBSocialPost.scheduled_for <= now,
+            DBSocialPost.scheduled_for.isnot(None)
+        ).all()
+        
+        for post in due_social:
+            try:
+                # For now, just mark as published
+                # TODO: Add actual social media API posting (GMB, FB, etc)
+                post.status = 'published'
+                post.published_at = now
+                published_social += 1
+                logger.info(f"Auto-published social post {post.id} ({post.platform})")
+                
+            except Exception as e:
+                logger.error(f"Error auto-publishing social {post.id}: {e}")
+                errors.append(f"Social {post.id}: {str(e)}")
+        
+        # Commit all changes
+        if published_blogs > 0 or published_social > 0:
+            db.session.commit()
+        
+        summary = f"Auto-publish complete: {published_blogs} blogs, {published_social} social posts"
+        if errors:
+            summary += f", {len(errors)} errors"
+            for err in errors[:5]:  # Log first 5 errors
+                logger.warning(f"  - {err}")
+        
+        logger.info(summary)
+        
+        return {
+            'published_blogs': published_blogs,
+            'published_social': published_social,
+            'errors': errors
+        }

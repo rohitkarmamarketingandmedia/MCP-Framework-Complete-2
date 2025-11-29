@@ -1543,3 +1543,39 @@ class DBChatbotFAQ(db.Model):
             'times_used': self.times_used,
             'created_at': self.created_at.isoformat() if self.created_at else None
         }
+
+
+class DBContentFeedback(db.Model):
+    """Content feedback and change requests from clients"""
+    __tablename__ = 'content_feedback'
+    
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    content_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
+    client_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
+    user_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    
+    feedback_type: Mapped[str] = mapped_column(String(50), default='comment')  # change_request, approval, comment
+    feedback_text: Mapped[str] = mapped_column(Text, nullable=False)
+    
+    # Status tracking
+    status: Mapped[str] = mapped_column(String(20), default='pending')  # pending, addressed, dismissed
+    addressed_by: Mapped[Optional[str]] = mapped_column(String(36), nullable=True)
+    addressed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    response_notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'content_id': self.content_id,
+            'client_id': self.client_id,
+            'user_id': self.user_id,
+            'feedback_type': self.feedback_type,
+            'feedback_text': self.feedback_text,
+            'status': self.status,
+            'addressed_by': self.addressed_by,
+            'addressed_at': self.addressed_at.isoformat() if self.addressed_at else None,
+            'response_notes': self.response_notes,
+            'created_at': self.created_at.isoformat() if self.created_at else None
+        }
