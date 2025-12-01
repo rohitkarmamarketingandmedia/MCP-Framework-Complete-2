@@ -735,7 +735,7 @@
                             <div class="flex items-center justify-between mb-4">
                                 <h3 class="font-semibold text-gray-800">What should we create?</h3>
                                 <label class="flex items-center text-sm cursor-pointer">
-                                    <input type="checkbox" id="opt-quick" class="w-4 h-4 text-blue-600 rounded mr-2" onchange="toggleQuickSetup()">
+                                    <input type="checkbox" id="opt-quick" class="w-4 h-4 text-blue-600 rounded mr-2" onchange="toggleQuickSetup()" checked>
                                     <span class="text-gray-600">Quick setup only (skip content)</span>
                                 </label>
                             </div>
@@ -762,9 +762,9 @@
                                     </span>
                                 </label>
                             </div>
-                            <div class="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg" id="timeout-warning">
-                                <p class="text-sm text-amber-700">
-                                    <span class="font-semibold">⏱️ Note:</span> Full content generation takes 2-5 minutes per post. If you experience timeouts, use <strong>"Quick setup"</strong> and generate content from the dashboard.
+                            <div class="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg" id="timeout-warning">
+                                <p class="text-sm text-green-700">
+                                    <span class="font-semibold">✓ Quick setup recommended</span> - For cloud hosting, save client first then generate content from the dashboard (avoids timeouts).
                                 </p>
                             </div>
                         </div>
@@ -2230,6 +2230,9 @@
             } else {
                 goToStep(1);
             }
+            
+            // Initialize Quick Setup state (default checked for Render hosting)
+            toggleQuickSetup();
         });
     </script>
     </div><!-- end mainDashboard -->
