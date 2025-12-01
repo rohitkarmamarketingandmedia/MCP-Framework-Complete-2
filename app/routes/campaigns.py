@@ -52,7 +52,7 @@ def create_campaign(current_user):
     if not current_user.can_generate_content:
         return jsonify({'error': 'Permission denied'}), 403
     
-    data = request.get_json()
+    data = request.get_json() or {}
     
     required = ['client_id', 'name']
     for field in required:
@@ -109,7 +109,7 @@ def update_campaign(current_user, campaign_id):
     if not current_user.has_access_to_client(campaign.client_id):
         return jsonify({'error': 'Access denied'}), 403
     
-    data = request.get_json()
+    data = request.get_json() or {}
     
     if 'name' in data:
         campaign.name = data['name']
@@ -216,7 +216,7 @@ def add_content_to_campaign(current_user, campaign_id):
     if not current_user.has_access_to_client(campaign.client_id):
         return jsonify({'error': 'Access denied'}), 403
     
-    data = request.get_json()
+    data = request.get_json() or {}
     content_ids = data.get('content_ids', [])
     
     # Get existing content_ids and add new ones
@@ -255,7 +255,7 @@ def update_campaign_metrics(current_user, campaign_id):
     if not current_user.has_access_to_client(campaign.client_id):
         return jsonify({'error': 'Access denied'}), 403
     
-    data = request.get_json()
+    data = request.get_json() or {}
     
     # Merge with existing metrics
     existing = json.loads(campaign.metrics)

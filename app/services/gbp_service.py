@@ -636,7 +636,7 @@ Response:"""
             try:
                 response = ai_service.generate_raw(prompt, max_tokens=200)
                 return response.strip()
-            except:
+            except Exception as e:
                 pass
         
         # Fallback templates

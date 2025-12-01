@@ -130,7 +130,7 @@ def approve_content(current_user, content_type, content_id):
         try:
             content.scheduled_for = datetime.fromisoformat(schedule_for.replace('Z', '+00:00'))
             content.status = 'scheduled'
-        except:
+        except Exception as e:
             pass
     
     # Store approval info

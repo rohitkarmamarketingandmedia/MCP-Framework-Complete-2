@@ -104,7 +104,7 @@ def bulk_keyword_overview(current_user):
         "database": "us"
     }
     """
-    data = request.get_json()
+    data = request.get_json() or {}
     keywords = data.get('keywords', [])
     database = data.get('database', 'us')
     
@@ -230,7 +230,7 @@ def keyword_gap(current_user):
         "database": "us"
     }
     """
-    data = request.get_json()
+    data = request.get_json() or {}
     domain = data.get('domain')
     competitors = data.get('competitors', [])
     limit = data.get('limit', 50)

@@ -36,7 +36,7 @@ def test_wordpress_connection(current_user):
         "client_id": "client_xxx"  // Use stored client credentials
     }
     """
-    data = request.get_json()
+    data = request.get_json() or {}
     
     # Get credentials either from request or from stored client config
     if data.get('client_id'):
@@ -88,7 +88,7 @@ def test_wordpress_connection(current_user):
     except Exception as e:
         return jsonify({
             'success': False,
-            'error': str(e),
+            'error': 'An error occurred. Please try again.',
             'message': 'Failed to test WordPress connection'
         }), 500
 
@@ -109,7 +109,7 @@ def publish_to_wordpress(current_user):
         "custom_wp_url": null
     }
     """
-    data = request.get_json()
+    data = request.get_json() or {}
     
     if not data.get('content_id'):
         return jsonify({'error': 'content_id required'}), 400
@@ -183,7 +183,7 @@ def publish_to_gbp(current_user):
         }
     }
     """
-    data = request.get_json()
+    data = request.get_json() or {}
     
     if not data.get('post_id'):
         return jsonify({'error': 'post_id required'}), 400
@@ -238,7 +238,7 @@ def publish_to_facebook(current_user):
         "post_id": "social_abc123"
     }
     """
-    data = request.get_json()
+    data = request.get_json() or {}
     
     if not data.get('post_id'):
         return jsonify({'error': 'post_id required'}), 400
@@ -288,7 +288,7 @@ def bulk_publish(current_user):
         ]
     }
     """
-    data = request.get_json()
+    data = request.get_json() or {}
     items = data.get('items', [])
     
     results = []
@@ -353,7 +353,7 @@ def bulk_publish(current_user):
                 results.append({'id': item_id, 'success': False, 'error': 'Invalid type'})
         
         except Exception as e:
-            results.append({'id': item_id, 'success': False, 'error': str(e)})
+            results.append({'id': item_id, 'success': False, 'error': 'An error occurred. Please try again.'})
     
     return jsonify({
         'total': len(items),

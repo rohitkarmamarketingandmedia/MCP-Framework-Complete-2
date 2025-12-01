@@ -37,7 +37,7 @@ def generate_social(current_user):
     if not current_user.can_generate_content:
         return jsonify({'error': 'Permission denied'}), 403
     
-    data = request.get_json()
+    data = request.get_json() or {}
     
     required = ['client_id', 'topic']
     for field in required:
@@ -103,7 +103,7 @@ def generate_social_kit(current_user):
     if not current_user.can_generate_content:
         return jsonify({'error': 'Permission denied'}), 403
     
-    data = request.get_json()
+    data = request.get_json() or {}
     
     if not data.get('client_id'):
         return jsonify({'error': 'client_id required'}), 400
@@ -195,7 +195,7 @@ def update_social_post(current_user, post_id):
     if not current_user.has_access_to_client(post.client_id):
         return jsonify({'error': 'Access denied'}), 403
     
-    data = request.get_json()
+    data = request.get_json() or {}
     
     if 'content' in data:
         post.content = data['content']
@@ -271,7 +271,7 @@ def schedule_posts(current_user):
         "scheduled_at": "2024-03-15T10:00:00Z"
     }
     """
-    data = request.get_json()
+    data = request.get_json() or {}
     
     if not data.get('post_ids') or not data.get('scheduled_at'):
         return jsonify({'error': 'post_ids and scheduled_at required'}), 400
@@ -309,7 +309,7 @@ def bulk_delete_social(current_user):
     if not current_user.can_generate_content:
         return jsonify({'error': 'Permission denied'}), 403
     
-    data = request.get_json()
+    data = request.get_json() or {}
     ids = data.get('ids', [])
     
     if not ids:
@@ -483,7 +483,7 @@ def connect_platform(current_user, client_id, platform):
         
     except Exception as e:
         db.session.rollback()
-        return jsonify({'error': f'Connection failed: {str(e)}'}), 500
+        return jsonify({'error': 'Connection failed. Please check your settings and try again.'}), 500
 
 
 @social_bp.route('/disconnect/<client_id>/<platform>', methods=['POST'])
@@ -540,7 +540,7 @@ def disconnect_platform(current_user, client_id, platform):
         
     except Exception as e:
         db.session.rollback()
-        return jsonify({'error': f'Disconnect failed: {str(e)}'}), 500
+        return jsonify({'error': 'Disconnect failed. Please try again.'}), 500
 
 
 @social_bp.route('/test/<client_id>/<platform>', methods=['POST'])
@@ -645,7 +645,7 @@ def test_platform_connection(current_user, client_id, platform):
             return jsonify({'error': f'Unknown platform: {platform}'}), 400
             
     except Exception as e:
-        return jsonify({'connected': False, 'error': str(e)})
+        return jsonify({'connected': False, 'error': 'An error occurred. Please try again.'})
 
 
 @social_bp.route('/publish-now/<client_id>', methods=['POST'])
@@ -747,7 +747,7 @@ def publish_now(current_user, client_id):
                 results['gbp'] = result
                 
         except Exception as e:
-            results[platform] = {'success': False, 'error': str(e)}
+            results[platform] = {'success': False, 'error': 'An error occurred. Please try again.'}
     
     successful = sum(1 for r in results.values() if r.get('success'))
     

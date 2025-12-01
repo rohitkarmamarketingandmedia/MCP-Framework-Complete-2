@@ -59,7 +59,7 @@ def update_agent(current_user, agent_id):
         "change_note": "Made the tone more friendly"
     }
     """
-    data = request.get_json()
+    data = request.get_json() or {}
     if not data:
         return jsonify({'error': 'No data provided'}), 400
     
@@ -103,7 +103,7 @@ def test_agent(current_user, agent_id):
         }
     }
     """
-    data = request.get_json()
+    data = request.get_json() or {}
     if not data or not data.get('input'):
         return jsonify({'error': 'input is required'}), 400
     
@@ -191,7 +191,7 @@ def duplicate_agent(current_user, agent_id):
         "display_name": "Content Writer V2"
     }
     """
-    data = request.get_json()
+    data = request.get_json() or {}
     if not data or not data.get('name') or not data.get('display_name'):
         return jsonify({'error': 'name and display_name are required'}), 400
     
@@ -241,7 +241,7 @@ def initialize_agents(current_user):
             'created': created
         })
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': 'An error occurred. Please try again.'}), 500
 
 
 @agents_bp.route('/prompt/<agent_name>', methods=['GET'])

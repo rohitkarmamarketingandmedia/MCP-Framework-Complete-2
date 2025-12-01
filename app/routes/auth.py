@@ -17,6 +17,25 @@ from app.services.audit_service import audit_service
 auth_bp = Blueprint('auth', __name__)
 data_service = DataService()
 
+import re
+
+def validate_password(password):
+    """
+    Validate password meets security requirements.
+    Returns: (is_valid: bool, error_message: str or None)
+    """
+    if not password:
+        return False, "Password is required"
+    if len(password) < 8:
+        return False, "Password must be at least 8 characters"
+    if not re.search(r'[A-Z]', password):
+        return False, "Password must contain at least one uppercase letter"
+    if not re.search(r'[a-z]', password):
+        return False, "Password must contain at least one lowercase letter"
+    if not re.search(r'[0-9]', password):
+        return False, "Password must contain at least one number"
+    return True, None
+
 
 @auth_bp.route('/health', methods=['GET'])
 def health_check():
@@ -117,7 +136,7 @@ def bootstrap_admin():
         
     except Exception as e:
         db.session.rollback()
-        return jsonify({'error': f'Failed to create admin: {str(e)}'}), 500
+        return jsonify({'error': 'Failed to create admin. Please try again.'}), 500
 
 
 def token_required(f):
@@ -232,7 +251,7 @@ def login():
         "password": "password123"
     }
     """
-    data = request.get_json()
+    data = request.get_json() or {}
     
     if not data or not data.get('email') or not data.get('password'):
         return jsonify({'error': 'Email and password required'}), 400
@@ -282,7 +301,14 @@ def register(current_user):
         "client_ids": ["client_abc123"]
     }
     """
-    data = request.get_json()
+    data = request.get_json() or {}
+    
+    
+    # Validate password
+    password = data.get('password', '')
+    is_valid, error_msg = validate_password(password)
+    if not is_valid:
+        return jsonify({'error': error_msg}), 400
     
     required = ['email', 'name', 'password']
     for field in required:
@@ -332,7 +358,7 @@ def change_password(current_user):
         "new_password": "new456"
     }
     """
-    data = request.get_json()
+    data = request.get_json() or {}
     
     if not data.get('current_password') or not data.get('new_password'):
         return jsonify({'error': 'Current and new password required'}), 400
@@ -386,7 +412,7 @@ def update_user(current_user, user_id):
     if not user:
         return jsonify({'error': 'User not found'}), 404
     
-    data = request.get_json()
+    data = request.get_json() or {}
     
     if 'name' in data:
         user.name = data['name']
@@ -439,7 +465,7 @@ def reset_user_password(current_user, user_id):
     if not user:
         return jsonify({'error': 'User not found'}), 404
     
-    data = request.get_json()
+    data = request.get_json() or {}
     if not data.get('new_password'):
         return jsonify({'error': 'new_password is required'}), 400
     

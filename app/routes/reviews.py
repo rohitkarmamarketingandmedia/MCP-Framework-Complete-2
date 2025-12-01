@@ -80,7 +80,7 @@ def add_review(current_user):
         "review_date": "2024-01-15T10:30:00Z"
     }
     """
-    data = request.get_json()
+    data = request.get_json() or {}
     client_id = data.get('client_id')
     
     if not client_id:
@@ -117,7 +117,7 @@ def update_response(current_user, review_id):
     if not current_user.has_access_to_client(review.client_id):
         return jsonify({'error': 'Access denied'}), 403
     
-    data = request.get_json()
+    data = request.get_json() or {}
     
     result = review_service.update_review_response(
         review_id=review_id,
@@ -199,7 +199,7 @@ def generate_response(current_user, review_id):
     try:
         from app.services.ai_service import ai_service as ai_svc
         ai_service = ai_svc
-    except:
+    except Exception as e:
         pass
     
     response = review_service.generate_response(review, client, ai_service)
@@ -224,7 +224,7 @@ def generate_all_responses(current_user):
         "client_id": "xxx"
     }
     """
-    data = request.get_json()
+    data = request.get_json() or {}
     client_id = data.get('client_id')
     
     if not client_id:
@@ -238,7 +238,7 @@ def generate_all_responses(current_user):
     try:
         from app.services.ai_service import ai_service as ai_svc
         ai_service = ai_svc
-    except:
+    except Exception as e:
         pass
     
     result = review_service.generate_responses_for_pending(client_id, ai_service)
@@ -267,7 +267,7 @@ def send_review_request(current_user):
         "method": "both"  // email, sms, both
     }
     """
-    data = request.get_json()
+    data = request.get_json() or {}
     client_id = data.get('client_id')
     
     if not client_id:
@@ -331,7 +331,7 @@ def send_review_request_to_lead(current_user, lead_id):
     if not current_user.has_access_to_client(lead.client_id):
         return jsonify({'error': 'Access denied'}), 403
     
-    data = request.get_json()
+    data = request.get_json() or {}
     review_url = data.get('review_url')
     
     if not review_url:
@@ -360,7 +360,7 @@ def send_bulk_review_requests(current_user):
         "method": "email"
     }
     """
-    data = request.get_json()
+    data = request.get_json() or {}
     client_id = data.get('client_id')
     
     if not client_id:

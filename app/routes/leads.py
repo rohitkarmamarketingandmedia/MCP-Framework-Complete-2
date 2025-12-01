@@ -36,7 +36,7 @@ def capture_lead():
         "landing_page": "https://example.com/roof-repair"
     }
     """
-    data = request.get_json()
+    data = request.get_json() or {}
     
     client_id = data.get('client_id')
     if not client_id:
@@ -141,7 +141,7 @@ def update_lead_status(current_user, lead_id):
     if not current_user.has_access_to_client(lead.client_id):
         return jsonify({'error': 'Access denied'}), 403
     
-    data = request.get_json()
+    data = request.get_json() or {}
     status = data.get('status')
     notes = data.get('notes')
     auto_review = data.get('auto_review_request', True)  # Default to true
@@ -183,7 +183,7 @@ def update_lead_status(current_user, lead_id):
                 )
         except Exception as e:
             # Don't fail the status update if review request fails
-            review_result = {'error': str(e)}
+            review_result = {'error': 'An error occurred. Please try again.'}
     
     result['review_request'] = review_result
     result['is_conversion'] = is_conversion
@@ -211,7 +211,7 @@ def update_lead_value(current_user, lead_id):
     if not current_user.has_access_to_client(lead.client_id):
         return jsonify({'error': 'Access denied'}), 403
     
-    data = request.get_json()
+    data = request.get_json() or {}
     
     result = lead_service.set_lead_value(
         lead_id,
@@ -313,7 +313,7 @@ def generate_form_embed(current_user):
         "success_message": "Thanks! We'll call you shortly."
     }
     """
-    data = request.get_json()
+    data = request.get_json() or {}
     client_id = data.get('client_id')
     
     if not client_id:
@@ -348,7 +348,7 @@ def update_notification_settings(current_user):
         "enabled": true
     }
     """
-    data = request.get_json()
+    data = request.get_json() or {}
     client_id = data.get('client_id')
     
     if not client_id:

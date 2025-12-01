@@ -247,7 +247,7 @@ class ImageGenerationService:
         # Parse size
         try:
             width, height = map(int, size.split('x'))
-        except:
+        except Exception as e:
             width, height = 1024, 1024
         
         # Stability AI dimensions must be multiples of 64
@@ -313,7 +313,7 @@ class ImageGenerationService:
         # Parse size
         try:
             width, height = map(int, size.split('x'))
-        except:
+        except Exception as e:
             width, height = 1024, 1024
         
         headers = {
@@ -610,7 +610,7 @@ class ImageGenerationService:
         try:
             target_w, target_h = map(int, target_size.split('x'))
             target_ratio = target_w / target_h
-        except:
+        except Exception as e:
             return '1024x1024'
         
         # Find closest aspect ratio

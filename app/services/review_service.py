@@ -438,7 +438,7 @@ Respond with just the response text, no JSON formatting needed."""
                         try:
                             data = json.loads(response)
                             response = data.get('response', response)
-                        except:
+                        except Exception as e:
                             pass
                     return response.strip()
                     

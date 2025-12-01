@@ -51,7 +51,7 @@ def create_new_client(current_user):
         "tone": "professional"
     }
     """
-    data = request.get_json()
+    data = request.get_json() or {}
     
     required = ['business_name', 'industry', 'geo']
     for field in required:
@@ -109,7 +109,7 @@ def update_client(current_user, client_id):
     if not client:
         return jsonify({'error': 'Client not found'}), 404
     
-    data = request.get_json()
+    data = request.get_json() or {}
     
     # Update allowed fields
     if 'business_name' in data:
@@ -195,7 +195,7 @@ def delete_client(current_user, client_id):
             
         except Exception as e:
             db.session.rollback()
-            return jsonify({'error': f'Delete failed: {str(e)}'}), 500
+            return jsonify({'error': 'Delete failed. Please try again.'}), 500
     else:
         # Soft delete - just deactivate
         client.is_active = False
@@ -225,7 +225,7 @@ def update_keywords(current_user, client_id):
     if not client:
         return jsonify({'error': 'Client not found'}), 404
     
-    data = request.get_json()
+    data = request.get_json() or {}
     
     if 'primary' in data:
         client.primary_keywords = json.dumps(data['primary'])
@@ -268,7 +268,7 @@ def update_integrations(current_user, client_id):
     if not client:
         return jsonify({'error': 'Client not found'}), 404
     
-    data = request.get_json()
+    data = request.get_json() or {}
     
     # Store integrations as JSON
     integrations = client.get_integrations()
@@ -388,7 +388,7 @@ def add_service_page(current_user, client_id):
     if not client:
         return jsonify({'error': 'Client not found'}), 404
     
-    data = request.get_json()
+    data = request.get_json() or {}
     keyword = data.get('keyword', '').strip()
     url = data.get('url', '').strip()
     title = data.get('title', keyword).strip()
@@ -441,7 +441,7 @@ def update_service_pages(current_user, client_id):
     if not client:
         return jsonify({'error': 'Client not found'}), 404
     
-    data = request.get_json()
+    data = request.get_json() or {}
     pages = data.get('service_pages', [])
     
     # Validate structure

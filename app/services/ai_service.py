@@ -611,7 +611,7 @@ CRITICAL REMINDERS:
             if hasattr(e, 'response') and e.response is not None:
                 try:
                     error_detail = e.response.json().get('error', {}).get('message', str(e))
-                except:
+                except Exception as e:
                     error_detail = e.response.text[:200]
             return {'error': f'OpenAI API error: {error_detail}'}
     

@@ -61,7 +61,7 @@ def add_competitor(current_user):
         "name": "Main Competitor"
     }
     """
-    data = request.get_json()
+    data = request.get_json() or {}
     
     client_id = data.get('client_id')
     domain = data.get('domain', '').strip()
@@ -241,7 +241,7 @@ def generate_counter_content(current_user):
         "target_keyword": "roof repair sarasota"  // Optional override
     }
     """
-    data = request.get_json()
+    data = request.get_json() or {}
     
     page_id = data.get('competitor_page_id')
     
@@ -834,7 +834,7 @@ def score_content(current_user):
         "location": "Sarasota, FL"
     }
     """
-    data = request.get_json()
+    data = request.get_json() or {}
     
     content = data.get('content', {})
     keyword = data.get('target_keyword', '')
@@ -862,7 +862,7 @@ def compare_content(current_user):
         "location": "..."
     }
     """
-    data = request.get_json()
+    data = request.get_json() or {}
     
     our_content = data.get('our_content', {})
     competitor_url = data.get('competitor_url', '')
@@ -1124,7 +1124,7 @@ def get_competitor_dashboard(current_user, client_id):
     client_keywords = []
     try:
         client_keywords = json.loads(client.primary_keywords or '[]') + json.loads(client.secondary_keywords or '[]')
-    except:
+    except Exception as e:
         pass
     
     # Get client's latest rankings

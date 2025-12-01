@@ -75,7 +75,7 @@ def generate_image(current_user):
         logger.error(f"Image generation error: {e}")
         return jsonify({
             'success': False,
-            'error': str(e)
+            'error': 'An error occurred. Please try again.'
         }), 500
 
 
@@ -136,7 +136,7 @@ def generate_social_images(current_user):
         logger.error(f"Social image generation error: {e}")
         return jsonify({
             'success': False,
-            'error': str(e)
+            'error': 'An error occurred. Please try again.'
         }), 500
 
 
@@ -179,7 +179,7 @@ def generate_image_prompt(current_user):
     except Exception as e:
         return jsonify({
             'success': False,
-            'error': str(e)
+            'error': 'An error occurred. Please try again.'
         }), 500
 
 
@@ -330,7 +330,7 @@ def delete_image(current_user, filename):
             'deleted': filename
         })
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': 'An error occurred. Please try again.'}), 500
 
 
 # ==========================================

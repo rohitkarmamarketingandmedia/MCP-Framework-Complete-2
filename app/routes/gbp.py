@@ -149,7 +149,7 @@ def set_location(current_user):
         "location_id": "xxx"
     }
     """
-    data = request.get_json()
+    data = request.get_json() or {}
     client_id = data.get('client_id')
     
     if not client_id:
@@ -224,7 +224,7 @@ def create_post(current_user):
     if not current_user.can_generate_content:
         return jsonify({'error': 'Permission denied'}), 403
     
-    data = request.get_json()
+    data = request.get_json() or {}
     client_id = data.get('client_id')
     
     if not client_id:
@@ -276,7 +276,7 @@ def post_from_social(current_user):
     if not current_user.can_generate_content:
         return jsonify({'error': 'Permission denied'}), 403
     
-    data = request.get_json()
+    data = request.get_json() or {}
     client_id = data.get('client_id')
     social_post = data.get('social_post')
     
@@ -350,7 +350,7 @@ def reply_to_gbp_review(current_user, review_name):
         "comment": "Thank you for..."
     }
     """
-    data = request.get_json()
+    data = request.get_json() or {}
     client_id = data.get('client_id')
     comment = data.get('comment')
     
@@ -414,7 +414,7 @@ def get_questions(current_user):
 @token_required
 def answer_question(current_user, question_name):
     """Answer a GBP question"""
-    data = request.get_json()
+    data = request.get_json() or {}
     client_id = data.get('client_id')
     answer = data.get('answer')
     

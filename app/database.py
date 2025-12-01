@@ -3,6 +3,8 @@ MCP Framework - Database Configuration
 SQLAlchemy ORM setup for PostgreSQL
 """
 from flask_sqlalchemy import SQLAlchemy
+import logging
+logger = logging.getLogger(__name__)
 from sqlalchemy.orm import DeclarativeBase
 from datetime import datetime
 
@@ -25,7 +27,7 @@ def init_db(app):
         # Create all tables
         db.create_all()
         
-        print("✓ Database tables created")
+        logger.info("✓ Database tables created")
 
 
 def get_db():

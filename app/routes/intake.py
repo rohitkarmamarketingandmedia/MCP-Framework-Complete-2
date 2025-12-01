@@ -3,6 +3,8 @@ MCP Framework - Intake Routes
 Client onboarding with SEMRush research integration
 """
 from flask import Blueprint, request, jsonify
+import logging
+logger = logging.getLogger(__name__)
 from functools import wraps
 import traceback
 from app.routes.auth import token_required
@@ -27,9 +29,9 @@ def handle_errors(f):
             return f(*args, **kwargs)
         except Exception as e:
             error_detail = traceback.format_exc()
-            print(f"Intake route error: {error_detail}")
+            logger.info(f"Intake route error: {error_detail}")
             return jsonify({
-                'error': str(e),
+                'error': 'An error occurred. Please try again.',
                 'detail': error_detail
             }), 500
     return decorated
@@ -39,9 +41,9 @@ def handle_errors(f):
 def handle_blueprint_error(e):
     """Catch-all error handler for intake blueprint"""
     error_detail = traceback.format_exc()
-    print(f"Intake blueprint error: {error_detail}")
+    logger.info(f"Intake blueprint error: {error_detail}")
     return jsonify({
-        'error': str(e),
+        'error': 'An error occurred. Please try again.',
         'detail': error_detail
     }), 500
 
@@ -61,7 +63,7 @@ def analyze_transcript(current_user):
     if not current_user.can_generate_content:
         return jsonify({'error': 'Permission denied'}), 403
     
-    data = request.get_json()
+    data = request.get_json() or {}
     
     if not data.get('transcript'):
         return jsonify({'error': 'transcript is required'}), 400
@@ -111,7 +113,7 @@ def research_domain(current_user):
     if not current_user.can_generate_content:
         return jsonify({'error': 'Permission denied'}), 403
     
-    data = request.get_json()
+    data = request.get_json() or {}
     website = data.get('website', '')
     primary_keyword = data.get('primary_keyword', '')
     location = data.get('location', '')
@@ -194,7 +196,7 @@ def full_pipeline(current_user):
     if not current_user.can_generate_content:
         return jsonify({'error': 'Permission denied'}), 403
     
-    data = request.get_json()
+    data = request.get_json() or {}
     
     # Validate required fields
     required = ['business_name', 'industry', 'geo']
@@ -341,7 +343,7 @@ def full_pipeline(current_user):
     except Exception as e:
         response['errors'].append(f"Client creation failed: {str(e)}")
         return jsonify({
-            'error': f'Failed to create client: {str(e)}',
+            'error': 'Failed to create client. Please try again.',
             'success': False,
             'steps': response['steps'],
             'errors': response['errors']
@@ -466,7 +468,7 @@ def full_pipeline(current_user):
                 response['content']['blogs'].append({
                     'keyword': topic['keyword'],
                     'status': 'failed',
-                    'error': str(e)
+                    'error': 'An error occurred. Please try again.'
                 })
                 response['errors'].append(f"Blog generation failed for '{topic['keyword']}': {str(e)}")
         
@@ -527,7 +529,7 @@ def full_pipeline(current_user):
                         'platform': platform,
                         'topic': topic,
                         'status': 'failed',
-                        'error': str(e)
+                        'error': 'An error occurred. Please try again.'
                     })
     
     # ==========================================
@@ -563,7 +565,7 @@ def quick_intake(current_user):
     if not current_user.can_generate_content:
         return jsonify({'error': 'Permission denied'}), 403
     
-    data = request.get_json()
+    data = request.get_json() or {}
     website = data.get('website', '').strip()
     
     if not website:
@@ -642,7 +644,7 @@ def create_from_extraction(current_user):
     if not current_user.can_generate_content:
         return jsonify({'error': 'Permission denied'}), 403
     
-    data = request.get_json()
+    data = request.get_json() or {}
     extracted = data.get('extracted', {})
     
     if not extracted:
@@ -751,7 +753,7 @@ def _parse_extraction_response(content: str) -> dict:
         
         return json.loads(content)
     except json.JSONDecodeError as e:
-        return {'error': f'Failed to parse AI response: {str(e)}', 'raw': content}
+        return {'error': 'Failed to parse AI response. Please try again.', 'raw': content}
 
 
 def _infer_industry(keywords: list) -> str:
@@ -836,7 +838,7 @@ def keyword_research(current_user):
     if not current_user.can_generate_content:
         return jsonify({'error': 'Permission denied'}), 403
     
-    data = request.get_json()
+    data = request.get_json() or {}
     keywords = data.get('keywords', [])
     location = data.get('location', '')
     include_variations = data.get('include_variations', True)
@@ -936,7 +938,7 @@ def keyword_research(current_user):
                 'difficulty': None,
                 'cpc': None,
                 'source': 'user_input',
-                'error': str(e)
+                'error': 'An error occurred. Please try again.'
             })
     
     return jsonify(results)
@@ -960,7 +962,7 @@ def competitor_gaps(current_user):
     if not current_user.can_generate_content:
         return jsonify({'error': 'Permission denied'}), 403
     
-    data = request.get_json()
+    data = request.get_json() or {}
     competitor_domain = data.get('competitor_domain', '').strip()
     client_domain = data.get('client_domain', '').strip()
     location = data.get('location', '')
@@ -1059,7 +1061,7 @@ def quick_setup(current_user):
     if not current_user.can_generate_content:
         return jsonify({'error': 'Permission denied'}), 403
     
-    data = request.get_json()
+    data = request.get_json() or {}
     
     # Validate required fields
     required = ['business_name', 'industry', 'geo']

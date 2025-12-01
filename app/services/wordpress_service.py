@@ -390,7 +390,7 @@ class WordPressService:
                 timeout=10
             )
             return True
-        except:
+        except Exception as e:
             return False
     
     def get_categories(self) -> list:
@@ -406,7 +406,7 @@ class WordPressService:
                 return [{'id': c['id'], 'name': c['name'], 'slug': c['slug']} 
                         for c in response.json()]
             return []
-        except:
+        except Exception as e:
             return []
     
     def get_posts(self, status: str = 'publish', per_page: int = 10) -> list:
@@ -421,7 +421,7 @@ class WordPressService:
             if response.status_code == 200:
                 return response.json()
             return []
-        except:
+        except Exception as e:
             return []
 
 

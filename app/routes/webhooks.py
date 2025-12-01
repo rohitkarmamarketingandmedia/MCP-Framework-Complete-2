@@ -196,7 +196,7 @@ def test_webhook_endpoint(current_user, endpoint_id):
     except Exception as e:
         return jsonify({
             'success': False,
-            'error': str(e)
+            'error': 'An error occurred. Please try again.'
         }), 500
 
 
@@ -451,7 +451,7 @@ def receive_form_webhook():
         
         return jsonify({
             'received': True,
-            'error': str(e)
+            'error': 'An error occurred. Please try again.'
         }), 500
 
 

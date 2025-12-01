@@ -131,7 +131,7 @@ class LeadService:
             # Trigger webhook asynchronously (won't block response)
             try:
                 trigger_lead_created(lead.to_dict(), client_id)
-            except:
+            except Exception as e:
                 pass  # Don't let webhook failure affect lead capture
     
     def get_lead(self, lead_id: str) -> Optional[DBLead]:
@@ -195,7 +195,7 @@ class LeadService:
         if status == 'converted' and old_status != 'converted':
             try:
                 trigger_lead_converted(lead.to_dict(), lead.client_id)
-            except:
+            except Exception as e:
                 pass  # Don't let webhook failure affect status update
         
         return {'success': True, 'lead': lead.to_dict()}

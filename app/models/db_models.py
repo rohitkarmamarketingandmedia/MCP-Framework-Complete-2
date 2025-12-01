@@ -1154,7 +1154,7 @@ class DBWebhook(db.Model):
     def get_events(self) -> list:
         try:
             return json.loads(self.events) if self.events else []
-        except:
+        except Exception as e:
             return []
     
     def set_events(self, events: list):
@@ -1223,7 +1223,7 @@ class DBSetting(db.Model):
         elif self.value_type == 'json':
             try:
                 return json.loads(self.value)
-            except:
+            except Exception as e:
                 return self.value
         return self.value
     
@@ -1289,7 +1289,7 @@ class DBAgentConfig(db.Model):
             return []
         try:
             return json.loads(self.tools_allowed)
-        except:
+        except Exception as e:
             return []
     
     def set_tools(self, tools: list):

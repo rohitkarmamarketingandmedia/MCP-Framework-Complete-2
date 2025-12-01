@@ -522,7 +522,7 @@ class AgentService:
                 parsed = json.loads(result)
                 output = parsed
                 is_valid_json = True
-            except:
+            except Exception as e:
                 pass
             
             return {

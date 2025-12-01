@@ -115,7 +115,7 @@ def initiate_oauth(current_user, platform):
         
     except Exception as e:
         logger.error(f"OAuth initiation failed: {e}")
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': 'An error occurred. Please try again.'}), 500
 
 
 # ==========================================
@@ -310,7 +310,7 @@ def get_available_accounts(current_user, platform):
             return jsonify({'error': f'Unknown platform: {platform}'}), 400
             
     except OAuthError as e:
-        return jsonify({'error': str(e)}), 400
+        return jsonify({'error': 'An error occurred. Please try again.'}), 400
     except Exception as e:
         logger.error(f"Account discovery error: {e}")
         return jsonify({'error': 'Failed to get accounts'}), 500
@@ -476,7 +476,7 @@ def validate_connection(current_user, platform, client_id):
         return jsonify({
             'valid': False,
             'connected': True,
-            'error': str(e)
+            'error': 'An error occurred. Please try again.'
         })
 
 
@@ -526,7 +526,7 @@ def refresh_connection(current_user, platform, client_id):
         
     except OAuthError as e:
         return jsonify({
-            'error': str(e),
+            'error': 'An error occurred. Please try again.',
             'reconnect_required': True
         }), 400
 
@@ -586,4 +586,4 @@ def disconnect_platform(current_user, platform, client_id):
         
     except Exception as e:
         db.session.rollback()
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': 'An error occurred. Please try again.'}), 500

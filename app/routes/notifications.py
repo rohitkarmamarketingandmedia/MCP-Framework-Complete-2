@@ -71,7 +71,7 @@ def update_preferences(current_user):
         })
         
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': 'An error occurred. Please try again.'}), 500
 
 
 @notifications_bp.route('/preferences/reset', methods=['POST'])
@@ -110,7 +110,7 @@ def reset_preferences(current_user):
         
     except Exception as e:
         db.session.rollback()
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': 'An error occurred. Please try again.'}), 500
 
 
 # ==========================================

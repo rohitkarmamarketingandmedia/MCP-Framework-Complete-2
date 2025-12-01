@@ -6,10 +6,12 @@ By Karma Marketing + Media
 """
 from flask import Flask, send_from_directory, jsonify
 from flask_cors import CORS
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 import os
 import logging
 
-__version__ = "5.5.0"
+__version__ = "5.5.3"
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -38,6 +40,16 @@ def create_app(config_name=None):
     if cors_origins == '*' and app.config.get('ENV') == 'production':
         logger.warning("SECURITY: CORS_ORIGINS is set to '*' in production! Set specific origins.")
     CORS(app, origins=cors_origins)
+
+    # Rate limiting
+    limiter = Limiter(
+        app=app,
+        key_func=get_remote_address,
+        default_limits=["200 per day", "50 per hour"],
+        storage_uri="memory://"
+    )
+    app.limiter = limiter  # Store for use in routes
+    
     
     # Initialize database
     from app.database import init_db

@@ -102,19 +102,19 @@ class AuditService:
             if old_value is not None:
                 try:
                     old_value_json = json.dumps(old_value, default=str)
-                except:
+                except Exception as e:
                     old_value_json = str(old_value)
             
             if new_value is not None:
                 try:
                     new_value_json = json.dumps(new_value, default=str)
-                except:
+                except Exception as e:
                     new_value_json = str(new_value)
             
             if metadata is not None:
                 try:
                     metadata_json = json.dumps(metadata, default=str)
-                except:
+                except Exception as e:
                     metadata_json = str(metadata)
             
             # Create log entry

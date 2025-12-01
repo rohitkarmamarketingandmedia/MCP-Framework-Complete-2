@@ -87,7 +87,7 @@ def manual_crawl(current_user):
         run_competitor_crawl(current_app._get_current_object())
         return jsonify({'success': True, 'message': 'Competitor crawl triggered'})
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': 'An error occurred. Please try again.'}), 500
 
 
 @scheduler_bp.route('/run-ranks', methods=['POST'])
@@ -106,7 +106,7 @@ def manual_ranks(current_user):
         run_rank_check(current_app._get_current_object())
         return jsonify({'success': True, 'message': 'Rank check triggered'})
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': 'An error occurred. Please try again.'}), 500
 
 
 @scheduler_bp.route('/run-publish', methods=['POST'])
@@ -129,7 +129,7 @@ def manual_publish(current_user):
             'details': result
         })
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': 'An error occurred. Please try again.'}), 500
 
 
 @scheduler_bp.route('/publish-queue', methods=['GET'])

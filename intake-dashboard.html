@@ -1798,6 +1798,7 @@
             const secondary = keywords.filter(k => k.type === 'secondary');
             
             try {
+                const quickSetup = document.getElementById('opt-quick').checked;
                 const payload = {
                     ...clientData,
                     primary_keywords: primary.map(k => k.keyword),
@@ -1805,6 +1806,7 @@
                     generate_content: document.getElementById('opt-blogs').checked,
                     generate_social: document.getElementById('opt-social').checked,
                     setup_monitoring: document.getElementById('opt-monitor').checked,
+                    run_semrush_research: !quickSetup,  // Skip SEMRush for quick setup
                     blog_count: primary.length,
                     social_count: primary.length
                 };
@@ -1886,22 +1888,29 @@
                 let isTimeout = errorMsg.includes('500') || errorMsg.includes('timeout') || errorMsg.includes('html>') || errorMsg.includes('504');
                 
                 if (isTimeout) {
-                    // Show retry dialog with quick setup option
-                    const retry = confirm('⏱️ Server timeout - content generation took too long.\n\nWould you like to retry with "Quick Setup" mode?\n\n(This will save your client without generating content. You can generate content from the dashboard later.)');
+                    // Check if we're already in quick setup mode
+                    const alreadyQuickSetup = document.getElementById('opt-quick').checked;
                     
-                    if (retry) {
-                        // Enable quick setup and retry
-                        document.getElementById('opt-quick').checked = true;
-                        toggleQuickSetup();
-                        btn.disabled = false;
-                        btn.innerHTML = `<svg class="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
-                        </svg>Launch Client`;
-                        // Auto-retry
-                        setTimeout(() => launchClient(), 500);
-                        return;
+                    if (alreadyQuickSetup) {
+                        // Already in quick setup and still timing out - server issue
+                        errorMsg = 'Server is still timing out. Please try again in a moment, or check server logs.';
                     } else {
-                        errorMsg = 'Timeout cancelled. Check "Quick setup" to save without content, then generate from the dashboard.';
+                        // Show retry dialog with quick setup option
+                        const retry = confirm('⏱️ Server timeout - content generation took too long.\n\nWould you like to retry with "Quick Setup" mode?\n\n(This will save your client without generating content. You can generate content from the dashboard later.)');
+                        
+                        if (retry) {
+                            // Enable quick setup - user must click button again manually
+                            document.getElementById('opt-quick').checked = true;
+                            toggleQuickSetup();
+                            btn.disabled = false;
+                            btn.innerHTML = `<svg class="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                            </svg>Launch Client`;
+                            // Don't auto-retry - let user click the button
+                            return;
+                        } else {
+                            errorMsg = 'Timeout cancelled. Check "Quick setup" to save without content, then generate from the dashboard.';
+                        }
                     }
                 }
                 

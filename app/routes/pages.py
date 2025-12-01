@@ -33,7 +33,7 @@ def generate_service_page(current_user):
     if not current_user.can_generate_content:
         return jsonify({'error': 'Permission denied'}), 403
     
-    data = request.get_json()
+    data = request.get_json() or {}
     client_id = data.get('client_id')
     service = data.get('service')
     
@@ -48,7 +48,7 @@ def generate_service_page(current_user):
     try:
         from app.services.ai_service import ai_service
         service_page_generator.set_ai_service(ai_service)
-    except:
+    except Exception as e:
         pass
     
     result = service_page_generator.generate_service_page(
@@ -77,7 +77,7 @@ def generate_location_page(current_user):
     if not current_user.can_generate_content:
         return jsonify({'error': 'Permission denied'}), 403
     
-    data = request.get_json()
+    data = request.get_json() or {}
     client_id = data.get('client_id')
     location = data.get('location')
     
@@ -92,7 +92,7 @@ def generate_location_page(current_user):
     try:
         from app.services.ai_service import ai_service
         service_page_generator.set_ai_service(ai_service)
-    except:
+    except Exception as e:
         pass
     
     result = service_page_generator.generate_location_page(
@@ -120,7 +120,7 @@ def generate_bulk_pages(current_user):
     if not current_user.can_generate_content:
         return jsonify({'error': 'Permission denied'}), 403
     
-    data = request.get_json()
+    data = request.get_json() or {}
     client_id = data.get('client_id')
     
     if not client_id:
@@ -134,7 +134,7 @@ def generate_bulk_pages(current_user):
     try:
         from app.services.ai_service import ai_service
         service_page_generator.set_ai_service(ai_service)
-    except:
+    except Exception as e:
         pass
     
     result = service_page_generator.generate_bulk_pages(
@@ -217,7 +217,7 @@ def update_page(current_user, page_id):
     if not current_user.has_access_to_client(page.client_id):
         return jsonify({'error': 'Access denied'}), 403
     
-    data = request.get_json()
+    data = request.get_json() or {}
     
     # Update allowed fields
     updatable = [

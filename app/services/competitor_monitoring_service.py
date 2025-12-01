@@ -101,7 +101,7 @@ class CompetitorMonitoringService:
                         }
                         pages.append(page)
         except Exception as e:
-            print(f"Sitemap parse error: {e}")
+            logger.info(f"Sitemap parse error: {e}")
         
         return pages
     

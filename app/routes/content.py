@@ -3,6 +3,8 @@ MCP Framework - Content Generation Routes
 Blog posts, landing pages, and SEO content
 """
 from flask import Blueprint, request, jsonify, current_app
+import logging
+logger = logging.getLogger(__name__)
 from app.routes.auth import token_required
 from app.services.ai_service import AIService
 from app.services.seo_service import SEOService
@@ -41,7 +43,7 @@ def generate_content(current_user):
     if not current_user.can_generate_content:
         return jsonify({'error': 'Permission denied'}), 403
     
-    data = request.get_json()
+    data = request.get_json() or {}
     
     # Validate required fields
     required = ['client_id', 'keyword', 'geo', 'industry']
@@ -144,7 +146,7 @@ def bulk_generate(current_user):
     if not current_user.can_generate_content:
         return jsonify({'error': 'Permission denied'}), 403
     
-    data = request.get_json()
+    data = request.get_json() or {}
     
     client_id = data.get('client_id')
     topics = data.get('topics', [])
@@ -245,7 +247,7 @@ def bulk_generate(current_user):
             results.append({
                 'keyword': keyword,
                 'success': False,
-                'error': str(e)
+                'error': 'An error occurred. Please try again.'
             })
     
     return jsonify({
@@ -286,7 +288,7 @@ def update_content(current_user, content_id):
     if not current_user.has_access_to_client(content.client_id):
         return jsonify({'error': 'Access denied'}), 403
     
-    data = request.get_json()
+    data = request.get_json() or {}
     
     # Update allowed fields
     if 'title' in data:
@@ -375,7 +377,7 @@ def seo_check(current_user):
         "target_keyword": "..."
     }
     """
-    data = request.get_json()
+    data = request.get_json() or {}
     
     title = data.get('title', '')
     body = data.get('body', '')
@@ -435,7 +437,7 @@ def generate_blog_simple(current_user):
     if not current_user.can_generate_content:
         return jsonify({'error': 'Permission denied'}), 403
     
-    data = request.get_json()
+    data = request.get_json() or {}
     
     if not data.get('client_id') or not data.get('keyword'):
         return jsonify({'error': 'client_id and keyword required'}), 400
@@ -551,7 +553,7 @@ def generate_blog_simple(current_user):
                     'faq': faq_schema
                 }
             except Exception as e:
-                schema_data = {'error': str(e)}
+                schema_data = {'error': 'An error occurred. Please try again.'}
         
         return jsonify({
             'success': True,
@@ -565,9 +567,9 @@ def generate_blog_simple(current_user):
     except Exception as e:
         import traceback
         error_detail = traceback.format_exc()
-        print(f"Blog generation error: {error_detail}")
+        logger.info(f"Blog generation error: {error_detail}")
         return jsonify({
-            'error': str(e),
+            'error': 'An error occurred. Please try again.',
             'detail': 'Blog generation failed. Check server logs.'
         }), 500
 
@@ -657,7 +659,7 @@ def generate_social_simple(current_user):
     if not current_user.can_generate_content:
         return jsonify({'error': 'Permission denied'}), 403
     
-    data = request.get_json()
+    data = request.get_json() or {}
     
     if not data.get('client_id') or not data.get('topic') or not data.get('platform'):
         return jsonify({'error': 'client_id, topic, and platform required'}), 400
@@ -712,9 +714,9 @@ def generate_social_simple(current_user):
     except Exception as e:
         import traceback
         error_detail = traceback.format_exc()
-        print(f"Social generation error: {error_detail}")
+        logger.info(f"Social generation error: {error_detail}")
         return jsonify({
-            'error': str(e),
+            'error': 'An error occurred. Please try again.',
             'detail': 'Social post generation failed. Check server logs.'
         }), 500
 
@@ -737,7 +739,7 @@ def test_wordpress_connection(current_user):
         "wordpress_app_password": "xxxx xxxx xxxx xxxx"
     }
     """
-    data = request.get_json()
+    data = request.get_json() or {}
     
     wp_url = data.get('wordpress_url', '').strip()
     wp_user = data.get('wordpress_user', '').strip()
@@ -764,7 +766,7 @@ def test_wordpress_connection(current_user):
     except Exception as e:
         return jsonify({
             'success': False,
-            'message': f'Connection error: {str(e)}'
+            'message': 'Connection error. Please check your network.'
         }), 500
 
 
@@ -870,7 +872,7 @@ def publish_to_wordpress(current_user, content_id):
         traceback.print_exc()
         return jsonify({
             'success': False,
-            'message': f'Publish error: {str(e)}'
+            'message': 'Publish failed. Please check your WordPress connection.'
         }), 500
 
 
@@ -888,7 +890,7 @@ def bulk_delete_content(current_user):
     if not current_user.can_generate_content:
         return jsonify({'error': 'Permission denied'}), 403
     
-    data = request.get_json()
+    data = request.get_json() or {}
     ids = data.get('ids', [])
     
     if not ids:
@@ -929,7 +931,7 @@ def bulk_approve_content(current_user):
     if not current_user.can_generate_content:
         return jsonify({'error': 'Permission denied'}), 403
     
-    data = request.get_json()
+    data = request.get_json() or {}
     ids = data.get('ids', [])
     
     if not ids:
@@ -973,7 +975,7 @@ def submit_content_feedback(current_user, content_id):
     if not current_user.has_access_to_client(content.client_id):
         return jsonify({'error': 'Access denied'}), 403
     
-    data = request.get_json()
+    data = request.get_json() or {}
     feedback_text = data.get('feedback', '')
     feedback_type = data.get('type', 'comment')
     
@@ -1031,7 +1033,7 @@ Please review and update the content accordingly.
                 """.strip()
             )
         except Exception as e:
-            print(f"Email notification failed: {e}")
+            logger.info(f"Email notification failed: {e}")
         
         return jsonify({
             'success': True,

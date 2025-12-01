@@ -47,3 +47,4 @@ twilio>=8.10.0
 # Testing
 pytest>=7.4.0
 pytest-cov>=4.1.0
+Flask-Limiter>=3.5.0

@@ -398,7 +398,7 @@ def ai_seo_analysis(current_user, client_id):
     if not current_user.has_access_to_client(client_id):
         return jsonify({'error': 'Access denied'}), 403
     
-    data = request.get_json()
+    data = request.get_json() or {}
     if not data:
         return jsonify({'error': 'Request body required'}), 400
     
@@ -442,7 +442,7 @@ Identify:
         })
     except Exception as e:
         current_app.logger.error(f"AI SEO analysis failed: {e}")
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': 'An error occurred. Please try again.'}), 500
 
 
 @analytics_bp.route('/ai-competitor-analysis/<client_id>', methods=['POST'])
@@ -462,7 +462,7 @@ def ai_competitor_analysis(current_user, client_id):
     if not current_user.has_access_to_client(client_id):
         return jsonify({'error': 'Access denied'}), 403
     
-    data = request.get_json()
+    data = request.get_json() or {}
     if not data:
         return jsonify({'error': 'Request body required'}), 400
     
@@ -509,4 +509,4 @@ Provide:
         })
     except Exception as e:
         current_app.logger.error(f"AI competitor analysis failed: {e}")
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': 'An error occurred. Please try again.'}), 500

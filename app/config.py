@@ -9,8 +9,14 @@ from datetime import timedelta
 class BaseConfig:
     """Base configuration"""
     
-    # Flask
+    # Flask - Secret key (required in production)
     SECRET_KEY = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')
+    
+    # Warn if using dev key in production-like environment
+    _is_production = os.environ.get('RENDER') or os.environ.get('FLASK_ENV') == 'production'
+    if SECRET_KEY == 'dev-secret-key-change-in-production' and _is_production:
+        import warnings
+        warnings.warn("SECRET_KEY is using default dev value in production! Set SECRET_KEY env var.")
     
     # CORS
     CORS_ORIGINS = os.environ.get('CORS_ORIGINS', '*')

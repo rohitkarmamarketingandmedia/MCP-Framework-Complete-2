@@ -629,7 +629,7 @@ def run_auto_publish(app):
                         success=False,
                         error_message=str(e)
                     )
-                except:
+                except Exception as e:
                     pass  # Don't fail if notification fails
         
         # Commit all changes
