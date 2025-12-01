@@ -1,0 +1,224 @@
+{
+  "name": "MCP Lead Processor",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "leads",
+        "options": {}
+      },
+      "id": "webhook-leads",
+      "name": "Webhook - Lead Events",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300],
+      "webhookId": "leads"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.event_type }}",
+              "operation": "equals",
+              "value2": "lead.created"
+            }
+          ]
+        }
+      },
+      "id": "filter-new-lead",
+      "name": "Filter New Leads",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "channel": "#leads",
+        "text": "🔥 *New Lead!*\n\n*Name:* {{ $json.payload.name }}\n*Email:* {{ $json.payload.email }}\n*Phone:* {{ $json.payload.phone }}\n*Source:* {{ $json.payload.source }}\n*Service:* {{ $json.payload.service }}\n*Client:* {{ $json.payload.client_name }}",
+        "otherOptions": {}
+      },
+      "id": "slack-lead",
+      "name": "Slack - New Lead Alert",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 1,
+      "position": [650, 200],
+      "credentials": {
+        "slackApi": {
+          "id": "CONFIGURE_ME",
+          "name": "Slack Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "CONFIGURE_ME"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "list",
+          "value": "Leads"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Date": "={{ $now.toISO() }}",
+            "Name": "={{ $json.payload.name }}",
+            "Email": "={{ $json.payload.email }}",
+            "Phone": "={{ $json.payload.phone }}",
+            "Source": "={{ $json.payload.source }}",
+            "Service": "={{ $json.payload.service }}",
+            "Client": "={{ $json.payload.client_name }}",
+            "Lead ID": "={{ $json.payload.lead_id }}"
+          }
+        },
+        "options": {}
+      },
+      "id": "sheets-add",
+      "name": "Google Sheets - Add Lead",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [650, 400],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "CONFIGURE_ME",
+          "name": "Google Sheets Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "fromEmail": "hello@karmamarketing.ai",
+        "toEmail": "={{ $json.payload.email }}",
+        "subject": "Thanks for reaching out!",
+        "text": "Hi {{ $json.payload.name }},\n\nThanks for contacting us! We received your inquiry about {{ $json.payload.service }}.\n\nA member of our team will be in touch within 24 hours.\n\nBest regards,\n{{ $json.payload.client_name }}"
+      },
+      "id": "email-lead",
+      "name": "Email - Auto Response",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 1,
+      "position": [850, 300],
+      "credentials": {
+        "smtp": {
+          "id": "CONFIGURE_ME",
+          "name": "SMTP Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.payload.source }}",
+              "operation": "equals",
+              "value2": "call"
+            }
+          ]
+        }
+      },
+      "id": "check-call-lead",
+      "name": "Is Phone Lead?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [1050, 300]
+    },
+    {
+      "parameters": {
+        "channel": "#hot-leads",
+        "text": "📞 *HOT PHONE LEAD*\n\n*Name:* {{ $json.payload.name }}\n*Phone:* {{ $json.payload.phone }}\n*Client:* {{ $json.payload.client_name }}\n\n⚡ Call them back NOW!",
+        "otherOptions": {}
+      },
+      "id": "slack-hot",
+      "name": "Slack - Hot Lead Alert",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 1,
+      "position": [1250, 200],
+      "credentials": {
+        "slackApi": {
+          "id": "CONFIGURE_ME",
+          "name": "Slack Account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Webhook - Lead Events": {
+      "main": [
+        [
+          {
+            "node": "Filter New Leads",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter New Leads": {
+      "main": [
+        [
+          {
+            "node": "Slack - New Lead Alert",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Google Sheets - Add Lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Slack - New Lead Alert": {
+      "main": [
+        [
+          {
+            "node": "Email - Auto Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Email - Auto Response": {
+      "main": [
+        [
+          {
+            "node": "Is Phone Lead?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Phone Lead?": {
+      "main": [
+        [
+          {
+            "node": "Slack - Hot Lead Alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    {
+      "name": "MCP",
+      "createdAt": "2024-01-01T00:00:00.000Z"
+    },
+    {
+      "name": "Leads",
+      "createdAt": "2024-01-01T00:00:00.000Z"
+    }
+  ]
+}

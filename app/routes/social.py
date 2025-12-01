@@ -330,3 +330,430 @@ def bulk_delete_social(current_user):
         'deleted': deleted,
         'message': f'Deleted {deleted} posts'
     })
+
+
+# ============================================
+# Social Connection Management
+# ============================================
+
+@social_bp.route('/connections/<client_id>', methods=['GET'])
+@token_required
+def get_social_connections(current_user, client_id):
+    """
+    Get social media connection status for a client
+    
+    GET /api/social/connections/{client_id}
+    """
+    from app.models.db_models import DBClient
+    
+    client = DBClient.query.get(client_id)
+    if not client:
+        return jsonify({'error': 'Client not found'}), 404
+    
+    if not current_user.has_access_to_client(client_id):
+        return jsonify({'error': 'Access denied'}), 403
+    
+    connections = {
+        'gbp': {
+            'platform': 'Google Business Profile',
+            'connected': bool(client.gbp_location_id and client.gbp_access_token),
+            'location_id': client.gbp_location_id,
+            'icon': 'fab fa-google',
+            'color': '#4285F4'
+        },
+        'facebook': {
+            'platform': 'Facebook',
+            'connected': bool(client.facebook_page_id and client.facebook_access_token),
+            'page_id': client.facebook_page_id,
+            'connected_at': client.facebook_connected_at.isoformat() if client.facebook_connected_at else None,
+            'icon': 'fab fa-facebook',
+            'color': '#1877F2'
+        },
+        'instagram': {
+            'platform': 'Instagram',
+            'connected': bool(client.instagram_account_id and client.instagram_access_token),
+            'account_id': client.instagram_account_id,
+            'connected_at': client.instagram_connected_at.isoformat() if client.instagram_connected_at else None,
+            'icon': 'fab fa-instagram',
+            'color': '#E4405F'
+        },
+        'linkedin': {
+            'platform': 'LinkedIn',
+            'connected': bool(client.linkedin_org_id and client.linkedin_access_token),
+            'org_id': client.linkedin_org_id,
+            'connected_at': client.linkedin_connected_at.isoformat() if client.linkedin_connected_at else None,
+            'icon': 'fab fa-linkedin',
+            'color': '#0A66C2'
+        }
+    }
+    
+    connected_count = sum(1 for c in connections.values() if c['connected'])
+    
+    return jsonify({
+        'client_id': client_id,
+        'connections': connections,
+        'connected_count': connected_count,
+        'total_platforms': 4
+    })
+
+
+@social_bp.route('/connect/<client_id>/<platform>', methods=['POST'])
+@token_required
+def connect_platform(current_user, client_id, platform):
+    """
+    Connect a social platform for a client
+    
+    POST /api/social/connect/{client_id}/{platform}
+    {
+        "access_token": "...",
+        "page_id": "..." (for Facebook),
+        "account_id": "..." (for Instagram),
+        "org_id": "..." (for LinkedIn),
+        "location_id": "..." (for GBP)
+    }
+    """
+    from app.database import db
+    from app.models.db_models import DBClient
+    
+    if not current_user.can_manage_clients:
+        return jsonify({'error': 'Permission denied'}), 403
+    
+    client = DBClient.query.get(client_id)
+    if not client:
+        return jsonify({'error': 'Client not found'}), 404
+    
+    data = request.get_json() or {}
+    access_token = data.get('access_token')
+    
+    if not access_token:
+        return jsonify({'error': 'Access token required'}), 400
+    
+    platform = platform.lower()
+    
+    try:
+        if platform == 'facebook':
+            page_id = data.get('page_id')
+            if not page_id:
+                return jsonify({'error': 'Facebook Page ID required'}), 400
+            
+            client.facebook_page_id = page_id
+            client.facebook_access_token = access_token
+            client.facebook_connected_at = datetime.utcnow()
+            
+        elif platform == 'instagram':
+            account_id = data.get('account_id')
+            if not account_id:
+                return jsonify({'error': 'Instagram Account ID required'}), 400
+            
+            client.instagram_account_id = account_id
+            client.instagram_access_token = access_token
+            client.instagram_connected_at = datetime.utcnow()
+            
+        elif platform == 'linkedin':
+            org_id = data.get('org_id')
+            if not org_id:
+                return jsonify({'error': 'LinkedIn Organization ID required'}), 400
+            
+            client.linkedin_org_id = org_id
+            client.linkedin_access_token = access_token
+            client.linkedin_connected_at = datetime.utcnow()
+            
+        elif platform in ['gbp', 'google']:
+            location_id = data.get('location_id')
+            account_id = data.get('account_id')
+            
+            if not location_id:
+                return jsonify({'error': 'GBP Location ID required'}), 400
+            
+            client.gbp_location_id = location_id
+            client.gbp_account_id = account_id
+            client.gbp_access_token = access_token
+            
+        else:
+            return jsonify({'error': f'Unknown platform: {platform}'}), 400
+        
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': f'{platform.title()} connected successfully',
+            'platform': platform,
+            'connected_at': datetime.utcnow().isoformat()
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': f'Connection failed: {str(e)}'}), 500
+
+
+@social_bp.route('/disconnect/<client_id>/<platform>', methods=['POST'])
+@token_required
+def disconnect_platform(current_user, client_id, platform):
+    """
+    Disconnect a social platform from a client
+    
+    POST /api/social/disconnect/{client_id}/{platform}
+    """
+    from app.database import db
+    from app.models.db_models import DBClient
+    
+    if not current_user.can_manage_clients:
+        return jsonify({'error': 'Permission denied'}), 403
+    
+    client = DBClient.query.get(client_id)
+    if not client:
+        return jsonify({'error': 'Client not found'}), 404
+    
+    platform = platform.lower()
+    
+    try:
+        if platform == 'facebook':
+            client.facebook_page_id = None
+            client.facebook_access_token = None
+            client.facebook_connected_at = None
+            
+        elif platform == 'instagram':
+            client.instagram_account_id = None
+            client.instagram_access_token = None
+            client.instagram_connected_at = None
+            
+        elif platform == 'linkedin':
+            client.linkedin_org_id = None
+            client.linkedin_access_token = None
+            client.linkedin_connected_at = None
+            
+        elif platform in ['gbp', 'google']:
+            client.gbp_location_id = None
+            client.gbp_account_id = None
+            client.gbp_access_token = None
+            
+        else:
+            return jsonify({'error': f'Unknown platform: {platform}'}), 400
+        
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': f'{platform.title()} disconnected',
+            'platform': platform
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': f'Disconnect failed: {str(e)}'}), 500
+
+
+@social_bp.route('/test/<client_id>/<platform>', methods=['POST'])
+@token_required
+def test_platform_connection(current_user, client_id, platform):
+    """
+    Test a social platform connection
+    
+    POST /api/social/test/{client_id}/{platform}
+    """
+    from app.models.db_models import DBClient
+    import requests as http_requests
+    
+    client = DBClient.query.get(client_id)
+    if not client:
+        return jsonify({'error': 'Client not found'}), 404
+    
+    if not current_user.has_access_to_client(client_id):
+        return jsonify({'error': 'Access denied'}), 403
+    
+    platform = platform.lower()
+    
+    try:
+        if platform == 'facebook':
+            if not client.facebook_page_id or not client.facebook_access_token:
+                return jsonify({'connected': False, 'error': 'Not connected'}), 200
+            
+            response = http_requests.get(
+                f'https://graph.facebook.com/v18.0/{client.facebook_page_id}',
+                params={'access_token': client.facebook_access_token, 'fields': 'name,id'},
+                timeout=10
+            )
+            
+            if response.ok:
+                data = response.json()
+                return jsonify({
+                    'connected': True,
+                    'platform': 'Facebook',
+                    'page_name': data.get('name'),
+                    'page_id': data.get('id')
+                })
+            else:
+                return jsonify({'connected': False, 'error': 'Token expired or invalid'})
+                
+        elif platform == 'instagram':
+            if not client.instagram_account_id or not client.instagram_access_token:
+                return jsonify({'connected': False, 'error': 'Not connected'}), 200
+            
+            response = http_requests.get(
+                f'https://graph.facebook.com/v18.0/{client.instagram_account_id}',
+                params={'access_token': client.instagram_access_token, 'fields': 'username,id'},
+                timeout=10
+            )
+            
+            if response.ok:
+                data = response.json()
+                return jsonify({
+                    'connected': True,
+                    'platform': 'Instagram',
+                    'username': data.get('username'),
+                    'account_id': data.get('id')
+                })
+            else:
+                return jsonify({'connected': False, 'error': 'Token expired or invalid'})
+                
+        elif platform == 'linkedin':
+            if not client.linkedin_org_id or not client.linkedin_access_token:
+                return jsonify({'connected': False, 'error': 'Not connected'}), 200
+            
+            response = http_requests.get(
+                f'https://api.linkedin.com/v2/organizations/{client.linkedin_org_id}',
+                headers={
+                    'Authorization': f'Bearer {client.linkedin_access_token}',
+                    'X-Restli-Protocol-Version': '2.0.0'
+                },
+                timeout=10
+            )
+            
+            if response.ok:
+                data = response.json()
+                return jsonify({
+                    'connected': True,
+                    'platform': 'LinkedIn',
+                    'org_name': data.get('localizedName'),
+                    'org_id': client.linkedin_org_id
+                })
+            else:
+                return jsonify({'connected': False, 'error': 'Token expired or invalid'})
+                
+        elif platform in ['gbp', 'google']:
+            if not client.gbp_location_id or not client.gbp_access_token:
+                return jsonify({'connected': False, 'error': 'Not connected'}), 200
+            
+            return jsonify({
+                'connected': True,
+                'platform': 'Google Business Profile',
+                'location_id': client.gbp_location_id,
+                'note': 'Full verification requires OAuth flow'
+            })
+            
+        else:
+            return jsonify({'error': f'Unknown platform: {platform}'}), 400
+            
+    except Exception as e:
+        return jsonify({'connected': False, 'error': str(e)})
+
+
+@social_bp.route('/publish-now/<client_id>', methods=['POST'])
+@token_required
+def publish_now(current_user, client_id):
+    """
+    Publish content immediately to specified platforms
+    
+    POST /api/social/publish-now/{client_id}
+    {
+        "platforms": ["facebook", "instagram", "linkedin", "gbp"],
+        "content": "Post content here",
+        "image_url": "https://...",
+        "link_url": "https://..."
+    }
+    """
+    from app.models.db_models import DBClient
+    
+    if not current_user.can_generate_content:
+        return jsonify({'error': 'Permission denied'}), 403
+    
+    client = DBClient.query.get(client_id)
+    if not client:
+        return jsonify({'error': 'Client not found'}), 404
+    
+    if not current_user.has_access_to_client(client_id):
+        return jsonify({'error': 'Access denied'}), 403
+    
+    data = request.get_json() or {}
+    platforms = data.get('platforms', [])
+    content = data.get('content', '')
+    image_url = data.get('image_url')
+    link_url = data.get('link_url')
+    
+    if not platforms:
+        return jsonify({'error': 'No platforms specified'}), 400
+    if not content:
+        return jsonify({'error': 'Content required'}), 400
+    
+    results = {}
+    
+    for platform in platforms:
+        platform = platform.lower()
+        
+        try:
+            if platform == 'facebook':
+                if not client.facebook_page_id or not client.facebook_access_token:
+                    results['facebook'] = {'success': False, 'error': 'Not connected'}
+                    continue
+                    
+                result = social_service.publish_to_facebook(
+                    page_id=client.facebook_page_id,
+                    access_token=client.facebook_access_token,
+                    message=content,
+                    link=link_url,
+                    image_url=image_url
+                )
+                results['facebook'] = result
+                
+            elif platform == 'instagram':
+                if not client.instagram_account_id or not client.instagram_access_token:
+                    results['instagram'] = {'success': False, 'error': 'Not connected'}
+                    continue
+                if not image_url:
+                    results['instagram'] = {'success': False, 'error': 'Image required for Instagram'}
+                    continue
+                    
+                result = social_service.publish_to_instagram(
+                    account_id=client.instagram_account_id,
+                    access_token=client.instagram_access_token,
+                    image_url=image_url,
+                    caption=content
+                )
+                results['instagram'] = result
+                
+            elif platform == 'linkedin':
+                if not client.linkedin_org_id or not client.linkedin_access_token:
+                    results['linkedin'] = {'success': False, 'error': 'Not connected'}
+                    continue
+                    
+                result = social_service.publish_to_linkedin(
+                    organization_id=client.linkedin_org_id,
+                    access_token=client.linkedin_access_token,
+                    text=content,
+                    link=link_url
+                )
+                results['linkedin'] = result
+                
+            elif platform in ['gbp', 'google']:
+                if not client.gbp_location_id or not client.gbp_access_token:
+                    results['gbp'] = {'success': False, 'error': 'Not connected'}
+                    continue
+                    
+                result = social_service.publish_to_gbp(
+                    location_id=client.gbp_location_id,
+                    text=content,
+                    image_url=image_url
+                )
+                results['gbp'] = result
+                
+        except Exception as e:
+            results[platform] = {'success': False, 'error': str(e)}
+    
+    successful = sum(1 for r in results.values() if r.get('success'))
+    
+    return jsonify({
+        'success': successful > 0,
+        'published_count': successful,
+        'total_platforms': len(platforms),
+        'results': results
+    })

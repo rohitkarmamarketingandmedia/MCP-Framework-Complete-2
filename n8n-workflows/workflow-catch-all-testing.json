@@ -1,0 +1,104 @@
+{
+  "name": "MCP Catch-All (Testing)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "mcp-events",
+        "options": {}
+      },
+      "id": "webhook-all",
+      "name": "Webhook - All MCP Events",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300],
+      "webhookId": "mcp-events"
+    },
+    {
+      "parameters": {
+        "channel": "#mcp-events",
+        "text": "📨 *MCP Event Received*\n\n*Type:* {{ $json.event_type }}\n*Event ID:* {{ $json.event_id }}\n*Time:* {{ $json.timestamp }}\n\n```{{ JSON.stringify($json.payload, null, 2).substring(0, 500) }}```",
+        "otherOptions": {}
+      },
+      "id": "slack-log",
+      "name": "Slack - Log Event",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 1,
+      "position": [450, 300],
+      "credentials": {
+        "slackApi": {
+          "id": "CONFIGURE_ME",
+          "name": "Slack Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "CONFIGURE_ME"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "list",
+          "value": "Event Log"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Timestamp": "={{ $json.timestamp }}",
+            "Event Type": "={{ $json.event_type }}",
+            "Event ID": "={{ $json.event_id }}",
+            "Client ID": "={{ $json.payload.client_id }}",
+            "Payload": "={{ JSON.stringify($json.payload) }}"
+          }
+        },
+        "options": {}
+      },
+      "id": "sheets-log",
+      "name": "Google Sheets - Log Event",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [650, 300],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "CONFIGURE_ME",
+          "name": "Google Sheets Account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Webhook - All MCP Events": {
+      "main": [
+        [
+          {
+            "node": "Slack - Log Event",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Google Sheets - Log Event",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    {
+      "name": "MCP",
+      "createdAt": "2024-01-01T00:00:00.000Z"
+    },
+    {
+      "name": "Testing",
+      "createdAt": "2024-01-01T00:00:00.000Z"
+    }
+  ]
+}

@@ -98,7 +98,47 @@ def _add_scheduled_jobs(app):
         kwargs={'app': app}
     )
     
-    logger.info("Scheduled jobs added: competitor_crawl(3AM), rank_check(5AM), auto_publish(5min), alert_digest(hourly), daily_summary(8AM)")
+    # Content due today notification at 7 AM
+    scheduler.add_job(
+        func=send_content_due_notifications,
+        trigger=CronTrigger(hour=7, minute=0),
+        id='content_due_notifications',
+        name='Content Due Today Notifications',
+        replace_existing=True,
+        kwargs={'app': app}
+    )
+    
+    # Process daily notification digests at 8 AM
+    scheduler.add_job(
+        func=process_notification_digests,
+        trigger=CronTrigger(hour=8, minute=0),
+        id='daily_notification_digest',
+        name='Daily Notification Digest',
+        replace_existing=True,
+        kwargs={'app': app, 'frequency': 'daily'}
+    )
+    
+    # Process weekly notification digests on Monday at 8 AM
+    scheduler.add_job(
+        func=process_notification_digests,
+        trigger=CronTrigger(day_of_week='mon', hour=8, minute=0),
+        id='weekly_notification_digest',
+        name='Weekly Notification Digest',
+        replace_existing=True,
+        kwargs={'app': app, 'frequency': 'weekly'}
+    )
+    
+    # Send 3-day client reports (Mon, Thu at 9 AM)
+    scheduler.add_job(
+        func=send_client_reports,
+        trigger=CronTrigger(day_of_week='mon,thu', hour=9, minute=0),
+        id='client_3day_reports',
+        name='3-Day Client Reports',
+        replace_existing=True,
+        kwargs={'app': app}
+    )
+    
+    logger.info("Scheduled jobs added: competitor_crawl(3AM), rank_check(5AM), auto_publish(5min), alert_digest(hourly), daily_summary(8AM), content_due(7AM), digests(8AM), 3day_reports(Mon/Thu 9AM)")
 
 
 def run_competitor_crawl(app):
@@ -411,6 +451,12 @@ def run_auto_publish(app):
                     if not test.get('success'):
                         logger.warning(f"WordPress connection failed for client {client.id}: {test.get('message')}")
                         errors.append(f"Blog '{blog.title}': WP connection failed")
+                        # Send failure notification
+                        send_publish_notification(
+                            app, 'blog', blog.id, client.id, 
+                            success=False, 
+                            error_message=test.get('message', 'Connection failed')
+                        )
                         continue
                     
                     # Prepare meta for Yoast
@@ -441,16 +487,29 @@ def run_auto_publish(app):
                         blog.wordpress_post_id = result.get('post_id')
                         blog.status = 'published'
                         blog.published_at = now
+                        # Store the URL for notifications
+                        blog.published_url = f"{client.wordpress_url}?p={result.get('post_id')}"
                         published_blogs += 1
                         logger.info(f"Auto-published blog '{blog.title}' to WordPress (ID: {result.get('post_id')})")
+                        
+                        # Send success notification
+                        send_publish_notification(app, 'blog', blog.id, client.id, success=True)
                     else:
                         errors.append(f"Blog '{blog.title}': {result.get('message')}")
+                        send_publish_notification(
+                            app, 'blog', blog.id, client.id,
+                            success=False,
+                            error_message=result.get('message', 'Unknown error')
+                        )
                 else:
                     # No WordPress - just mark as published
                     blog.status = 'published'
                     blog.published_at = now
                     published_blogs += 1
                     logger.info(f"Auto-published blog '{blog.title}' (no WordPress)")
+                    
+                    # Send notification
+                    send_publish_notification(app, 'blog', blog.id, client.id, success=True)
                     
             except Exception as e:
                 logger.error(f"Error auto-publishing blog {blog.id}: {e}")
@@ -463,18 +522,115 @@ def run_auto_publish(app):
             DBSocialPost.scheduled_for.isnot(None)
         ).all()
         
+        from app.services.social_service import SocialService
+        social_service = SocialService()
+        
         for post in due_social:
             try:
-                # For now, just mark as published
-                # TODO: Add actual social media API posting (GMB, FB, etc)
+                client = DBClient.query.get(post.client_id)
+                if not client:
+                    post.status = 'published'
+                    post.published_at = now
+                    published_social += 1
+                    continue
+                
+                platform = post.platform.lower() if post.platform else ''
+                published_to_platform = False
+                platform_post_id = None
+                
+                # Publish to GBP
+                if platform in ['gbp', 'google', 'google_business', 'all']:
+                    if client.gbp_location_id and client.gbp_access_token:
+                        result = social_service.publish_to_gbp(
+                            location_id=client.gbp_location_id,
+                            text=post.content,
+                            image_url=post.image_url,
+                            cta_type=post.cta_type if hasattr(post, 'cta_type') else None,
+                            cta_url=post.cta_url if hasattr(post, 'cta_url') else None
+                        )
+                        if result.get('success'):
+                            platform_post_id = result.get('post_id')
+                            published_to_platform = True
+                            logger.info(f"Published to GBP: {post.id} -> {platform_post_id}")
+                        elif not result.get('mock'):
+                            errors.append(f"Social {post.id} GBP: {result.get('error')}")
+                
+                # Publish to Facebook
+                if platform in ['facebook', 'fb', 'all']:
+                    if client.facebook_page_id and client.facebook_access_token:
+                        result = social_service.publish_to_facebook(
+                            page_id=client.facebook_page_id,
+                            access_token=client.facebook_access_token,
+                            message=post.content,
+                            link=post.link_url if hasattr(post, 'link_url') else None,
+                            image_url=post.image_url
+                        )
+                        if result.get('success'):
+                            platform_post_id = result.get('post_id')
+                            published_to_platform = True
+                            logger.info(f"Published to Facebook: {post.id} -> {platform_post_id}")
+                        elif not result.get('mock'):
+                            errors.append(f"Social {post.id} Facebook: {result.get('error')}")
+                
+                # Publish to Instagram
+                if platform in ['instagram', 'ig', 'all']:
+                    if client.instagram_account_id and client.instagram_access_token and post.image_url:
+                        result = social_service.publish_to_instagram(
+                            account_id=client.instagram_account_id,
+                            access_token=client.instagram_access_token,
+                            image_url=post.image_url,
+                            caption=post.content
+                        )
+                        if result.get('success'):
+                            platform_post_id = result.get('post_id')
+                            published_to_platform = True
+                            logger.info(f"Published to Instagram: {post.id} -> {platform_post_id}")
+                        elif not result.get('mock'):
+                            errors.append(f"Social {post.id} Instagram: {result.get('error')}")
+                
+                # Publish to LinkedIn
+                if platform in ['linkedin', 'li', 'all']:
+                    if client.linkedin_org_id and client.linkedin_access_token:
+                        result = social_service.publish_to_linkedin(
+                            organization_id=client.linkedin_org_id,
+                            access_token=client.linkedin_access_token,
+                            text=post.content,
+                            link=post.link_url if hasattr(post, 'link_url') else None
+                        )
+                        if result.get('success'):
+                            platform_post_id = result.get('post_id')
+                            published_to_platform = True
+                            logger.info(f"Published to LinkedIn: {post.id} -> {platform_post_id}")
+                        elif not result.get('mock'):
+                            errors.append(f"Social {post.id} LinkedIn: {result.get('error')}")
+                
+                # Mark as published
                 post.status = 'published'
                 post.published_at = now
+                if platform_post_id:
+                    post.platform_post_id = platform_post_id
                 published_social += 1
-                logger.info(f"Auto-published social post {post.id} ({post.platform})")
+                
+                if published_to_platform:
+                    logger.info(f"Auto-published social post {post.id} to {platform}")
+                else:
+                    logger.info(f"Auto-published social post {post.id} (no platform credentials)")
+                
+                # Send success notification
+                send_publish_notification(app, 'social', post.id, client.id, success=True)
                 
             except Exception as e:
                 logger.error(f"Error auto-publishing social {post.id}: {e}")
                 errors.append(f"Social {post.id}: {str(e)}")
+                # Send failure notification
+                try:
+                    send_publish_notification(
+                        app, 'social', post.id, post.client_id,
+                        success=False,
+                        error_message=str(e)
+                    )
+                except:
+                    pass  # Don't fail if notification fails
         
         # Commit all changes
         if published_blogs > 0 or published_social > 0:
@@ -493,3 +649,224 @@ def run_auto_publish(app):
             'published_social': published_social,
             'errors': errors
         }
+
+
+def send_content_due_notifications(app):
+    """
+    Send notifications for content scheduled to publish today
+    Runs at 7 AM to give agencies time to prepare
+    """
+    with app.app_context():
+        from app.database import db
+        from app.models.db_models import DBBlogPost, DBSocialPost, DBClient, DBUser
+        from app.services.notification_service import get_notification_service
+        
+        notification_service = get_notification_service()
+        now = datetime.utcnow()
+        today_start = datetime(now.year, now.month, now.day)
+        today_end = today_start + timedelta(days=1)
+        
+        logger.info(f"Checking for content due today: {today_start.date()}")
+        
+        # Get all due blogs
+        due_blogs = DBBlogPost.query.filter(
+            DBBlogPost.status == 'scheduled',
+            DBBlogPost.scheduled_for >= today_start,
+            DBBlogPost.scheduled_for < today_end
+        ).all()
+        
+        # Get all due social posts
+        due_social = DBSocialPost.query.filter(
+            DBSocialPost.status == 'scheduled',
+            DBSocialPost.scheduled_for >= today_start,
+            DBSocialPost.scheduled_for < today_end
+        ).all()
+        
+        if not due_blogs and not due_social:
+            logger.info("No content due today")
+            return
+        
+        # Group by client
+        content_by_client = {}
+        for blog in due_blogs:
+            if blog.client_id not in content_by_client:
+                content_by_client[blog.client_id] = []
+            client = DBClient.query.get(blog.client_id)
+            content_by_client[blog.client_id].append({
+                'title': blog.title,
+                'type': 'blog',
+                'client_name': client.business_name if client else 'Unknown',
+                'scheduled_for': blog.scheduled_for.strftime('%I:%M %p') if blog.scheduled_for else 'TBD'
+            })
+        
+        for post in due_social:
+            if post.client_id not in content_by_client:
+                content_by_client[post.client_id] = []
+            client = DBClient.query.get(post.client_id)
+            content_by_client[post.client_id].append({
+                'title': f"{post.platform.title()} post",
+                'type': 'social',
+                'client_name': client.business_name if client else 'Unknown',
+                'scheduled_for': post.scheduled_for.strftime('%I:%M %p') if post.scheduled_for else 'TBD'
+            })
+        
+        # Get admin users to notify
+        admins = DBUser.query.filter_by(role='admin', is_active=True).all()
+        
+        for admin in admins:
+            # Combine all content for this admin
+            all_content = []
+            for client_id, items in content_by_client.items():
+                all_content.extend(items)
+            
+            if all_content:
+                notification_service.notify_content_due_today(
+                    user_id=admin.id,
+                    content_items=all_content
+                )
+        
+        logger.info(f"Sent content due notifications: {len(due_blogs)} blogs, {len(due_social)} social posts")
+
+
+def process_notification_digests(app, frequency='daily'):
+    """
+    Process notification digests for users who prefer batched notifications
+    
+    Args:
+        app: Flask application
+        frequency: 'daily' or 'weekly'
+    """
+    with app.app_context():
+        from app.database import db
+        from app.models.db_models import DBNotificationPreferences, DBUser
+        from app.services.notification_service import get_notification_service
+        
+        notification_service = get_notification_service()
+        
+        # Find users who prefer this digest frequency
+        prefs = DBNotificationPreferences.query.filter_by(
+            email_enabled=True,
+            digest_frequency=frequency
+        ).all()
+        
+        processed = 0
+        for pref in prefs:
+            try:
+                user = DBUser.query.get(pref.user_id)
+                if user and user.is_active:
+                    success = notification_service.process_digest_queue(
+                        user_id=pref.user_id,
+                        frequency=frequency
+                    )
+                    if success:
+                        processed += 1
+            except Exception as e:
+                logger.error(f"Error processing digest for user {pref.user_id}: {e}")
+        
+        logger.info(f"Processed {frequency} notification digests for {processed} users")
+
+
+def send_publish_notification(app, content_type, content_id, client_id, success, error_message=None):
+    """
+    Helper function to send publish notifications
+    Called from auto-publish when content is published or fails
+    
+    Args:
+        app: Flask application
+        content_type: 'blog', 'social', 'wordpress'
+        content_id: ID of the content
+        client_id: Client ID
+        success: Whether publishing succeeded
+        error_message: Error message if failed
+    """
+    with app.app_context():
+        from app.models.db_models import DBBlogPost, DBSocialPost, DBClient, DBUser
+        from app.services.notification_service import get_notification_service
+        
+        notification_service = get_notification_service()
+        
+        client = DBClient.query.get(client_id)
+        client_name = client.business_name if client else 'Unknown'
+        
+        # Get admin users
+        admins = DBUser.query.filter_by(role='admin', is_active=True).all()
+        
+        for admin in admins:
+            if content_type == 'blog':
+                blog = DBBlogPost.query.get(content_id)
+                if not blog:
+                    continue
+                
+                if success:
+                    notification_service.notify_content_published(
+                        user_id=admin.id,
+                        client_name=client_name,
+                        content_title=blog.title,
+                        content_type='blog',
+                        published_url=blog.published_url,
+                        content_id=content_id,
+                        client_id=client_id
+                    )
+                    
+                    # Also send WordPress-specific notification if it went to WP
+                    if blog.wordpress_post_id and blog.published_url:
+                        notification_service.notify_wordpress_published(
+                            user_id=admin.id,
+                            client_name=client_name,
+                            post_title=blog.title,
+                            post_url=blog.published_url,
+                            content_id=content_id,
+                            client_id=client_id
+                        )
+                else:
+                    notification_service.notify_wordpress_failed(
+                        user_id=admin.id,
+                        client_name=client_name,
+                        post_title=blog.title if blog else 'Unknown',
+                        error_message=error_message or 'Publishing failed',
+                        content_id=content_id,
+                        client_id=client_id
+                    )
+            
+            elif content_type == 'social':
+                post = DBSocialPost.query.get(content_id)
+                if not post:
+                    continue
+                
+                if success:
+                    notification_service.notify_social_published(
+                        user_id=admin.id,
+                        client_name=client_name,
+                        platform=post.platform or 'social',
+                        content_preview=post.content[:100] if post.content else '',
+                        post_id=content_id,
+                        client_id=client_id
+                    )
+                else:
+                    notification_service.notify_social_failed(
+                        user_id=admin.id,
+                        client_name=client_name,
+                        platform=post.platform or 'social',
+                        error_message=error_message or 'Publishing failed',
+                        post_id=content_id,
+                        client_id=client_id
+                    )
+
+
+def send_client_reports(app):
+    """
+    Send 3-day snapshot reports to all active clients
+    
+    Runs Monday and Thursday at 9 AM
+    """
+    with app.app_context():
+        try:
+            from app.services.client_report_service import get_client_report_service
+            
+            report_service = get_client_report_service()
+            results = report_service.send_all_3day_reports()
+            
+            logger.info(f"3-day client reports sent: {results['sent']} sent, {results['failed']} failed")
+            
+        except Exception as e:
+            logger.error(f"Error sending client reports: {e}")

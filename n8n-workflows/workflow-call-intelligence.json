@@ -1,0 +1,245 @@
+{
+  "name": "MCP Call Intelligence",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "calls",
+        "options": {}
+      },
+      "id": "webhook-calls",
+      "name": "Webhook - Call Events",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300],
+      "webhookId": "calls"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.event_type }}",
+              "operation": "equals",
+              "value2": "call.received"
+            }
+          ]
+        }
+      },
+      "id": "filter-call",
+      "name": "Filter New Calls",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "number": [
+            {
+              "value1": "={{ $json.payload.duration_seconds }}",
+              "operation": "largerEqual",
+              "value2": 120
+            }
+          ]
+        }
+      },
+      "id": "check-duration",
+      "name": "Is Hot Lead? (2+ min)",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [650, 300]
+    },
+    {
+      "parameters": {
+        "channel": "#hot-leads",
+        "text": "🔥 *HOT LEAD - Long Call!*\n\n*Caller:* {{ $json.payload.caller }}\n*Duration:* {{ Math.floor($json.payload.duration_seconds / 60) }}:{{ ($json.payload.duration_seconds % 60).toString().padStart(2, '0') }}\n*Client:* {{ $json.payload.client_name }}\n*Tracking #:* {{ $json.payload.tracking_number }}\n\n📞 This person is INTERESTED - follow up!",
+        "otherOptions": {}
+      },
+      "id": "slack-hot-call",
+      "name": "Slack - Hot Call Alert",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 1,
+      "position": [850, 200],
+      "credentials": {
+        "slackApi": {
+          "id": "CONFIGURE_ME",
+          "name": "Slack Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "channel": "#calls",
+        "text": "📞 *New Call*\n\n*Caller:* {{ $json.payload.caller }}\n*Duration:* {{ Math.floor($json.payload.duration_seconds / 60) }}:{{ ($json.payload.duration_seconds % 60).toString().padStart(2, '0') }}\n*Answered:* {{ $json.payload.answered ? 'Yes' : 'No' }}\n*Client:* {{ $json.payload.client_name }}",
+        "otherOptions": {}
+      },
+      "id": "slack-call-log",
+      "name": "Slack - Log Call",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 1,
+      "position": [850, 400],
+      "credentials": {
+        "slackApi": {
+          "id": "CONFIGURE_ME",
+          "name": "Slack Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.payload.answered }}",
+              "value2": false
+            }
+          ]
+        }
+      },
+      "id": "check-missed",
+      "name": "Was Missed?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [1050, 400]
+    },
+    {
+      "parameters": {
+        "channel": "#urgent",
+        "text": "⚠️ *MISSED CALL*\n\n*Caller:* {{ $json.payload.caller }}\n*Client:* {{ $json.payload.client_name }}\n*Time:* {{ $now.format('h:mm a') }}\n\n📞 Call back ASAP!",
+        "otherOptions": {}
+      },
+      "id": "slack-missed",
+      "name": "Slack - Missed Call Alert",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 1,
+      "position": [1250, 400],
+      "credentials": {
+        "slackApi": {
+          "id": "CONFIGURE_ME",
+          "name": "Slack Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "CONFIGURE_ME"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "list",
+          "value": "Call Log"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Date": "={{ $now.toISO() }}",
+            "Caller": "={{ $json.payload.caller }}",
+            "Duration": "={{ $json.payload.duration_seconds }}",
+            "Answered": "={{ $json.payload.answered }}",
+            "Client": "={{ $json.payload.client_name }}",
+            "Hot Lead": "={{ $json.payload.duration_seconds >= 120 ? 'Yes' : 'No' }}"
+          }
+        },
+        "options": {}
+      },
+      "id": "sheets-call-log",
+      "name": "Google Sheets - Log Call",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [650, 500],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "CONFIGURE_ME",
+          "name": "Google Sheets Account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Webhook - Call Events": {
+      "main": [
+        [
+          {
+            "node": "Filter New Calls",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter New Calls": {
+      "main": [
+        [
+          {
+            "node": "Is Hot Lead? (2+ min)",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Google Sheets - Log Call",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Hot Lead? (2+ min)": {
+      "main": [
+        [
+          {
+            "node": "Slack - Hot Call Alert",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Slack - Log Call",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Slack - Log Call": {
+      "main": [
+        [
+          {
+            "node": "Was Missed?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Was Missed?": {
+      "main": [
+        [
+          {
+            "node": "Slack - Missed Call Alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    {
+      "name": "MCP",
+      "createdAt": "2024-01-01T00:00:00.000Z"
+    },
+    {
+      "name": "Calls",
+      "createdAt": "2024-01-01T00:00:00.000Z"
+    }
+  ]
+}

@@ -572,6 +572,75 @@ def generate_blog_simple(current_user):
         }), 500
 
 
+@content_bp.route('/blog/<blog_id>', methods=['PATCH'])
+@token_required
+def update_blog_post(current_user, blog_id):
+    """
+    Update a blog post
+    
+    PATCH /api/content/blog/{blog_id}
+    {
+        "title": "optional",
+        "body": "optional",
+        "meta_title": "optional",
+        "meta_description": "optional",
+        "featured_image_url": "optional",
+        "status": "optional"
+    }
+    """
+    from app.database import db
+    
+    blog = DBBlogPost.query.get(blog_id)
+    if not blog:
+        return jsonify({'error': 'Blog post not found'}), 404
+    
+    if not current_user.has_access_to_client(blog.client_id):
+        return jsonify({'error': 'Access denied'}), 403
+    
+    data = request.get_json() or {}
+    
+    # Update allowed fields
+    updatable_fields = [
+        'title', 'body', 'meta_title', 'meta_description',
+        'featured_image_url', 'status', 'primary_keyword',
+        'slug', 'excerpt'
+    ]
+    
+    updated_fields = []
+    for field in updatable_fields:
+        if field in data:
+            setattr(blog, field, data[field])
+            updated_fields.append(field)
+    
+    if updated_fields:
+        db.session.commit()
+    
+    return jsonify({
+        'success': True,
+        'id': blog.id,
+        'updated_fields': updated_fields,
+        'blog': blog.to_dict()
+    })
+
+
+@content_bp.route('/blog/<blog_id>', methods=['GET'])
+@token_required
+def get_blog_post(current_user, blog_id):
+    """
+    Get a single blog post
+    
+    GET /api/content/blog/{blog_id}
+    """
+    blog = DBBlogPost.query.get(blog_id)
+    if not blog:
+        return jsonify({'error': 'Blog post not found'}), 404
+    
+    if not current_user.has_access_to_client(blog.client_id):
+        return jsonify({'error': 'Access denied'}), 403
+    
+    return jsonify(blog.to_dict())
+
+
 @content_bp.route('/social/generate', methods=['POST'])
 @token_required
 def generate_social_simple(current_user):

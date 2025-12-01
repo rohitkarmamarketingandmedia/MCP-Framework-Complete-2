@@ -7,6 +7,7 @@ from app.routes.auth import token_required
 from app.services.cms_service import CMSService
 from app.services.social_service import SocialService
 from app.services.db_service import DataService
+from app.services.wordpress_service import WordPressService
 from app.models.db_models import ContentStatus
 from datetime import datetime
 
@@ -14,6 +15,82 @@ publish_bp = Blueprint('publish', __name__)
 cms_service = CMSService()
 social_service = SocialService()
 data_service = DataService()
+
+
+@publish_bp.route('/wordpress/test', methods=['POST'])
+@token_required
+def test_wordpress_connection(current_user):
+    """
+    Test WordPress connection with provided credentials
+    
+    POST /api/publish/wordpress/test
+    {
+        "wordpress_url": "https://example.com",
+        "wordpress_user": "admin",
+        "wordpress_app_password": "xxxx xxxx xxxx xxxx"
+    }
+    
+    OR
+    
+    {
+        "client_id": "client_xxx"  // Use stored client credentials
+    }
+    """
+    data = request.get_json()
+    
+    # Get credentials either from request or from stored client config
+    if data.get('client_id'):
+        client = data_service.get_client(data['client_id'])
+        if not client:
+            return jsonify({'error': 'Client not found'}), 404
+        
+        if not current_user.has_access_to_client(data['client_id']):
+            return jsonify({'error': 'Access denied'}), 403
+        
+        integrations = client.get_integrations()
+        wp_url = integrations.get('wordpress_url')
+        wp_user = integrations.get('wordpress_user') or client.wordpress_user
+        wp_password = integrations.get('wordpress_app_password') or client.wordpress_app_password
+        
+        if not wp_url:
+            return jsonify({
+                'success': False,
+                'error': 'WordPress URL not configured',
+                'message': 'Please configure WordPress URL in client integrations first.'
+            }), 400
+    else:
+        # Use provided credentials
+        wp_url = data.get('wordpress_url')
+        wp_user = data.get('wordpress_user')
+        wp_password = data.get('wordpress_app_password')
+        
+        if not all([wp_url, wp_user, wp_password]):
+            return jsonify({
+                'success': False,
+                'error': 'Missing credentials',
+                'message': 'Please provide wordpress_url, wordpress_user, and wordpress_app_password'
+            }), 400
+    
+    # Test connection
+    try:
+        wp_service = WordPressService(
+            site_url=wp_url,
+            username=wp_user,
+            app_password=wp_password
+        )
+        result = wp_service.test_connection()
+        
+        if result.get('success'):
+            return jsonify(result)
+        else:
+            return jsonify(result), 400
+            
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'message': 'Failed to test WordPress connection'
+        }), 500
 
 
 @publish_bp.route('/wordpress', methods=['POST'])
@@ -48,18 +125,22 @@ def publish_to_wordpress(current_user):
     client = data_service.get_client(content.client_id)
     integrations = client.get_integrations() if client else {}
     
-    # Use client's WP URL or custom
-    wp_url = data.get('custom_wp_url') or integrations.get('wordpress_url') or current_app.config['WP_BASE_URL']
-    wp_api_key = integrations.get('wordpress_api_key') or current_app.config['WP_APP_PASSWORD']
+    # Use client's WP credentials (support both new and legacy field names)
+    wp_url = data.get('custom_wp_url') or integrations.get('wordpress_url') or client.wordpress_url or current_app.config.get('WP_BASE_URL')
+    wp_user = integrations.get('wordpress_user') or client.wordpress_user or current_app.config.get('WP_USERNAME')
+    wp_password = integrations.get('wordpress_app_password') or integrations.get('wordpress_api_key') or client.wordpress_app_password or current_app.config.get('WP_APP_PASSWORD')
     
     if not wp_url:
-        return jsonify({'error': 'WordPress URL not configured'}), 400
+        return jsonify({'error': 'WordPress URL not configured for this client'}), 400
+    
+    if not wp_user or not wp_password:
+        return jsonify({'error': 'WordPress credentials not configured for this client'}), 400
     
     # Publish
     result = cms_service.publish_to_wordpress(
         wp_url=wp_url,
-        wp_username=current_app.config['WP_USERNAME'],
-        wp_password=wp_api_key,
+        wp_username=wp_user,
+        wp_password=wp_password,
         title=content.title,
         body=content.body,
         meta_title=content.meta_title,

@@ -150,10 +150,29 @@ class DBClient(db.Model):
     gbp_location_id: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     gbp_access_token: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     
+    # Facebook Integration
+    facebook_page_id: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    facebook_access_token: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    facebook_connected_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    
+    # Instagram Integration (via Facebook Graph API)
+    instagram_account_id: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    instagram_access_token: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    instagram_connected_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    
+    # LinkedIn Integration
+    linkedin_org_id: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    linkedin_access_token: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    linkedin_connected_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    
     # Lead notifications
     lead_notification_email: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     lead_notification_phone: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
     lead_notification_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    
+    # CallRail Integration
+    callrail_company_id: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    monthly_lead_target: Mapped[int] = mapped_column(Integer, default=10)
     
     # Relationships
     leads: Mapped[List["DBLead"]] = relationship("DBLead", back_populates="client", lazy="dynamic")
@@ -247,7 +266,29 @@ class DBClient(db.Model):
             'monthly_content_limit': self.monthly_content_limit,
             'is_active': self.is_active,
             'created_at': self.created_at.isoformat() if self.created_at else None,
-            'updated_at': self.updated_at.isoformat() if self.updated_at else None
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+            # Social connections (status only, no tokens)
+            'social_connections': {
+                'gbp': {
+                    'connected': bool(self.gbp_location_id and self.gbp_access_token),
+                    'location_id': self.gbp_location_id
+                },
+                'facebook': {
+                    'connected': bool(self.facebook_page_id and self.facebook_access_token),
+                    'page_id': self.facebook_page_id,
+                    'connected_at': self.facebook_connected_at.isoformat() if self.facebook_connected_at else None
+                },
+                'instagram': {
+                    'connected': bool(self.instagram_account_id and self.instagram_access_token),
+                    'account_id': self.instagram_account_id,
+                    'connected_at': self.instagram_connected_at.isoformat() if self.instagram_connected_at else None
+                },
+                'linkedin': {
+                    'connected': bool(self.linkedin_org_id and self.linkedin_access_token),
+                    'org_id': self.linkedin_org_id,
+                    'connected_at': self.linkedin_connected_at.isoformat() if self.linkedin_connected_at else None
+                }
+            }
         }
 
 
@@ -295,6 +336,17 @@ class DBBlogPost(db.Model):
     status: Mapped[str] = mapped_column(String(20), default=ContentStatus.DRAFT)
     published_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
     published_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    
+    # Scheduling
+    scheduled_for: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    
+    # WordPress integration
+    wordpress_post_id: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    
+    # Approval workflow
+    revision_notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    approved_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    approved_by: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
     
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -367,6 +419,11 @@ class DBSocialPost(db.Model):
     scheduled_for: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     published_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     published_id: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    
+    # Approval workflow
+    revision_notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    approved_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    approved_by: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
     
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     
@@ -1577,5 +1634,350 @@ class DBContentFeedback(db.Model):
             'addressed_by': self.addressed_by,
             'addressed_at': self.addressed_at.isoformat() if self.addressed_at else None,
             'response_notes': self.response_notes,
+            'created_at': self.created_at.isoformat() if self.created_at else None
+        }
+
+
+# ============================================
+# Notification System Models
+# ============================================
+
+class NotificationType:
+    """Notification type constants"""
+    # Content lifecycle
+    CONTENT_SCHEDULED = 'content_scheduled'
+    CONTENT_DUE_TODAY = 'content_due_today'
+    CONTENT_PUBLISHED = 'content_published'
+    CONTENT_APPROVAL_NEEDED = 'content_approval_needed'
+    CONTENT_APPROVED = 'content_approved'
+    CONTENT_FEEDBACK = 'content_feedback'
+    
+    # Competitor & Rankings
+    COMPETITOR_NEW_CONTENT = 'competitor_new_content'
+    RANKING_IMPROVED = 'ranking_improved'
+    RANKING_DROPPED = 'ranking_dropped'
+    
+    # System
+    WEEKLY_DIGEST = 'weekly_digest'
+    DAILY_SUMMARY = 'daily_summary'
+    ALERT_DIGEST = 'alert_digest'
+    
+    # WordPress
+    WORDPRESS_PUBLISHED = 'wordpress_published'
+    WORDPRESS_FAILED = 'wordpress_failed'
+    
+    # Social
+    SOCIAL_PUBLISHED = 'social_published'
+    SOCIAL_FAILED = 'social_failed'
+
+
+class DBNotificationPreferences(db.Model):
+    """User notification preferences"""
+    __tablename__ = 'notification_preferences'
+    
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    user_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
+    client_id: Mapped[Optional[str]] = mapped_column(String(36), nullable=True, index=True)  # Null = global prefs
+    
+    # Content notifications
+    content_scheduled: Mapped[bool] = mapped_column(Boolean, default=True)
+    content_due_today: Mapped[bool] = mapped_column(Boolean, default=True)
+    content_published: Mapped[bool] = mapped_column(Boolean, default=True)
+    content_approval_needed: Mapped[bool] = mapped_column(Boolean, default=True)
+    content_approved: Mapped[bool] = mapped_column(Boolean, default=True)
+    content_feedback: Mapped[bool] = mapped_column(Boolean, default=True)
+    
+    # Competitor & Ranking notifications
+    competitor_new_content: Mapped[bool] = mapped_column(Boolean, default=True)
+    ranking_improved: Mapped[bool] = mapped_column(Boolean, default=True)
+    ranking_dropped: Mapped[bool] = mapped_column(Boolean, default=True)
+    
+    # System notifications
+    weekly_digest: Mapped[bool] = mapped_column(Boolean, default=True)
+    daily_summary: Mapped[bool] = mapped_column(Boolean, default=True)
+    alert_digest: Mapped[bool] = mapped_column(Boolean, default=True)
+    
+    # WordPress/Social notifications
+    wordpress_published: Mapped[bool] = mapped_column(Boolean, default=True)
+    wordpress_failed: Mapped[bool] = mapped_column(Boolean, default=True)
+    social_published: Mapped[bool] = mapped_column(Boolean, default=False)  # Off by default (could be noisy)
+    social_failed: Mapped[bool] = mapped_column(Boolean, default=True)
+    
+    # Delivery preferences
+    email_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    digest_frequency: Mapped[str] = mapped_column(String(20), default='instant')  # instant, daily, weekly
+    digest_time: Mapped[str] = mapped_column(String(10), default='08:00')  # HH:MM for daily/weekly
+    digest_day: Mapped[int] = mapped_column(Integer, default=1)  # 0=Mon, 6=Sun for weekly
+    
+    # Quiet hours
+    quiet_hours_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
+    quiet_start: Mapped[str] = mapped_column(String(10), default='22:00')
+    quiet_end: Mapped[str] = mapped_column(String(10), default='07:00')
+    
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    def __init__(self, user_id: str, **kwargs):
+        self.id = str(uuid4())
+        self.user_id = user_id
+        for key, value in kwargs.items():
+            if hasattr(self, key):
+                setattr(self, key, value)
+    
+    def is_enabled(self, notification_type: str) -> bool:
+        """Check if a notification type is enabled"""
+        if not self.email_enabled:
+            return False
+        return getattr(self, notification_type, True)
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'user_id': self.user_id,
+            'client_id': self.client_id,
+            'content': {
+                'scheduled': self.content_scheduled,
+                'due_today': self.content_due_today,
+                'published': self.content_published,
+                'approval_needed': self.content_approval_needed,
+                'approved': self.content_approved,
+                'feedback': self.content_feedback
+            },
+            'competitor': {
+                'new_content': self.competitor_new_content,
+                'ranking_improved': self.ranking_improved,
+                'ranking_dropped': self.ranking_dropped
+            },
+            'system': {
+                'weekly_digest': self.weekly_digest,
+                'daily_summary': self.daily_summary,
+                'alert_digest': self.alert_digest
+            },
+            'publishing': {
+                'wordpress_published': self.wordpress_published,
+                'wordpress_failed': self.wordpress_failed,
+                'social_published': self.social_published,
+                'social_failed': self.social_failed
+            },
+            'delivery': {
+                'email_enabled': self.email_enabled,
+                'digest_frequency': self.digest_frequency,
+                'digest_time': self.digest_time,
+                'digest_day': self.digest_day
+            },
+            'quiet_hours': {
+                'enabled': self.quiet_hours_enabled,
+                'start': self.quiet_start,
+                'end': self.quiet_end
+            },
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None
+        }
+
+
+class DBNotificationLog(db.Model):
+    """Log of sent notifications for tracking and debugging"""
+    __tablename__ = 'notification_log'
+    
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    user_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
+    client_id: Mapped[Optional[str]] = mapped_column(String(36), nullable=True, index=True)
+    
+    notification_type: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
+    subject: Mapped[str] = mapped_column(String(500), nullable=False)
+    recipient_email: Mapped[str] = mapped_column(String(255), nullable=False)
+    
+    # Status tracking
+    status: Mapped[str] = mapped_column(String(20), default='pending')  # pending, sent, failed, queued
+    error_message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    retry_count: Mapped[int] = mapped_column(Integer, default=0)
+    
+    # Related content
+    related_id: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)  # blog_id, social_id, etc
+    related_type: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)  # blog, social, competitor
+    
+    # Metadata
+    metadata_json: Mapped[Optional[str]] = mapped_column(Text, nullable=True)  # JSON for extra data
+    
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    sent_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    
+    def __init__(self, user_id: str, notification_type: str, subject: str, recipient_email: str, **kwargs):
+        self.id = str(uuid4())
+        self.user_id = user_id
+        self.notification_type = notification_type
+        self.subject = subject
+        self.recipient_email = recipient_email
+        for key, value in kwargs.items():
+            if hasattr(self, key):
+                setattr(self, key, value)
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'user_id': self.user_id,
+            'client_id': self.client_id,
+            'notification_type': self.notification_type,
+            'subject': self.subject,
+            'recipient_email': self.recipient_email,
+            'status': self.status,
+            'error_message': self.error_message,
+            'retry_count': self.retry_count,
+            'related_id': self.related_id,
+            'related_type': self.related_type,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'sent_at': self.sent_at.isoformat() if self.sent_at else None
+        }
+
+
+class DBNotificationQueue(db.Model):
+    """Queue for digest notifications (batched instead of instant)"""
+    __tablename__ = 'notification_queue'
+    
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    user_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
+    client_id: Mapped[Optional[str]] = mapped_column(String(36), nullable=True, index=True)
+    
+    notification_type: Mapped[str] = mapped_column(String(50), nullable=False)
+    title: Mapped[str] = mapped_column(String(500), nullable=False)
+    message: Mapped[str] = mapped_column(Text, nullable=False)
+    priority: Mapped[str] = mapped_column(String(20), default='normal')  # low, normal, high
+    
+    # Related content
+    related_id: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    related_type: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    action_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    
+    # Processing
+    processed: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
+    processed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    
+    def __init__(self, user_id: str, notification_type: str, title: str, message: str, **kwargs):
+        self.id = str(uuid4())
+        self.user_id = user_id
+        self.notification_type = notification_type
+        self.title = title
+        self.message = message
+        for key, value in kwargs.items():
+            if hasattr(self, key):
+                setattr(self, key, value)
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'user_id': self.user_id,
+            'client_id': self.client_id,
+            'notification_type': self.notification_type,
+            'title': self.title,
+            'message': self.message,
+            'priority': self.priority,
+            'related_id': self.related_id,
+            'action_url': self.action_url,
+            'processed': self.processed,
+            'created_at': self.created_at.isoformat() if self.created_at else None
+        }
+
+
+class DBWebhookLog(db.Model):
+    """Log of webhook events sent and received"""
+    __tablename__ = 'webhook_logs'
+    
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    event_id: Mapped[str] = mapped_column(String(50), unique=True, index=True)
+    event_type: Mapped[str] = mapped_column(String(100), index=True)
+    direction: Mapped[str] = mapped_column(String(20), default='outbound')  # inbound, outbound
+    
+    # Request details
+    url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    payload: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    headers: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    
+    # Response details
+    status: Mapped[str] = mapped_column(String(30), default='queued')  # queued, sent, delivered, failed
+    response_code: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    response_body: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    error_message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    
+    # Timing
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    sent_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    
+    # Related entities
+    client_id: Mapped[Optional[str]] = mapped_column(String(50), nullable=True, index=True)
+    
+    def __init__(self, event_id: str, event_type: str, **kwargs):
+        self.event_id = event_id
+        self.event_type = event_type
+        for key, value in kwargs.items():
+            if hasattr(self, key):
+                setattr(self, key, value)
+    
+    def to_dict(self) -> dict:
+        return {
+            'id': self.id,
+            'event_id': self.event_id,
+            'event_type': self.event_type,
+            'direction': self.direction,
+            'url': self.url,
+            'status': self.status,
+            'response_code': self.response_code,
+            'error_message': self.error_message,
+            'client_id': self.client_id,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'sent_at': self.sent_at.isoformat() if self.sent_at else None
+        }
+
+
+class DBWebhookEndpoint(db.Model):
+    """Configured webhook endpoints for N8N/Zapier integration"""
+    __tablename__ = 'webhook_endpoints'
+    
+    id: Mapped[str] = mapped_column(String(50), primary_key=True)
+    name: Mapped[str] = mapped_column(String(100))
+    url: Mapped[str] = mapped_column(String(500))
+    
+    # What events trigger this webhook
+    event_types: Mapped[str] = mapped_column(Text)  # JSON array of event types
+    
+    # Optional filtering
+    client_id: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)  # None = all clients
+    
+    # Authentication
+    secret: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
+    auth_header: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
+    
+    # Status
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    last_triggered: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    success_count: Mapped[int] = mapped_column(Integer, default=0)
+    failure_count: Mapped[int] = mapped_column(Integer, default=0)
+    
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    def __init__(self, name: str, url: str, event_types: List[str], **kwargs):
+        self.id = f"wh_{uuid.uuid4().hex[:12]}"
+        self.name = name
+        self.url = url
+        self.event_types = json.dumps(event_types)
+        for key, value in kwargs.items():
+            if hasattr(self, key):
+                setattr(self, key, value)
+    
+    def get_event_types(self) -> List[str]:
+        return json.loads(self.event_types) if self.event_types else []
+    
+    def to_dict(self) -> dict:
+        return {
+            'id': self.id,
+            'name': self.name,
+            'url': self.url,
+            'event_types': self.get_event_types(),
+            'client_id': self.client_id,
+            'is_active': self.is_active,
+            'last_triggered': self.last_triggered.isoformat() if self.last_triggered else None,
+            'success_count': self.success_count,
+            'failure_count': self.failure_count,
             'created_at': self.created_at.isoformat() if self.created_at else None
         }

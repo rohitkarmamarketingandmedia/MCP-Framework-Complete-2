@@ -9,7 +9,7 @@ from flask_cors import CORS
 import os
 import logging
 
-__version__ = "4.5.0"
+__version__ = "5.5.0"
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)

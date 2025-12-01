@@ -4,6 +4,7 @@ Competitor tracking, rank checking, content queue management
 """
 from flask import Blueprint, request, jsonify, current_app
 from datetime import datetime, timedelta
+import json
 
 from app.routes.auth import token_required, admin_required
 from app.database import db
@@ -1084,5 +1085,289 @@ def get_rank_history(current_user, client_id):
                 'url': h.ranking_url
             }
             for h in history
+        ]
+    })
+
+
+# ==========================================
+# COMPETITOR DASHBOARD
+# ==========================================
+
+@monitoring_bp.route('/competitor-dashboard/<client_id>', methods=['GET'])
+@token_required
+def get_competitor_dashboard(current_user, client_id):
+    """
+    Get comprehensive competitor comparison data for dashboard
+    
+    GET /api/monitoring/competitor-dashboard/{client_id}
+    
+    Returns:
+    - Client vs competitor rankings overview
+    - Content gap analysis
+    - Keyword overlap
+    - Competitor content summary
+    """
+    if not current_user.has_access_to_client(client_id):
+        return jsonify({'error': 'Access denied'}), 403
+    
+    client = DBClient.query.get(client_id)
+    if not client:
+        return jsonify({'error': 'Client not found'}), 404
+    
+    # Get competitors
+    competitors = DBCompetitor.query.filter_by(
+        client_id=client_id,
+        is_active=True
+    ).all()
+    
+    # Get client keywords
+    client_keywords = []
+    try:
+        client_keywords = json.loads(client.primary_keywords or '[]') + json.loads(client.secondary_keywords or '[]')
+    except:
+        pass
+    
+    # Get client's latest rankings
+    client_rankings = {}
+    latest_ranks = DBRankHistory.query.filter_by(client_id=client_id).order_by(
+        DBRankHistory.checked_at.desc()
+    ).limit(50).all()
+    
+    for rank in latest_ranks:
+        if rank.keyword not in client_rankings:
+            client_rankings[rank.keyword] = {
+                'position': rank.position,
+                'url': rank.ranking_url,
+                'change': rank.change
+            }
+    
+    # Build competitor comparison data
+    competitor_data = []
+    content_gaps = []
+    keyword_overlap = []
+    
+    for comp in competitors:
+        # Get competitor pages
+        comp_pages = DBCompetitorPage.query.filter_by(competitor_id=comp.id).all()
+        
+        # Get competitor rank data (if we tracked it)
+        comp_ranks = {}
+        comp_rank_history = DBRankHistory.query.filter_by(
+            competitor_id=comp.id
+        ).order_by(DBRankHistory.checked_at.desc()).limit(50).all()
+        
+        for rank in comp_rank_history:
+            if rank.keyword not in comp_ranks:
+                comp_ranks[rank.keyword] = rank.position
+        
+        # Count content by category
+        blog_count = len([p for p in comp_pages if '/blog' in (p.url or '').lower()])
+        service_count = len([p for p in comp_pages if any(x in (p.url or '').lower() for x in ['/service', '/about', '/contact'])])
+        
+        # Analyze keywords from competitor titles
+        comp_keywords = set()
+        for page in comp_pages:
+            if page.title:
+                words = page.title.lower().split()
+                for word in words:
+                    if len(word) > 3 and word not in ['the', 'and', 'for', 'with', 'your', 'our']:
+                        comp_keywords.add(word)
+        
+        # Find keyword overlap
+        client_kw_set = set(kw.lower() for kw in client_keywords)
+        overlap = comp_keywords.intersection(client_kw_set)
+        
+        competitor_data.append({
+            'id': comp.id,
+            'domain': comp.domain,
+            'name': comp.name or comp.domain,
+            'total_pages': len(comp_pages),
+            'blog_posts': blog_count,
+            'service_pages': service_count,
+            'last_crawled': comp.last_crawled.isoformat() if comp.last_crawled else None,
+            'keyword_overlap': list(overlap)[:10],
+            'rankings': comp_ranks
+        })
+        
+        # Find content gaps - topics competitors have that client doesn't
+        for page in comp_pages:
+            if page.title and '/blog' in (page.url or '').lower():
+                # Check if client has similar content
+                title_lower = page.title.lower()
+                has_similar = False
+                # This is a simplified check - in production, use more sophisticated matching
+                for kw in client_keywords:
+                    if kw.lower() in title_lower:
+                        has_similar = True
+                        break
+                
+                if not has_similar:
+                    content_gaps.append({
+                        'competitor': comp.domain,
+                        'title': page.title,
+                        'url': page.url,
+                        'topic_suggestion': page.title
+                    })
+    
+    # Calculate overall stats
+    total_client_ranked = len([k for k, v in client_rankings.items() if v['position'] and v['position'] <= 100])
+    top_10_count = len([k for k, v in client_rankings.items() if v['position'] and v['position'] <= 10])
+    top_3_count = len([k for k, v in client_rankings.items() if v['position'] and v['position'] <= 3])
+    
+    # Ranking comparison - which keywords client wins vs loses
+    ranking_battles = []
+    for keyword, client_rank in client_rankings.items():
+        if not client_rank['position']:
+            continue
+        
+        for comp in competitor_data:
+            comp_pos = comp['rankings'].get(keyword)
+            if comp_pos:
+                ranking_battles.append({
+                    'keyword': keyword,
+                    'client_position': client_rank['position'],
+                    'competitor': comp['domain'],
+                    'competitor_position': comp_pos,
+                    'winning': client_rank['position'] < comp_pos
+                })
+    
+    # Sort battles by importance (client winning but close, or losing)
+    ranking_battles.sort(key=lambda x: (not x['winning'], abs(x['client_position'] - x['competitor_position'])))
+    
+    return jsonify({
+        'client_id': client_id,
+        'client_name': client.business_name,
+        'summary': {
+            'total_competitors': len(competitors),
+            'client_keywords_tracked': len(client_keywords),
+            'client_keywords_ranked': total_client_ranked,
+            'top_10_keywords': top_10_count,
+            'top_3_keywords': top_3_count,
+            'content_gaps_found': len(content_gaps)
+        },
+        'competitors': competitor_data,
+        'content_gaps': content_gaps[:20],  # Top 20 gaps
+        'ranking_battles': ranking_battles[:20],  # Top 20 battles
+        'client_rankings': client_rankings
+    })
+
+
+@monitoring_bp.route('/competitor-compare/<client_id>/<competitor_id>', methods=['GET'])
+@token_required
+def compare_with_competitor(current_user, client_id, competitor_id):
+    """
+    Detailed side-by-side comparison with a single competitor
+    
+    GET /api/monitoring/competitor-compare/{client_id}/{competitor_id}
+    """
+    if not current_user.has_access_to_client(client_id):
+        return jsonify({'error': 'Access denied'}), 403
+    
+    client = DBClient.query.get(client_id)
+    competitor = DBCompetitor.query.get(competitor_id)
+    
+    if not client or not competitor:
+        return jsonify({'error': 'Client or competitor not found'}), 404
+    
+    if competitor.client_id != client_id:
+        return jsonify({'error': 'Competitor does not belong to this client'}), 403
+    
+    # Get competitor pages
+    comp_pages = DBCompetitorPage.query.filter_by(competitor_id=competitor_id).all()
+    
+    # Get client rankings
+    client_rankings = {}
+    latest_ranks = DBRankHistory.query.filter_by(client_id=client_id).order_by(
+        DBRankHistory.checked_at.desc()
+    ).limit(100).all()
+    
+    for rank in latest_ranks:
+        if rank.keyword not in client_rankings:
+            client_rankings[rank.keyword] = rank.position
+    
+    # Get competitor rankings
+    comp_rankings = {}
+    comp_ranks = DBRankHistory.query.filter_by(competitor_id=competitor_id).order_by(
+        DBRankHistory.checked_at.desc()
+    ).limit(100).all()
+    
+    for rank in comp_ranks:
+        if rank.keyword not in comp_rankings:
+            comp_rankings[rank.keyword] = rank.position
+    
+    # All keywords from both
+    all_keywords = set(client_rankings.keys()) | set(comp_rankings.keys())
+    
+    keyword_comparison = []
+    client_wins = 0
+    competitor_wins = 0
+    ties = 0
+    
+    for keyword in all_keywords:
+        client_pos = client_rankings.get(keyword)
+        comp_pos = comp_rankings.get(keyword)
+        
+        if client_pos and comp_pos:
+            if client_pos < comp_pos:
+                winner = 'client'
+                client_wins += 1
+            elif comp_pos < client_pos:
+                winner = 'competitor'
+                competitor_wins += 1
+            else:
+                winner = 'tie'
+                ties += 1
+        elif client_pos:
+            winner = 'client'
+            client_wins += 1
+        elif comp_pos:
+            winner = 'competitor'
+            competitor_wins += 1
+        else:
+            winner = 'unknown'
+        
+        keyword_comparison.append({
+            'keyword': keyword,
+            'client_position': client_pos,
+            'competitor_position': comp_pos,
+            'winner': winner,
+            'gap': (comp_pos or 100) - (client_pos or 100) if client_pos or comp_pos else 0
+        })
+    
+    # Sort by gap (biggest opportunities first)
+    keyword_comparison.sort(key=lambda x: -abs(x['gap']))
+    
+    # Content comparison
+    blog_pages = [p for p in comp_pages if '/blog' in (p.url or '').lower()]
+    
+    return jsonify({
+        'client': {
+            'id': client_id,
+            'name': client.business_name,
+            'website': client.website_url
+        },
+        'competitor': {
+            'id': competitor_id,
+            'name': competitor.name or competitor.domain,
+            'domain': competitor.domain,
+            'total_pages': len(comp_pages),
+            'blog_posts': len(blog_pages),
+            'last_crawled': competitor.last_crawled.isoformat() if competitor.last_crawled else None
+        },
+        'rankings_summary': {
+            'total_keywords': len(all_keywords),
+            'client_wins': client_wins,
+            'competitor_wins': competitor_wins,
+            'ties': ties,
+            'win_rate': round(client_wins / len(all_keywords) * 100, 1) if all_keywords else 0
+        },
+        'keyword_comparison': keyword_comparison[:50],
+        'competitor_content': [
+            {
+                'title': p.title,
+                'url': p.url,
+                'last_modified': p.last_modified.isoformat() if p.last_modified else None
+            }
+            for p in blog_pages[:20]
         ]
     })

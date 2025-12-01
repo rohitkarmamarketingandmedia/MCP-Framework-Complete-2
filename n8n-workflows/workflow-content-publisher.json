@@ -1,0 +1,268 @@
+{
+  "name": "MCP Content Publisher",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "content",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook - Content Events",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300],
+      "webhookId": "content"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.event_type }}",
+              "operation": "equals",
+              "value2": "content.approved"
+            }
+          ]
+        }
+      },
+      "id": "filter-approved",
+      "name": "Filter Approved Only",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.payload.content_type }}",
+              "operation": "equals",
+              "value2": "blog"
+            }
+          ]
+        }
+      },
+      "id": "check-blog",
+      "name": "Is Blog Post?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [650, 300]
+    },
+    {
+      "parameters": {
+        "resource": "post",
+        "title": "={{ $json.payload.title }}",
+        "content": "={{ $json.payload.body }}",
+        "additionalFields": {
+          "status": "draft",
+          "excerpt": "={{ $json.payload.meta_description }}"
+        }
+      },
+      "id": "wordpress-create",
+      "name": "WordPress - Create Post",
+      "type": "n8n-nodes-base.wordpress",
+      "typeVersion": 1,
+      "position": [850, 200],
+      "credentials": {
+        "wordpressApi": {
+          "id": "CONFIGURE_ME",
+          "name": "WordPress Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.MCP_URL }}/api/content/blog/{{ $json.payload.content_id }}/status",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "status",
+              "value": "published"
+            },
+            {
+              "name": "wordpress_id",
+              "value": "={{ $node['WordPress - Create Post'].json.id }}"
+            },
+            {
+              "name": "wordpress_url",
+              "value": "={{ $node['WordPress - Create Post'].json.link }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "update-mcp",
+      "name": "Update MCP Status",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [1050, 200],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "CONFIGURE_ME",
+          "name": "MCP API Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "channel": "#content-published",
+        "text": "✅ *Blog Published*\n\n*Title:* {{ $json.payload.title }}\n*Client:* {{ $json.payload.client_name }}\n*URL:* {{ $node['WordPress - Create Post'].json.link }}",
+        "otherOptions": {}
+      },
+      "id": "slack-notify",
+      "name": "Slack - Notify Team",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 1,
+      "position": [1250, 200],
+      "credentials": {
+        "slackApi": {
+          "id": "CONFIGURE_ME",
+          "name": "Slack Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "fromEmail": "noreply@karmamarketing.ai",
+        "toEmail": "={{ $json.payload.client_email }}",
+        "subject": "✅ Your Blog Post is Live!",
+        "text": "Great news!\n\nYour blog post \"{{ $json.payload.title }}\" has been published.\n\nView it here: {{ $node['WordPress - Create Post'].json.link }}\n\nBest,\nKarma Marketing"
+      },
+      "id": "email-client",
+      "name": "Email - Notify Client",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 1,
+      "position": [1250, 400],
+      "credentials": {
+        "smtp": {
+          "id": "CONFIGURE_ME",
+          "name": "SMTP Account"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "id": "error-trigger",
+      "name": "On Error",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [250, 500]
+    },
+    {
+      "parameters": {
+        "channel": "#errors",
+        "text": "❌ *Content Publishing Failed*\n\n*Error:* {{ $json.error.message }}\n*Workflow:* Content Publisher\n*Time:* {{ $now.toISO() }}",
+        "otherOptions": {}
+      },
+      "id": "slack-error",
+      "name": "Slack - Error Alert",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 1,
+      "position": [450, 500],
+      "credentials": {
+        "slackApi": {
+          "id": "CONFIGURE_ME",
+          "name": "Slack Account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Webhook - Content Events": {
+      "main": [
+        [
+          {
+            "node": "Filter Approved Only",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter Approved Only": {
+      "main": [
+        [
+          {
+            "node": "Is Blog Post?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Blog Post?": {
+      "main": [
+        [
+          {
+            "node": "WordPress - Create Post",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "WordPress - Create Post": {
+      "main": [
+        [
+          {
+            "node": "Update MCP Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update MCP Status": {
+      "main": [
+        [
+          {
+            "node": "Slack - Notify Team",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Email - Notify Client",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "On Error": {
+      "main": [
+        [
+          {
+            "node": "Slack - Error Alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "name": "MCP",
+      "createdAt": "2024-01-01T00:00:00.000Z",
+      "updatedAt": "2024-01-01T00:00:00.000Z"
+    },
+    {
+      "name": "Content",
+      "createdAt": "2024-01-01T00:00:00.000Z",
+      "updatedAt": "2024-01-01T00:00:00.000Z"
+    }
+  ],
+  "triggerCount": 1,
+  "updatedAt": "2024-01-01T00:00:00.000Z",
+  "versionId": "1"
+}

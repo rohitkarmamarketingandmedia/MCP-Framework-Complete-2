@@ -1,7 +1,43 @@
-# 🚀 ROHIT DEPLOY GUIDE - MCP Framework v4.5
+# 🚀 ROHIT DEPLOY GUIDE - MCP Framework v5.5.1
+
+## 👉 WANT THE SHORT VERSION?
+**See `QUICKSTART.md` - Deploy in 10 minutes, one page.**
+
+---
 
 ## READ THIS FIRST
-This is the step-by-step guide. Follow it exactly.
+This is the detailed step-by-step guide. Follow it exactly.
+
+---
+
+## WHAT'S NEW IN v5.5.0
+
+### 🎯 Client Value Experience
+- **Health Score Report Card** - 100-point score clients understand
+- **3-Day Snapshot Emails** - Automated reports (Mon/Thu 9 AM)
+- **CallRail Integration** - Call tracking, recordings, transcripts
+- **Activity Feed** - Show clients we're working for them
+- **Wins Celebration** - Highlight successes in portal
+
+### 🧠 Customer Intelligence Engine (NEW!)
+- **Analyze Interactions** - Extract questions from calls, chats, forms
+- **Auto-Generate Content** - FAQ pages, blogs from real customer questions
+- **Content Calendar** - Based on actual customer demand
+- **Voice of Customer** - Use THEIR words for SEO
+
+### 🔌 N8N/Webhook Integration (NEW!)
+- **Event System** - MCP fires webhooks when things happen
+- **Pre-Built Workflows** - Import JSON files into N8N
+- **Inbound Webhooks** - Receive CallRail, form submissions
+- **WordPress Publishing** - Via N8N for reliability
+
+### Previous Features (v5.4)
+- Unified Header - Consistent navigation
+- Approval Workflow - Client content approval
+- OAuth Integration - Facebook, Instagram, LinkedIn, GBP
+- AI Image Generation - DALL-E, Stability AI, Replicate
+- Email Notifications - 14 types with digest modes
+- **319 API Routes** - Full REST API coverage
 
 ---
 
@@ -27,7 +63,7 @@ If you see errors, fix them first.
 ```bash
 cd mcp-framework
 git add .
-git commit -m "Deploy v4.5"
+git commit -m "Deploy v5.5.1"
 git push origin main
 ```
 
@@ -49,12 +85,43 @@ git push origin main
 
 Render will show you a list of env vars. Set these:
 
+**Required:**
 | Variable | Value |
 |----------|-------|
 | `OPENAI_API_KEY` | `sk-...` (get from OpenAI dashboard) |
 | `ADMIN_EMAIL` | `michael@karmamarketing.com` |
 | `ADMIN_PASSWORD` | `KarmaAdmin2024!` (or whatever) |
 | `CORS_ORIGINS` | `*` for now, change later to actual domain |
+
+**Optional - OAuth (enable social auto-posting):**
+| Variable | Value |
+|----------|-------|
+| `FACEBOOK_APP_ID` | From Meta Developer Console |
+| `FACEBOOK_APP_SECRET` | From Meta Developer Console |
+| `LINKEDIN_CLIENT_ID` | From LinkedIn Developer Portal |
+| `LINKEDIN_CLIENT_SECRET` | From LinkedIn Developer Portal |
+| `GOOGLE_CLIENT_ID` | From Google Cloud Console |
+| `GOOGLE_CLIENT_SECRET` | From Google Cloud Console |
+| `APP_URL` | `https://your-app.onrender.com` |
+
+**Optional - Image Generation:**
+| Variable | Value |
+|----------|-------|
+| `STABILITY_API_KEY` | From Stability AI (alternative to DALL-E) |
+| `REPLICATE_API_TOKEN` | From Replicate |
+| `UNSPLASH_ACCESS_KEY` | For free stock photos |
+
+**Optional - CallRail (Call Tracking):**
+| Variable | Value |
+|----------|-------|
+| `CALLRAIL_API_KEY` | From CallRail Settings > API > API V3 |
+| `CALLRAIL_ACCOUNT_ID` | Your CallRail account ID |
+
+**Optional - N8N/Webhooks (Add after N8N is deployed):**
+| Variable | Value |
+|----------|-------|
+| `WEBHOOK_URL_DEFAULT` | Your N8N webhook URL |
+| `WEBHOOK_SECRET` | Shared secret for signing |
 
 **Leave everything else as default.**
 
@@ -67,7 +134,7 @@ Wait 3-5 minutes. Watch the logs.
 ### Step 6: Verify
 
 1. Go to: `https://mcp-framework.onrender.com/health`
-   - Should show: `{"status": "healthy", "version": "4.5.0"}`
+   - Should show: `{"status": "healthy", "version": "5.5.0"}`
 
 2. Go to: `https://mcp-framework.onrender.com/admin`
    - Login with `ADMIN_EMAIL` / `ADMIN_PASSWORD`
@@ -215,6 +282,40 @@ Check logs:
 
 ---
 
+## OPTIONAL: Deploy N8N (Automation Layer)
+
+N8N handles external tasks like WordPress publishing, email sequences, Slack alerts.
+
+**See full guide:** `N8N_SETUP.md`
+
+### Quick Version:
+
+#### Option 1: N8N Cloud ($20/mo - Easiest)
+1. Sign up at https://n8n.io
+2. Import workflows from `n8n-workflows/` folder
+3. Copy webhook URL
+4. Add to MCP: `WEBHOOK_URL_DEFAULT=<url>`
+
+#### Option 2: Self-Host on Render
+1. New Web Service → Image: `n8nio/n8n`
+2. Add env vars (see N8N_SETUP.md)
+3. Add 1GB disk at `/home/node/.n8n`
+4. Import workflows
+
+### After N8N Setup:
+
+Add these to MCP environment:
+
+```
+WEBHOOK_URL_DEFAULT=https://your-n8n.com/webhook/mcp-events
+WEBHOOK_URL_CONTENT=https://your-n8n.com/webhook/content
+WEBHOOK_URL_LEADS=https://your-n8n.com/webhook/leads
+WEBHOOK_URL_CALLS=https://your-n8n.com/webhook/calls
+WEBHOOK_SECRET=your-shared-secret
+```
+
+---
+
 ## NEED HELP?
 
 1. Check the logs first
@@ -223,5 +324,5 @@ Check logs:
 
 ---
 
-**Version:** 4.5.0
+**Version:** 5.5.1
 **Last Updated:** November 2024

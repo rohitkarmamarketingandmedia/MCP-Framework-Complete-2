@@ -1,26 +1,75 @@
-# MCP Framework v4.5
+# MCP Framework v5.5.1
 
 **Marketing Control Platform** - AI-powered SEO content automation engine by Karma Marketing + Media.
+
+## 🚀 DEPLOY NOW
+
+| Guide | For |
+|-------|-----|
+| **`QUICKSTART.md`** | Deploy in 10 minutes (one page) |
+| `DEPLOY_ROHIT.md` | Detailed step-by-step guide |
+| `N8N_SETUP.md` | Add automation workflows |
 
 ## Overview
 
 MCP Framework is a complete marketing automation platform that generates SEO-optimized content, manages social media, publishes to WordPress, tracks analytics, and provides AI-powered agents for content generation - all with a beautiful dashboard UI.
 
+## 🎯 Client Value Focus (v5.5)
+
+**Goal:** Make clients feel ABSOLUTE VALUE, build TRUST, and want to PAY MORE.
+
+### Customer Intelligence Engine (NEW!)
+**Turn every customer interaction into SEO content:**
+
+```
+📞 Calls + 💬 Chats + 📝 Forms  →  🧠 AI Analysis  →  📝 Auto-Content
+```
+
+- **Analyze** CallRail transcripts, chatbot conversations, lead forms
+- **Extract** questions, pain points, keywords customers actually use
+- **Generate** FAQ pages, blog posts, service page Q&A automatically
+- **Schedule** content calendars based on real customer demand
+
+### Client Experience
+- **Health Score Report Card** - 100-point score clients instantly understand
+- **3-Day Snapshot Reports** - Automated emails showing wins, activity, pipeline
+- **CallRail Integration** - Call tracking, recordings, transcripts, hot leads
+- **Activity Feed** - Show clients we're WORKING for them
+- **Wins Celebration** - Highlight successes to build confidence
+
 ## Features
 
-- **AI Content Generation** - Blog posts, landing pages with proper SEO structure
+### Core
+- **AI Content Generation** - Blog posts, landing pages with proper SEO structure (1800+ words)
 - **AI Agent System** - 7 configurable AI agents with prompt editing via admin UI
 - **Schema Markup** - JSON-LD generation for LocalBusiness, FAQ, Article, etc.
-- **Social Media** - Multi-platform post generation (GBP, Facebook, Instagram, LinkedIn)
-- **WordPress Publishing** - Direct REST API integration with Yoast SEO support
-- **Analytics** - Google Analytics 4 integration for traffic and performance
-- **SEO Tools** - SEMRush integration for keyword rankings and competitor analysis
+- **SEO Scoring** - 100-point scoring system with keyword density, internal linking, headings
 - **Multi-tenant** - Client management with role-based access control
-- **Review Management** - AI-powered review response generation
-- **Lead Generation** - Forms, tracking, and GBP integration
-- **Background Jobs** - Automated content scheduling and monitoring
+- **PostgreSQL Database** - Production-ready with full ORM models
+
+### Publishing & Social
+- **WordPress Publishing** - Direct REST API integration with Yoast SEO support
+- **Social Auto-Post** - Multi-platform publishing (Facebook, Instagram, LinkedIn, GBP)
+- **OAuth2 Integration** - Secure connection to all social platforms
+- **AI Image Generation** - DALL-E, Stability AI, Replicate, Unsplash
+
+### Analytics & Monitoring
+- **Google Analytics 4** - Traffic and performance integration
+- **Rank Tracking** - Daily keyword position monitoring with history
+- **Competitor Monitoring** - Content changes, ranking battles, gap analysis
+- **SEMRush Integration** - Keyword rankings and competitor data
+
+### Client Experience
+- **Client Portal** - Self-service dashboard for clients
+- **Approval Workflow** - Content review, approve, request changes
+- **Notification System** - 14 types with email digests and quiet hours
+- **Lead Capture** - Forms, tracking, and GBP integration
+
+### Operations
+- **Background Scheduler** - 8 automated jobs (publishing, monitoring, digests)
 - **Webhooks** - 12 event types for integrations
 - **Audit Logging** - Full trail of all system changes
+- **Review Management** - AI-powered review response generation
 
 ## Quick Start
 
@@ -180,12 +229,13 @@ mcp-framework/
 
 ## System Stats
 
-- **Version:** 4.5.0
-- **Python Code:** 21,500+ lines
-- **API Routes:** 204
-- **Database Tables:** 19
+- **Version:** 5.5.1
+- **Python Code:** 25,000+ lines
+- **API Routes:** 319
+- **Database Tables:** 21
 - **AI Agents:** 7
 - **Dashboards:** 7
+- **Scheduler Jobs:** 9
 - **Tests:** 21 passing
 
 ## Deployment
@@ -230,6 +280,7 @@ Proprietary - Karma Marketing + Media
 
 ## Support
 
+- **Quick Start:** `QUICKSTART.md` (10 min deploy)
 - Deployment Guide: `DEPLOY_ROHIT.md`
+- N8N Automation: `N8N_SETUP.md`
 - Production Docs: `PRODUCTION.md`
-- GitHub Issues: [repo]/issues

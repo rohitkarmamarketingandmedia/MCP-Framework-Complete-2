@@ -1,108 +1,101 @@
-# MCP Framework - Quick Start
+# 🚀 ROHIT: Deploy MCP in 10 Minutes
 
-## 🚀 Deploy to Render (Recommended for Production)
-
-1. Push code to GitHub
-2. Go to [render.com](https://render.com) → New → Blueprint
-3. Connect repo → Render auto-detects `render.yaml`
-4. Set `OPENAI_API_KEY` environment variable
-5. Deploy!
-
-**Time: ~5 minutes | Cost: Free tier available**
-
-See `RENDER.md` for detailed instructions.
+## YOU NEED:
+- GitHub account
+- Render account (free to start)
+- OpenAI API key
 
 ---
 
-## 💻 Local Development
+## DO THIS:
 
-### Mac/Linux
-
+### 1. PUSH TO GITHUB
 ```bash
-bash setup.sh
-bash start.sh
+cd mcp-framework
+git init
+git add .
+git commit -m "Initial"
+git remote add origin https://github.com/YOUR_USERNAME/mcp-framework.git
+git push -u origin main
 ```
 
-### Windows
+### 2. GO TO RENDER
+- https://render.com → Sign up/Login
+- Click **"New +"** → **"Blueprint"**
+- Connect GitHub → Select `mcp-framework` repo
 
-```cmd
-setup.bat
-start.bat
+### 3. SET THESE 4 VARIABLES
+| Variable | Value |
+|----------|-------|
+| `OPENAI_API_KEY` | `sk-...` from OpenAI |
+| `ADMIN_EMAIL` | `michael@karmamarketing.com` |
+| `ADMIN_PASSWORD` | `KarmaAdmin2024!` |
+| `CORS_ORIGINS` | `*` |
+
+### 4. CLICK DEPLOY
+Wait 3-5 minutes.
+
+### 5. TEST IT
+- Go to: `https://YOUR-APP.onrender.com/health`
+- Should see: `{"status": "healthy"}`
+- Go to: `https://YOUR-APP.onrender.com/admin`
+- Login with the email/password you set
+
+---
+
+## ✅ DONE!
+
+---
+
+## IF SOMETHING BREAKS:
+
+**"Application error"**
+→ Check Render logs (Dashboard → Logs)
+
+**"Invalid credentials"**
+→ Check ADMIN_EMAIL and ADMIN_PASSWORD are set in Render env vars
+
+**"OpenAI error"**
+→ Check OPENAI_API_KEY is correct and has credits
+
+**Can't connect to database**
+→ Render creates the database automatically via render.yaml. If it didn't, create a PostgreSQL database manually and set DATABASE_URL.
+
+---
+
+## URLS AFTER DEPLOY:
+
+| URL | What |
+|-----|------|
+| `/health` | Check if running |
+| `/admin` | Login here first |
+| `/agency` | Main dashboard |
+| `/intake` | Add new clients |
+| `/portal` | Client portal |
+
+---
+
+## OPTIONAL LATER:
+
+Add these env vars for extra features:
+
+```
+# CallRail (call tracking)
+CALLRAIL_API_KEY=xxx
+CALLRAIL_ACCOUNT_ID=xxx
+
+# N8N (automation - see N8N_SETUP.md)
+WEBHOOK_URL_DEFAULT=https://your-n8n.com/webhook/mcp-events
 ```
 
-### Docker
+---
 
-```bash
-bash docker-setup.sh
-```
+## QUESTIONS?
 
-Open **http://localhost:5000** in your browser.
+1. Check Render logs first
+2. Run: `python scripts/validate_production.py`
+3. Text Michael
 
 ---
 
-## What Happens During Setup
-
-1. ✅ Checks your Python version
-2. ✅ Creates virtual environment  
-3. ✅ Installs all dependencies
-4. ✅ Asks for your OpenAI API key
-5. ✅ Creates your admin account
-6. ✅ Verifies everything works
-
-**Total time: ~5-10 minutes**
-
----
-
-## After Setup
-
-1. Login with the admin account you created
-2. Paste a client interview transcript
-3. Watch AI extract everything
-4. Select topics to generate
-5. Publish to WordPress
-
----
-
-## Troubleshooting
-
-**"Port 5000 already in use" (Mac)**
-→ macOS uses port 5000 for AirPlay. The server will automatically use 5001 instead.
-
-**"command not found: python3"**
-→ Install Python: https://www.python.org/downloads/
-
-**"ModuleNotFoundError"**
-→ Run setup again: `bash setup.sh` (or `setup.bat` on Windows)
-
-**"OpenAI API error"**
-→ Check your API key in `.env` file. Make sure it starts with `sk-`
-
-**"Cannot connect to server"**
-→ Make sure you ran `bash start.sh` first
-
-**"Database error"**
-→ For local dev, SQLite is used by default. For production, set `DATABASE_URL`.
-
-**Need more help?**
-→ See `DEPLOYMENT.md` for local setup or `RENDER.md` for cloud deployment.
-
----
-
-## Files You Might Need to Edit
-
-| File | What It's For |
-|------|---------------|
-| `.env` | API keys (OpenAI, WordPress, etc.) |
-| `render.yaml` | Render deployment config |
-
----
-
-## Commands Reference
-
-| What | Mac/Linux | Windows |
-|------|-----------|---------|
-| Setup | `bash setup.sh` | `setup.bat` |
-| Start server | `bash start.sh` | `start.bat` |
-| Run tests | `python test_smoke.py` | `python test_smoke.py` |
-| Create admin | `python setup_admin.py` | `python setup_admin.py` |
-| Docker | `bash docker-setup.sh` | (use Git Bash) |
+**v5.5.1** | Takes 10 minutes | You got this 💪

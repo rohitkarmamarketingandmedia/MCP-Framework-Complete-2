@@ -42,26 +42,94 @@ class WordPressService:
     def test_connection(self) -> Dict[str, Any]:
         """Test the WordPress connection"""
         try:
-            # Try to get user info
+            # Check if response is HTML (security block like SiteGround captcha)
+            def is_security_block(response):
+                content_type = response.headers.get('Content-Type', '')
+                if 'text/html' in content_type:
+                    text = response.text.lower()
+                    if any(x in text for x in ['captcha', 'security', 'blocked', 'cloudflare', 'challenge']):
+                        return True
+                return False
+            
+            # First, test if the REST API is accessible at all (no auth needed)
+            try:
+                api_check = requests.get(
+                    f"{self.site_url}/wp-json/",
+                    timeout=10,
+                    headers={'User-Agent': 'MCP-Framework/1.0'}
+                )
+                
+                if is_security_block(api_check):
+                    return {
+                        'success': False,
+                        'error': 'Security block detected',
+                        'message': 'Your hosting provider (likely SiteGround) is blocking API requests. Please whitelist the MCP server IP in your hosting security settings, or temporarily disable bot protection.',
+                        'hosting_tip': 'SiteGround: Site Tools → Security → Access Control → Add IP to Whitelist'
+                    }
+            except Exception:
+                pass  # Continue to try authenticated request
+            
+            # Try to get posts (less restricted than /users/me)
             response = requests.get(
-                f"{self.api_url}/users/me",
+                f"{self.api_url}/posts",
                 headers=self.headers,
-                timeout=10
+                params={'per_page': 1, 'status': 'any'},
+                timeout=15
             )
             
+            # Check for security block in response
+            if is_security_block(response):
+                return {
+                    'success': False,
+                    'error': 'Security block detected',
+                    'message': 'Your hosting provider is blocking API requests. Please whitelist the MCP server IP address in your hosting security settings.',
+                    'response_preview': response.text[:300]
+                }
+            
             if response.status_code == 200:
-                user = response.json()
+                # Posts endpoint worked, now verify we have write access
                 return {
                     'success': True,
-                    'connected_as': user.get('name'),
-                    'site': self.site_url
+                    'connected_as': self.username,
+                    'site': self.site_url,
+                    'can_read_posts': True
+                }
+            elif response.status_code == 401:
+                return {
+                    'success': False,
+                    'error': 'Authentication failed',
+                    'message': 'Invalid username or application password. Make sure you are using an Application Password (not your regular password). Generate one at: WordPress Admin → Users → Profile → Application Passwords'
+                }
+            elif response.status_code == 403:
+                return {
+                    'success': False,
+                    'error': 'Permission denied',
+                    'message': 'The user does not have permission to access posts. Make sure the WordPress user has Editor or Administrator role.'
+                }
+            elif response.status_code == 404:
+                return {
+                    'success': False,
+                    'error': 'REST API not found',
+                    'message': 'WordPress REST API is not accessible. Check that permalinks are enabled and the site URL is correct.'
                 }
             else:
                 return {
                     'success': False,
-                    'error': f"Auth failed: {response.status_code}",
-                    'message': response.text[:200]
+                    'error': f"Unexpected response: {response.status_code}",
+                    'message': response.text[:300]
                 }
+        except requests.exceptions.Timeout:
+            return {
+                'success': False,
+                'error': 'Connection timeout',
+                'message': 'The WordPress site took too long to respond. Check the URL and try again.'
+            }
+        except requests.exceptions.ConnectionError as e:
+            return {
+                'success': False,
+                'error': 'Connection failed',
+                'message': f'Could not connect to {self.site_url}. Check the URL is correct and the site is accessible.'
+            }
         except Exception as e:
             return {
                 'success': False,

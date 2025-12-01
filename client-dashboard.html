@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Content Dashboard | Karma Marketing + Media</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="/static/js/unified-header.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
@@ -236,6 +237,12 @@
                 <button onclick="showTab('rankings')" id="tab-rankings" class="px-3 sm:px-6 py-2 rounded-lg text-xs sm:text-sm font-medium text-gray-400 hover:text-white transition whitespace-nowrap glass">
                     <i class="fas fa-trophy sm:mr-2"></i><span class="hidden sm:inline">Rankings</span><span class="sm:hidden">Rank</span>
                 </button>
+                <button onclick="showTab('competitors')" id="tab-competitors" class="px-3 sm:px-6 py-2 rounded-lg text-xs sm:text-sm font-medium text-gray-400 hover:text-white transition whitespace-nowrap glass">
+                    <i class="fas fa-users sm:mr-2"></i><span class="hidden sm:inline">Competitors</span><span class="sm:hidden">Comp</span>
+                </button>
+                <button onclick="showTab('settings')" id="tab-settings" class="px-3 sm:px-6 py-2 rounded-lg text-xs sm:text-sm font-medium text-gray-400 hover:text-white transition whitespace-nowrap glass">
+                    <i class="fas fa-cog sm:mr-2"></i><span class="hidden sm:inline">Settings</span><span class="sm:hidden">Set</span>
+                </button>
                 <button onclick="showTab('chatbot')" id="tab-chatbot" class="px-3 sm:px-6 py-2 rounded-lg text-xs sm:text-sm font-medium text-gray-400 hover:text-white transition whitespace-nowrap glass">
                     <i class="fas fa-robot sm:mr-2"></i><span class="hidden sm:inline">AI Chatbot</span><span class="sm:hidden">Bot</span>
                 </button>
@@ -293,6 +300,22 @@
                                         <option value="0">No FAQs</option>
                                     </select>
                                 </div>
+                            </div>
+                            
+                            <!-- Featured Image Option -->
+                            <div class="p-4 bg-gradient-to-r from-amber-500/10 to-orange-500/10 border border-amber-500/20 rounded-xl">
+                                <label class="flex items-center justify-between cursor-pointer">
+                                    <div class="flex items-center gap-3">
+                                        <div class="w-10 h-10 rounded-lg bg-amber-500/20 flex items-center justify-center">
+                                            <i class="fas fa-image text-amber-400"></i>
+                                        </div>
+                                        <div>
+                                            <span class="text-white font-medium">Generate Featured Image</span>
+                                            <p class="text-xs text-gray-400">AI-powered image matching your topic</p>
+                                        </div>
+                                    </div>
+                                    <input type="checkbox" id="blogGenerateImage" checked class="w-5 h-5 text-amber-600 rounded">
+                                </label>
                             </div>
                             
                             <button onclick="generateBlog()" id="btnGenerateBlog" 
@@ -359,6 +382,88 @@
                             <div class="flex items-center gap-3">
                                 <div class="spinner w-6 h-6"></div>
                                 <span id="socialProgressText" class="text-gray-300">Generating...</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- AI Image Generation -->
+                    <div class="glass rounded-2xl p-6">
+                        <div class="flex items-center gap-3 mb-6">
+                            <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center">
+                                <i class="fas fa-image text-white text-xl"></i>
+                            </div>
+                            <div>
+                                <h3 class="text-lg font-bold text-white">AI Image Generator</h3>
+                                <p class="text-sm text-gray-400">Create images with DALL-E & more</p>
+                            </div>
+                        </div>
+                        
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-300 mb-2">Image Description</label>
+                                <textarea id="imagePrompt" rows="3" placeholder="Describe the image you want to create..."
+                                    class="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-amber-500 resize-none"></textarea>
+                            </div>
+                            
+                            <div class="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-300 mb-2">Style</label>
+                                    <select id="imageStyle" class="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white focus:outline-none focus:border-amber-500">
+                                        <option value="photorealistic">📷 Photorealistic</option>
+                                        <option value="social_media">📱 Social Media</option>
+                                        <option value="corporate">💼 Corporate</option>
+                                        <option value="illustration">🎨 Illustration</option>
+                                        <option value="minimal">✨ Minimal</option>
+                                        <option value="lifestyle">🏡 Lifestyle</option>
+                                        <option value="product">🛍️ Product</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-300 mb-2">Size</label>
+                                    <select id="imageSize" class="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white focus:outline-none focus:border-amber-500">
+                                        <option value="1024x1024">Square (1024x1024)</option>
+                                        <option value="1792x1024">Landscape (1792x1024)</option>
+                                        <option value="1024x1792">Portrait (1024x1792)</option>
+                                    </select>
+                                </div>
+                            </div>
+                            
+                            <div class="flex gap-2">
+                                <button onclick="generateImage()" id="btnGenerateImage" 
+                                    class="flex-1 py-4 bg-gradient-to-r from-amber-600 to-orange-600 rounded-xl text-white font-bold hover:opacity-90 transition flex items-center justify-center gap-2">
+                                    <i class="fas fa-wand-magic-sparkles"></i> Generate Image
+                                </button>
+                                <button onclick="generateSocialImages()" id="btnGenerateSocialImages" 
+                                    class="px-4 py-4 bg-white/10 hover:bg-white/20 rounded-xl text-white transition" title="Generate for all platforms">
+                                    <i class="fas fa-layer-group"></i>
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- Generated Image Preview -->
+                        <div id="imagePreview" class="hidden mt-4">
+                            <div class="relative rounded-xl overflow-hidden bg-white/5">
+                                <img id="generatedImage" src="" alt="Generated Image" class="w-full h-auto">
+                                <div class="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-black/80 to-transparent">
+                                    <div class="flex items-center justify-between">
+                                        <span id="imageProvider" class="text-xs text-gray-400">Generated with DALL-E</span>
+                                        <div class="flex gap-2">
+                                            <a id="imageDownload" href="#" download class="p-2 bg-white/20 hover:bg-white/30 rounded-lg transition">
+                                                <i class="fas fa-download text-white text-sm"></i>
+                                            </a>
+                                            <button onclick="copyImageUrl()" class="p-2 bg-white/20 hover:bg-white/30 rounded-lg transition">
+                                                <i class="fas fa-copy text-white text-sm"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div id="imageProgress" class="hidden mt-4 p-4 bg-white/5 rounded-xl">
+                            <div class="flex items-center gap-3">
+                                <div class="spinner w-6 h-6"></div>
+                                <span id="imageProgressText" class="text-gray-300">Generating image...</span>
                             </div>
                         </div>
                     </div>
@@ -811,6 +916,346 @@
                 </div>
             </div>
             
+            <!-- Competitors Panel -->
+            <div id="panel-competitors" class="hidden fade-in">
+                <!-- Header -->
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+                    <div>
+                        <h2 class="text-2xl font-bold text-white">Competitor Intelligence</h2>
+                        <p class="text-gray-400">Track and outrank your competition</p>
+                    </div>
+                    <button onclick="refreshCompetitorDashboard()" class="px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl font-medium hover:opacity-90 transition flex items-center gap-2">
+                        <i class="fas fa-sync-alt"></i>
+                        Refresh Data
+                    </button>
+                </div>
+
+                <!-- Stats Cards -->
+                <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                    <div class="glass rounded-2xl p-4 text-center">
+                        <div class="text-3xl font-bold text-purple-400" id="compCount">0</div>
+                        <div class="text-sm text-gray-400">Competitors Tracked</div>
+                    </div>
+                    <div class="glass rounded-2xl p-4 text-center">
+                        <div class="text-3xl font-bold text-green-400" id="compWinRate">0%</div>
+                        <div class="text-sm text-gray-400">Win Rate</div>
+                    </div>
+                    <div class="glass rounded-2xl p-4 text-center">
+                        <div class="text-3xl font-bold text-blue-400" id="compGaps">0</div>
+                        <div class="text-sm text-gray-400">Content Gaps</div>
+                    </div>
+                    <div class="glass rounded-2xl p-4 text-center">
+                        <div class="text-3xl font-bold text-amber-400" id="compKeywords">0</div>
+                        <div class="text-sm text-gray-400">Keywords Tracked</div>
+                    </div>
+                </div>
+
+                <!-- Main Content Grid -->
+                <div class="grid lg:grid-cols-2 gap-6">
+                    <!-- Competitor Cards -->
+                    <div class="glass rounded-2xl p-6">
+                        <h3 class="text-lg font-bold text-white mb-4">
+                            <i class="fas fa-building mr-2 text-purple-400"></i>Your Competitors
+                        </h3>
+                        <div id="competitorCards" class="space-y-3">
+                            <p class="text-gray-500 text-sm">No competitors added yet. Add competitors in the intake wizard.</p>
+                        </div>
+                    </div>
+
+                    <!-- Ranking Battles -->
+                    <div class="glass rounded-2xl p-6">
+                        <h3 class="text-lg font-bold text-white mb-4">
+                            <i class="fas fa-swords mr-2 text-amber-400"></i>Ranking Battles
+                        </h3>
+                        <div id="rankingBattles" class="space-y-3 max-h-80 overflow-y-auto">
+                            <p class="text-gray-500 text-sm">Check rankings to see battles</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Content Gap Analysis -->
+                <div class="glass rounded-2xl p-6 mt-6">
+                    <h3 class="text-lg font-bold text-white mb-4">
+                        <i class="fas fa-lightbulb mr-2 text-yellow-400"></i>Content Gap Opportunities
+                    </h3>
+                    <p class="text-gray-400 text-sm mb-4">Topics your competitors cover that you don't. Click to generate content.</p>
+                    <div id="contentGaps" class="grid md:grid-cols-2 lg:grid-cols-3 gap-3">
+                        <p class="text-gray-500 text-sm col-span-full">Analyzing competitor content...</p>
+                    </div>
+                </div>
+
+                <!-- Social Connections -->
+                <div class="glass rounded-2xl p-6 mt-6">
+                    <h3 class="text-lg font-bold text-white mb-4">
+                        <i class="fas fa-share-nodes mr-2 text-blue-400"></i>Social Media Connections
+                    </h3>
+                    <p class="text-gray-400 text-sm mb-4">Connect your social accounts for automated publishing</p>
+                    <div id="socialConnections" class="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <!-- GBP -->
+                        <div class="bg-white/5 rounded-xl p-4 border border-white/10" data-platform="gbp">
+                            <div class="flex items-center gap-3 mb-3">
+                                <div class="w-10 h-10 rounded-lg flex items-center justify-center" style="background: #4285F4;">
+                                    <i class="fab fa-google text-white"></i>
+                                </div>
+                                <div>
+                                    <div class="font-medium text-white text-sm">Google Business</div>
+                                    <div class="text-xs text-gray-500" id="gbp-status">Not connected</div>
+                                </div>
+                            </div>
+                            <button onclick="connectSocial('gbp')" class="w-full py-2 px-3 bg-white/10 hover:bg-white/20 rounded-lg text-sm text-white transition" id="gbp-btn">
+                                Connect
+                            </button>
+                        </div>
+                        
+                        <!-- Facebook -->
+                        <div class="bg-white/5 rounded-xl p-4 border border-white/10" data-platform="facebook">
+                            <div class="flex items-center gap-3 mb-3">
+                                <div class="w-10 h-10 rounded-lg flex items-center justify-center" style="background: #1877F2;">
+                                    <i class="fab fa-facebook text-white"></i>
+                                </div>
+                                <div>
+                                    <div class="font-medium text-white text-sm">Facebook</div>
+                                    <div class="text-xs text-gray-500" id="facebook-status">Not connected</div>
+                                </div>
+                            </div>
+                            <button onclick="connectSocial('facebook')" class="w-full py-2 px-3 bg-white/10 hover:bg-white/20 rounded-lg text-sm text-white transition" id="facebook-btn">
+                                Connect
+                            </button>
+                        </div>
+                        
+                        <!-- Instagram -->
+                        <div class="bg-white/5 rounded-xl p-4 border border-white/10" data-platform="instagram">
+                            <div class="flex items-center gap-3 mb-3">
+                                <div class="w-10 h-10 rounded-lg flex items-center justify-center" style="background: linear-gradient(45deg, #f09433, #e6683c, #dc2743, #cc2366, #bc1888);">
+                                    <i class="fab fa-instagram text-white"></i>
+                                </div>
+                                <div>
+                                    <div class="font-medium text-white text-sm">Instagram</div>
+                                    <div class="text-xs text-gray-500" id="instagram-status">Not connected</div>
+                                </div>
+                            </div>
+                            <button onclick="connectSocial('instagram')" class="w-full py-2 px-3 bg-white/10 hover:bg-white/20 rounded-lg text-sm text-white transition" id="instagram-btn">
+                                Connect
+                            </button>
+                        </div>
+                        
+                        <!-- LinkedIn -->
+                        <div class="bg-white/5 rounded-xl p-4 border border-white/10" data-platform="linkedin">
+                            <div class="flex items-center gap-3 mb-3">
+                                <div class="w-10 h-10 rounded-lg flex items-center justify-center" style="background: #0A66C2;">
+                                    <i class="fab fa-linkedin text-white"></i>
+                                </div>
+                                <div>
+                                    <div class="font-medium text-white text-sm">LinkedIn</div>
+                                    <div class="text-xs text-gray-500" id="linkedin-status">Not connected</div>
+                                </div>
+                            </div>
+                            <button onclick="connectSocial('linkedin')" class="w-full py-2 px-3 bg-white/10 hover:bg-white/20 rounded-lg text-sm text-white transition" id="linkedin-btn">
+                                Connect
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Settings Panel -->
+            <div id="panel-settings" class="hidden fade-in">
+                <div class="grid lg:grid-cols-3 gap-6">
+                    <!-- Notification Preferences -->
+                    <div class="lg:col-span-2 space-y-6">
+                        <div class="glass rounded-2xl p-6">
+                            <div class="flex items-center justify-between mb-6">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500 to-pink-600 flex items-center justify-center">
+                                        <i class="fas fa-bell text-white text-xl"></i>
+                                    </div>
+                                    <div>
+                                        <h3 class="text-lg font-bold text-white">Email Notifications</h3>
+                                        <p class="text-sm text-gray-400">Choose what emails you receive</p>
+                                    </div>
+                                </div>
+                                <button onclick="saveNotificationPrefs()" class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm font-medium transition">
+                                    Save Changes
+                                </button>
+                            </div>
+                            
+                            <!-- Master Toggle -->
+                            <div class="flex items-center justify-between p-4 bg-white/5 rounded-xl mb-6">
+                                <div>
+                                    <div class="font-medium text-white">Email Notifications</div>
+                                    <div class="text-sm text-gray-400">Master toggle for all email notifications</div>
+                                </div>
+                                <label class="relative inline-flex items-center cursor-pointer">
+                                    <input type="checkbox" id="notifEmailEnabled" class="sr-only peer" checked>
+                                    <div class="w-11 h-6 bg-gray-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
+                                </label>
+                            </div>
+                            
+                            <!-- Content Notifications -->
+                            <div class="mb-6">
+                                <h4 class="text-white font-medium mb-3 flex items-center gap-2">
+                                    <i class="fas fa-file-alt text-blue-400"></i> Content Notifications
+                                </h4>
+                                <div class="space-y-3">
+                                    <label class="flex items-center justify-between p-3 bg-white/5 rounded-lg cursor-pointer hover:bg-white/10 transition">
+                                        <span class="text-gray-300 text-sm">Content scheduled for publishing</span>
+                                        <input type="checkbox" id="notifContentScheduled" class="w-4 h-4 text-purple-600 rounded" checked>
+                                    </label>
+                                    <label class="flex items-center justify-between p-3 bg-white/5 rounded-lg cursor-pointer hover:bg-white/10 transition">
+                                        <span class="text-gray-300 text-sm">Content due today (morning reminder)</span>
+                                        <input type="checkbox" id="notifContentDueToday" class="w-4 h-4 text-purple-600 rounded" checked>
+                                    </label>
+                                    <label class="flex items-center justify-between p-3 bg-white/5 rounded-lg cursor-pointer hover:bg-white/10 transition">
+                                        <span class="text-gray-300 text-sm">Content published successfully</span>
+                                        <input type="checkbox" id="notifContentPublished" class="w-4 h-4 text-purple-600 rounded" checked>
+                                    </label>
+                                    <label class="flex items-center justify-between p-3 bg-white/5 rounded-lg cursor-pointer hover:bg-white/10 transition">
+                                        <span class="text-gray-300 text-sm">Content needs approval</span>
+                                        <input type="checkbox" id="notifApprovalNeeded" class="w-4 h-4 text-purple-600 rounded" checked>
+                                    </label>
+                                    <label class="flex items-center justify-between p-3 bg-white/5 rounded-lg cursor-pointer hover:bg-white/10 transition">
+                                        <span class="text-gray-300 text-sm">Client feedback received</span>
+                                        <input type="checkbox" id="notifContentFeedback" class="w-4 h-4 text-purple-600 rounded" checked>
+                                    </label>
+                                </div>
+                            </div>
+                            
+                            <!-- Competitor & Ranking Notifications -->
+                            <div class="mb-6">
+                                <h4 class="text-white font-medium mb-3 flex items-center gap-2">
+                                    <i class="fas fa-chart-line text-green-400"></i> Competitor & Ranking Alerts
+                                </h4>
+                                <div class="space-y-3">
+                                    <label class="flex items-center justify-between p-3 bg-white/5 rounded-lg cursor-pointer hover:bg-white/10 transition">
+                                        <span class="text-gray-300 text-sm">Competitor publishes new content</span>
+                                        <input type="checkbox" id="notifCompetitorContent" class="w-4 h-4 text-purple-600 rounded" checked>
+                                    </label>
+                                    <label class="flex items-center justify-between p-3 bg-white/5 rounded-lg cursor-pointer hover:bg-white/10 transition">
+                                        <span class="text-gray-300 text-sm">Ranking improved</span>
+                                        <input type="checkbox" id="notifRankingImproved" class="w-4 h-4 text-purple-600 rounded" checked>
+                                    </label>
+                                    <label class="flex items-center justify-between p-3 bg-white/5 rounded-lg cursor-pointer hover:bg-white/10 transition">
+                                        <span class="text-gray-300 text-sm">Ranking dropped</span>
+                                        <input type="checkbox" id="notifRankingDropped" class="w-4 h-4 text-purple-600 rounded" checked>
+                                    </label>
+                                </div>
+                            </div>
+                            
+                            <!-- Publishing Notifications -->
+                            <div class="mb-6">
+                                <h4 class="text-white font-medium mb-3 flex items-center gap-2">
+                                    <i class="fas fa-globe text-purple-400"></i> Publishing Notifications
+                                </h4>
+                                <div class="space-y-3">
+                                    <label class="flex items-center justify-between p-3 bg-white/5 rounded-lg cursor-pointer hover:bg-white/10 transition">
+                                        <span class="text-gray-300 text-sm">WordPress publishing success</span>
+                                        <input type="checkbox" id="notifWpPublished" class="w-4 h-4 text-purple-600 rounded" checked>
+                                    </label>
+                                    <label class="flex items-center justify-between p-3 bg-white/5 rounded-lg cursor-pointer hover:bg-white/10 transition">
+                                        <span class="text-gray-300 text-sm">WordPress publishing failed</span>
+                                        <input type="checkbox" id="notifWpFailed" class="w-4 h-4 text-purple-600 rounded" checked>
+                                    </label>
+                                    <label class="flex items-center justify-between p-3 bg-white/5 rounded-lg cursor-pointer hover:bg-white/10 transition">
+                                        <span class="text-gray-300 text-sm">Social media publishing success</span>
+                                        <input type="checkbox" id="notifSocialPublished" class="w-4 h-4 text-purple-600 rounded">
+                                    </label>
+                                    <label class="flex items-center justify-between p-3 bg-white/5 rounded-lg cursor-pointer hover:bg-white/10 transition">
+                                        <span class="text-gray-300 text-sm">Social media publishing failed</span>
+                                        <input type="checkbox" id="notifSocialFailed" class="w-4 h-4 text-purple-600 rounded" checked>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Delivery Preferences -->
+                    <div class="space-y-6">
+                        <div class="glass rounded-2xl p-6">
+                            <h3 class="text-lg font-bold text-white mb-4">
+                                <i class="fas fa-paper-plane mr-2 text-blue-400"></i>Delivery Settings
+                            </h3>
+                            
+                            <div class="space-y-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-300 mb-2">Delivery Frequency</label>
+                                    <select id="notifDigestFreq" class="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white focus:outline-none focus:border-purple-500">
+                                        <option value="instant">Instant (send immediately)</option>
+                                        <option value="daily">Daily Digest</option>
+                                        <option value="weekly">Weekly Digest</option>
+                                    </select>
+                                </div>
+                                
+                                <div id="digestTimeWrapper" class="hidden">
+                                    <label class="block text-sm font-medium text-gray-300 mb-2">Digest Time</label>
+                                    <input type="time" id="notifDigestTime" value="08:00" 
+                                        class="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white focus:outline-none focus:border-purple-500">
+                                </div>
+                                
+                                <div id="digestDayWrapper" class="hidden">
+                                    <label class="block text-sm font-medium text-gray-300 mb-2">Digest Day (Weekly)</label>
+                                    <select id="notifDigestDay" class="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white focus:outline-none focus:border-purple-500">
+                                        <option value="0">Monday</option>
+                                        <option value="1">Tuesday</option>
+                                        <option value="2">Wednesday</option>
+                                        <option value="3">Thursday</option>
+                                        <option value="4">Friday</option>
+                                        <option value="5">Saturday</option>
+                                        <option value="6">Sunday</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Quiet Hours -->
+                        <div class="glass rounded-2xl p-6">
+                            <h3 class="text-lg font-bold text-white mb-4">
+                                <i class="fas fa-moon mr-2 text-indigo-400"></i>Quiet Hours
+                            </h3>
+                            <p class="text-sm text-gray-400 mb-4">Pause notifications during these hours</p>
+                            
+                            <label class="flex items-center justify-between p-3 bg-white/5 rounded-lg cursor-pointer hover:bg-white/10 transition mb-4">
+                                <span class="text-gray-300 text-sm">Enable Quiet Hours</span>
+                                <input type="checkbox" id="notifQuietEnabled" class="w-4 h-4 text-purple-600 rounded">
+                            </label>
+                            
+                            <div id="quietHoursConfig" class="space-y-3 opacity-50">
+                                <div>
+                                    <label class="block text-xs text-gray-400 mb-1">Start Time</label>
+                                    <input type="time" id="notifQuietStart" value="22:00" 
+                                        class="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-sm" disabled>
+                                </div>
+                                <div>
+                                    <label class="block text-xs text-gray-400 mb-1">End Time</label>
+                                    <input type="time" id="notifQuietEnd" value="07:00" 
+                                        class="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-sm" disabled>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Test Notification -->
+                        <div class="glass rounded-2xl p-6">
+                            <h3 class="text-lg font-bold text-white mb-4">
+                                <i class="fas fa-vial mr-2 text-amber-400"></i>Test Email
+                            </h3>
+                            <p class="text-sm text-gray-400 mb-4">Send a test notification to verify email delivery</p>
+                            <button onclick="sendTestNotification()" id="testNotifBtn" class="w-full py-3 bg-amber-600 hover:bg-amber-700 text-white rounded-xl font-medium transition">
+                                Send Test Email
+                            </button>
+                        </div>
+                        
+                        <!-- Notification History -->
+                        <div class="glass rounded-2xl p-6">
+                            <h3 class="text-lg font-bold text-white mb-4">
+                                <i class="fas fa-history mr-2 text-gray-400"></i>Recent Notifications
+                            </h3>
+                            <div id="notificationHistory" class="space-y-2 max-h-60 overflow-y-auto">
+                                <p class="text-gray-500 text-sm">Loading...</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
             <!-- Chatbot Panel -->
             <div id="panel-chatbot" class="hidden fade-in">
                 <div class="grid lg:grid-cols-3 gap-6">
@@ -1096,6 +1541,35 @@
                         <div>
                             <label class="text-sm text-gray-500 mb-1 block">Meta Description <span id="metaDescCount" class="text-xs">(0/160)</span></label>
                             <textarea id="modalMetaDescEdit" rows="2" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:border-purple-500 focus:ring-2 focus:ring-purple-200" maxlength="170"></textarea>
+                        </div>
+                    </div>
+                    
+                    <!-- Featured Image Section -->
+                    <div id="featuredImageSection" class="mb-6 p-4 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-xl">
+                        <div class="flex items-center justify-between mb-3">
+                            <h4 class="font-medium text-gray-800 flex items-center gap-2">
+                                <i class="fas fa-image text-amber-500"></i>Featured Image
+                            </h4>
+                            <button onclick="generateBlogImage()" id="btnGenerateBlogImage" class="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white text-sm rounded-lg transition flex items-center gap-2">
+                                <i class="fas fa-wand-magic-sparkles"></i> Generate
+                            </button>
+                        </div>
+                        <div id="featuredImagePreview" class="hidden">
+                            <img id="modalFeaturedImage" src="" alt="Featured Image" class="w-full h-48 object-cover rounded-lg mb-2">
+                            <div class="flex gap-2">
+                                <button onclick="removeFeaturedImage()" class="text-xs text-red-600 hover:text-red-700">
+                                    <i class="fas fa-trash mr-1"></i>Remove
+                                </button>
+                            </div>
+                        </div>
+                        <div id="featuredImageEmpty" class="text-center py-6 text-gray-400">
+                            <i class="fas fa-image text-3xl mb-2 opacity-50"></i>
+                            <p class="text-sm">No featured image yet</p>
+                            <p class="text-xs">Click "Generate" to create one with AI</p>
+                        </div>
+                        <div id="featuredImageLoading" class="hidden text-center py-6">
+                            <div class="spinner w-8 h-8 mx-auto mb-2 border-amber-500"></div>
+                            <p class="text-sm text-amber-600">Generating image...</p>
                         </div>
                     </div>
                     
@@ -1865,7 +2339,7 @@
         // TABS
         // ==========================================
         function showTab(tab) {
-            ['generate', 'blogs', 'social', 'seo', 'calendar', 'reports', 'rankings', 'chatbot'].forEach(t => {
+            ['generate', 'blogs', 'social', 'seo', 'calendar', 'reports', 'rankings', 'competitors', 'settings', 'chatbot'].forEach(t => {
                 document.getElementById(`panel-${t}`).classList.add('hidden');
                 document.getElementById(`tab-${t}`).classList.remove('tab-active');
                 if (t !== 'generate') {
@@ -1902,6 +2376,243 @@
             if (tab === 'rankings') {
                 loadRankingHistory();
             }
+            
+            // Load competitor dashboard when competitors tab is shown
+            if (tab === 'competitors') {
+                refreshCompetitorDashboard();
+            }
+            
+            // Load notification settings when settings tab is shown
+            if (tab === 'settings') {
+                loadNotificationPrefs();
+                loadNotificationHistory();
+            }
+        }
+        
+        // ==========================================
+        // NOTIFICATION SETTINGS
+        // ==========================================
+        
+        let notificationPrefs = null;
+        
+        async function loadNotificationPrefs() {
+            try {
+                const response = await fetch(`${API_URL}/api/notifications/preferences`, {
+                    headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    notificationPrefs = data.preferences;
+                    populateNotificationForm(notificationPrefs);
+                }
+            } catch (error) {
+                console.error('Failed to load notification prefs:', error);
+            }
+        }
+        
+        function populateNotificationForm(prefs) {
+            // Master toggle
+            document.getElementById('notifEmailEnabled').checked = prefs.delivery?.email_enabled !== false;
+            
+            // Content notifications
+            document.getElementById('notifContentScheduled').checked = prefs.content?.scheduled !== false;
+            document.getElementById('notifContentDueToday').checked = prefs.content?.due_today !== false;
+            document.getElementById('notifContentPublished').checked = prefs.content?.published !== false;
+            document.getElementById('notifApprovalNeeded').checked = prefs.content?.approval_needed !== false;
+            document.getElementById('notifContentFeedback').checked = prefs.content?.feedback !== false;
+            
+            // Competitor notifications
+            document.getElementById('notifCompetitorContent').checked = prefs.competitor?.new_content !== false;
+            document.getElementById('notifRankingImproved').checked = prefs.competitor?.ranking_improved !== false;
+            document.getElementById('notifRankingDropped').checked = prefs.competitor?.ranking_dropped !== false;
+            
+            // Publishing notifications
+            document.getElementById('notifWpPublished').checked = prefs.publishing?.wordpress_published !== false;
+            document.getElementById('notifWpFailed').checked = prefs.publishing?.wordpress_failed !== false;
+            document.getElementById('notifSocialPublished').checked = prefs.publishing?.social_published === true;
+            document.getElementById('notifSocialFailed').checked = prefs.publishing?.social_failed !== false;
+            
+            // Delivery settings
+            document.getElementById('notifDigestFreq').value = prefs.delivery?.digest_frequency || 'instant';
+            document.getElementById('notifDigestTime').value = prefs.delivery?.digest_time || '08:00';
+            document.getElementById('notifDigestDay').value = prefs.delivery?.digest_day || 0;
+            
+            // Show/hide digest options
+            updateDigestVisibility();
+            
+            // Quiet hours
+            document.getElementById('notifQuietEnabled').checked = prefs.quiet_hours?.enabled === true;
+            document.getElementById('notifQuietStart').value = prefs.quiet_hours?.start || '22:00';
+            document.getElementById('notifQuietEnd').value = prefs.quiet_hours?.end || '07:00';
+            updateQuietHoursVisibility();
+        }
+        
+        function updateDigestVisibility() {
+            const freq = document.getElementById('notifDigestFreq').value;
+            const timeWrapper = document.getElementById('digestTimeWrapper');
+            const dayWrapper = document.getElementById('digestDayWrapper');
+            
+            if (freq === 'instant') {
+                timeWrapper.classList.add('hidden');
+                dayWrapper.classList.add('hidden');
+            } else if (freq === 'daily') {
+                timeWrapper.classList.remove('hidden');
+                dayWrapper.classList.add('hidden');
+            } else {
+                timeWrapper.classList.remove('hidden');
+                dayWrapper.classList.remove('hidden');
+            }
+        }
+        
+        function updateQuietHoursVisibility() {
+            const enabled = document.getElementById('notifQuietEnabled').checked;
+            const config = document.getElementById('quietHoursConfig');
+            const inputs = config.querySelectorAll('input');
+            
+            if (enabled) {
+                config.classList.remove('opacity-50');
+                inputs.forEach(i => i.disabled = false);
+            } else {
+                config.classList.add('opacity-50');
+                inputs.forEach(i => i.disabled = true);
+            }
+        }
+        
+        // Add event listeners for digest and quiet hours toggles
+        document.addEventListener('DOMContentLoaded', function() {
+            const digestFreq = document.getElementById('notifDigestFreq');
+            const quietEnabled = document.getElementById('notifQuietEnabled');
+            
+            if (digestFreq) digestFreq.addEventListener('change', updateDigestVisibility);
+            if (quietEnabled) quietEnabled.addEventListener('change', updateQuietHoursVisibility);
+            
+            // Handle OAuth callback if present
+            handleOAuthCallback();
+        });
+        
+        async function saveNotificationPrefs() {
+            const prefs = {
+                email_enabled: document.getElementById('notifEmailEnabled').checked,
+                
+                // Content
+                content_scheduled: document.getElementById('notifContentScheduled').checked,
+                content_due_today: document.getElementById('notifContentDueToday').checked,
+                content_published: document.getElementById('notifContentPublished').checked,
+                content_approval_needed: document.getElementById('notifApprovalNeeded').checked,
+                content_feedback: document.getElementById('notifContentFeedback').checked,
+                
+                // Competitor
+                competitor_new_content: document.getElementById('notifCompetitorContent').checked,
+                ranking_improved: document.getElementById('notifRankingImproved').checked,
+                ranking_dropped: document.getElementById('notifRankingDropped').checked,
+                
+                // Publishing
+                wordpress_published: document.getElementById('notifWpPublished').checked,
+                wordpress_failed: document.getElementById('notifWpFailed').checked,
+                social_published: document.getElementById('notifSocialPublished').checked,
+                social_failed: document.getElementById('notifSocialFailed').checked,
+                
+                // Delivery
+                digest_frequency: document.getElementById('notifDigestFreq').value,
+                digest_time: document.getElementById('notifDigestTime').value,
+                digest_day: parseInt(document.getElementById('notifDigestDay').value),
+                
+                // Quiet hours
+                quiet_hours_enabled: document.getElementById('notifQuietEnabled').checked,
+                quiet_start: document.getElementById('notifQuietStart').value,
+                quiet_end: document.getElementById('notifQuietEnd').value
+            };
+            
+            try {
+                const response = await fetch(`${API_URL}/api/notifications/preferences`, {
+                    method: 'PUT',
+                    headers: { 
+                        'Authorization': `Bearer ${AUTH_TOKEN}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(prefs)
+                });
+                
+                if (response.ok) {
+                    alert('✓ Notification preferences saved!');
+                } else {
+                    const data = await response.json();
+                    alert('Error: ' + (data.error || 'Failed to save preferences'));
+                }
+            } catch (error) {
+                alert('Error saving preferences: ' + error.message);
+            }
+        }
+        
+        async function sendTestNotification() {
+            const btn = document.getElementById('testNotifBtn');
+            btn.disabled = true;
+            btn.textContent = 'Sending...';
+            
+            try {
+                const response = await fetch(`${API_URL}/api/notifications/test`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok && data.success) {
+                    alert('✓ Test email sent! Check your inbox.');
+                } else {
+                    alert('Error: ' + (data.error || 'Failed to send test email'));
+                }
+            } catch (error) {
+                alert('Error: ' + error.message);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Send Test Email';
+            }
+        }
+        
+        async function loadNotificationHistory() {
+            try {
+                const response = await fetch(`${API_URL}/api/notifications/history?limit=10`, {
+                    headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    renderNotificationHistory(data.notifications);
+                }
+            } catch (error) {
+                console.error('Failed to load notification history:', error);
+            }
+        }
+        
+        function renderNotificationHistory(notifications) {
+            const container = document.getElementById('notificationHistory');
+            
+            if (!notifications || notifications.length === 0) {
+                container.innerHTML = '<p class="text-gray-500 text-sm">No notifications sent yet</p>';
+                return;
+            }
+            
+            container.innerHTML = notifications.map(n => {
+                const statusColor = n.status === 'sent' ? 'text-green-400' : 
+                                   n.status === 'failed' ? 'text-red-400' : 'text-yellow-400';
+                const statusIcon = n.status === 'sent' ? 'fa-check-circle' : 
+                                  n.status === 'failed' ? 'fa-times-circle' : 'fa-clock';
+                const date = new Date(n.created_at).toLocaleDateString('en-US', { 
+                    month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' 
+                });
+                
+                return `
+                    <div class="p-2 bg-white/5 rounded-lg">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs text-gray-400">${date}</span>
+                            <i class="fas ${statusIcon} ${statusColor}"></i>
+                        </div>
+                        <div class="text-sm text-white truncate mt-1">${n.subject}</div>
+                    </div>
+                `;
+            }).join('');
         }
         
         // ==========================================
@@ -2358,10 +3069,18 @@
                     ? `<input type="checkbox" ${isSelected ? 'checked' : ''} onclick="toggleBlogSelect('${blog.id}', event)" class="w-5 h-5 rounded mr-3 flex-shrink-0">`
                     : '';
                 
+                // Featured image thumbnail
+                const featuredImage = blog.featured_image_url 
+                    ? `<div class="w-20 h-20 rounded-lg overflow-hidden flex-shrink-0 bg-white/5">
+                         <img src="${blog.featured_image_url}" alt="" class="w-full h-full object-cover">
+                       </div>`
+                    : '';
+                
                 return `
                 <div class="content-card glass rounded-xl p-6 ${isSelected ? 'ring-2 ring-purple-500' : ''}">
                     <div class="flex items-start gap-4">
                         ${checkbox}
+                        ${featuredImage}
                         <div class="flex-1 cursor-pointer" onclick="${bulkSelectMode ? `toggleBlogSelect('${blog.id}')` : `openBlogModal('${blog.id}')`}">
                             <div class="flex items-center gap-2 mb-2 flex-wrap">
                                 <span class="px-2 py-1 bg-purple-500/20 text-purple-300 rounded text-xs font-medium">
@@ -2371,6 +3090,7 @@
                                     ${blog.status || 'draft'}
                                 </span>
                                 ${scheduledInfo}
+                                ${blog.featured_image_url ? '<span class="text-amber-400 text-xs"><i class="fas fa-image"></i></span>' : ''}
                             </div>
                             <h3 class="text-lg font-semibold text-white mb-2">${blog.title || 'Untitled'}</h3>
                             <p class="text-gray-400 text-sm line-clamp-2">${blog.meta_description || ''}</p>
@@ -2580,6 +3300,22 @@
             document.getElementById('modalMetaDesc').textContent = currentBlog.meta_description || '';
             document.getElementById('modalBody').innerHTML = currentBlog.body || '';
             
+            // Featured Image
+            const imagePreview = document.getElementById('featuredImagePreview');
+            const imageEmpty = document.getElementById('featuredImageEmpty');
+            const imageLoading = document.getElementById('featuredImageLoading');
+            
+            imageLoading.classList.add('hidden');
+            
+            if (currentBlog.featured_image_url) {
+                document.getElementById('modalFeaturedImage').src = currentBlog.featured_image_url;
+                imagePreview.classList.remove('hidden');
+                imageEmpty.classList.add('hidden');
+            } else {
+                imagePreview.classList.add('hidden');
+                imageEmpty.classList.remove('hidden');
+            }
+            
             // Calculate and display SEO score
             const seoResult = calculateSEOScore(currentBlog);
             updateSEOScoreDisplay(seoResult);
@@ -2606,6 +3342,112 @@
         function closeBlogModal() {
             document.getElementById('blogModal').classList.add('hidden');
             document.body.style.overflow = '';
+        }
+        
+        async function generateBlogImage() {
+            if (!currentBlog) return;
+            
+            const btn = document.getElementById('btnGenerateBlogImage');
+            const imagePreview = document.getElementById('featuredImagePreview');
+            const imageEmpty = document.getElementById('featuredImageEmpty');
+            const imageLoading = document.getElementById('featuredImageLoading');
+            
+            btn.disabled = true;
+            imageEmpty.classList.add('hidden');
+            imagePreview.classList.add('hidden');
+            imageLoading.classList.remove('hidden');
+            
+            try {
+                // Generate image based on blog keyword/title
+                const prompt = `${currentBlog.primary_keyword || currentBlog.title} - professional blog header image`;
+                
+                const response = await fetch(`${API_URL}/api/images/generate`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${AUTH_TOKEN}`
+                    },
+                    body: JSON.stringify({
+                        prompt: prompt,
+                        style: 'blog_header',
+                        size: '1792x1024',
+                        client_id: currentClient?.id
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success && result.url) {
+                    // Update blog with featured image
+                    const updateResponse = await fetch(`${API_URL}/api/content/blog/${currentBlog.id}`, {
+                        method: 'PATCH',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${AUTH_TOKEN}`
+                        },
+                        body: JSON.stringify({
+                            featured_image_url: result.url
+                        })
+                    });
+                    
+                    if (updateResponse.ok) {
+                        // Update UI
+                        currentBlog.featured_image_url = result.url;
+                        document.getElementById('modalFeaturedImage').src = result.url;
+                        imagePreview.classList.remove('hidden');
+                        
+                        // Update the blog in allBlogs array
+                        const blogIndex = allBlogs.findIndex(b => b.id === currentBlog.id);
+                        if (blogIndex >= 0) {
+                            allBlogs[blogIndex].featured_image_url = result.url;
+                            renderBlogs(); // Refresh the list
+                        }
+                    }
+                } else {
+                    alert('Image generation failed: ' + (result.error || 'No image providers configured'));
+                    imageEmpty.classList.remove('hidden');
+                }
+            } catch (error) {
+                alert('Error generating image: ' + error.message);
+                imageEmpty.classList.remove('hidden');
+            } finally {
+                btn.disabled = false;
+                imageLoading.classList.add('hidden');
+            }
+        }
+        
+        async function removeFeaturedImage() {
+            if (!currentBlog) return;
+            
+            if (!confirm('Remove the featured image from this blog post?')) return;
+            
+            try {
+                const response = await fetch(`${API_URL}/api/content/blog/${currentBlog.id}`, {
+                    method: 'PATCH',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${AUTH_TOKEN}`
+                    },
+                    body: JSON.stringify({
+                        featured_image_url: null
+                    })
+                });
+                
+                if (response.ok) {
+                    currentBlog.featured_image_url = null;
+                    document.getElementById('featuredImagePreview').classList.add('hidden');
+                    document.getElementById('featuredImageEmpty').classList.remove('hidden');
+                    
+                    // Update the blog in allBlogs array
+                    const blogIndex = allBlogs.findIndex(b => b.id === currentBlog.id);
+                    if (blogIndex >= 0) {
+                        allBlogs[blogIndex].featured_image_url = null;
+                        renderBlogs();
+                    }
+                }
+            } catch (error) {
+                alert('Error removing image: ' + error.message);
+            }
         }
 
         function copyBlogContent() {
@@ -3417,6 +4259,7 @@
             
             const wordCount = parseInt(document.getElementById('blogWordCount').value);
             const faqCount = parseInt(document.getElementById('blogFaqs').value);
+            const generateImage = document.getElementById('blogGenerateImage').checked;
             
             const btn = document.getElementById('btnGenerateBlog');
             const progress = document.getElementById('blogProgress');
@@ -3449,15 +4292,61 @@
                 }
                 
                 const result = await response.json();
+                const blogId = result.id || result.blog_id;
+                const blogTitle = result.title || keyword;
                 
-                document.getElementById('blogProgressText').textContent = '✓ Blog post generated successfully!';
+                // Generate featured image if enabled
+                if (generateImage && blogId) {
+                    document.getElementById('blogProgressText').textContent = '✓ Blog created! Generating featured image...';
+                    
+                    try {
+                        const imageResponse = await fetch(`${API_URL}/api/images/generate`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Authorization': `Bearer ${AUTH_TOKEN}`
+                            },
+                            body: JSON.stringify({
+                                prompt: `${keyword} - professional blog header image for ${currentClient.business_name || 'business'}`,
+                                style: 'blog_header',
+                                size: '1792x1024',
+                                client_id: currentClient.id
+                            })
+                        });
+                        
+                        const imageResult = await imageResponse.json();
+                        
+                        if (imageResult.success && imageResult.url) {
+                            // Update blog with featured image
+                            await fetch(`${API_URL}/api/content/blog/${blogId}`, {
+                                method: 'PATCH',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'Authorization': `Bearer ${AUTH_TOKEN}`
+                                },
+                                body: JSON.stringify({
+                                    featured_image_url: imageResult.url
+                                })
+                            });
+                            
+                            document.getElementById('blogProgressText').textContent = '✓ Blog post + featured image generated!';
+                        } else {
+                            document.getElementById('blogProgressText').textContent = '✓ Blog created (image generation unavailable)';
+                        }
+                    } catch (imgError) {
+                        console.warn('Image generation failed:', imgError);
+                        document.getElementById('blogProgressText').textContent = '✓ Blog created (image skipped)';
+                    }
+                } else {
+                    document.getElementById('blogProgressText').textContent = '✓ Blog post generated successfully!';
+                }
                 
                 // Refresh the blogs list
                 setTimeout(() => {
                     progress.classList.add('hidden');
                     loadClient(currentClient.id);
                     showTab('blogs');
-                    alert(`Blog post "${result.title || keyword}" generated successfully!`);
+                    alert(`Blog post "${blogTitle}" generated successfully!`);
                 }, 1500);
                 
             } catch (error) {
@@ -3534,6 +4423,151 @@
             
             btn.disabled = false;
             btn.innerHTML = '<i class="fas fa-magic"></i> Generate Social Posts';
+        }
+        
+        // ==========================================
+        // AI IMAGE GENERATION
+        // ==========================================
+        
+        let lastGeneratedImageUrl = null;
+        
+        async function generateImage() {
+            const prompt = document.getElementById('imagePrompt').value.trim();
+            
+            if (!prompt) {
+                alert('Please describe the image you want to create');
+                return;
+            }
+            
+            const style = document.getElementById('imageStyle').value;
+            const size = document.getElementById('imageSize').value;
+            
+            const btn = document.getElementById('btnGenerateImage');
+            const progress = document.getElementById('imageProgress');
+            const preview = document.getElementById('imagePreview');
+            
+            btn.disabled = true;
+            btn.innerHTML = '<div class="spinner w-5 h-5 mr-2"></div> Generating...';
+            progress.classList.remove('hidden');
+            preview.classList.add('hidden');
+            
+            try {
+                const response = await fetch(`${API_URL}/api/images/generate`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${AUTH_TOKEN}`
+                    },
+                    body: JSON.stringify({
+                        prompt: prompt,
+                        style: style,
+                        size: size,
+                        client_id: currentClient?.id
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success && data.url) {
+                    // Show preview
+                    lastGeneratedImageUrl = data.url;
+                    document.getElementById('generatedImage').src = data.url;
+                    document.getElementById('imageDownload').href = data.url;
+                    document.getElementById('imageProvider').textContent = `Generated with ${data.provider?.toUpperCase() || 'AI'}`;
+                    preview.classList.remove('hidden');
+                    
+                    document.getElementById('imageProgressText').textContent = '✓ Image generated!';
+                } else {
+                    alert('Image generation failed: ' + (data.error || 'Unknown error'));
+                }
+            } catch (error) {
+                alert('Error: ' + error.message);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-wand-magic-sparkles"></i> Generate Image';
+                setTimeout(() => progress.classList.add('hidden'), 1500);
+            }
+        }
+        
+        async function generateSocialImages() {
+            const prompt = document.getElementById('imagePrompt').value.trim();
+            
+            if (!prompt) {
+                alert('Please describe the image you want to create');
+                return;
+            }
+            
+            if (!currentClient) {
+                alert('Please select a client first');
+                return;
+            }
+            
+            const btn = document.getElementById('btnGenerateSocialImages');
+            const progress = document.getElementById('imageProgress');
+            
+            btn.disabled = true;
+            progress.classList.remove('hidden');
+            document.getElementById('imageProgressText').textContent = 'Generating images for all platforms...';
+            
+            try {
+                const response = await fetch(`${API_URL}/api/images/generate-for-social`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${AUTH_TOKEN}`
+                    },
+                    body: JSON.stringify({
+                        topic: prompt,
+                        client_id: currentClient.id,
+                        platforms: ['facebook', 'instagram', 'linkedin']
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    document.getElementById('imageProgressText').textContent = 
+                        `✓ Generated ${data.generated_count}/${data.total_platforms} platform images!`;
+                    
+                    // Show first successful image in preview
+                    for (const [platform, result] of Object.entries(data.images || {})) {
+                        if (result.success && result.url) {
+                            lastGeneratedImageUrl = result.url;
+                            document.getElementById('generatedImage').src = result.url;
+                            document.getElementById('imageDownload').href = result.url;
+                            document.getElementById('imageProvider').textContent = `${platform} - ${result.provider?.toUpperCase() || 'AI'}`;
+                            document.getElementById('imagePreview').classList.remove('hidden');
+                            break;
+                        }
+                    }
+                } else {
+                    alert('Image generation failed: ' + (data.error || 'Unknown error'));
+                }
+            } catch (error) {
+                alert('Error: ' + error.message);
+            } finally {
+                btn.disabled = false;
+                setTimeout(() => progress.classList.add('hidden'), 2000);
+            }
+        }
+        
+        function copyImageUrl() {
+            if (lastGeneratedImageUrl) {
+                // Construct full URL
+                const fullUrl = lastGeneratedImageUrl.startsWith('http') 
+                    ? lastGeneratedImageUrl 
+                    : window.location.origin + lastGeneratedImageUrl;
+                
+                navigator.clipboard.writeText(fullUrl).then(() => {
+                    // Show brief feedback
+                    const btn = event.target.closest('button');
+                    const originalIcon = btn.innerHTML;
+                    btn.innerHTML = '<i class="fas fa-check text-green-400 text-sm"></i>';
+                    setTimeout(() => {
+                        btn.innerHTML = originalIcon;
+                    }, 1000);
+                });
+            }
         }
         
         async function generateBulk() {
@@ -4461,6 +5495,477 @@
                     }
                 }
             });
+        }
+        
+        // ==========================================
+        // COMPETITOR DASHBOARD
+        // ==========================================
+        
+        let competitorData = null;
+        
+        async function refreshCompetitorDashboard() {
+            if (!currentClient) return;
+            
+            const btn = document.querySelector('[onclick="refreshCompetitorDashboard()"]');
+            if (btn) {
+                btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading...';
+                btn.disabled = true;
+            }
+            
+            try {
+                const response = await fetch(`${API_URL}/api/monitoring/competitor-dashboard/${currentClient.id}`, {
+                    headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
+                });
+                
+                if (response.ok) {
+                    competitorData = await response.json();
+                    renderCompetitorDashboard();
+                } else {
+                    console.error('Failed to load competitor data');
+                }
+            } catch (error) {
+                console.error('Competitor dashboard error:', error);
+            } finally {
+                if (btn) {
+                    btn.innerHTML = '<i class="fas fa-sync-alt"></i> Refresh Data';
+                    btn.disabled = false;
+                }
+            }
+            
+            // Also load social connections
+            loadSocialConnections();
+        }
+        
+        function renderCompetitorDashboard() {
+            if (!competitorData) return;
+            
+            const { summary, competitors, content_gaps, ranking_battles, client_rankings } = competitorData;
+            
+            // Update stats
+            document.getElementById('compCount').textContent = summary.total_competitors || 0;
+            document.getElementById('compGaps').textContent = summary.content_gaps_found || 0;
+            document.getElementById('compKeywords').textContent = summary.client_keywords_tracked || 0;
+            
+            // Calculate win rate from battles
+            const wins = ranking_battles.filter(b => b.winning).length;
+            const total = ranking_battles.length;
+            const winRate = total > 0 ? Math.round((wins / total) * 100) : 0;
+            document.getElementById('compWinRate').textContent = winRate + '%';
+            
+            // Render competitor cards
+            const cardsHtml = competitors.length ? competitors.map(comp => `
+                <div class="bg-white/5 rounded-xl p-4 border border-white/10 hover:border-purple-500/50 transition cursor-pointer" onclick="viewCompetitor('${comp.id}')">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
+                                <i class="fas fa-building text-white"></i>
+                            </div>
+                            <div>
+                                <div class="font-medium text-white">${comp.name || comp.domain}</div>
+                                <div class="text-xs text-gray-500">${comp.domain}</div>
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            <div class="text-sm font-bold text-white">${comp.total_pages}</div>
+                            <div class="text-xs text-gray-500">pages</div>
+                        </div>
+                    </div>
+                    <div class="mt-3 flex items-center gap-2 text-xs">
+                        <span class="px-2 py-1 bg-green-500/20 text-green-400 rounded">${comp.blog_posts} blogs</span>
+                        <span class="px-2 py-1 bg-blue-500/20 text-blue-400 rounded">${comp.service_pages} services</span>
+                    </div>
+                </div>
+            `).join('') : '<p class="text-gray-500 text-sm">No competitors tracked. Add them in intake.</p>';
+            
+            document.getElementById('competitorCards').innerHTML = cardsHtml;
+            
+            // Render ranking battles
+            const battlesHtml = ranking_battles.length ? ranking_battles.slice(0, 10).map(battle => `
+                <div class="flex items-center justify-between p-3 rounded-lg ${battle.winning ? 'bg-green-500/10 border border-green-500/20' : 'bg-red-500/10 border border-red-500/20'}">
+                    <div class="flex-1">
+                        <div class="font-medium text-white text-sm">${battle.keyword}</div>
+                        <div class="text-xs text-gray-500">vs ${battle.competitor}</div>
+                    </div>
+                    <div class="flex items-center gap-4 text-sm">
+                        <div class="text-center">
+                            <div class="font-bold ${battle.winning ? 'text-green-400' : 'text-gray-400'}">#${battle.client_position}</div>
+                            <div class="text-xs text-gray-500">You</div>
+                        </div>
+                        <i class="fas ${battle.winning ? 'fa-check-circle text-green-400' : 'fa-times-circle text-red-400'}"></i>
+                        <div class="text-center">
+                            <div class="font-bold ${!battle.winning ? 'text-red-400' : 'text-gray-400'}">#${battle.competitor_position}</div>
+                            <div class="text-xs text-gray-500">Them</div>
+                        </div>
+                    </div>
+                </div>
+            `).join('') : '<p class="text-gray-500 text-sm">No ranking battles found. Check rankings first.</p>';
+            
+            document.getElementById('rankingBattles').innerHTML = battlesHtml;
+            
+            // Render content gaps
+            const gapsHtml = content_gaps.length ? content_gaps.slice(0, 9).map(gap => `
+                <div class="bg-white/5 rounded-lg p-3 border border-white/10 hover:border-yellow-500/50 transition cursor-pointer group" onclick="generateFromGap('${encodeURIComponent(gap.topic_suggestion)}')">
+                    <div class="flex items-start gap-2">
+                        <i class="fas fa-lightbulb text-yellow-400 mt-1"></i>
+                        <div class="flex-1">
+                            <div class="text-sm text-white group-hover:text-yellow-400 transition">${gap.title}</div>
+                            <div class="text-xs text-gray-500 mt-1">From: ${gap.competitor}</div>
+                        </div>
+                        <i class="fas fa-plus text-gray-500 group-hover:text-yellow-400"></i>
+                    </div>
+                </div>
+            `).join('') : '<p class="text-gray-500 text-sm col-span-full">No content gaps detected yet.</p>';
+            
+            document.getElementById('contentGaps').innerHTML = gapsHtml;
+        }
+        
+        function viewCompetitor(competitorId) {
+            // Could open a detailed comparison modal
+            alert('Detailed competitor view coming soon! ID: ' + competitorId);
+        }
+        
+        function generateFromGap(topic) {
+            const decodedTopic = decodeURIComponent(topic);
+            // Switch to generate tab and pre-fill topic
+            showTab('generate');
+            const topicInput = document.getElementById('blogTopic');
+            if (topicInput) {
+                topicInput.value = decodedTopic;
+            }
+        }
+        
+        // ==========================================
+        // SOCIAL CONNECTIONS
+        // ==========================================
+        
+        async function loadSocialConnections() {
+            if (!currentClient) return;
+            
+            try {
+                const response = await fetch(`${API_URL}/api/social/connections/${currentClient.id}`, {
+                    headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    renderSocialConnections(data.connections);
+                }
+            } catch (error) {
+                console.error('Failed to load social connections:', error);
+            }
+        }
+        
+        function renderSocialConnections(connections) {
+            const platforms = ['gbp', 'facebook', 'instagram', 'linkedin'];
+            
+            platforms.forEach(platform => {
+                const conn = connections[platform];
+                const statusEl = document.getElementById(`${platform}-status`);
+                const btnEl = document.getElementById(`${platform}-btn`);
+                
+                if (statusEl && btnEl) {
+                    if (conn.connected) {
+                        statusEl.textContent = 'Connected';
+                        statusEl.classList.remove('text-gray-500');
+                        statusEl.classList.add('text-green-400');
+                        btnEl.textContent = 'Disconnect';
+                        btnEl.classList.add('bg-red-500/20', 'hover:bg-red-500/30');
+                        btnEl.classList.remove('bg-white/10', 'hover:bg-white/20');
+                        btnEl.onclick = () => disconnectSocial(platform);
+                    } else {
+                        statusEl.textContent = 'Not connected';
+                        statusEl.classList.remove('text-green-400');
+                        statusEl.classList.add('text-gray-500');
+                        btnEl.textContent = 'Connect';
+                        btnEl.classList.remove('bg-red-500/20', 'hover:bg-red-500/30');
+                        btnEl.classList.add('bg-white/10', 'hover:bg-white/20');
+                        btnEl.onclick = () => connectSocial(platform);
+                    }
+                }
+            });
+        }
+        
+        // OAuth state for handling callbacks
+        let pendingOAuthState = null;
+        
+        // Check for OAuth callback on page load
+        async function handleOAuthCallback() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const oauthSuccess = urlParams.get('oauth_success');
+            const oauthError = urlParams.get('oauth_error');
+            const platform = urlParams.get('platform');
+            const state = urlParams.get('state');
+            const clientId = urlParams.get('client_id');
+            
+            if (oauthSuccess && state) {
+                // Clean URL first
+                window.history.replaceState({}, document.title, window.location.pathname);
+                
+                // Restore client context if provided
+                if (clientId && (!currentClient || currentClient.id !== clientId)) {
+                    try {
+                        await loadClient(clientId);
+                    } catch (e) {
+                        console.error('Failed to restore client context:', e);
+                    }
+                }
+                
+                // OAuth successful, show account selection
+                pendingOAuthState = state;
+                showAccountSelection(platform, state);
+            } else if (oauthError) {
+                alert(`OAuth Error: ${decodeURIComponent(oauthError)} for ${platform}`);
+                window.history.replaceState({}, document.title, window.location.pathname);
+            }
+        }
+        
+        async function connectSocial(platform) {
+            const platformNames = {
+                'gbp': 'Google Business Profile',
+                'google': 'Google Business Profile',
+                'facebook': 'Facebook',
+                'instagram': 'Instagram',
+                'linkedin': 'LinkedIn'
+            };
+            
+            // Check if OAuth is configured
+            try {
+                const configResponse = await fetch(`${API_URL}/api/oauth/config`, {
+                    headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
+                });
+                const configData = await configResponse.json();
+                
+                const oauthPlatform = platform === 'instagram' ? 'facebook' : (platform === 'gbp' ? 'google' : platform);
+                const isConfigured = configData.platforms?.[oauthPlatform]?.configured;
+                
+                if (isConfigured) {
+                    // Use OAuth flow
+                    await initiateOAuth(platform);
+                } else {
+                    // Fall back to manual entry
+                    await manualConnect(platform, platformNames);
+                }
+            } catch (error) {
+                console.error('OAuth config check failed:', error);
+                // Fall back to manual
+                await manualConnect(platform, platformNames);
+            }
+        }
+        
+        async function initiateOAuth(platform) {
+            const oauthPlatform = platform === 'gbp' ? 'google' : platform;
+            
+            try {
+                const response = await fetch(`${API_URL}/api/oauth/authorize/${oauthPlatform}`, {
+                    method: 'POST',
+                    headers: { 
+                        'Authorization': `Bearer ${AUTH_TOKEN}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ client_id: currentClient.id })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok && data.auth_url) {
+                    // Redirect to OAuth provider
+                    window.location.href = data.auth_url;
+                } else {
+                    alert(`OAuth error: ${data.error || 'Unknown error'}`);
+                }
+            } catch (error) {
+                alert('Failed to initiate OAuth: ' + error.message);
+            }
+        }
+        
+        async function showAccountSelection(platform, state) {
+            try {
+                const response = await fetch(`${API_URL}/api/oauth/accounts/${platform}`, {
+                    method: 'POST',
+                    headers: { 
+                        'Authorization': `Bearer ${AUTH_TOKEN}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ state: state })
+                });
+                
+                const data = await response.json();
+                
+                if (!response.ok) {
+                    alert(`Error: ${data.error}`);
+                    return;
+                }
+                
+                if (!data.accounts || data.accounts.length === 0) {
+                    alert('No accounts found. Make sure you have admin access to the pages/accounts.');
+                    return;
+                }
+                
+                // Show account selection modal
+                showAccountSelectionModal(data.accounts, state);
+                
+            } catch (error) {
+                alert('Failed to get accounts: ' + error.message);
+            }
+        }
+        
+        function showAccountSelectionModal(accounts, state) {
+            // Create modal overlay
+            const overlay = document.createElement('div');
+            overlay.id = 'oauth-modal-overlay';
+            overlay.className = 'fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50';
+            
+            let accountsHtml = accounts.map((acc, idx) => {
+                const icon = acc.type.includes('facebook') ? 'fab fa-facebook text-blue-500' :
+                            acc.type.includes('instagram') ? 'fab fa-instagram text-pink-500' :
+                            acc.type.includes('linkedin') ? 'fab fa-linkedin text-blue-600' :
+                            'fab fa-google text-red-500';
+                const subtitle = acc.type.replace('_', ' ').replace(/(^\w|\s\w)/g, m => m.toUpperCase());
+                
+                return `
+                    <button onclick="selectOAuthAccount(${idx})" 
+                            class="w-full p-4 bg-white/5 hover:bg-white/10 rounded-xl flex items-center gap-4 transition text-left"
+                            data-account='${JSON.stringify(acc)}'>
+                        <div class="w-12 h-12 rounded-full bg-white/10 flex items-center justify-center">
+                            ${acc.picture ? `<img src="${acc.picture}" class="w-full h-full rounded-full object-cover">` : `<i class="${icon} text-xl"></i>`}
+                        </div>
+                        <div class="flex-1">
+                            <div class="font-medium text-white">${acc.name}</div>
+                            <div class="text-sm text-gray-400">${subtitle}</div>
+                        </div>
+                        <i class="fas fa-chevron-right text-gray-500"></i>
+                    </button>
+                `;
+            }).join('');
+            
+            overlay.innerHTML = `
+                <div class="bg-gray-900 rounded-2xl p-6 max-w-md w-full mx-4 border border-white/10">
+                    <div class="flex items-center justify-between mb-6">
+                        <h3 class="text-xl font-bold text-white">Select Account</h3>
+                        <button onclick="closeOAuthModal()" class="text-gray-400 hover:text-white">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                    <p class="text-gray-400 mb-4">Choose which account to connect:</p>
+                    <div class="space-y-3 max-h-80 overflow-y-auto" id="oauth-accounts-list" data-state="${state}">
+                        ${accountsHtml}
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(overlay);
+        }
+        
+        function closeOAuthModal() {
+            const overlay = document.getElementById('oauth-modal-overlay');
+            if (overlay) overlay.remove();
+            pendingOAuthState = null;
+        }
+        
+        async function selectOAuthAccount(index) {
+            const container = document.getElementById('oauth-accounts-list');
+            const state = container.dataset.state;
+            const buttons = container.querySelectorAll('button');
+            const accountData = JSON.parse(buttons[index].dataset.account);
+            
+            try {
+                const response = await fetch(`${API_URL}/api/oauth/connect`, {
+                    method: 'POST',
+                    headers: { 
+                        'Authorization': `Bearer ${AUTH_TOKEN}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        state: state,
+                        account_type: accountData.type,
+                        account_id: accountData.id,
+                        account_name: accountData.name,
+                        page_access_token: accountData.access_token,
+                        facebook_page_id: accountData.facebook_page_id
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok && data.success) {
+                    closeOAuthModal();
+                    alert(`✓ ${accountData.name} connected successfully!`);
+                    loadSocialConnections();
+                } else {
+                    alert(`Connection failed: ${data.error}`);
+                }
+            } catch (error) {
+                alert('Failed to connect: ' + error.message);
+            }
+        }
+        
+        async function manualConnect(platform, platformNames) {
+            // Fallback to manual token entry when OAuth not configured
+            const accessToken = prompt(`Enter ${platformNames[platform]} Access Token:\n\n(OAuth not configured - using manual entry)`);
+            if (!accessToken) return;
+            
+            let extraData = {};
+            
+            if (platform === 'facebook') {
+                const pageId = prompt('Enter Facebook Page ID:');
+                if (!pageId) return;
+                extraData.page_id = pageId;
+            } else if (platform === 'instagram') {
+                const accountId = prompt('Enter Instagram Business Account ID:');
+                if (!accountId) return;
+                extraData.account_id = accountId;
+            } else if (platform === 'linkedin') {
+                const orgId = prompt('Enter LinkedIn Organization ID:');
+                if (!orgId) return;
+                extraData.org_id = orgId;
+            } else if (platform === 'gbp') {
+                const locationId = prompt('Enter GBP Location ID:');
+                if (!locationId) return;
+                extraData.location_id = locationId;
+            }
+            
+            try {
+                const response = await fetch(`${API_URL}/api/social/connect/${currentClient.id}/${platform}`, {
+                    method: 'POST',
+                    headers: { 
+                        'Authorization': `Bearer ${AUTH_TOKEN}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        access_token: accessToken,
+                        ...extraData
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    alert(`✓ ${platformNames[platform]} connected successfully!`);
+                    loadSocialConnections();
+                } else {
+                    alert(`Connection failed: ${data.error}`);
+                }
+            } catch (error) {
+                alert('Connection failed: ' + error.message);
+            }
+        }
+        
+        async function disconnectSocial(platform) {
+            if (!confirm(`Are you sure you want to disconnect ${platform}?`)) return;
+            
+            try {
+                const response = await fetch(`${API_URL}/api/social/disconnect/${currentClient.id}/${platform}`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
+                });
+                
+                if (response.ok) {
+                    alert('Disconnected successfully');
+                    loadSocialConnections();
+                }
+            } catch (error) {
+                alert('Disconnect failed: ' + error.message);
+            }
         }
         
         // ==========================================

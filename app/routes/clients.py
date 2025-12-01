@@ -242,7 +242,7 @@ def update_keywords(current_user, client_id):
 
 
 @clients_bp.route('/<client_id>/integrations', methods=['PUT'])
-@admin_required
+@token_required
 def update_integrations(current_user, client_id):
     """
     Update client API integrations
@@ -250,11 +250,19 @@ def update_integrations(current_user, client_id):
     PUT /api/clients/<client_id>/integrations
     {
         "wordpress_url": "https://client.com",
-        "wordpress_api_key": "xxxx",
+        "wordpress_user": "admin",
+        "wordpress_app_password": "xxxx xxxx xxxx xxxx",
         "gbp_location_id": "123456",
         "ga4_property_id": "123456789"
     }
     """
+    # Check access - admin or agency_admin with client access
+    if current_user.role not in ['admin', 'agency_admin']:
+        return jsonify({'error': 'Permission denied'}), 403
+    
+    if current_user.role == 'agency_admin' and not current_user.has_access_to_client(client_id):
+        return jsonify({'error': 'Access denied to this client'}), 403
+    
     client = data_service.get_client(client_id)
     
     if not client:
@@ -265,14 +273,24 @@ def update_integrations(current_user, client_id):
     # Store integrations as JSON
     integrations = client.get_integrations()
     
+    # WordPress settings
     if 'wordpress_url' in data:
         integrations['wordpress_url'] = data['wordpress_url']
+    if 'wordpress_user' in data:
+        integrations['wordpress_user'] = data['wordpress_user']
+    if 'wordpress_app_password' in data:
+        integrations['wordpress_app_password'] = data['wordpress_app_password']
+    # Legacy field support
     if 'wordpress_api_key' in data:
-        integrations['wordpress_api_key'] = data['wordpress_api_key']
+        integrations['wordpress_app_password'] = data['wordpress_api_key']
+    
+    # Other integrations
     if 'gbp_location_id' in data:
         integrations['gbp_location_id'] = data['gbp_location_id']
     if 'ga4_property_id' in data:
         integrations['ga4_property_id'] = data['ga4_property_id']
+    if 'callrail_company_id' in data:
+        integrations['callrail_company_id'] = data['callrail_company_id']
     
     client.integrations = json.dumps(integrations)
     data_service.save_client(client)

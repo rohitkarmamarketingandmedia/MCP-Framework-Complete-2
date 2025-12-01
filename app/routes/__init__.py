@@ -28,6 +28,13 @@ def register_routes(app: Flask):
     from app.routes.settings import settings_bp
     from app.routes.agents import agents_bp
     from app.routes.chatbot import chatbot_bp
+    from app.routes.notifications import notifications_bp
+    from app.routes.oauth import oauth_bp
+    from app.routes.images import images_bp
+    from app.routes.approval import approval_bp
+    from app.routes.client_experience import client_exp_bp
+    from app.routes.intelligence import intelligence_bp
+    from app.routes.webhooks import webhooks_bp
     
     # Register with /api prefix
     app.register_blueprint(auth_bp, url_prefix='/api/auth')
@@ -50,3 +57,10 @@ def register_routes(app: Flask):
     app.register_blueprint(settings_bp, url_prefix='/api/settings')
     app.register_blueprint(agents_bp, url_prefix='/api/agents')
     app.register_blueprint(chatbot_bp, url_prefix='/api/chatbot')
+    app.register_blueprint(notifications_bp, url_prefix='/api/notifications')
+    app.register_blueprint(oauth_bp, url_prefix='/api/oauth')
+    app.register_blueprint(images_bp, url_prefix='/api/images')
+    app.register_blueprint(approval_bp, url_prefix='/api/approval')
+    app.register_blueprint(client_exp_bp, url_prefix='/api/client')
+    app.register_blueprint(intelligence_bp, url_prefix='/api/intelligence')
+    app.register_blueprint(webhooks_bp, url_prefix='/api/webhooks')
