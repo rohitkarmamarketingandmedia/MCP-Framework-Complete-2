@@ -102,6 +102,7 @@
             );
         }
     </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.6/purify.min.js"></script>
 </head>
 <body class="text-white">
     <!-- Auth Modal -->
@@ -119,7 +120,7 @@
                 <input type="email" id="loginEmail" 
                     class="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-green-500" 
                     placeholder="Email">
-                <input type="password" id="loginPassword" 
+                <input type="password" id="loginPassword" autocomplete="current-password" 
                     class="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-green-500" 
                     placeholder="Password">
                 <button onclick="doLogin()" class="w-full py-4 bg-gradient-to-r from-green-500 to-blue-600 rounded-xl text-white font-bold text-lg hover:opacity-90 transition">
@@ -555,6 +556,22 @@
     </div>
 
     <script>
+        // Debug logging - disabled in production
+        const DEBUG = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+        if (!DEBUG) { console.log = () => {}; console.error = () => {}; }
+        
+        // Loading state utility
+        function setButtonLoading(btn, loading, loadingText = 'Processing...') {
+            if (loading) {
+                btn.dataset.originalHtml = btn.innerHTML;
+                btn.innerHTML = `<i class="fas fa-spinner fa-spin mr-2"></i>${loadingText}`;
+                btn.disabled = true;
+            } else {
+                btn.innerHTML = btn.dataset.originalHtml || btn.innerHTML;
+                btn.disabled = false;
+            }
+        }
+        
         let API_URL = window.location.origin;
         let AUTH_TOKEN = '';
         let currentClientId = '';
@@ -963,7 +980,7 @@
                 document.getElementById('contentTitle').textContent = data.title || 'Untitled';
                 document.getElementById('ourScore').textContent = data.our_seo_score;
                 document.getElementById('compScore').textContent = data.competitor_seo_score;
-                document.getElementById('contentBody').innerHTML = data.body || '';
+                document.getElementById('contentBody').innerHTML = DOMPurify.sanitize(data.body || '');
 
                 document.getElementById('contentModal').classList.remove('hidden');
 

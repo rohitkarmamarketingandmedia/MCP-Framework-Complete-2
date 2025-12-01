@@ -6,6 +6,7 @@ from flask import Blueprint, request, jsonify
 from datetime import datetime, timedelta
 
 from app.routes.auth import token_required, admin_required
+from app.utils import safe_int
 from app.database import db
 from app.models.db_models import (
     DBNotificationPreferences, DBNotificationLog, DBNotificationQueue,
@@ -125,7 +126,7 @@ def get_notification_history(current_user):
     
     GET /api/notifications/history?limit=50&status=sent&type=content_published
     """
-    limit = min(int(request.args.get('limit', 50)), 200)
+    limit = safe_int(request.args.get('limit'), 50, max_val=200)
     status = request.args.get('status')  # sent, failed, pending
     notification_type = request.args.get('type')
     client_id = request.args.get('client_id')
@@ -377,7 +378,7 @@ def admin_get_logs(current_user):
     
     GET /api/notifications/admin/logs?limit=100&status=failed
     """
-    limit = min(int(request.args.get('limit', 100)), 500)
+    limit = safe_int(request.args.get('limit'), 100, max_val=500)
     status = request.args.get('status')
     notification_type = request.args.get('type')
     user_id = request.args.get('user_id')

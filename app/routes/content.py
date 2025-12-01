@@ -567,7 +567,7 @@ def generate_blog_simple(current_user):
     except Exception as e:
         import traceback
         error_detail = traceback.format_exc()
-        logger.info(f"Blog generation error: {error_detail}")
+        logger.error(f"Blog generation error: {error_detail}")
         return jsonify({
             'error': 'An error occurred. Please try again.',
             'detail': 'Blog generation failed. Check server logs.'
@@ -714,7 +714,7 @@ def generate_social_simple(current_user):
     except Exception as e:
         import traceback
         error_detail = traceback.format_exc()
-        logger.info(f"Social generation error: {error_detail}")
+        logger.error(f"Social generation error: {error_detail}")
         return jsonify({
             'error': 'An error occurred. Please try again.',
             'detail': 'Social post generation failed. Check server logs.'
@@ -1033,7 +1033,7 @@ Please review and update the content accordingly.
                 """.strip()
             )
         except Exception as e:
-            logger.info(f"Email notification failed: {e}")
+            logger.error(f"Email notification failed: {e}")
         
         return jsonify({
             'success': True,

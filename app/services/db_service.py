@@ -114,6 +114,10 @@ class DataService:
             existing.integrations = client.integrations
             existing.subscription_tier = client.subscription_tier
             existing.is_active = client.is_active
+            # WordPress fields
+            existing.wordpress_url = client.wordpress_url
+            existing.wordpress_user = client.wordpress_user
+            existing.wordpress_app_password = client.wordpress_app_password
             existing.updated_at = datetime.utcnow()
         else:
             db.session.add(client)

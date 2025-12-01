@@ -8,6 +8,7 @@ import os
 import logging
 
 from app.routes.auth import token_required
+from app.utils import safe_int
 from app.database import db
 from app.models.db_models import DBClient
 from app.services.image_service import get_image_service, ImageConfig
@@ -263,7 +264,7 @@ def list_images(current_user):
     GET /api/images/list?client_id=xxx&limit=50
     """
     client_id = request.args.get('client_id')
-    limit = min(int(request.args.get('limit', 50)), 200)
+    limit = safe_int(request.args.get('limit'), 50, max_val=200)
     
     # Verify client access if filtering by client
     if client_id:

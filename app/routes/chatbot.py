@@ -13,6 +13,7 @@ from app.models.db_models import (
     DBChatbotFAQ, DBClient, DBLead
 )
 from app.routes.auth import token_required, optional_token
+from app.utils import safe_int
 from app.services.chatbot_service import chatbot_service
 
 logger = logging.getLogger(__name__)
@@ -443,7 +444,7 @@ def list_conversations(current_user):
     """Get all conversations for accessible clients"""
     client_id = request.args.get('client_id')
     status = request.args.get('status')
-    limit = min(int(request.args.get('limit', 50)), 200)
+    limit = safe_int(request.args.get('limit'), 50, max_val=200)
     
     query = DBChatConversation.query
     

@@ -7,6 +7,7 @@ from datetime import datetime, timedelta
 import json
 
 from app.routes.auth import token_required, admin_required
+from app.utils import safe_int
 from app.database import db
 from app.models.db_models import (
     DBClient, DBCompetitor, DBCompetitorPage, DBRankHistory,
@@ -695,7 +696,7 @@ def get_rankings(current_user):
 def get_ranking_history(current_user):
     """Get ranking history for a client"""
     client_id = request.args.get('client_id')
-    days = int(request.args.get('days', 30))
+    days = safe_int(request.args.get('days'), 30, max_val=365)
     
     if not client_id:
         return jsonify({'error': 'client_id required'}), 400

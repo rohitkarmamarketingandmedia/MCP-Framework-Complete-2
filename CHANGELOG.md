@@ -538,3 +538,47 @@ GBP_CLIENT_SECRET=xxx
 
 ## Previous Versions
 See git history for v4.1 and earlier.
+
+## [5.5.5] - 2025-12-01
+
+### Security
+- Added autocomplete attributes to all password fields
+- Console.log disabled in production (DEBUG flag)
+- Safe integer parsing with app/utils.py (safe_int, safe_float, safe_bool)
+- Loading state utilities to prevent double-clicks
+
+### Added
+- `app/utils.py` - Request parsing utilities
+- `scripts/migrate_db.py` - SQLite column migration script
+- `setButtonLoading()` utility in all dashboards
+- Loading spinner on WordPress publish
+
+### Fixed
+- Integer parsing safety across all routes (25+ locations)
+- WordPress publish now shows loading state
+
+## [5.5.4] - 2025-12-01
+
+### Security
+- Added DOMPurify XSS protection to client-dashboard, dashboard, elite-dashboard
+- Sanitized innerHTML assignments for blog content display
+
+## [5.5.3] - 2025-12-01
+
+### Security
+- Fixed 26 bare except: clauses → except Exception as e:
+- Fixed 80 unsafe JSON parsing calls (added or {} fallback)
+- Sanitized 50+ raw error messages (no more str(e) to users)
+- Added password validation (8+ chars, upper, lower, number)
+- Added Flask-Limiter rate limiting (200/day, 50/hour)
+- Added SECRET_KEY production warning
+
+### Changed
+- Replaced print() with logger calls (7 locations)
+
+## [5.5.2] - 2025-12-01
+
+### Fixed
+- Intake timeout infinite popup loop
+- SEMRush research now properly skipped on Quick Setup
+- Quick Setup checkbox now defaults to checked

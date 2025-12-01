@@ -10,6 +10,7 @@ from app.services.audit_service import audit_service
 from app.services.webhook_service import webhook_service, WebhookService
 from app.models.db_models import DBSetting, DBWebhook, DBAuditLog
 from app.database import db
+from app.utils import safe_int
 
 settings_bp = Blueprint('settings', __name__)
 
@@ -239,9 +240,9 @@ def get_audit_logs(current_user):
     user_id = request.args.get('user_id')
     client_id = request.args.get('client_id')
     status = request.args.get('status')
-    days = int(request.args.get('days', 30))
-    limit = min(int(request.args.get('limit', 100)), 500)
-    offset = int(request.args.get('offset', 0))
+    days = safe_int(request.args.get('days'), 30, max_val=365)
+    limit = safe_int(request.args.get('limit'), 100, max_val=500)
+    offset = safe_int(request.args.get('offset'), 0, min_val=0)
     
     start_date = datetime.utcnow() - timedelta(days=days)
     
@@ -269,7 +270,7 @@ def get_audit_logs(current_user):
 @admin_required
 def get_audit_stats(current_user):
     """Get audit log statistics"""
-    days = int(request.args.get('days', 30))
+    days = safe_int(request.args.get('days'), 30, max_val=365)
     stats = audit_service.get_stats(days=days)
     return jsonify(stats)
 
@@ -278,8 +279,8 @@ def get_audit_stats(current_user):
 @admin_required
 def get_user_audit(current_user, user_id):
     """Get audit logs for a specific user"""
-    days = int(request.args.get('days', 30))
-    limit = min(int(request.args.get('limit', 100)), 500)
+    days = safe_int(request.args.get('days'), 30, max_val=365)
+    limit = safe_int(request.args.get('limit'), 100, max_val=500)
     
     logs = audit_service.get_user_activity(user_id, days=days, limit=limit)
     
@@ -294,8 +295,8 @@ def get_user_audit(current_user, user_id):
 @admin_required
 def get_client_audit(current_user, client_id):
     """Get audit logs for a specific client"""
-    days = int(request.args.get('days', 30))
-    limit = min(int(request.args.get('limit', 100)), 500)
+    days = safe_int(request.args.get('days'), 30, max_val=365)
+    limit = safe_int(request.args.get('limit'), 100, max_val=500)
     
     logs = audit_service.get_client_activity(client_id, days=days, limit=limit)
     
@@ -310,7 +311,7 @@ def get_client_audit(current_user, client_id):
 @admin_required
 def get_resource_audit(current_user, resource_type, resource_id):
     """Get audit history for a specific resource"""
-    limit = min(int(request.args.get('limit', 50)), 200)
+    limit = safe_int(request.args.get('limit'), 50, max_val=200)
     
     logs = audit_service.get_resource_history(resource_type, resource_id, limit=limit)
     
@@ -326,7 +327,7 @@ def get_resource_audit(current_user, resource_type, resource_id):
 @admin_required
 def export_audit_logs(current_user):
     """Export audit logs as JSON"""
-    days = int(request.args.get('days', 30))
+    days = safe_int(request.args.get('days'), 30, max_val=365)
     
     start_date = datetime.utcnow() - timedelta(days=days)
     logs = audit_service.get_logs(start_date=start_date, limit=10000)

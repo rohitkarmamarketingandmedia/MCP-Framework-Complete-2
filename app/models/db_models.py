@@ -267,6 +267,10 @@ class DBClient(db.Model):
             'is_active': self.is_active,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+            # WordPress integration
+            'wordpress_url': self.wordpress_url,
+            'wordpress_user': self.wordpress_user,
+            'wordpress_app_password': self.wordpress_app_password if self.wordpress_app_password else None,
             # Social connections (status only, no tokens)
             'social_connections': {
                 'gbp': {

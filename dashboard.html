@@ -1052,6 +1052,7 @@
             font-weight: 500;
         }
     </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.6/purify.min.js"></script>
 </head>
 <body>
     <div class="bg-animation"></div>
@@ -1075,7 +1076,7 @@
                         </div>
                         <div class="form-group">
                             <label class="form-label">Password</label>
-                            <input type="password" id="login-password" class="form-input" placeholder="••••••••" required>
+                            <input type="password" id="login-password" autocomplete="current-password" class="form-input" placeholder="••••••••" required>
                         </div>
                         <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 1rem;">
                             Sign In
@@ -1434,6 +1435,10 @@ We're really known for our 24-hour emergency service - if there's a storm and so
     <div class="toast-container" id="toast-container"></div>
 
     <script>
+        // Debug logging - disabled in production
+        const DEBUG = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+        if (!DEBUG) { console.log = () => {}; console.error = () => {}; }
+        
         // ============================================
         // MCP 3.0 Dashboard - Main Application
         // ============================================
@@ -1902,7 +1907,7 @@ We're really known for our 24-hour emergency service - if there's a storm and so
             document.getElementById('preview-title').textContent = content.content.title;
             document.getElementById('preview-keyword').textContent = `Target: ${content.topic.keyword}`;
             
-            document.getElementById('preview-content').innerHTML = content.content.body || content.html;
+            document.getElementById('preview-content').innerHTML = DOMPurify.sanitize(content.content.body || content.html);
 
             // SEO Score
             const scoreData = content.seo_score || {};

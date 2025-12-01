@@ -144,7 +144,7 @@
                 <input type="email" id="loginEmail" 
                     class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-800 placeholder-gray-400 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200" 
                     placeholder="Email">
-                <input type="password" id="loginPassword" 
+                <input type="password" id="loginPassword" autocomplete="current-password" 
                     class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-800 placeholder-gray-400 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200" 
                     placeholder="Password"
                     onkeypress="if(event.key==='Enter')doLogin()">
@@ -962,7 +962,7 @@
                             class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent">
                         <input type="text" id="wp-username" placeholder="Username or Application Password Name"
                             class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                        <input type="password" id="wp-password" placeholder="Application Password"
+                        <input type="password" id="wp-password" autocomplete="off" placeholder="Application Password"
                             class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent">
                         <p class="text-xs text-gray-400">Use WordPress Application Passwords (Users → Profile → Application Passwords)</p>
                     </div>
@@ -1006,6 +1006,22 @@
     </div>
 
     <script>
+        // Debug logging - disabled in production
+        const DEBUG = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+        if (!DEBUG) { console.log = () => {}; console.error = () => {}; }
+        
+        // Loading state utility
+        function setButtonLoading(btn, loading, loadingText = 'Processing...') {
+            if (loading) {
+                btn.dataset.originalHtml = btn.innerHTML;
+                btn.innerHTML = `<i class="fas fa-spinner fa-spin mr-2"></i>${loadingText}`;
+                btn.disabled = true;
+            } else {
+                btn.innerHTML = btn.dataset.originalHtml || btn.innerHTML;
+                btn.disabled = false;
+            }
+        }
+        
         // ==================== STATE ====================
         const API_URL = window.location.origin;
         let currentStep = 1;
@@ -1117,12 +1133,12 @@
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-300 mb-2">Password</label>
-                            <input type="password" id="bootstrapPassword" placeholder="Enter a strong password"
+                            <input type="password" id="bootstrapPassword" autocomplete="new-password" placeholder="Enter a strong password"
                                 class="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white focus:outline-none focus:border-purple-500">
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-300 mb-2">Confirm Password</label>
-                            <input type="password" id="bootstrapConfirm" placeholder="Confirm password"
+                            <input type="password" id="bootstrapConfirm" autocomplete="new-password" placeholder="Confirm password"
                                 class="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white focus:outline-none focus:border-purple-500">
                         </div>
                         

@@ -6,6 +6,7 @@ from flask import Blueprint, request, jsonify
 from datetime import datetime
 
 from app.routes.auth import token_required, admin_required
+from app.utils import safe_int
 from app.services.agent_service import agent_service
 from app.services.audit_service import audit_service
 from app.models.db_models import DBAgentConfig
@@ -139,7 +140,7 @@ def get_agent_versions(current_user, agent_id):
     if not agent:
         return jsonify({'error': 'Agent not found'}), 404
     
-    limit = min(int(request.args.get('limit', 10)), 50)
+    limit = safe_int(request.args.get('limit'), 10, max_val=50)
     versions = agent_service.get_version_history(agent_id, limit=limit)
     
     return jsonify({

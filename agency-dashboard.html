@@ -83,7 +83,7 @@
                 <input type="email" id="loginEmail" 
                     class="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-emerald-500" 
                     placeholder="Email">
-                <input type="password" id="loginPassword" 
+                <input type="password" id="loginPassword" autocomplete="current-password" 
                     class="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-emerald-500" 
                     placeholder="Password">
                 <button onclick="doLogin()" id="loginBtn" class="w-full py-4 bg-gradient-to-r from-emerald-500 to-blue-600 rounded-xl text-white font-bold text-lg hover:opacity-90 transition">
@@ -378,6 +378,10 @@
     </div>
 
     <script>
+        // Debug logging - disabled in production
+        const DEBUG = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+        if (!DEBUG) { console.log = () => {}; console.error = () => {}; }
+        
         let API_URL = window.location.origin;
         let AUTH_TOKEN = '';
         let allClients = [];

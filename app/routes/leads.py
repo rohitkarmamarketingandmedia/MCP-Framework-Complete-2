@@ -6,6 +6,7 @@ from flask import Blueprint, request, jsonify
 from datetime import datetime
 
 from app.routes.auth import token_required
+from app.utils import safe_int
 from app.services.lead_service import lead_service
 from app.services.review_service import review_service
 from app.models.db_models import DBLead, DBClient
@@ -88,8 +89,8 @@ def get_leads(current_user):
     
     status = request.args.get('status')
     source = request.args.get('source')
-    days = int(request.args.get('days', 30))
-    limit = int(request.args.get('limit', 100))
+    days = safe_int(request.args.get('days'), 30, max_val=365)
+    limit = safe_int(request.args.get('limit'), 100, max_val=500)
     
     leads = lead_service.get_client_leads(
         client_id=client_id,
@@ -263,7 +264,7 @@ def get_lead_stats(current_user):
     if not current_user.has_access_to_client(client_id):
         return jsonify({'error': 'Access denied'}), 403
     
-    days = int(request.args.get('days', 30))
+    days = safe_int(request.args.get('days'), 30, max_val=365)
     
     stats = lead_service.get_lead_stats(client_id, days)
     
@@ -286,7 +287,7 @@ def get_lead_trends(current_user):
     if not current_user.has_access_to_client(client_id):
         return jsonify({'error': 'Access denied'}), 403
     
-    days = int(request.args.get('days', 30))
+    days = safe_int(request.args.get('days'), 30, max_val=365)
     
     trends = lead_service.get_lead_trends(client_id, days)
     

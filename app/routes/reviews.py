@@ -6,6 +6,7 @@ from flask import Blueprint, request, jsonify
 from datetime import datetime
 
 from app.routes.auth import token_required
+from app.utils import safe_int
 from app.services.review_service import review_service
 from app.models.db_models import DBReview, DBClient
 from app.database import db
@@ -37,10 +38,10 @@ def get_reviews(current_user):
         client_id=client_id,
         platform=request.args.get('platform'),
         status=request.args.get('status'),
-        min_rating=int(request.args.get('min_rating')) if request.args.get('min_rating') else None,
-        max_rating=int(request.args.get('max_rating')) if request.args.get('max_rating') else None,
-        days=int(request.args.get('days', 90)),
-        limit=int(request.args.get('limit', 100))
+        min_rating=safe_int(request.args.get('min_rating'), None, min_val=1, max_val=5) if request.args.get('min_rating') else None,
+        max_rating=safe_int(request.args.get('max_rating'), None, min_val=1, max_val=5) if request.args.get('max_rating') else None,
+        days=safe_int(request.args.get('days'), 90, max_val=365),
+        limit=safe_int(request.args.get('limit'), 100, max_val=500)
     )
     
     return jsonify({
@@ -166,7 +167,7 @@ def get_stats(current_user):
     if not current_user.has_access_to_client(client_id):
         return jsonify({'error': 'Access denied'}), 403
     
-    days = int(request.args.get('days', 90))
+    days = safe_int(request.args.get('days'), 90, max_val=365)
     stats = review_service.get_review_stats(client_id, days)
     
     return jsonify(stats)
@@ -400,7 +401,7 @@ def get_review_widget():
         return jsonify({'error': 'client_id is required'}), 400
     
     config = {
-        'max_reviews': int(request.args.get('max_reviews', 5))
+        'max_reviews': safe_int(request.args.get('max_reviews'), 5, max_val=20)
     }
     
     html = review_service.generate_review_widget(client_id, config)
