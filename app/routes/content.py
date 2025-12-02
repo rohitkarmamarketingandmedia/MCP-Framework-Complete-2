@@ -18,6 +18,21 @@ seo_service = SEOService()
 data_service = DataService()
 
 
+@content_bp.route('/check', methods=['GET'])
+@token_required
+def check_ai_config(current_user):
+    """Check if AI is configured properly"""
+    import os
+    openai_key = os.environ.get('OPENAI_API_KEY', '')
+    
+    return jsonify({
+        'openai_configured': bool(openai_key),
+        'openai_key_prefix': openai_key[:10] + '...' if openai_key else 'NOT SET',
+        'can_generate': current_user.can_generate_content,
+        'user_role': str(current_user.role)
+    })
+
+
 @content_bp.route('/generate', methods=['POST'])
 @token_required
 def generate_content(current_user):
@@ -567,10 +582,12 @@ def generate_blog_simple(current_user):
     except Exception as e:
         import traceback
         error_detail = traceback.format_exc()
-        logger.error(f"Blog generation error: {error_detail}")
+        error_message = str(e)
+        logger.error(f"Blog generation error: {error_message}")
+        logger.error(f"Traceback: {error_detail}")
         return jsonify({
-            'error': 'An error occurred. Please try again.',
-            'detail': 'Blog generation failed. Check server logs.'
+            'error': error_message if error_message else 'Blog generation failed',
+            'detail': error_detail[:500]
         }), 500
 
 

@@ -4329,8 +4329,8 @@
                 });
                 
                 if (!response.ok) {
-                    const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
-                    throw new Error(errorData.error || `Server error: ${response.status}`);
+                    const errorData = await response.json().catch(() => ({ error: `Server returned ${response.status}` }));
+                    throw new Error(errorData.error || errorData.detail || `Server error: ${response.status}`);
                 }
                 
                 const result = await response.json();
