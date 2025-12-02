@@ -66,7 +66,12 @@ class DBUser(db.Model):
         self.password_hash = self._hash_password(password, self.password_salt)
     
     def get_client_ids(self) -> List[str]:
-        return json.loads(self.client_ids)
+        if not self.client_ids:
+            return []
+        try:
+            return json.loads(self.client_ids)
+        except (json.JSONDecodeError, TypeError):
+            return []
     
     def set_client_ids(self, ids: List[str]):
         self.client_ids = json.dumps(ids)
@@ -202,35 +207,70 @@ class DBClient(db.Model):
         self.updated_at = datetime.utcnow()
     
     def get_primary_keywords(self) -> List[str]:
-        return json.loads(self.primary_keywords)
+        if not self.primary_keywords:
+            return []
+        try:
+            return json.loads(self.primary_keywords)
+        except (json.JSONDecodeError, TypeError):
+            return []
     
     def set_primary_keywords(self, keywords: List[str]):
         self.primary_keywords = json.dumps(keywords)
     
     def get_secondary_keywords(self) -> List[str]:
-        return json.loads(self.secondary_keywords)
+        if not self.secondary_keywords:
+            return []
+        try:
+            return json.loads(self.secondary_keywords)
+        except (json.JSONDecodeError, TypeError):
+            return []
     
     def get_competitors(self) -> List[str]:
-        return json.loads(self.competitors)
+        if not self.competitors:
+            return []
+        try:
+            return json.loads(self.competitors)
+        except (json.JSONDecodeError, TypeError):
+            return []
     
     def get_service_areas(self) -> List[str]:
-        return json.loads(self.service_areas)
+        if not self.service_areas:
+            return []
+        try:
+            return json.loads(self.service_areas)
+        except (json.JSONDecodeError, TypeError):
+            return []
     
     def get_unique_selling_points(self) -> List[str]:
-        return json.loads(self.unique_selling_points)
+        if not self.unique_selling_points:
+            return []
+        try:
+            return json.loads(self.unique_selling_points)
+        except (json.JSONDecodeError, TypeError):
+            return []
     
     def get_service_pages(self) -> List[dict]:
         """Get service pages for internal linking
         Returns: [{"keyword": "roof repair", "url": "/roof-repair/", "title": "Roof Repair Services"}]
         """
-        return json.loads(self.service_pages)
+        if not self.service_pages:
+            return []
+        try:
+            return json.loads(self.service_pages)
+        except (json.JSONDecodeError, TypeError):
+            return []
     
     def set_service_pages(self, pages: List[dict]):
         """Set service pages for internal linking"""
         self.service_pages = json.dumps(pages)
     
     def get_integrations(self) -> dict:
-        return json.loads(self.integrations)
+        if not self.integrations:
+            return {}
+        try:
+            return json.loads(self.integrations)
+        except (json.JSONDecodeError, TypeError):
+            return {}
     
     def get_seo_context(self) -> dict:
         return {
