@@ -101,13 +101,17 @@ def get_client(current_user, client_id):
 @token_required
 def update_client(current_user, client_id):
     """Update client"""
-    if current_user.role not in [UserRole.ADMIN, UserRole.MANAGER]:
-        return jsonify({'error': 'Permission denied'}), 403
-    
     client = data_service.get_client(client_id)
     
     if not client:
         return jsonify({'error': 'Client not found'}), 404
+    
+    # Allow ADMIN, MANAGER, or users with access to this client
+    is_admin_or_manager = current_user.role in [UserRole.ADMIN, UserRole.MANAGER]
+    has_client_access = current_user.has_access_to_client(client_id)
+    
+    if not is_admin_or_manager and not has_client_access:
+        return jsonify({'error': 'Permission denied'}), 403
     
     data = request.get_json() or {}
     
