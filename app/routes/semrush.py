@@ -342,9 +342,10 @@ def client_research(current_user, client_id):
             results['competitor_research'] = semrush_service.full_competitor_research(client.website_url)
     
     # Research based on primary keywords
-    if client.primary_keywords and research_type in ['full', 'keywords']:
+    primary_kws = client.get_primary_keywords()
+    if primary_kws and research_type in ['full', 'keywords']:
         keyword_results = []
-        for kw in client.primary_keywords[:5]:  # Limit to 5 to save API units
+        for kw in primary_kws[:5]:  # Limit to 5 to save API units
             kw_research = semrush_service.keyword_research_package(kw, client.geo)
             keyword_results.append(kw_research)
         results['keyword_research'] = keyword_results
@@ -353,17 +354,17 @@ def client_research(current_user, client_id):
     if update_client and results:
         # Add discovered competitors
         if results.get('competitor_research', {}).get('competitors'):
-            existing_comps = set(client.competitors or [])
+            existing_comps = set(client.get_competitors())
             new_comps = [c['domain'] for c in results['competitor_research']['competitors'][:5]]
-            client.competitors = list(existing_comps | set(new_comps))
+            client.set_competitors(list(existing_comps | set(new_comps)))
         
         # Add discovered keywords
         if results.get('keyword_research'):
-            existing_secondary = set(client.secondary_keywords or [])
+            existing_secondary = set(client.get_secondary_keywords())
             for kr in results['keyword_research']:
                 for opp in kr.get('opportunities', [])[:3]:
                     existing_secondary.add(opp['keyword'])
-            client.secondary_keywords = list(existing_secondary)[:20]
+            client.set_secondary_keywords(list(existing_secondary)[:20])
         
         data_service.save_client(client)
         results['client_updated'] = True

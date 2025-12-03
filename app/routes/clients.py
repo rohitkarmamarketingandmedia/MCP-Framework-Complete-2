@@ -260,11 +260,11 @@ def update_integrations(current_user, client_id):
         "ga4_property_id": "123456789"
     }
     """
-    # Check access - admin or agency_admin with client access
-    if current_user.role not in ['admin', 'agency_admin']:
+    # Check access - admin/manager can manage integrations
+    if not current_user.can_manage_clients:
         return jsonify({'error': 'Permission denied'}), 403
     
-    if current_user.role == 'agency_admin' and not current_user.has_access_to_client(client_id):
+    if not current_user.is_admin and not current_user.has_access_to_client(client_id):
         return jsonify({'error': 'Access denied to this client'}), 403
     
     client = data_service.get_client(client_id)
@@ -570,8 +570,9 @@ def auto_generate_service_pages(current_user, client_id):
         ],
     }
     
-    if client.industry.lower() in industry_pages:
-        for page in industry_pages[client.industry.lower()]:
+    industry_lower = (client.industry or '').lower()
+    if industry_lower in industry_pages:
+        for page in industry_pages[industry_lower]:
             # Check if keyword not already added
             existing_keywords = [p['keyword'].lower() for p in generated_pages]
             if page['keyword'].lower() not in existing_keywords:

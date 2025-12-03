@@ -1126,7 +1126,7 @@ def get_competitor_dashboard(current_user, client_id):
     # Get client keywords
     client_keywords = []
     try:
-        client_keywords = json.loads(client.primary_keywords or '[]') + json.loads(client.secondary_keywords or '[]')
+        client_keywords = client.get_primary_keywords() + client.get_secondary_keywords()
     except Exception as e:
         pass
     

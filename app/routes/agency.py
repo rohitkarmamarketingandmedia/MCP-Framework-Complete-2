@@ -424,7 +424,7 @@ def get_recent_activity(current_user):
                 'client_id': item.client_id,
                 'client_name': client.business_name if client else 'Unknown',
                 'title': 'Content approved',
-                'message': item.title[:50] + '...' if len(item.title) > 50 else item.title,
+                'message': (item.title[:50] + '...' if len(item.title or '') > 50 else item.title) or 'Untitled',
                 'timestamp': item.approved_at.isoformat(),
                 'is_read': True
             })

@@ -41,7 +41,7 @@ def get_settings(current_user):
     settings = query.all()
     
     # Non-admins can't see secrets
-    include_secrets = current_user.role == 'admin'
+    include_secrets = current_user.is_admin
     
     return jsonify({
         'settings': [s.to_dict(include_secret=include_secrets) for s in settings]

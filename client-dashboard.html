@@ -3856,9 +3856,18 @@
         async function publishToWordPress() {
             if (!currentBlog) return;
             
-            // Check if WordPress is configured
-            if (!currentClient?.wordpress_url) {
-                alert('WordPress not configured for this client.\n\nGo to Edit Client → WordPress Integration to add your WordPress credentials.');
+            // Check if WordPress is configured (all 3 fields required)
+            const wpUrl = currentClient?.wordpress_url;
+            const wpUser = currentClient?.wordpress_user;
+            const wpPass = currentClient?.wordpress_app_password;
+            
+            if (!wpUrl || !wpUser || !wpPass) {
+                const missing = [];
+                if (!wpUrl) missing.push('WordPress URL');
+                if (!wpUser) missing.push('Username');
+                if (!wpPass) missing.push('App Password');
+                
+                alert(`WordPress not configured for this client.\n\nMissing: ${missing.join(', ')}\n\nGo to Edit Client → Integrations to add your WordPress credentials.`);
                 return;
             }
             

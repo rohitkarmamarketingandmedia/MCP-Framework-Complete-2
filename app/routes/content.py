@@ -40,7 +40,8 @@ def _cleanup_old_tasks():
                     task_time = datetime.fromisoformat(created).timestamp()
                     if task_time < cutoff:
                         to_delete.append(task_id)
-                except:
+                except (ValueError, AttributeError, TypeError):
+                    # If we can't parse the timestamp, mark for deletion
                     to_delete.append(task_id)
     
     for task_id in to_delete[:50]:  # Remove at most 50 at a time
@@ -509,7 +510,10 @@ def update_content(current_user, content_id):
         if scheduled:
             if isinstance(scheduled, str):
                 # Parse ISO format
-                scheduled = datetime.fromisoformat(scheduled.replace('Z', '+00:00'))
+                try:
+                    scheduled = datetime.fromisoformat(scheduled.replace('Z', '+00:00'))
+                except ValueError:
+                    return jsonify({'error': 'Invalid scheduled_for date format'}), 400
             content.scheduled_for = scheduled
         else:
             content.scheduled_for = None
@@ -852,10 +856,18 @@ def publish_to_wordpress(current_user, content_id):
         return jsonify({'error': 'Client not found'}), 404
     
     # Check WordPress config
-    if not client.wordpress_url or not client.wordpress_user or not client.wordpress_app_password:
+    missing = []
+    if not client.wordpress_url:
+        missing.append('WordPress URL')
+    if not client.wordpress_user:
+        missing.append('WordPress Username')
+    if not client.wordpress_app_password:
+        missing.append('WordPress App Password')
+    
+    if missing:
         return jsonify({
             'success': False,
-            'message': 'WordPress not configured for this client. Add WordPress credentials in client settings.'
+            'message': f'WordPress not configured. Missing: {", ".join(missing)}. Go to Edit Client → Integrations to add credentials.'
         }), 400
     
     try:
@@ -927,9 +939,21 @@ def publish_to_wordpress(current_user, content_id):
     except Exception as e:
         import traceback
         traceback.print_exc()
+        error_msg = str(e)
+        if 'Connection refused' in error_msg or 'timeout' in error_msg.lower():
+            msg = f'Cannot reach WordPress site at {client.wordpress_url}. Check if the URL is correct.'
+        elif '401' in error_msg or 'Unauthorized' in error_msg:
+            msg = 'WordPress authentication failed. Check your username and app password.'
+        elif '403' in error_msg or 'Forbidden' in error_msg:
+            msg = 'WordPress denied access. The app password may be invalid or expired.'
+        elif '404' in error_msg:
+            msg = f'WordPress REST API not found at {client.wordpress_url}. Ensure WordPress is installed and permalinks are enabled.'
+        else:
+            msg = f'Publish failed: {error_msg[:100]}' if error_msg else 'Publish failed. Check WordPress connection.'
+        
         return jsonify({
             'success': False,
-            'message': 'Publish failed. Please check your WordPress connection.'
+            'message': msg
         }), 500
 
 

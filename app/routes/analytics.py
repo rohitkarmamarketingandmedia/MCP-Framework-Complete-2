@@ -54,19 +54,19 @@ def get_overview(current_user, client_id):
     )
     
     # Get content stats
-    content_list = data_service.get_content_by_client(client_id)
+    content_list = data_service.get_client_blog_posts(client_id)
     content_stats = {
         'total': len(content_list),
-        'published': sum(1 for c in content_list if c.status.value == 'published'),
-        'draft': sum(1 for c in content_list if c.status.value == 'draft')
+        'published': sum(1 for c in content_list if c.status == 'published'),
+        'draft': sum(1 for c in content_list if c.status == 'draft')
     }
     
     # Get social stats
-    social_posts = data_service.get_social_posts_by_client(client_id)
+    social_posts = data_service.get_client_social_posts(client_id)
     social_stats = {
         'total': len(social_posts),
-        'published': sum(1 for p in social_posts if p.status.value == 'published'),
-        'scheduled': sum(1 for p in social_posts if p.scheduled_at)
+        'published': sum(1 for p in social_posts if p.status == 'published'),
+        'scheduled': sum(1 for p in social_posts if p.scheduled_for)
     }
     
     return jsonify({
@@ -92,15 +92,18 @@ def get_traffic(current_user, client_id):
     start_str = request.args.get('start')
     end_str = request.args.get('end')
     
-    if start_str:
-        start_date = datetime.fromisoformat(start_str)
-    else:
-        start_date = datetime.utcnow() - timedelta(days=30)
-    
-    if end_str:
-        end_date = datetime.fromisoformat(end_str)
-    else:
-        end_date = datetime.utcnow()
+    try:
+        if start_str:
+            start_date = datetime.fromisoformat(start_str.replace('Z', '+00:00'))
+        else:
+            start_date = datetime.utcnow() - timedelta(days=30)
+        
+        if end_str:
+            end_date = datetime.fromisoformat(end_str.replace('Z', '+00:00'))
+        else:
+            end_date = datetime.utcnow()
+    except ValueError:
+        return jsonify({'error': 'Invalid date format. Use ISO format (YYYY-MM-DD)'}), 400
     
     client = data_service.get_client(client_id)
     if not client:
@@ -141,7 +144,7 @@ def get_rankings(current_user, client_id):
     # Get rankings from SEMrush
     rankings = seo_service.get_keyword_rankings(
         domain=client.website_url,
-        keywords=client.primary_keywords
+        keywords=client.get_primary_keywords()
     )
     
     return jsonify({
@@ -166,19 +169,20 @@ def get_competitor_analysis(current_user, client_id):
     if not client:
         return jsonify({'error': 'Client not found'}), 404
     
-    if not client.competitors:
+    competitors = client.get_competitors()
+    if not competitors:
         return jsonify({'error': 'No competitors configured'}), 400
     
     analysis = seo_service.analyze_competitors(
         domain=client.website_url,
-        competitors=client.competitors,
-        keywords=client.primary_keywords
+        competitors=competitors,
+        keywords=client.get_primary_keywords()
     )
     
     return jsonify({
         'client_id': client_id,
         'domain': client.website_url,
-        'competitors': client.competitors,
+        'competitors': competitors,
         'analysis': analysis
     })
 
@@ -199,7 +203,8 @@ def get_content_performance(current_user, client_id):
         return jsonify({'error': 'Client not found'}), 404
     
     # Get published content
-    content_list = data_service.get_content_by_client(client_id, status='published')
+    all_content = data_service.get_client_blog_posts(client_id)
+    content_list = [c for c in all_content if c.status == 'published']
     
     performance = []
     for content in content_list:
@@ -270,24 +275,33 @@ def generate_report(current_user, client_id):
         ),
         'rankings': seo_service.get_keyword_rankings(
             domain=client.website_url,
-            keywords=client.primary_keywords[:10]  # Top 10
+            keywords=client.get_primary_keywords()[:10]  # Top 10
         ) if client.website_url else {},
-        'content_summary': {
-            'total_posts': len(data_service.get_content_by_client(client_id)),
-            'published': len(data_service.get_content_by_client(client_id, status='published')),
-            'this_period': len([
-                c for c in data_service.get_content_by_client(client_id)
-                if c.created_at >= start_date
-            ])
-        },
-        'social_summary': {
-            'total_posts': len(data_service.get_social_posts_by_client(client_id)),
-            'published': len(data_service.get_social_posts_by_client(client_id, status='published'))
-        },
+        'content_summary': _get_content_summary(client_id, start_date),
+        'social_summary': _get_social_summary(client_id),
         'generated_at': datetime.utcnow().isoformat()
     }
     
     return jsonify(report)
+
+
+def _get_content_summary(client_id, start_date):
+    """Helper to get content summary stats"""
+    all_posts = data_service.get_client_blog_posts(client_id)
+    return {
+        'total_posts': len(all_posts),
+        'published': len([c for c in all_posts if c.status == 'published']),
+        'this_period': len([c for c in all_posts if c.created_at and c.created_at >= start_date])
+    }
+
+
+def _get_social_summary(client_id):
+    """Helper to get social summary stats"""
+    all_posts = data_service.get_client_social_posts(client_id)
+    return {
+        'total_posts': len(all_posts),
+        'published': len([p for p in all_posts if p.status == 'published'])
+    }
 
 
 # ==========================================
@@ -407,10 +421,11 @@ def ai_seo_analysis(current_user, client_id):
         return jsonify({'error': 'Client not found'}), 404
     
     # Build analysis input
-    keywords = data.get('keywords', client.primary_keywords if client.primary_keywords else [])
+    client_keywords = client.get_primary_keywords()
+    keywords = data.get('keywords', client_keywords if client_keywords else [])
     rankings = data.get('rankings', [])
     industry = data.get('industry', client.industry or 'local business')
-    location = data.get('location', client.location or '')
+    location = data.get('location', client.geo or '')
     
     user_input = f"""
 Analyze SEO opportunities for a {industry} business in {location}.
@@ -471,15 +486,16 @@ def ai_competitor_analysis(current_user, client_id):
         return jsonify({'error': 'Client not found'}), 404
     
     # Build analysis input
-    competitors = data.get('competitors', client.competitors if client.competitors else [])
+    client_competitors = client.get_competitors()
+    competitors = data.get('competitors', client_competitors if client_competitors else [])
     competitor_data = data.get('competitor_data', [])
     industry = data.get('industry', client.industry or 'local business')
-    location = data.get('location', client.location or '')
+    location = data.get('location', client.geo or '')
     
     user_input = f"""
 Analyze competitors for a {industry} business in {location}.
 
-Business: {client.name}
+Business: {client.business_name}
 
 Competitors to Analyze: {', '.join(competitors) if competitors else 'None specified'}
 

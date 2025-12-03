@@ -245,7 +245,10 @@ def get_webhook_log(current_user, event_id):
         return jsonify({'error': 'Log not found'}), 404
     
     result = log.to_dict()
-    result['payload'] = json.loads(log.payload) if log.payload else None
+    try:
+        result['payload'] = json.loads(log.payload) if log.payload else None
+    except (json.JSONDecodeError, TypeError):
+        result['payload'] = None
     result['response_body'] = log.response_body
     
     return jsonify(result)

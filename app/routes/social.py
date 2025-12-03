@@ -206,7 +206,10 @@ def update_social_post(current_user, post_id):
     if 'status' in data:
         post.status = data['status']
     if 'scheduled_for' in data:
-        post.scheduled_for = datetime.fromisoformat(data['scheduled_for'].replace('Z', '+00:00'))
+        try:
+            post.scheduled_for = datetime.fromisoformat(data['scheduled_for'].replace('Z', '+00:00'))
+        except (ValueError, AttributeError):
+            return jsonify({'error': 'Invalid scheduled_for date format'}), 400
     
     data_service.save_social_post(post)
     
@@ -276,7 +279,10 @@ def schedule_posts(current_user):
     if not data.get('post_ids') or not data.get('scheduled_at'):
         return jsonify({'error': 'post_ids and scheduled_at required'}), 400
     
-    scheduled_at = datetime.fromisoformat(data['scheduled_at'].replace('Z', '+00:00'))
+    try:
+        scheduled_at = datetime.fromisoformat(data['scheduled_at'].replace('Z', '+00:00'))
+    except ValueError:
+        return jsonify({'error': 'Invalid date format. Use ISO format.'}), 400
     
     results = []
     for post_id in data['post_ids']:

@@ -245,6 +245,10 @@ class DBClient(db.Model):
         except (json.JSONDecodeError, TypeError):
             return []
     
+    def set_competitors(self, competitors: List[str]):
+        """Set competitors list"""
+        self.competitors = json.dumps(competitors)
+    
     def get_service_areas(self) -> List[str]:
         if not self.service_areas:
             return []
@@ -253,6 +257,10 @@ class DBClient(db.Model):
         except (json.JSONDecodeError, TypeError):
             return []
     
+    def set_service_areas(self, areas: List[str]):
+        """Set service areas list"""
+        self.service_areas = json.dumps(areas)
+    
     def get_unique_selling_points(self) -> List[str]:
         if not self.unique_selling_points:
             return []
@@ -260,6 +268,14 @@ class DBClient(db.Model):
             return json.loads(self.unique_selling_points)
         except (json.JSONDecodeError, TypeError):
             return []
+    
+    def set_unique_selling_points(self, usps: List[str]):
+        """Set unique selling points list"""
+        self.unique_selling_points = json.dumps(usps)
+    
+    def set_secondary_keywords(self, keywords: List[str]):
+        """Set secondary keywords list"""
+        self.secondary_keywords = json.dumps(keywords)
     
     def get_service_pages(self) -> List[dict]:
         """Get service pages for internal linking

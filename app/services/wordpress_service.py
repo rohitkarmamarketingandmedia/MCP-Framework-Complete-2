@@ -146,7 +146,10 @@ class WordPressService:
         featured_image_url: str = None,
         meta_description: str = None,
         slug: str = None,
-        author_id: int = None
+        author_id: int = None,
+        excerpt: str = None,
+        date: str = None,
+        meta: dict = None
     ) -> Dict[str, Any]:
         """
         Create a new WordPress post
@@ -154,13 +157,16 @@ class WordPressService:
         Args:
             title: Post title
             content: Post content (HTML)
-            status: 'draft', 'publish', 'pending', 'private'
+            status: 'draft', 'publish', 'pending', 'private', 'future'
             categories: List of category IDs or names
             tags: List of tag IDs or names
             featured_image_url: URL of image to set as featured
             meta_description: SEO meta description (requires Yoast/RankMath)
             slug: URL slug (auto-generated if not provided)
             author_id: WordPress user ID for author
+            excerpt: Post excerpt/summary
+            date: Scheduled date for future posts (ISO format)
+            meta: Additional meta fields for SEO plugins
         
         Returns:
             Dict with success status and post details
@@ -178,6 +184,12 @@ class WordPressService:
             
             if author_id:
                 post_data['author'] = author_id
+            
+            if excerpt:
+                post_data['excerpt'] = excerpt
+            
+            if date and status == 'future':
+                post_data['date'] = date.isoformat() if hasattr(date, 'isoformat') else date
             
             # Handle categories
             if categories:

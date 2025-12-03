@@ -219,8 +219,12 @@ def add_content_to_campaign(current_user, campaign_id):
     data = request.get_json() or {}
     content_ids = data.get('content_ids', [])
     
-    # Get existing content_ids and add new ones
-    existing = json.loads(campaign.content_ids)
+    # Get existing content_ids and add new ones (safely handle None/invalid JSON)
+    try:
+        existing = json.loads(campaign.content_ids) if campaign.content_ids else []
+    except (json.JSONDecodeError, TypeError):
+        existing = []
+    
     for cid in content_ids:
         if cid not in existing:
             existing.append(cid)
@@ -257,8 +261,12 @@ def update_campaign_metrics(current_user, campaign_id):
     
     data = request.get_json() or {}
     
-    # Merge with existing metrics
-    existing = json.loads(campaign.metrics)
+    # Merge with existing metrics (safely handle None/invalid JSON)
+    try:
+        existing = json.loads(campaign.metrics) if campaign.metrics else {}
+    except (json.JSONDecodeError, TypeError):
+        existing = {}
+    
     existing.update(data)
     campaign.metrics = json.dumps(existing)
     
