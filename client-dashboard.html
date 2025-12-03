@@ -4345,13 +4345,20 @@
                 while (attempts < maxAttempts) {
                     await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2 seconds
                     
-                    const statusResponse = await fetch(`/api/content/blog/task/${taskId}`, {
-                        headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
-                    });
-                    
-                    const status = await statusResponse.json();
-                    
-                    if (status.status === 'complete') {
+                    try {
+                        const statusResponse = await fetch(`/api/content/blog/task/${taskId}`, {
+                            headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
+                        });
+                        
+                        if (!statusResponse.ok) {
+                            // Network error or server error - keep trying
+                            attempts++;
+                            continue;
+                        }
+                        
+                        const status = await statusResponse.json();
+                        
+                        if (status.status === 'complete') {
                         const blogId = status.blog_id;
                         const blogTitle = status.title || keyword;
                         
@@ -4419,6 +4426,11 @@
                     if (status.status === 'generating') {
                         const dots = '.'.repeat((attempts % 3) + 1);
                         document.getElementById('blogProgressText').textContent = `Generating SEO content${dots} (${Math.floor(attempts * 2 / 60)}m ${(attempts * 2) % 60}s)`;
+                    }
+                    
+                    } catch (pollError) {
+                        // Network error during polling - keep trying
+                        console.warn('Polling error:', pollError);
                     }
                     
                     attempts++;

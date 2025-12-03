@@ -292,15 +292,15 @@ def generate_counter_content(current_user):
     # Generate superior content
     result = ai_service.generate_blog_post(
         keyword=target_keyword,
-        geo=client.geo,
-        industry=client.industry,
+        geo=client.geo or '',
+        industry=client.industry or '',
         word_count=analysis['recommended_word_count'],
         tone=client.tone or 'professional',
-        business_name=client.business_name,
+        business_name=client.business_name or '',
         include_faq=True,
         faq_count=5,
-        internal_links=client.get_service_pages() if hasattr(client, 'get_service_pages') else [],
-        usps=client.get_unique_selling_points() if hasattr(client, 'get_unique_selling_points') else []
+        internal_links=client.get_service_pages() or [],
+        usps=client.get_unique_selling_points() or []
     )
     
     if result.get('error'):
@@ -580,18 +580,20 @@ def regenerate_queue_item(current_user, item_id):
     
     # Get client
     client = DBClient.query.get(item.client_id)
+    if not client:
+        return jsonify({'error': 'Client not found'}), 404
     
     # Regenerate with notes incorporated into prompt
     result = ai_service.generate_blog_post(
         keyword=item.primary_keyword,
-        geo=client.geo,
-        industry=client.industry,
+        geo=client.geo or '',
+        industry=client.industry or '',
         word_count=max(item.word_count, 1200),
         tone=client.tone or 'professional',
-        business_name=client.business_name,
+        business_name=client.business_name or '',
         include_faq=True,
         faq_count=5,
-        usps=client.get_unique_selling_points() if hasattr(client, 'get_unique_selling_points') else []
+        usps=client.get_unique_selling_points() or []
         # Note: In production, pass notes to AI prompt
     )
     

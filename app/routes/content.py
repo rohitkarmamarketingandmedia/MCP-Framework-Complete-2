@@ -22,6 +22,29 @@ data_service = DataService()
 
 # In-memory task storage for background blog generation
 _blog_tasks = {}
+_MAX_TASKS = 100  # Prevent unbounded growth
+
+
+def _cleanup_old_tasks():
+    """Remove completed/errored tasks older than 10 minutes"""
+    if len(_blog_tasks) < _MAX_TASKS:
+        return
+    
+    cutoff = datetime.utcnow().timestamp() - 600  # 10 minutes
+    to_delete = []
+    for task_id, task in _blog_tasks.items():
+        if task.get('status') in ['complete', 'error']:
+            created = task.get('created_at', '')
+            if created:
+                try:
+                    task_time = datetime.fromisoformat(created).timestamp()
+                    if task_time < cutoff:
+                        to_delete.append(task_id)
+                except:
+                    to_delete.append(task_id)
+    
+    for task_id in to_delete[:50]:  # Remove at most 50 at a time
+        _blog_tasks.pop(task_id, None)
 
 
 @content_bp.route('/check', methods=['GET'])
@@ -146,6 +169,9 @@ def generate_blog_async(current_user):
     if not current_user.has_access_to_client(data['client_id']):
         return jsonify({'error': 'Access denied'}), 403
     
+    # Clean up old tasks to prevent memory leak
+    _cleanup_old_tasks()
+    
     # Create task
     task_id = str(uuid.uuid4())
     _blog_tasks[task_id] = {
@@ -239,7 +265,7 @@ def generate_content(current_user):
     # Auto-use client's service pages for internal linking if not explicitly provided
     internal_links = data.get('internal_links', [])
     if not internal_links:
-        internal_links = client.get_service_pages()
+        internal_links = client.get_service_pages() or []
     
     params = {
         'keyword': data['keyword'],
@@ -247,11 +273,11 @@ def generate_content(current_user):
         'industry': data['industry'],
         'word_count': data.get('word_count', current_app.config['DEFAULT_BLOG_WORD_COUNT']),
         'tone': data.get('tone', current_app.config['DEFAULT_TONE']),
-        'business_name': client.business_name,
+        'business_name': client.business_name or '',
         'include_faq': data.get('include_faq', True),
         'faq_count': data.get('faq_count', 5),
         'internal_links': internal_links,
-        'usps': client.get_unique_selling_points()
+        'usps': client.get_unique_selling_points() or []
     }
     
     # Generate content
@@ -270,8 +296,8 @@ def generate_content(current_user):
             content=body_content,
             service_pages=internal_links,
             primary_keyword=data['keyword'],
-            location=data['geo'],
-            business_name=client.business_name,
+            location=data.get('geo', ''),
+            business_name=client.business_name or '',
             fix_headings=True,
             add_cta=True
         )
@@ -339,7 +365,7 @@ def bulk_generate(current_user):
     
     # Get internal linking service
     from app.services.internal_linking_service import internal_linking_service
-    service_pages = client.get_service_pages()
+    service_pages = client.get_service_pages() or []
     
     results = []
     
@@ -353,15 +379,15 @@ def bulk_generate(current_user):
             # Build params from client data
             params = {
                 'keyword': keyword,
-                'geo': client.geo,
-                'industry': client.industry,
+                'geo': client.geo or '',
+                'industry': client.industry or '',
                 'word_count': topic.get('word_count', current_app.config.get('DEFAULT_BLOG_WORD_COUNT', 1200)),
                 'tone': client.tone or 'professional',
-                'business_name': client.business_name,
+                'business_name': client.business_name or '',
                 'include_faq': topic.get('include_faq', True),
                 'faq_count': topic.get('faq_count', 5),
                 'internal_links': service_pages,  # Pass service pages to AI
-                'usps': client.get_unique_selling_points()
+                'usps': client.get_unique_selling_points() or []
             }
             
             # Generate content
@@ -382,8 +408,8 @@ def bulk_generate(current_user):
                     content=body_content,
                     service_pages=service_pages,
                     primary_keyword=keyword,
-                    location=client.geo,
-                    business_name=client.business_name,
+                    location=client.geo or '',
+                    business_name=client.business_name or '',
                     fix_headings=True,
                     add_cta=True
                 )
@@ -597,158 +623,12 @@ def seo_check(current_user):
 @token_required
 def generate_blog_simple(current_user):
     """
-    Simplified blog generation endpoint for client dashboard
-    
-    POST /api/content/blog/generate
-    {
-        "client_id": "uuid",
-        "keyword": "ac repair sarasota",
-        "word_count": 1500,
-        "include_faq": true,
-        "faq_count": 5,
-        "generate_schema": true
-    }
+    Redirects to async generation to avoid timeout.
+    This endpoint now starts async generation and returns task_id.
+    Use /blog/task/<task_id> to check status.
     """
-    if not current_user.can_generate_content:
-        return jsonify({'error': 'Permission denied'}), 403
-    
-    data = request.get_json() or {}
-    
-    if not data.get('client_id') or not data.get('keyword'):
-        return jsonify({'error': 'client_id and keyword required'}), 400
-    
-    try:
-        # Get client
-        client = data_service.get_client(data['client_id'])
-        if not client:
-            return jsonify({'error': 'Client not found'}), 404
-        
-        if not current_user.has_access_to_client(data['client_id']):
-            return jsonify({'error': 'Access denied'}), 403
-        
-        # Get internal links from client service pages
-        from app.services.internal_linking_service import internal_linking_service
-        service_pages = client.get_service_pages() or []
-        
-        # Generate blog
-        result = ai_service.generate_blog_post(
-            keyword=data['keyword'],
-            geo=client.geo or '',
-            industry=client.industry or '',
-            word_count=data.get('word_count', 1500),
-            tone=client.tone or 'professional',
-            business_name=client.business_name or '',
-            include_faq=data.get('include_faq', True),
-            faq_count=data.get('faq_count', 5),
-            internal_links=service_pages,
-            usps=client.get_unique_selling_points()
-        )
-        
-        if result.get('error'):
-            return jsonify({'error': result['error']}), 500
-        
-        # Process with internal linking
-        body_content = result.get('body', '')
-        links_added = 0
-        
-        if service_pages and body_content:
-            link_result = internal_linking_service.process_blog_content(
-                content=body_content,
-                service_pages=service_pages,
-                primary_keyword=data['keyword'],
-                location=client.geo or '',
-                business_name=client.business_name or '',
-                fix_headings=True,
-                add_cta=True
-            )
-            body_content = link_result['content']
-            links_added = link_result['links_added']
-        
-        # Create blog post
-        blog_post = DBBlogPost(
-            client_id=data['client_id'],
-            title=result.get('title', data['keyword']),
-            body=body_content,
-            meta_title=result.get('meta_title', ''),
-            meta_description=result.get('meta_description', ''),
-            primary_keyword=data['keyword'],
-            secondary_keywords=result.get('secondary_keywords', []),
-            internal_links=service_pages,
-            faq_content=result.get('faq_items', []),
-            word_count=len(body_content.split()),
-            status=ContentStatus.DRAFT
-        )
-        
-        data_service.save_blog_post(blog_post)
-        
-        # Auto-generate schema if requested
-        schema_data = {}
-        if data.get('generate_schema', True):
-            try:
-                # Generate Article schema
-                article_schema = {
-                    "@context": "https://schema.org",
-                    "@type": "Article",
-                    "headline": result.get('meta_title', result.get('title', '')),
-                    "description": result.get('meta_description', ''),
-                    "author": {
-                        "@type": "Organization",
-                        "name": client.business_name or ''
-                    },
-                    "publisher": {
-                        "@type": "Organization", 
-                        "name": client.business_name or ''
-                    },
-                    "mainEntityOfPage": {
-                        "@type": "WebPage"
-                    }
-                }
-                
-                # Generate FAQ schema if FAQs exist
-                faq_schema = None
-                if result.get('faq_items'):
-                    faq_schema = {
-                        "@context": "https://schema.org",
-                        "@type": "FAQPage",
-                        "mainEntity": [
-                            {
-                                "@type": "Question",
-                                "name": faq.get('question', faq.get('q', '')),
-                                "acceptedAnswer": {
-                                    "@type": "Answer",
-                                    "text": faq.get('answer', faq.get('a', ''))
-                                }
-                            }
-                            for faq in result.get('faq_items', [])
-                        ]
-                    }
-                
-                schema_data = {
-                    'article': article_schema,
-                    'faq': faq_schema
-                }
-            except Exception as e:
-                schema_data = {'error': 'An error occurred. Please try again.'}
-        
-        return jsonify({
-            'success': True,
-            'id': blog_post.id,
-            'title': blog_post.title,
-            'word_count': blog_post.word_count,
-            'links_added': links_added,
-            'schema': schema_data
-        })
-        
-    except Exception as e:
-        import traceback
-        error_detail = traceback.format_exc()
-        error_message = str(e)
-        logger.error(f"Blog generation error: {error_message}")
-        logger.error(f"Traceback: {error_detail}")
-        return jsonify({
-            'error': error_message if error_message else 'Blog generation failed',
-            'detail': error_detail[:500]
-        }), 500
+    # Just call the async version
+    return generate_blog_async(current_user)
 
 
 @content_bp.route('/blog/<blog_id>', methods=['PATCH'])

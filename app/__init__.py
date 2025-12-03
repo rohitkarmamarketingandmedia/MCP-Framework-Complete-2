@@ -150,7 +150,19 @@ def create_app(config_name=None):
     # Health check
     @app.route('/health')
     def health():
-        return {'status': 'healthy', 'version': __version__}
+        # Basic health check with database ping
+        try:
+            from app.database import db
+            db.session.execute(db.text('SELECT 1'))
+            db_status = 'connected'
+        except Exception as e:
+            db_status = f'error: {str(e)[:50]}'
+        
+        return {
+            'status': 'healthy' if db_status == 'connected' else 'degraded',
+            'version': __version__,
+            'database': db_status
+        }
     
     # Diagnostic endpoint - check configuration
     @app.route('/health/config')

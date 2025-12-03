@@ -59,10 +59,10 @@ def generate_social(current_user):
         result = ai_service.generate_social_post(
             topic=data['topic'],
             platform=platform,
-            business_name=client.business_name,
-            industry=client.industry,
-            geo=client.geo,
-            tone=data.get('tone', client.tone),
+            business_name=client.business_name or '',
+            industry=client.industry or '',
+            geo=client.geo or '',
+            tone=data.get('tone', client.tone) or 'friendly',
             include_hashtags=data.get('include_hashtags', True),
             hashtag_count=data.get('hashtag_count', 5),
             link_url=data.get('link_url', '')
@@ -132,10 +132,10 @@ def generate_social_kit(current_user):
     platforms = ['gbp', 'facebook', 'instagram', 'linkedin']
     kit = ai_service.generate_social_kit(
         topic=topic,
-        business_name=client.business_name,
-        industry=client.industry,
-        geo=client.geo,
-        tone=client.tone,
+        business_name=client.business_name or '',
+        industry=client.industry or '',
+        geo=client.geo or '',
+        tone=client.tone or 'friendly',
         link_url=link_url,
         platforms=platforms
     )

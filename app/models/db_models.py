@@ -15,6 +15,18 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.database import db
 
 
+def safe_json_loads(value, default=None):
+    """Safely parse JSON, returning default if None or invalid"""
+    if default is None:
+        default = []
+    if not value:
+        return default
+    try:
+        return json.loads(value)
+    except (json.JSONDecodeError, TypeError):
+        return default
+
+
 # ============================================
 # User Model
 # ============================================
@@ -428,13 +440,13 @@ class DBBlogPost(db.Model):
             'body': self.body,
             'excerpt': self.excerpt,
             'primary_keyword': self.primary_keyword,
-            'secondary_keywords': json.loads(self.secondary_keywords),
+            'secondary_keywords': safe_json_loads(self.secondary_keywords, []),
             'word_count': self.word_count,
             'seo_score': self.seo_score,
-            'internal_links': json.loads(self.internal_links),
-            'external_links': json.loads(self.external_links),
-            'schema_markup': json.loads(self.schema_markup) if self.schema_markup else None,
-            'faq_content': json.loads(self.faq_content) if self.faq_content else None,
+            'internal_links': safe_json_loads(self.internal_links, []),
+            'external_links': safe_json_loads(self.external_links, []),
+            'schema_markup': safe_json_loads(self.schema_markup, None),
+            'faq_content': safe_json_loads(self.faq_content, None),
             'featured_image_url': self.featured_image_url,
             'status': self.status,
             'published_url': self.published_url,
@@ -490,8 +502,8 @@ class DBSocialPost(db.Model):
             'client_id': self.client_id,
             'platform': self.platform,
             'content': self.content,
-            'hashtags': json.loads(self.hashtags),
-            'media_urls': json.loads(self.media_urls),
+            'hashtags': safe_json_loads(self.hashtags, []),
+            'media_urls': safe_json_loads(self.media_urls, []),
             'link_url': self.link_url,
             'cta_type': self.cta_type,
             'status': self.status,
@@ -566,8 +578,8 @@ class DBCampaign(db.Model):
             'budget': self.budget,
             'spent': self.spent,
             'status': self.status,
-            'content_ids': json.loads(self.content_ids),
-            'metrics': json.loads(self.metrics),
+            'content_ids': safe_json_loads(self.content_ids, []),
+            'metrics': safe_json_loads(self.metrics, {}),
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None
         }
@@ -601,7 +613,7 @@ class DBSchemaMarkup(db.Model):
         self.created_at = datetime.utcnow()
     
     def get_json_ld(self) -> dict:
-        return json.loads(self.json_ld)
+        return safe_json_loads(self.json_ld, {})
     
     def to_dict(self) -> dict:
         return {
@@ -1627,7 +1639,7 @@ class DBChatbotFAQ(db.Model):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     
     def get_keywords(self) -> list:
-        return json.loads(self.keywords) if self.keywords else []
+        return safe_json_loads(self.keywords, [])
     
     def set_keywords(self, kws: list):
         self.keywords = json.dumps(kws)
@@ -2010,7 +2022,7 @@ class DBWebhookEndpoint(db.Model):
                 setattr(self, key, value)
     
     def get_event_types(self) -> List[str]:
-        return json.loads(self.event_types) if self.event_types else []
+        return safe_json_loads(self.event_types, [])
     
     def to_dict(self) -> dict:
         return {

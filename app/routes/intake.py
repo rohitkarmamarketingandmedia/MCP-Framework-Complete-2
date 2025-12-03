@@ -400,22 +400,22 @@ def full_pipeline(current_user):
         
         # Get internal linking service
         from app.services.internal_linking_service import internal_linking_service
-        service_pages = client.get_service_pages()
+        service_pages = client.get_service_pages() or []
         
         # Generate blogs
         for topic in blog_topics:
             try:
                 result = ai_service.generate_blog_post(
                     keyword=topic['keyword'],
-                    geo=client.geo,
-                    industry=client.industry,
+                    geo=client.geo or '',
+                    industry=client.industry or '',
                     word_count=topic.get('word_count', 1200),
-                    tone=client.tone,
-                    business_name=client.business_name,
+                    tone=client.tone or 'professional',
+                    business_name=client.business_name or '',
                     include_faq=topic.get('include_faq', True),
                     faq_count=5,
                     internal_links=service_pages,
-                    usps=client.get_unique_selling_points()
+                    usps=client.get_unique_selling_points() or []
                 )
                 
                 if not result.get('error'):
@@ -428,8 +428,8 @@ def full_pipeline(current_user):
                             content=body_content,
                             service_pages=service_pages,
                             primary_keyword=topic['keyword'],
-                            location=client.geo,
-                            business_name=client.business_name,
+                            location=client.geo or '',
+                            business_name=client.business_name or '',
                             fix_headings=True,
                             add_cta=True
                         )
@@ -485,9 +485,9 @@ def full_pipeline(current_user):
         
         # Fill with generic industry topics
         generic_topics = [
-            f"Why choose a professional {client.industry} service",
-            f"Common {client.industry} mistakes to avoid",
-            f"Seasonal {client.industry} tips for {client.geo}"
+            f"Why choose a professional {client.industry or 'local'} service",
+            f"Common {client.industry or 'service'} mistakes to avoid",
+            f"Seasonal {client.industry or 'service'} tips for {client.geo or 'your area'}"
         ]
         for gt in generic_topics:
             if len(social_topics) >= social_count:
@@ -502,10 +502,10 @@ def full_pipeline(current_user):
                     result = ai_service.generate_social_post(
                         topic=topic,
                         platform=platform,
-                        business_name=client.business_name,
-                        industry=client.industry,
-                        geo=client.geo,
-                        tone=client.tone
+                        business_name=client.business_name or '',
+                        industry=client.industry or '',
+                        geo=client.geo or '',
+                        tone=client.tone or 'friendly'
                     )
                     
                     if not result.get('error'):
