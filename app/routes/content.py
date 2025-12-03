@@ -4,6 +4,9 @@ Blog posts, landing pages, and SEO content
 """
 from flask import Blueprint, request, jsonify, current_app
 import logging
+import threading
+import uuid
+from datetime import datetime
 logger = logging.getLogger(__name__)
 from app.routes.auth import token_required
 from app.services.ai_service import AIService
@@ -16,6 +19,9 @@ content_bp = Blueprint('content', __name__)
 ai_service = AIService()
 seo_service = SEOService()
 data_service = DataService()
+
+# In-memory task storage for background blog generation
+_blog_tasks = {}
 
 
 @content_bp.route('/check', methods=['GET'])
@@ -31,6 +37,160 @@ def check_ai_config(current_user):
         'can_generate': current_user.can_generate_content,
         'user_role': str(current_user.role)
     })
+
+
+def _generate_blog_background(task_id, app, client_id, keyword, word_count, include_faq, faq_count, user_id):
+    """Background thread function to generate blog"""
+    with app.app_context():
+        try:
+            _blog_tasks[task_id]['status'] = 'generating'
+            
+            # Get client
+            client = data_service.get_client(client_id)
+            if not client:
+                _blog_tasks[task_id] = {'status': 'error', 'error': 'Client not found'}
+                return
+            
+            from app.services.internal_linking_service import internal_linking_service
+            service_pages = client.get_service_pages() or []
+            
+            # Generate blog
+            result = ai_service.generate_blog_post(
+                keyword=keyword,
+                geo=client.geo or '',
+                industry=client.industry or '',
+                word_count=word_count,
+                tone=client.tone or 'professional',
+                business_name=client.business_name or '',
+                include_faq=include_faq,
+                faq_count=faq_count,
+                internal_links=service_pages,
+                usps=client.get_unique_selling_points()
+            )
+            
+            if result.get('error'):
+                _blog_tasks[task_id] = {'status': 'error', 'error': result['error']}
+                return
+            
+            # Process with internal linking
+            body_content = result.get('body', '')
+            links_added = 0
+            
+            if service_pages and body_content:
+                link_result = internal_linking_service.process_blog_content(
+                    content=body_content,
+                    service_pages=service_pages,
+                    primary_keyword=keyword,
+                    location=client.geo or '',
+                    business_name=client.business_name or '',
+                    fix_headings=True,
+                    add_cta=True
+                )
+                body_content = link_result['content']
+                links_added = link_result['links_added']
+            
+            # Create blog post
+            blog_post = DBBlogPost(
+                client_id=client_id,
+                title=result.get('title', keyword),
+                body=body_content,
+                meta_title=result.get('meta_title', ''),
+                meta_description=result.get('meta_description', ''),
+                primary_keyword=keyword,
+                secondary_keywords=result.get('secondary_keywords', []),
+                internal_links=service_pages,
+                faq_content=result.get('faq_items', []),
+                word_count=len(body_content.split()),
+                status=ContentStatus.DRAFT
+            )
+            
+            data_service.save_blog_post(blog_post)
+            
+            _blog_tasks[task_id] = {
+                'status': 'complete',
+                'blog_id': blog_post.id,
+                'title': blog_post.title,
+                'word_count': blog_post.word_count,
+                'links_added': links_added
+            }
+            
+        except Exception as e:
+            logger.error(f"Background blog generation error: {e}")
+            _blog_tasks[task_id] = {'status': 'error', 'error': str(e)}
+
+
+@content_bp.route('/blog/generate-async', methods=['POST'])
+@token_required
+def generate_blog_async(current_user):
+    """
+    Start async blog generation - returns immediately with task_id
+    
+    POST /api/content/blog/generate-async
+    {
+        "client_id": "uuid",
+        "keyword": "ac repair sarasota",
+        "word_count": 1500,
+        "include_faq": true,
+        "faq_count": 5
+    }
+    """
+    if not current_user.can_generate_content:
+        return jsonify({'error': 'Permission denied'}), 403
+    
+    data = request.get_json() or {}
+    
+    if not data.get('client_id') or not data.get('keyword'):
+        return jsonify({'error': 'client_id and keyword required'}), 400
+    
+    # Verify client access
+    if not current_user.has_access_to_client(data['client_id']):
+        return jsonify({'error': 'Access denied'}), 403
+    
+    # Create task
+    task_id = str(uuid.uuid4())
+    _blog_tasks[task_id] = {
+        'status': 'pending',
+        'created_at': datetime.utcnow().isoformat(),
+        'keyword': data['keyword']
+    }
+    
+    # Start background thread
+    from flask import current_app
+    app = current_app._get_current_object()
+    
+    thread = threading.Thread(
+        target=_generate_blog_background,
+        args=(
+            task_id,
+            app,
+            data['client_id'],
+            data['keyword'],
+            data.get('word_count', 1500),
+            data.get('include_faq', True),
+            data.get('faq_count', 5),
+            current_user.id
+        )
+    )
+    thread.daemon = True
+    thread.start()
+    
+    return jsonify({
+        'task_id': task_id,
+        'status': 'pending',
+        'message': 'Blog generation started'
+    })
+
+
+@content_bp.route('/blog/task/<task_id>', methods=['GET'])
+@token_required
+def check_blog_task(current_user, task_id):
+    """Check status of async blog generation task"""
+    task = _blog_tasks.get(task_id)
+    
+    if not task:
+        return jsonify({'error': 'Task not found'}), 404
+    
+    return jsonify(task)
 
 
 @content_bp.route('/generate', methods=['POST'])

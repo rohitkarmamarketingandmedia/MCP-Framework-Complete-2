@@ -4309,10 +4309,11 @@
             btn.disabled = true;
             btn.innerHTML = '<div class="spinner w-5 h-5 mr-2"></div> Generating...';
             progress.classList.remove('hidden');
-            document.getElementById('blogProgressText').textContent = 'Generating 1,500+ word SEO blog post...';
+            document.getElementById('blogProgressText').textContent = 'Starting blog generation...';
             
             try {
-                const response = await fetch('/api/content/blog/generate', {
+                // Start async generation
+                const startResponse = await fetch('/api/content/blog/generate-async', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -4323,73 +4324,107 @@
                         keyword: keyword,
                         word_count: wordCount,
                         include_faq: faqCount > 0,
-                        faq_count: faqCount,
-                        generate_schema: true
+                        faq_count: faqCount
                     })
                 });
                 
-                if (!response.ok) {
-                    const errorData = await response.json().catch(() => ({ error: `Server returned ${response.status}` }));
-                    throw new Error(errorData.error || errorData.detail || `Server error: ${response.status}`);
+                if (!startResponse.ok) {
+                    const errorData = await startResponse.json().catch(() => ({ error: `Server returned ${startResponse.status}` }));
+                    throw new Error(errorData.error || `Server error: ${startResponse.status}`);
                 }
                 
-                const result = await response.json();
-                const blogId = result.id || result.blog_id;
-                const blogTitle = result.title || keyword;
+                const startResult = await startResponse.json();
+                const taskId = startResult.task_id;
                 
-                // Generate featured image if enabled
-                if (generateImage && blogId) {
-                    document.getElementById('blogProgressText').textContent = '✓ Blog created! Generating featured image...';
+                document.getElementById('blogProgressText').textContent = 'Generating 1,500+ word SEO blog post with FAQs and internal links...';
+                
+                // Poll for completion
+                let attempts = 0;
+                const maxAttempts = 90; // 3 minutes max (2 sec intervals)
+                
+                while (attempts < maxAttempts) {
+                    await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2 seconds
                     
-                    try {
-                        const imageResponse = await fetch(`${API_URL}/api/images/generate`, {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                                'Authorization': `Bearer ${AUTH_TOKEN}`
-                            },
-                            body: JSON.stringify({
-                                prompt: `${keyword} - professional blog header image for ${currentClient.business_name || 'business'}`,
-                                style: 'blog_header',
-                                size: '1792x1024',
-                                client_id: currentClient.id
-                            })
-                        });
+                    const statusResponse = await fetch(`/api/content/blog/task/${taskId}`, {
+                        headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
+                    });
+                    
+                    const status = await statusResponse.json();
+                    
+                    if (status.status === 'complete') {
+                        const blogId = status.blog_id;
+                        const blogTitle = status.title || keyword;
                         
-                        const imageResult = await imageResponse.json();
-                        
-                        if (imageResult.success && imageResult.url) {
-                            // Update blog with featured image
-                            await fetch(`${API_URL}/api/content/blog/${blogId}`, {
-                                method: 'PATCH',
-                                headers: {
-                                    'Content-Type': 'application/json',
-                                    'Authorization': `Bearer ${AUTH_TOKEN}`
-                                },
-                                body: JSON.stringify({
-                                    featured_image_url: imageResult.url
-                                })
-                            });
+                        // Generate featured image if enabled
+                        if (generateImage && blogId) {
+                            document.getElementById('blogProgressText').textContent = '✓ Blog created! Generating featured image...';
                             
-                            document.getElementById('blogProgressText').textContent = '✓ Blog post + featured image generated!';
+                            try {
+                                const imageResponse = await fetch(`${API_URL}/api/images/generate`, {
+                                    method: 'POST',
+                                    headers: {
+                                        'Content-Type': 'application/json',
+                                        'Authorization': `Bearer ${AUTH_TOKEN}`
+                                    },
+                                    body: JSON.stringify({
+                                        prompt: `${keyword} - professional blog header image for ${currentClient.business_name || 'business'}`,
+                                        style: 'blog_header',
+                                        size: '1792x1024',
+                                        client_id: currentClient.id
+                                    })
+                                });
+                                
+                                const imageResult = await imageResponse.json();
+                                
+                                if (imageResult.success && imageResult.url) {
+                                    await fetch(`${API_URL}/api/content/blog/${blogId}`, {
+                                        method: 'PATCH',
+                                        headers: {
+                                            'Content-Type': 'application/json',
+                                            'Authorization': `Bearer ${AUTH_TOKEN}`
+                                        },
+                                        body: JSON.stringify({
+                                            featured_image_url: imageResult.url
+                                        })
+                                    });
+                                    
+                                    document.getElementById('blogProgressText').textContent = '✓ Blog post + featured image generated!';
+                                } else {
+                                    document.getElementById('blogProgressText').textContent = '✓ Blog created (image generation unavailable)';
+                                }
+                            } catch (imgError) {
+                                console.warn('Image generation failed:', imgError);
+                                document.getElementById('blogProgressText').textContent = '✓ Blog created (image skipped)';
+                            }
                         } else {
-                            document.getElementById('blogProgressText').textContent = '✓ Blog created (image generation unavailable)';
+                            document.getElementById('blogProgressText').textContent = '✓ Blog post generated successfully!';
                         }
-                    } catch (imgError) {
-                        console.warn('Image generation failed:', imgError);
-                        document.getElementById('blogProgressText').textContent = '✓ Blog created (image skipped)';
+                        
+                        // Refresh the blogs list
+                        setTimeout(() => {
+                            progress.classList.add('hidden');
+                            loadClient(currentClient.id);
+                            showTab('blogs');
+                            alert(`Blog post "${blogTitle}" generated successfully!`);
+                        }, 1500);
+                        
+                        return; // Success - exit function
                     }
-                } else {
-                    document.getElementById('blogProgressText').textContent = '✓ Blog post generated successfully!';
+                    
+                    if (status.status === 'error') {
+                        throw new Error(status.error || 'Blog generation failed');
+                    }
+                    
+                    // Update progress message
+                    if (status.status === 'generating') {
+                        const dots = '.'.repeat((attempts % 3) + 1);
+                        document.getElementById('blogProgressText').textContent = `Generating SEO content${dots} (${Math.floor(attempts * 2 / 60)}m ${(attempts * 2) % 60}s)`;
+                    }
+                    
+                    attempts++;
                 }
                 
-                // Refresh the blogs list
-                setTimeout(() => {
-                    progress.classList.add('hidden');
-                    loadClient(currentClient.id);
-                    showTab('blogs');
-                    alert(`Blog post "${blogTitle}" generated successfully!`);
-                }, 1500);
+                throw new Error('Generation timed out after 3 minutes');
                 
             } catch (error) {
                 console.error('Blog generation error:', error);
