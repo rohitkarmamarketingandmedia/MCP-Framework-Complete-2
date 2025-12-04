@@ -794,6 +794,64 @@
                             <i class="fas fa-file-alt mr-2"></i>Generate Client Summary
                         </button>
                     </div>
+                    
+                    <!-- Google Analytics 4 Integration -->
+                    <div class="glass rounded-2xl p-6 md:col-span-2">
+                        <div class="flex items-center justify-between mb-6">
+                            <div class="flex items-center gap-3">
+                                <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-orange-500 to-yellow-600 flex items-center justify-center">
+                                    <i class="fab fa-google text-white text-xl"></i>
+                                </div>
+                                <div>
+                                    <h3 class="text-lg font-bold text-white">Google Analytics 4</h3>
+                                    <p class="text-sm text-gray-400">Website traffic and performance</p>
+                                </div>
+                            </div>
+                            <button onclick="refreshGA4Data()" id="refreshGA4Btn" class="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg text-sm font-medium transition">
+                                <i class="fas fa-sync-alt mr-2"></i>Refresh
+                            </button>
+                        </div>
+                        
+                        <div id="ga4NotConfigured" class="p-4 bg-amber-500/10 border border-amber-500/30 rounded-xl mb-4">
+                            <p class="text-amber-400 text-sm"><i class="fas fa-exclamation-triangle mr-2"></i>GA4 not configured. Add GA4_PROPERTY_ID to connect.</p>
+                        </div>
+                        
+                        <div id="ga4Data" class="hidden">
+                            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                                <div class="text-center p-3 bg-white/5 rounded-xl">
+                                    <p id="ga4Sessions" class="text-2xl font-bold text-white">--</p>
+                                    <p class="text-xs text-gray-400">Sessions (30d)</p>
+                                </div>
+                                <div class="text-center p-3 bg-white/5 rounded-xl">
+                                    <p id="ga4Users" class="text-2xl font-bold text-blue-400">--</p>
+                                    <p class="text-xs text-gray-400">Users (30d)</p>
+                                </div>
+                                <div class="text-center p-3 bg-white/5 rounded-xl">
+                                    <p id="ga4Pageviews" class="text-2xl font-bold text-green-400">--</p>
+                                    <p class="text-xs text-gray-400">Pageviews</p>
+                                </div>
+                                <div class="text-center p-3 bg-white/5 rounded-xl">
+                                    <p id="ga4BounceRate" class="text-2xl font-bold text-purple-400">--</p>
+                                    <p class="text-xs text-gray-400">Bounce Rate</p>
+                                </div>
+                            </div>
+                            
+                            <div class="grid md:grid-cols-2 gap-4">
+                                <div class="p-4 bg-white/5 rounded-xl">
+                                    <h4 class="text-white font-medium mb-3"><i class="fas fa-globe mr-2 text-blue-400"></i>Top Pages</h4>
+                                    <div id="ga4TopPages" class="space-y-2 text-sm">
+                                        <p class="text-gray-500">Loading...</p>
+                                    </div>
+                                </div>
+                                <div class="p-4 bg-white/5 rounded-xl">
+                                    <h4 class="text-white font-medium mb-3"><i class="fas fa-search mr-2 text-green-400"></i>Top Search Terms</h4>
+                                    <div id="ga4SearchTerms" class="space-y-2 text-sm">
+                                        <p class="text-gray-500">Loading...</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
             
@@ -1179,7 +1237,7 @@
                             <div class="space-y-4">
                                 <div>
                                     <label class="block text-sm font-medium text-gray-300 mb-2">Delivery Frequency</label>
-                                    <select id="notifDigestFreq" class="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white focus:outline-none focus:border-purple-500">
+                                    <select id="notifDigestFreq" onchange="updateDigestPreview()" class="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white focus:outline-none focus:border-purple-500">
                                         <option value="instant">Instant (send immediately)</option>
                                         <option value="daily">Daily Digest</option>
                                         <option value="weekly">Weekly Digest</option>
@@ -1188,13 +1246,13 @@
                                 
                                 <div id="digestTimeWrapper" class="hidden">
                                     <label class="block text-sm font-medium text-gray-300 mb-2">Digest Time</label>
-                                    <input type="time" id="notifDigestTime" value="08:00" 
+                                    <input type="time" id="notifDigestTime" value="08:00" onchange="updateDigestPreview()"
                                         class="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white focus:outline-none focus:border-purple-500">
                                 </div>
                                 
                                 <div id="digestDayWrapper" class="hidden">
                                     <label class="block text-sm font-medium text-gray-300 mb-2">Digest Day (Weekly)</label>
-                                    <select id="notifDigestDay" class="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white focus:outline-none focus:border-purple-500">
+                                    <select id="notifDigestDay" onchange="updateDigestPreview()" class="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white focus:outline-none focus:border-purple-500">
                                         <option value="0">Monday</option>
                                         <option value="1">Tuesday</option>
                                         <option value="2">Wednesday</option>
@@ -1203,6 +1261,17 @@
                                         <option value="5">Saturday</option>
                                         <option value="6">Sunday</option>
                                     </select>
+                                </div>
+                                
+                                <!-- Next Digest Preview -->
+                                <div id="digestPreview" class="hidden p-4 bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-blue-500/30 rounded-xl">
+                                    <div class="flex items-center gap-3">
+                                        <i class="fas fa-clock text-blue-400"></i>
+                                        <div>
+                                            <p class="text-sm text-white font-medium">Next Digest</p>
+                                            <p id="nextDigestTime" class="text-xs text-gray-400">Calculating...</p>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -2399,6 +2468,7 @@
             // Update report stats when reports tab is shown
             if (tab === 'reports') {
                 updateReportStats();
+                refreshGA4Data();
             }
             
             // Load chatbot config when chatbot tab is shown
@@ -2420,6 +2490,7 @@
             if (tab === 'settings') {
                 loadNotificationPrefs();
                 loadNotificationHistory();
+                setTimeout(updateDigestPreview, 100);
             }
         }
         
@@ -2578,6 +2649,60 @@
                 alert('Error saving preferences: ' + error.message);
             }
         }
+        
+        function updateDigestPreview() {
+            const freq = document.getElementById('notifDigestFreq').value;
+            const timeWrapper = document.getElementById('digestTimeWrapper');
+            const dayWrapper = document.getElementById('digestDayWrapper');
+            const preview = document.getElementById('digestPreview');
+            const nextTime = document.getElementById('nextDigestTime');
+            
+            if (freq === 'instant') {
+                timeWrapper.classList.add('hidden');
+                dayWrapper.classList.add('hidden');
+                preview.classList.add('hidden');
+            } else {
+                timeWrapper.classList.remove('hidden');
+                preview.classList.remove('hidden');
+                
+                if (freq === 'weekly') {
+                    dayWrapper.classList.remove('hidden');
+                } else {
+                    dayWrapper.classList.add('hidden');
+                }
+                
+                // Calculate next digest time
+                const time = document.getElementById('notifDigestTime').value || '08:00';
+                const dayIndex = parseInt(document.getElementById('notifDigestDay').value) || 0;
+                const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+                
+                const now = new Date();
+                let nextDate = new Date();
+                
+                if (freq === 'daily') {
+                    const [hours, mins] = time.split(':').map(Number);
+                    nextDate.setHours(hours, mins, 0, 0);
+                    if (nextDate <= now) {
+                        nextDate.setDate(nextDate.getDate() + 1);
+                    }
+                    nextTime.textContent = `Tomorrow at ${time} (then daily)`;
+                } else if (freq === 'weekly') {
+                    const [hours, mins] = time.split(':').map(Number);
+                    const currentDay = now.getDay();
+                    const targetDay = (dayIndex + 1) % 7; // Convert to JS day (0=Sun)
+                    let daysUntil = targetDay - currentDay;
+                    if (daysUntil <= 0) daysUntil += 7;
+                    
+                    nextDate.setDate(now.getDate() + daysUntil);
+                    nextDate.setHours(hours, mins, 0, 0);
+                    
+                    nextTime.textContent = `${days[dayIndex]} at ${time} (${nextDate.toLocaleDateString()})`;
+                }
+            }
+        }
+        
+        // Initialize digest preview on settings load
+        document.getElementById('notifDigestFreq')?.addEventListener('change', updateDigestPreview);
         
         async function sendTestNotification() {
             const btn = document.getElementById('testNotifBtn');
@@ -3110,6 +3235,17 @@
                        </div>`
                     : '';
                 
+                // SEO Score badge
+                const seoScore = blog.seo_score || 0;
+                const seoScoreColor = seoScore >= 80 ? 'text-green-400 bg-green-500/20' : 
+                                      seoScore >= 60 ? 'text-yellow-400 bg-yellow-500/20' : 
+                                      seoScore >= 40 ? 'text-orange-400 bg-orange-500/20' : 'text-red-400 bg-red-500/20';
+                const seoScoreBadge = seoScore > 0 
+                    ? `<span class="px-2 py-1 ${seoScoreColor} rounded text-xs font-bold" title="SEO Score">
+                         <i class="fas fa-chart-line mr-1"></i>${seoScore}
+                       </span>` 
+                    : '';
+                
                 return `
                 <div class="content-card glass rounded-xl p-6 ${isSelected ? 'ring-2 ring-purple-500' : ''}">
                     <div class="flex items-start gap-4">
@@ -3123,6 +3259,7 @@
                                 <span class="px-2 py-1 ${statusColors[blog.status] || statusColors.draft} rounded text-xs">
                                     ${blog.status || 'draft'}
                                 </span>
+                                ${seoScoreBadge}
                                 ${scheduledInfo}
                                 ${blog.featured_image_url ? '<span class="text-amber-400 text-xs"><i class="fas fa-image"></i></span>' : ''}
                             </div>
@@ -5367,6 +5504,80 @@
         };
         
         // ==========================================
+        // GOOGLE ANALYTICS 4
+        // ==========================================
+        
+        async function refreshGA4Data() {
+            if (!currentClient) {
+                alert('Please select a client first');
+                return;
+            }
+            
+            const btn = document.getElementById('refreshGA4Btn');
+            if (btn) {
+                btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Loading...';
+                btn.disabled = true;
+            }
+            
+            try {
+                const response = await fetch(`${API_URL}/api/analytics/traffic/${currentClient.id}`, {
+                    headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    
+                    if (data.configured) {
+                        document.getElementById('ga4NotConfigured').classList.add('hidden');
+                        document.getElementById('ga4Data').classList.remove('hidden');
+                        
+                        // Update metrics
+                        document.getElementById('ga4Sessions').textContent = (data.sessions || 0).toLocaleString();
+                        document.getElementById('ga4Users').textContent = (data.users || 0).toLocaleString();
+                        document.getElementById('ga4Pageviews').textContent = (data.pageviews || 0).toLocaleString();
+                        document.getElementById('ga4BounceRate').textContent = (data.bounce_rate || 0).toFixed(1) + '%';
+                        
+                        // Update top pages
+                        const topPagesHtml = data.top_pages?.length 
+                            ? data.top_pages.slice(0, 5).map(p => `
+                                <div class="flex justify-between text-gray-300">
+                                    <span class="truncate flex-1">${p.page}</span>
+                                    <span class="text-gray-500 ml-2">${p.views}</span>
+                                </div>
+                            `).join('') 
+                            : '<p class="text-gray-500">No page data</p>';
+                        document.getElementById('ga4TopPages').innerHTML = topPagesHtml;
+                        
+                        // Update search terms
+                        const searchTermsHtml = data.search_terms?.length 
+                            ? data.search_terms.slice(0, 5).map(t => `
+                                <div class="flex justify-between text-gray-300">
+                                    <span class="truncate flex-1">${t.term}</span>
+                                    <span class="text-gray-500 ml-2">${t.clicks}</span>
+                                </div>
+                            `).join('') 
+                            : '<p class="text-gray-500">No search data</p>';
+                        document.getElementById('ga4SearchTerms').innerHTML = searchTermsHtml;
+                    } else {
+                        document.getElementById('ga4NotConfigured').classList.remove('hidden');
+                        document.getElementById('ga4Data').classList.add('hidden');
+                    }
+                } else {
+                    console.error('GA4 fetch failed');
+                    document.getElementById('ga4NotConfigured').classList.remove('hidden');
+                    document.getElementById('ga4Data').classList.add('hidden');
+                }
+            } catch (error) {
+                console.error('GA4 error:', error);
+            } finally {
+                if (btn) {
+                    btn.innerHTML = '<i class="fas fa-sync-alt mr-2"></i>Refresh';
+                    btn.disabled = false;
+                }
+            }
+        }
+        
+        // ==========================================
         // RANK TRACKING
         // ==========================================
         
@@ -5722,13 +5933,86 @@
             alert('Detailed competitor view coming soon! ID: ' + competitorId);
         }
         
-        function generateFromGap(topic) {
+        async function generateFromGap(topic) {
             const decodedTopic = decodeURIComponent(topic);
-            // Switch to generate tab and pre-fill topic
-            showTab('generate');
-            const topicInput = document.getElementById('blogTopic');
-            if (topicInput) {
-                topicInput.value = decodedTopic;
+            
+            if (!confirm(`Generate blog post about:\n\n"${decodedTopic}"\n\nThis will create a new SEO-optimized blog post.`)) {
+                return;
+            }
+            
+            // Show loading state
+            const gapsContainer = document.getElementById('contentGaps');
+            const originalHtml = gapsContainer.innerHTML;
+            gapsContainer.innerHTML = `
+                <div class="col-span-full text-center py-8">
+                    <i class="fas fa-spinner fa-spin text-2xl text-yellow-400 mb-2"></i>
+                    <p class="text-white">Generating blog about "${decodedTopic}"...</p>
+                </div>
+            `;
+            
+            try {
+                const response = await fetch(`${API_URL}/api/content/blog/generate-async`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${AUTH_TOKEN}`
+                    },
+                    body: JSON.stringify({
+                        client_id: currentClient.id,
+                        keyword: decodedTopic,
+                        word_count: 1500,
+                        include_faq: true,
+                        faq_count: 5
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.task_id) {
+                    // Poll for completion
+                    let attempts = 0;
+                    const maxAttempts = 60;
+                    
+                    const pollTask = async () => {
+                        attempts++;
+                        const taskResponse = await fetch(`${API_URL}/api/content/blog/task/${data.task_id}`, {
+                            headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
+                        });
+                        const taskData = await taskResponse.json();
+                        
+                        if (taskData.status === 'complete') {
+                            gapsContainer.innerHTML = `
+                                <div class="col-span-full text-center py-8">
+                                    <i class="fas fa-check-circle text-3xl text-green-400 mb-2"></i>
+                                    <p class="text-white font-medium">Blog Created!</p>
+                                    <p class="text-gray-400 text-sm">${taskData.title}</p>
+                                    <p class="text-gray-500 text-xs mt-1">${taskData.word_count} words • SEO Score: ${taskData.seo_score || 'N/A'}</p>
+                                    <button onclick="showTab('blogs'); loadBlogs();" class="mt-3 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm">
+                                        View Blog
+                                    </button>
+                                </div>
+                            `;
+                            // Refresh blogs list
+                            loadBlogs();
+                        } else if (taskData.status === 'error') {
+                            gapsContainer.innerHTML = originalHtml;
+                            alert('Error generating blog: ' + (taskData.error || 'Unknown error'));
+                        } else if (attempts < maxAttempts) {
+                            setTimeout(pollTask, 2000);
+                        } else {
+                            gapsContainer.innerHTML = originalHtml;
+                            alert('Blog generation timed out. Check the Blogs tab for results.');
+                        }
+                    };
+                    
+                    setTimeout(pollTask, 2000);
+                } else {
+                    throw new Error(data.error || 'Failed to start generation');
+                }
+            } catch (error) {
+                console.error('Gap generation error:', error);
+                gapsContainer.innerHTML = originalHtml;
+                alert('Error: ' + error.message);
             }
         }
         

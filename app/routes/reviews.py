@@ -70,6 +70,7 @@ def get_review(current_user, review_id):
 def add_review(current_user):
     """
     Manually add a review (for importing from other platforms)
+    Auto-generates a response suggestion for new reviews.
     
     POST /api/reviews
     {
@@ -94,6 +95,18 @@ def add_review(current_user):
     
     if result.get('error'):
         return jsonify(result), 400
+    
+    # Auto-generate response suggestion for the new review
+    review_id = result.get('review', {}).get('id')
+    if review_id:
+        try:
+            response_result = review_service.generate_response(review_id)
+            if response_result.get('suggested_response'):
+                result['suggested_response'] = response_result['suggested_response']
+                result['auto_response_generated'] = True
+        except Exception as e:
+            logger.warning(f"Auto-response generation failed for review {review_id}: {e}")
+            result['auto_response_generated'] = False
     
     return jsonify(result)
 

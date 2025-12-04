@@ -819,6 +819,397 @@ def _infer_location(keywords: list) -> str:
 # NEW KEYWORD-DRIVEN INTAKE ROUTES
 # ==========================================
 
+@intake_bp.route('/seo-research', methods=['POST'])
+@token_required
+def comprehensive_seo_research(current_user):
+    """
+    Comprehensive SEO research that analyzes domain, competitors, and keyword opportunities
+    
+    POST /api/intake/seo-research
+    {
+        "website": "https://example.com",          // Optional - if provided, analyzes domain
+        "industry": "hvac",                         // Required
+        "location": "Sarasota, FL",                 // Required  
+        "competitors": ["competitor1.com"],         // Optional - manual competitors
+        "business_name": "ABC Company"              // Optional
+    }
+    
+    Returns:
+    - domain_analysis: What keywords they currently rank for
+    - competitors: Auto-discovered + manual competitors
+    - keyword_gaps: What competitors rank for that they don't
+    - primary_recommendations: High-value service page keywords
+    - secondary_recommendations: Blog/content keywords
+    - question_keywords: FAQ content opportunities
+    - quick_wins: Low difficulty, decent volume
+    """
+    if not current_user.can_generate_content:
+        return jsonify({'error': 'Permission denied'}), 403
+    
+    data = request.get_json() or {}
+    website = data.get('website', '').strip()
+    industry = data.get('industry', '').strip()
+    location = data.get('location', '').strip()
+    manual_competitors = data.get('competitors', [])
+    business_name = data.get('business_name', '')
+    
+    if not industry or not location:
+        return jsonify({'error': 'industry and location are required'}), 400
+    
+    # Extract city from location
+    city = location.split(',')[0].strip() if location else ''
+    
+    results = {
+        'industry': industry,
+        'location': location,
+        'semrush_configured': semrush_service.is_configured(),
+        'domain_analysis': None,
+        'competitors': [],
+        'keyword_gaps': [],
+        'primary_recommendations': [],
+        'secondary_recommendations': [],
+        'question_keywords': [],
+        'quick_wins': [],
+        'all_keywords': []
+    }
+    
+    # Clean website domain
+    domain = None
+    if website:
+        domain = website.replace('https://', '').replace('http://', '').replace('www.', '').split('/')[0]
+        results['domain'] = domain
+    
+    # Industry seed keywords for fallback/supplement
+    industry_seeds = _get_industry_seeds(industry)
+    
+    if not semrush_service.is_configured():
+        # Fallback: Generate keywords from industry seeds + location
+        results['warning'] = 'SEMRush API not configured - using industry templates'
+        results['all_keywords'] = _generate_fallback_keywords(industry_seeds, city, location)
+        results['primary_recommendations'] = results['all_keywords'][:5]
+        results['secondary_recommendations'] = results['all_keywords'][5:15]
+        return jsonify(results)
+    
+    all_keywords = []
+    seen_keywords = set()
+    
+    try:
+        # STEP 1: Analyze client's domain if provided
+        if domain:
+            logger.info(f"Analyzing domain: {domain}")
+            domain_keywords = semrush_service.get_domain_organic_keywords(domain, limit=50)
+            
+            if not domain_keywords.get('error'):
+                results['domain_analysis'] = {
+                    'domain': domain,
+                    'keyword_count': len(domain_keywords.get('keywords', [])),
+                    'top_keywords': domain_keywords.get('keywords', [])[:10]
+                }
+                
+                # Add domain keywords to pool
+                for kw in domain_keywords.get('keywords', []):
+                    kw_lower = kw.get('keyword', '').lower()
+                    if kw_lower not in seen_keywords:
+                        seen_keywords.add(kw_lower)
+                        kw['source'] = 'current_ranking'
+                        kw['intent'] = _classify_search_intent(kw.get('keyword', ''))
+                        all_keywords.append(kw)
+            
+            # STEP 2: Find competitors automatically
+            competitors_data = semrush_service.get_competitors(domain, limit=5)
+            if not competitors_data.get('error'):
+                auto_competitors = [c['domain'] for c in competitors_data.get('competitors', [])[:3]]
+                results['competitors'] = competitors_data.get('competitors', [])[:5]
+                
+                # STEP 3: Get keyword gaps from auto-discovered competitors
+                if auto_competitors:
+                    gaps = semrush_service.get_keyword_gap(domain, auto_competitors, limit=50)
+                    if not gaps.get('error'):
+                        for gap in gaps.get('gaps', []):
+                            kw_lower = gap.get('keyword', '').lower()
+                            if kw_lower not in seen_keywords:
+                                seen_keywords.add(kw_lower)
+                                gap['source'] = 'competitor_gap'
+                                gap['intent'] = _classify_search_intent(gap.get('keyword', ''))
+                                all_keywords.append(gap)
+                                results['keyword_gaps'].append(gap)
+        
+        # STEP 4: Analyze manual competitors
+        for comp in manual_competitors[:3]:
+            comp_domain = comp.replace('https://', '').replace('http://', '').replace('www.', '').split('/')[0]
+            comp_keywords = semrush_service.get_domain_organic_keywords(comp_domain, limit=30)
+            
+            if not comp_keywords.get('error'):
+                for kw in comp_keywords.get('keywords', []):
+                    kw_lower = kw.get('keyword', '').lower()
+                    if kw_lower not in seen_keywords:
+                        seen_keywords.add(kw_lower)
+                        kw['source'] = f'competitor:{comp_domain}'
+                        kw['intent'] = _classify_search_intent(kw.get('keyword', ''))
+                        all_keywords.append(kw)
+        
+        # STEP 5: Research industry seed keywords with location
+        for seed in industry_seeds[:5]:
+            seed_with_location = f"{seed} {city}"
+            research = semrush_service.keyword_research_package(seed, location)
+            
+            if not research.get('error'):
+                # Add seed keyword
+                seed_data = research.get('seed_metrics', {})
+                if seed_data and seed_with_location.lower() not in seen_keywords:
+                    seen_keywords.add(seed_with_location.lower())
+                    all_keywords.append({
+                        'keyword': seed_with_location,
+                        'volume': seed_data.get('volume', 0),
+                        'difficulty': seed_data.get('difficulty', 50),
+                        'cpc': seed_data.get('cpc', 0),
+                        'source': 'industry_seed',
+                        'intent': _classify_search_intent(seed)
+                    })
+                
+                # Add variations
+                for var in research.get('variations', [])[:5]:
+                    kw_lower = var.get('keyword', '').lower()
+                    if kw_lower not in seen_keywords:
+                        seen_keywords.add(kw_lower)
+                        var['source'] = 'variation'
+                        var['intent'] = _classify_search_intent(var.get('keyword', ''))
+                        all_keywords.append(var)
+                
+                # Add questions
+                for q in research.get('questions', [])[:3]:
+                    kw_lower = q.get('keyword', '').lower()
+                    if kw_lower not in seen_keywords:
+                        seen_keywords.add(kw_lower)
+                        q['source'] = 'question'
+                        q['intent'] = 'informational'
+                        all_keywords.append(q)
+                        results['question_keywords'].append(q)
+                
+                # Add opportunities
+                for opp in research.get('opportunities', [])[:3]:
+                    kw_lower = opp.get('keyword', '').lower()
+                    if kw_lower not in seen_keywords:
+                        seen_keywords.add(kw_lower)
+                        opp['source'] = 'opportunity'
+                        opp['intent'] = _classify_search_intent(opp.get('keyword', ''))
+                        all_keywords.append(opp)
+        
+        # STEP 6: Calculate opportunity scores and categorize
+        for kw in all_keywords:
+            kw['opportunity_score'] = _calculate_opportunity_score(kw)
+        
+        # Sort by opportunity score
+        all_keywords.sort(key=lambda x: x.get('opportunity_score', 0), reverse=True)
+        results['all_keywords'] = all_keywords
+        
+        # STEP 7: Categorize keywords
+        # Primary = transactional/commercial intent, service-focused
+        # Secondary = informational, blog-worthy
+        # Quick wins = low difficulty (<40), decent volume (>50)
+        
+        for kw in all_keywords:
+            intent = kw.get('intent', 'unknown')
+            difficulty = kw.get('difficulty', 50)
+            volume = kw.get('volume', 0)
+            
+            # Quick wins
+            if difficulty < 40 and volume > 50:
+                if len(results['quick_wins']) < 10:
+                    results['quick_wins'].append(kw)
+            
+            # Primary recommendations (service pages)
+            if intent in ['transactional', 'commercial'] and len(results['primary_recommendations']) < 8:
+                results['primary_recommendations'].append(kw)
+            
+            # Secondary recommendations (blog content)
+            elif intent == 'informational' and len(results['secondary_recommendations']) < 15:
+                results['secondary_recommendations'].append(kw)
+        
+        # Ensure we have some primary recommendations even if intent detection fails
+        if len(results['primary_recommendations']) < 3:
+            for kw in all_keywords:
+                if kw not in results['primary_recommendations'] and len(results['primary_recommendations']) < 5:
+                    results['primary_recommendations'].append(kw)
+        
+    except Exception as e:
+        logger.error(f"SEO research error: {e}")
+        import traceback
+        traceback.print_exc()
+        results['error'] = str(e)
+        # Fallback to industry seeds
+        results['all_keywords'] = _generate_fallback_keywords(industry_seeds, city, location)
+        results['primary_recommendations'] = results['all_keywords'][:5]
+        results['secondary_recommendations'] = results['all_keywords'][5:15]
+    
+    return jsonify(results)
+
+
+def _get_industry_seeds(industry: str) -> list:
+    """Get seed keywords for an industry"""
+    seeds = {
+        'hvac': ['AC repair', 'air conditioning installation', 'HVAC contractor', 'heating repair', 'AC replacement', 'duct cleaning', 'furnace repair', 'HVAC maintenance'],
+        'roofing': ['roof repair', 'roof replacement', 'roofing contractor', 'new roof', 'roof inspection', 'storm damage roof', 'metal roofing', 'shingle roof'],
+        'plumbing': ['plumber', 'plumbing repair', 'drain cleaning', 'water heater installation', 'emergency plumber', 'leak repair', 'sewer line repair'],
+        'electrical': ['electrician', 'electrical repair', 'panel upgrade', 'emergency electrician', 'lighting installation', 'wiring repair', 'outlet installation'],
+        'dental': ['dentist', 'dental implants', 'teeth whitening', 'cosmetic dentistry', 'dental cleaning', 'emergency dentist', 'invisalign'],
+        'dentist': ['dentist', 'dental implants', 'teeth whitening', 'cosmetic dentistry', 'dental cleaning', 'emergency dentist', 'invisalign'],
+        'real_estate': ['real estate agent', 'homes for sale', 'realtor', 'luxury homes', 'buy a home', 'sell my house', 'real estate market'],
+        'lawyer': ['personal injury lawyer', 'car accident attorney', 'divorce lawyer', 'criminal defense attorney', 'estate planning attorney'],
+        'legal': ['personal injury lawyer', 'car accident attorney', 'divorce lawyer', 'criminal defense attorney', 'estate planning attorney'],
+        'marketing_agency': ['digital marketing agency', 'SEO services', 'social media marketing', 'web design company', 'PPC management', 'content marketing'],
+        'seo': ['SEO services', 'search engine optimization', 'local SEO', 'SEO agency', 'SEO consultant', 'link building'],
+        'web_design': ['web design', 'website development', 'web designer', 'WordPress development', 'ecommerce website', 'website redesign'],
+        'landscaping': ['landscaping', 'lawn care', 'tree trimming', 'landscape design', 'irrigation installation', 'sod installation'],
+        'painting': ['house painting', 'interior painting', 'exterior painting', 'commercial painting', 'cabinet painting'],
+        'windows': ['window replacement', 'new windows', 'window installation', 'impact windows', 'energy efficient windows'],
+        'flooring': ['flooring installation', 'hardwood floors', 'tile installation', 'carpet installation', 'LVP flooring'],
+        'pest_control': ['pest control', 'termite treatment', 'exterminator', 'rodent control', 'bed bug treatment'],
+        'solar': ['solar panel installation', 'solar energy', 'residential solar', 'solar contractor', 'solar battery'],
+        'insurance': ['insurance agent', 'auto insurance', 'home insurance', 'life insurance', 'business insurance'],
+        'accountant': ['accountant', 'CPA', 'tax preparation', 'bookkeeping', 'small business accounting'],
+        'financial_advisor': ['financial advisor', 'wealth management', 'retirement planning', 'investment advisor', 'financial planning']
+    }
+    return seeds.get(industry, seeds.get('hvac', ['local services', 'professional services']))
+
+
+def _classify_search_intent(keyword: str) -> str:
+    """Classify keyword by search intent"""
+    kw_lower = keyword.lower()
+    
+    # Transactional intent - ready to buy/hire
+    transactional_signals = ['hire', 'book', 'schedule', 'quote', 'pricing', 'cost', 'buy', 'order', 'near me', 'emergency', 'same day', '24 hour', 'free estimate']
+    for signal in transactional_signals:
+        if signal in kw_lower:
+            return 'transactional'
+    
+    # Commercial intent - comparing/researching to buy
+    commercial_signals = ['best', 'top', 'review', 'compare', 'vs', 'affordable', 'cheap', 'professional', 'licensed', 'certified', 'rated']
+    for signal in commercial_signals:
+        if signal in kw_lower:
+            return 'commercial'
+    
+    # Informational intent - learning/researching
+    informational_signals = ['how to', 'what is', 'why', 'when', 'can i', 'should i', 'guide', 'tips', 'ideas', 'diy', 'signs of', 'symptoms', 'benefits']
+    for signal in informational_signals:
+        if signal in kw_lower:
+            return 'informational'
+    
+    # Check for question patterns
+    if kw_lower.startswith(('how', 'what', 'why', 'when', 'where', 'which', 'can', 'should', 'does', 'do', 'is', 'are')):
+        return 'informational'
+    
+    # Default to commercial for service-related keywords
+    service_signals = ['repair', 'installation', 'service', 'contractor', 'company', 'specialist']
+    for signal in service_signals:
+        if signal in kw_lower:
+            return 'commercial'
+    
+    return 'unknown'
+
+
+def _calculate_opportunity_score(keyword: dict) -> int:
+    """
+    Calculate opportunity score (0-100) based on SEO best practices
+    
+    Factors:
+    - Volume (higher = better, up to a point)
+    - Difficulty (lower = better)
+    - CPC (higher = more commercial value)
+    - Intent (transactional/commercial = higher)
+    - Source (competitor gap = bonus)
+    """
+    volume = keyword.get('volume', 0) or 0
+    difficulty = keyword.get('difficulty', 50) or 50
+    cpc = keyword.get('cpc', 0) or 0
+    intent = keyword.get('intent', 'unknown')
+    source = keyword.get('source', '')
+    
+    # Volume score (0-30 points)
+    # Sweet spot is 100-1000 monthly searches for local businesses
+    if volume >= 500:
+        volume_score = 30
+    elif volume >= 200:
+        volume_score = 25
+    elif volume >= 100:
+        volume_score = 20
+    elif volume >= 50:
+        volume_score = 15
+    elif volume >= 20:
+        volume_score = 10
+    else:
+        volume_score = 5
+    
+    # Difficulty score (0-40 points) - lower difficulty = higher score
+    difficulty_score = max(0, 40 - (difficulty * 0.4))
+    
+    # CPC score (0-15 points) - higher CPC = more commercial value
+    cpc_score = min(15, cpc * 3)
+    
+    # Intent score (0-10 points)
+    intent_scores = {
+        'transactional': 10,
+        'commercial': 8,
+        'informational': 4,
+        'unknown': 2
+    }
+    intent_score = intent_scores.get(intent, 2)
+    
+    # Source bonus (0-5 points)
+    source_bonus = 0
+    if source == 'competitor_gap':
+        source_bonus = 5
+    elif source == 'opportunity':
+        source_bonus = 4
+    elif source == 'current_ranking':
+        source_bonus = 2
+    
+    total = volume_score + difficulty_score + cpc_score + intent_score + source_bonus
+    return min(100, max(0, int(total)))
+
+
+def _generate_fallback_keywords(seeds: list, city: str, location: str) -> list:
+    """Generate keywords without SEMRush data"""
+    keywords = []
+    
+    for seed in seeds[:10]:
+        # Service + City
+        keywords.append({
+            'keyword': f"{seed} {city}",
+            'volume': None,
+            'difficulty': None,
+            'cpc': None,
+            'source': 'template',
+            'intent': _classify_search_intent(seed),
+            'opportunity_score': 50
+        })
+        
+        # Best + Service + City
+        keywords.append({
+            'keyword': f"best {seed} {city}",
+            'volume': None,
+            'difficulty': None,
+            'cpc': None,
+            'source': 'template',
+            'intent': 'commercial',
+            'opportunity_score': 55
+        })
+    
+    # Add question variations
+    for seed in seeds[:5]:
+        keywords.append({
+            'keyword': f"how much does {seed} cost in {city}",
+            'volume': None,
+            'difficulty': None,
+            'cpc': None,
+            'source': 'template',
+            'intent': 'informational',
+            'opportunity_score': 45
+        })
+    
+    return keywords
+
+
 @intake_bp.route('/keyword-research', methods=['POST'])
 @token_required
 def keyword_research(current_user):

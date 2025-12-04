@@ -440,27 +440,30 @@ class ImageGenerationService:
     # ==========================================
     
     def _enhance_prompt(self, prompt: str, style: str) -> str:
-        """Enhance prompt based on style preset"""
+        """Enhance prompt based on style preset with quality safeguards"""
         style_modifiers = {
-            'photorealistic': 'Professional photograph, high resolution, natural lighting, sharp focus, realistic details',
-            'illustration': 'Digital illustration, clean lines, vibrant colors, modern style, professional artwork',
-            'minimal': 'Minimalist design, clean composition, simple shapes, modern aesthetic, negative space',
-            'corporate': 'Professional business image, clean and modern, corporate style, high quality stock photo look',
-            'social_media': 'Eye-catching social media post image, vibrant colors, engaging composition, modern design',
-            'blog_header': 'Wide blog header image, professional, engaging, relevant visual metaphor',
-            'product': 'Professional product photography, clean background, studio lighting, commercial quality',
-            'lifestyle': 'Lifestyle photography, authentic moment, natural setting, relatable scene',
-            'abstract': 'Abstract digital art, creative composition, artistic interpretation, unique visual',
-            'vintage': 'Vintage style, retro aesthetic, warm tones, nostalgic feel, classic look'
+            'photorealistic': 'Professional photograph, high resolution, natural lighting, sharp focus, realistic details, Canon EOS R5 camera quality',
+            'illustration': 'Digital illustration, clean lines, vibrant colors, modern style, professional artwork, vector-style',
+            'minimal': 'Minimalist design, clean composition, simple shapes, modern aesthetic, generous negative space, elegant',
+            'corporate': 'Professional business image, clean and modern, corporate style, premium stock photo quality, polished',
+            'social_media': 'Eye-catching social media post image, vibrant colors, engaging composition, modern design, scroll-stopping',
+            'blog_header': 'Wide blog header image, professional, engaging visual, relevant imagery, editorial quality',
+            'product': 'Professional product photography, clean white background, studio lighting, commercial quality, crisp',
+            'lifestyle': 'Lifestyle photography, authentic candid moment, natural setting, relatable scene, warm tones',
+            'abstract': 'Abstract digital art, creative composition, artistic interpretation, unique visual, contemporary',
+            'vintage': 'Vintage style, retro aesthetic, warm film tones, nostalgic feel, classic timeless look'
         }
         
         modifier = style_modifiers.get(style, style_modifiers['photorealistic'])
         
-        # Add quality modifiers
+        # Critical quality and safety modifiers to avoid bad AI artifacts
         quality_suffix = "8K resolution, highly detailed, professional quality"
         
-        # Combine prompt with style
-        enhanced = f"{prompt}. {modifier}. {quality_suffix}"
+        # IMPORTANT: Explicit instructions to avoid common AI image problems
+        safety_suffix = "NO text, NO words, NO letters, NO logos, NO watermarks, NO signatures, NO clipart style, NO cartoon elements, NO stock photo watermarks, photographic realism only"
+        
+        # Combine prompt with style and safety guidelines
+        enhanced = f"{prompt}. {modifier}. {quality_suffix}. {safety_suffix}"
         
         return enhanced
     
@@ -649,41 +652,57 @@ class ImageGenerationService:
         Returns:
             Optimized prompt string
         """
-        # Build contextual prompt
-        parts = [topic]
+        # Build contextual prompt with better scene descriptions
+        scene_elements = []
         
         if business_type:
-            industry_visuals = {
-                'hvac': 'heating and cooling equipment, comfortable home interior',
-                'dental': 'modern dental office, professional healthcare setting',
-                'legal': 'professional law office, legal documents, courthouse',
-                'real_estate': 'beautiful property, modern architecture, inviting home',
-                'restaurant': 'delicious food presentation, inviting dining atmosphere',
-                'fitness': 'modern gym equipment, active lifestyle, healthy living',
-                'salon': 'stylish salon interior, beauty and wellness',
-                'automotive': 'professional auto service, modern vehicles',
-                'construction': 'construction site, building materials, professional craftsmanship',
-                'landscaping': 'beautiful garden, professional lawn care, outdoor living'
+            industry_scenes = {
+                'hvac': 'modern HVAC technician servicing air conditioning unit on a comfortable home, professional service call scene',
+                'dental': 'bright modern dental office with comfortable patient chair, professional healthcare environment',
+                'legal': 'distinguished law office with leather chairs and legal books, professional atmosphere',
+                'real_estate': 'beautiful modern home exterior with manicured lawn, inviting curb appeal, real estate photography',
+                'restaurant': 'elegant plated dish in upscale restaurant setting, food photography, appetizing presentation',
+                'fitness': 'modern fitness center with natural lighting, active lifestyle, motivating gym atmosphere',
+                'salon': 'chic modern salon interior with stylish stations, beauty and wellness atmosphere',
+                'automotive': 'clean professional auto service bay with modern vehicle, trusted mechanic scene',
+                'construction': 'active construction site at golden hour, professional contractors at work, progress scene',
+                'landscaping': 'beautifully landscaped backyard with lush green lawn, professional outdoor living space',
+                'roofing': 'professional roofer installing new shingles on residential home, construction safety, skilled tradework',
+                'plumbing': 'professional plumber repairing pipes under sink, clean workspace, skilled service',
+                'electrical': 'licensed electrician working on modern electrical panel, professional service, safety focused',
+                'marketing': 'modern marketing agency office with creative team, digital screens showing analytics, professional workspace',
+                'windows': 'beautiful new energy-efficient windows installed on modern home, natural light streaming in',
+                'painting': 'professional painter applying fresh coat to home interior, clean workspace, transformation scene'
             }
             
-            visual = industry_visuals.get(business_type.lower(), '')
-            if visual:
-                parts.append(visual)
+            scene = industry_scenes.get(business_type.lower(), f'professional {business_type} service scene')
+            scene_elements.append(scene)
+        else:
+            scene_elements.append(topic)
         
         if location:
-            parts.append(f"set in {location}")
+            # Add regional visual context
+            location_lower = location.lower()
+            if 'florida' in location_lower or 'sarasota' in location_lower or 'tampa' in location_lower:
+                scene_elements.append('Florida tropical setting, palm trees visible, sunny weather')
+            elif 'california' in location_lower:
+                scene_elements.append('California setting, beautiful weather')
+            elif 'texas' in location_lower:
+                scene_elements.append('Texas setting, wide open spaces')
+            else:
+                scene_elements.append(f'{location} regional setting')
         
         # Add style guidance
         style_guidance = {
-            'professional': 'professional photography, business quality, trustworthy appearance',
-            'friendly': 'warm and inviting, approachable, human connection',
-            'modern': 'contemporary design, clean lines, current trends',
-            'traditional': 'classic style, timeless appeal, established presence'
+            'professional': 'professional commercial photography style, trustworthy appearance, premium quality',
+            'friendly': 'warm and inviting atmosphere, approachable, genuine human connection',
+            'modern': 'contemporary design aesthetic, clean lines, current trends, sophisticated',
+            'traditional': 'classic timeless style, established presence, trusted and reliable'
         }
         
-        parts.append(style_guidance.get(style, style_guidance['professional']))
+        scene_elements.append(style_guidance.get(style, style_guidance['professional']))
         
-        return ', '.join(parts)
+        return ', '.join(scene_elements)
 
 
 # Singleton instance

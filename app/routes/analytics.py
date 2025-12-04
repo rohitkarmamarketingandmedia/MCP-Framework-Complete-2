@@ -82,7 +82,7 @@ def get_overview(current_user, client_id):
 @token_required
 def get_traffic(current_user, client_id):
     """
-    Get detailed traffic metrics
+    Get detailed traffic metrics including GA4 data
     
     GET /api/analytics/traffic/<client_id>?start=2024-01-01&end=2024-01-31
     """
@@ -109,18 +109,50 @@ def get_traffic(current_user, client_id):
     if not client:
         return jsonify({'error': 'Client not found'}), 404
     
-    traffic = analytics_service.get_detailed_traffic(
-        property_id=client.ga4_property_id or current_app.config['GA4_PROPERTY_ID'],
-        start_date=start_date,
-        end_date=end_date
-    )
+    # Check if GA4 is configured
+    property_id = getattr(client, 'ga4_property_id', None) or current_app.config.get('GA4_PROPERTY_ID')
+    is_configured = bool(property_id)
     
-    return jsonify({
-        'client_id': client_id,
-        'start_date': start_date.isoformat(),
-        'end_date': end_date.isoformat(),
-        'metrics': traffic
-    })
+    if not is_configured:
+        return jsonify({
+            'configured': False,
+            'client_id': client_id,
+            'message': 'GA4 not configured. Set GA4_PROPERTY_ID environment variable.'
+        })
+    
+    try:
+        traffic = analytics_service.get_detailed_traffic(
+            property_id=property_id,
+            start_date=start_date,
+            end_date=end_date
+        )
+        
+        return jsonify({
+            'configured': True,
+            'client_id': client_id,
+            'start_date': start_date.isoformat(),
+            'end_date': end_date.isoformat(),
+            'sessions': traffic.get('sessions', 0),
+            'users': traffic.get('users', 0),
+            'pageviews': traffic.get('pageviews', 0),
+            'bounce_rate': traffic.get('bounce_rate', 0),
+            'avg_session_duration': traffic.get('avg_session_duration', 0),
+            'top_pages': traffic.get('top_pages', []),
+            'search_terms': traffic.get('search_terms', []),
+            'metrics': traffic
+        })
+    except Exception as e:
+        logger.error(f"GA4 fetch error: {e}")
+        return jsonify({
+            'configured': True,
+            'error': str(e),
+            'sessions': 0,
+            'users': 0,
+            'pageviews': 0,
+            'bounce_rate': 0,
+            'top_pages': [],
+            'search_terms': []
+        })
 
 
 @analytics_bp.route('/rankings/<client_id>', methods=['GET'])

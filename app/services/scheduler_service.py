@@ -138,7 +138,17 @@ def _add_scheduled_jobs(app):
         kwargs={'app': app}
     )
     
-    logger.info("Scheduled jobs added: competitor_crawl(3AM), rank_check(5AM), auto_publish(5min), alert_digest(hourly), daily_summary(8AM), content_due(7AM), digests(8AM), 3day_reports(Mon/Thu 9AM)")
+    # Auto-generate review responses every 2 hours
+    scheduler.add_job(
+        func=auto_generate_review_responses,
+        trigger=IntervalTrigger(hours=2),
+        id='auto_review_responses',
+        name='Auto-Generate Review Responses',
+        replace_existing=True,
+        kwargs={'app': app}
+    )
+    
+    logger.info("Scheduled jobs added: competitor_crawl(3AM), rank_check(5AM), auto_publish(5min), alert_digest(hourly), daily_summary(8AM), content_due(7AM), digests(8AM), 3day_reports(Mon/Thu 9AM), review_responses(2hr)")
 
 
 def run_competitor_crawl(app):
@@ -870,3 +880,42 @@ def send_client_reports(app):
             
         except Exception as e:
             logger.error(f"Error sending client reports: {e}")
+
+
+def auto_generate_review_responses(app):
+    """
+    Auto-generate AI responses for pending reviews (no response yet)
+    
+    Runs every 2 hours
+    """
+    with app.app_context():
+        try:
+            from app.services.review_service import get_review_service
+            from app.models.db_models import DBReview
+            
+            review_service = get_review_service()
+            
+            # Find reviews without responses
+            pending_reviews = DBReview.query.filter(
+                DBReview.response_text.is_(None),
+                DBReview.suggested_response.is_(None)
+            ).limit(20).all()
+            
+            generated = 0
+            failed = 0
+            
+            for review in pending_reviews:
+                try:
+                    result = review_service.generate_response(review.id)
+                    if result.get('suggested_response'):
+                        generated += 1
+                        logger.debug(f"Generated response for review {review.id}")
+                except Exception as e:
+                    failed += 1
+                    logger.warning(f"Failed to generate response for review {review.id}: {e}")
+            
+            if generated > 0 or failed > 0:
+                logger.info(f"Auto-generated review responses: {generated} success, {failed} failed")
+            
+        except Exception as e:
+            logger.error(f"Error in auto-generate review responses: {e}")

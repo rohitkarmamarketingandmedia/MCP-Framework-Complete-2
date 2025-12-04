@@ -1285,6 +1285,70 @@
                 'solar panel installation', 'solar energy', 'residential solar', 'solar battery', 'solar financing',
                 'solar contractor', 'solar roof', 'home solar system', 'solar power', 'commercial solar',
                 'solar panel cost', 'solar incentives', 'off grid solar', 'solar maintenance', 'solar consultation'
+            ],
+            'marketing': [
+                'digital marketing agency', 'SEO services', 'social media marketing', 'web design', 'content marketing',
+                'PPC management', 'local SEO', 'marketing consultant', 'branding agency', 'Google Ads management',
+                'Facebook advertising', 'email marketing', 'marketing automation', 'lead generation', 'online marketing'
+            ],
+            'marketing_agency': [
+                'digital marketing agency', 'SEO services', 'social media marketing', 'web design company', 'content marketing',
+                'PPC management', 'local SEO services', 'marketing consultant', 'branding agency', 'Google Ads management',
+                'Facebook advertising', 'email marketing', 'marketing automation', 'lead generation services', 'online marketing'
+            ],
+            'seo': [
+                'SEO services', 'search engine optimization', 'local SEO', 'SEO agency', 'SEO consultant',
+                'keyword research', 'link building', 'technical SEO', 'SEO audit', 'on-page SEO',
+                'off-page SEO', 'content optimization', 'Google ranking', 'organic traffic', 'SEO strategy'
+            ],
+            'web_design': [
+                'web design', 'website development', 'web designer', 'website redesign', 'responsive web design',
+                'ecommerce website', 'WordPress development', 'custom web development', 'landing page design', 'website maintenance',
+                'UI UX design', 'mobile app development', 'website hosting', 'web design agency', 'small business website'
+            ],
+            'real_estate': [
+                'real estate agent', 'homes for sale', 'realtor', 'luxury homes', 'waterfront property',
+                'new construction homes', 'condos for sale', 'investment property', 'home buying', 'listing agent',
+                'buyers agent', 'real estate market', 'property management', 'commercial real estate', 'relocation services'
+            ],
+            'dentist': [
+                'dentist', 'dental implants', 'teeth whitening', 'cosmetic dentistry', 'emergency dentist',
+                'dental cleaning', 'root canal', 'dental crowns', 'invisalign', 'family dentist',
+                'pediatric dentist', 'dentures', 'tooth extraction', 'dental veneers', 'oral surgery'
+            ],
+            'dental': [
+                'dentist', 'dental implants', 'teeth whitening', 'cosmetic dentistry', 'emergency dentist',
+                'dental cleaning', 'root canal', 'dental crowns', 'invisalign', 'family dentist',
+                'pediatric dentist', 'dentures', 'tooth extraction', 'dental veneers', 'oral surgery'
+            ],
+            'lawyer': [
+                'personal injury lawyer', 'car accident attorney', 'divorce lawyer', 'criminal defense attorney', 'estate planning',
+                'business attorney', 'immigration lawyer', 'DUI lawyer', 'family law attorney', 'workers compensation lawyer',
+                'bankruptcy attorney', 'medical malpractice lawyer', 'real estate attorney', 'employment lawyer', 'slip and fall attorney'
+            ],
+            'legal': [
+                'personal injury lawyer', 'car accident attorney', 'divorce lawyer', 'criminal defense attorney', 'estate planning',
+                'business attorney', 'immigration lawyer', 'DUI lawyer', 'family law attorney', 'workers compensation lawyer',
+                'bankruptcy attorney', 'medical malpractice lawyer', 'real estate attorney', 'employment lawyer', 'slip and fall attorney'
+            ],
+            'accountant': [
+                'accountant', 'CPA', 'tax preparation', 'bookkeeping services', 'small business accounting',
+                'tax planning', 'payroll services', 'financial statements', 'business tax', 'personal tax',
+                'audit services', 'QuickBooks setup', 'tax consultant', 'accounting firm', 'CFO services'
+            ],
+            'insurance': [
+                'insurance agent', 'auto insurance', 'home insurance', 'life insurance', 'health insurance',
+                'business insurance', 'flood insurance', 'umbrella insurance', 'insurance quotes', 'insurance broker',
+                'Medicare insurance', 'renters insurance', 'commercial insurance', 'workers comp insurance', 'insurance agency'
+            ],
+            'financial_advisor': [
+                'financial advisor', 'wealth management', 'retirement planning', 'investment advisor', 'financial planning',
+                '401k planning', 'estate planning', 'portfolio management', 'fiduciary advisor', 'certified financial planner',
+                'investment management', 'tax planning', 'college planning', 'financial consultant', 'asset management'
+            ],
+            'general': [
+                'local services', 'professional services', 'business services', 'consulting', 'contractor',
+                'small business', 'local business', 'service provider', 'expert services', 'quality services'
             ]
         };
 
@@ -1390,52 +1454,70 @@
         }
 
         // ==================== KEYWORD MANAGEMENT ====================
+        let seoResearchResults = null;  // Store full research results
+        
         async function loadKeywordsForIndustry() {
             const industry = clientData.industry;
             const geo = clientData.geo;
+            const website = clientData.website || '';
+            const competitors = clientData.competitors || [];
             
             // Update labels
-            document.getElementById('industry-label').textContent = industry.replace('_', ' ');
+            document.getElementById('industry-label').textContent = industry.replace(/_/g, ' ');
             document.getElementById('geo-label').textContent = geo;
             
-            // Get seed keywords for industry
-            const seeds = industryKeywords[industry] || industryKeywords['roofing'];
-            
-            // Show loading
+            // Show loading with better message
             document.getElementById('loading-keywords').classList.remove('hidden');
             document.getElementById('keywords-container').classList.add('hidden');
             
+            // Update loading message based on what we're analyzing
+            const loadingText = document.querySelector('#loading-keywords p');
+            if (loadingText) {
+                if (website) {
+                    loadingText.textContent = `Analyzing ${website} and finding competitor keyword gaps...`;
+                } else {
+                    loadingText.textContent = `Researching ${industry.replace(/_/g, ' ')} keywords for ${geo}...`;
+                }
+            }
+            
             try {
-                // Research keywords
-                const response = await fetch('/api/intake/keyword-research', {
+                // Use comprehensive SEO research endpoint
+                const response = await fetch('/api/intake/seo-research', {
                     method: 'POST',
                     headers: headers,
                     body: JSON.stringify({
-                        keywords: seeds.slice(0, 10),
+                        website: website,
+                        industry: industry,
                         location: geo,
-                        include_variations: true,
-                        include_questions: true
+                        competitors: competitors,
+                        business_name: clientData.business_name || ''
                     })
                 });
                 
                 const data = await response.json();
+                seoResearchResults = data;  // Store for later use
                 
                 // Process results
                 keywords = [];
                 
-                // Add main keywords
-                for (const kw of (data.keywords || [])) {
+                // Process all keywords from comprehensive research
+                for (const kw of (data.all_keywords || [])) {
                     keywords.push(processKeyword(kw));
                 }
                 
-                // Add variations
-                for (const kw of (data.variations || [])) {
-                    keywords.push(processKeyword(kw));
-                }
-                
-                // Add questions
-                for (const kw of (data.questions || [])) {
-                    keywords.push(processKeyword(kw));
+                // If no keywords from SEMRush, fall back to industry seeds
+                if (keywords.length === 0) {
+                    const seeds = industryKeywords[industry] || industryKeywords['general'];
+                    const city = geo.split(',')[0].trim();
+                    keywords = seeds.map(s => ({
+                        keyword: `${s} ${city}`,
+                        volume: null,
+                        difficulty: null,
+                        cpc: null,
+                        score: 50,
+                        intent: 'commercial',
+                        source: 'suggested'
+                    }));
                 }
                 
                 // Deduplicate
@@ -1450,17 +1532,22 @@
                 // Sort by opportunity score
                 keywords.sort((a, b) => b.score - a.score);
                 
-            } catch (error) {
-                console.error('Keyword research error:', error);
+                // Show research insights if available
+                showResearchInsights(data);
                 
-                // Fallback: use seeds without data
+            } catch (error) {
+                console.error('SEO research error:', error);
+                
+                // Fallback: use industry seeds
+                const seeds = industryKeywords[industry] || industryKeywords['general'];
+                const city = geo.split(',')[0].trim();
                 keywords = seeds.map(s => ({
-                    keyword: `${s} ${geo.split(',')[0].toLowerCase()}`,
+                    keyword: `${s} ${city}`,
                     volume: null,
                     difficulty: null,
                     cpc: null,
                     score: 50,
-                    type: null,
+                    intent: 'commercial',
                     source: 'suggested'
                 }));
             }
@@ -1472,20 +1559,113 @@
             renderKeywords();
         }
         
+        function showResearchInsights(data) {
+            // Create or update insights panel
+            let insightsPanel = document.getElementById('research-insights');
+            if (!insightsPanel) {
+                insightsPanel = document.createElement('div');
+                insightsPanel.id = 'research-insights';
+                insightsPanel.className = 'mb-6 p-4 bg-blue-50 border border-blue-200 rounded-xl';
+                const container = document.getElementById('keywords-container');
+                if (container) {
+                    container.parentNode.insertBefore(insightsPanel, container);
+                }
+            }
+            
+            let insightsHTML = '';
+            
+            // Domain analysis
+            if (data.domain_analysis) {
+                insightsHTML += `
+                    <div class="mb-3">
+                        <span class="inline-flex items-center px-2 py-1 bg-green-100 text-green-800 rounded text-sm font-medium">
+                            <i class="fas fa-globe mr-1"></i> Domain Analyzed
+                        </span>
+                        <span class="text-sm text-gray-600 ml-2">
+                            Found ${data.domain_analysis.keyword_count} keywords you currently rank for
+                        </span>
+                    </div>
+                `;
+            }
+            
+            // Competitors found
+            if (data.competitors && data.competitors.length > 0) {
+                const compNames = data.competitors.slice(0, 3).map(c => c.domain).join(', ');
+                insightsHTML += `
+                    <div class="mb-3">
+                        <span class="inline-flex items-center px-2 py-1 bg-purple-100 text-purple-800 rounded text-sm font-medium">
+                            <i class="fas fa-users mr-1"></i> ${data.competitors.length} Competitors Found
+                        </span>
+                        <span class="text-sm text-gray-600 ml-2">${compNames}</span>
+                    </div>
+                `;
+            }
+            
+            // Keyword gaps
+            if (data.keyword_gaps && data.keyword_gaps.length > 0) {
+                insightsHTML += `
+                    <div class="mb-3">
+                        <span class="inline-flex items-center px-2 py-1 bg-orange-100 text-orange-800 rounded text-sm font-medium">
+                            <i class="fas fa-search-plus mr-1"></i> ${data.keyword_gaps.length} Keyword Gaps
+                        </span>
+                        <span class="text-sm text-gray-600 ml-2">
+                            Keywords your competitors rank for that you don't
+                        </span>
+                    </div>
+                `;
+            }
+            
+            // Quick wins
+            if (data.quick_wins && data.quick_wins.length > 0) {
+                insightsHTML += `
+                    <div class="mb-3">
+                        <span class="inline-flex items-center px-2 py-1 bg-emerald-100 text-emerald-800 rounded text-sm font-medium">
+                            <i class="fas fa-bolt mr-1"></i> ${data.quick_wins.length} Quick Wins
+                        </span>
+                        <span class="text-sm text-gray-600 ml-2">
+                            Low competition keywords with good search volume
+                        </span>
+                    </div>
+                `;
+            }
+            
+            // Warning if no SEMRush
+            if (data.warning) {
+                insightsHTML += `
+                    <div class="p-2 bg-yellow-50 border border-yellow-200 rounded text-sm text-yellow-800">
+                        <i class="fas fa-exclamation-triangle mr-1"></i> ${data.warning}
+                    </div>
+                `;
+            }
+            
+            if (insightsHTML) {
+                insightsPanel.innerHTML = `
+                    <h4 class="font-semibold text-gray-800 mb-3">
+                        <i class="fas fa-chart-line mr-2 text-blue-500"></i>SEO Research Insights
+                    </h4>
+                    ${insightsHTML}
+                `;
+                insightsPanel.classList.remove('hidden');
+            } else {
+                insightsPanel.classList.add('hidden');
+            }
+        }
+        
         function processKeyword(kw) {
             const volume = kw.volume || 0;
             const difficulty = kw.difficulty || 50;
             const cpc = kw.cpc || 0;
+            const intent = kw.intent || 'unknown';
+            const source = kw.source || 'unknown';
             
-            // Calculate opportunity score (0-100)
-            // High volume + low difficulty + decent CPC = high score
-            let score = 50;
-            if (volume !== null && difficulty !== null) {
-                const volumeScore = Math.min(volume / 10, 40); // Max 40 points from volume
-                const difficultyScore = (100 - difficulty) * 0.5; // Max 50 points from low difficulty
-                const cpcScore = Math.min(cpc * 2, 10); // Max 10 points from CPC
+            // Use pre-calculated opportunity score if available, otherwise calculate
+            let score = kw.opportunity_score;
+            if (score === undefined || score === null) {
+                // Calculate opportunity score (0-100)
+                const volumeScore = Math.min(volume / 10, 40);
+                const difficultyScore = (100 - difficulty) * 0.5;
+                const cpcScore = Math.min(cpc * 2, 10);
                 score = Math.round(volumeScore + difficultyScore + cpcScore);
-                score = Math.min(Math.max(score, 1), 100);
             }
             
             return {
@@ -1494,8 +1674,10 @@
                 difficulty: difficulty,
                 cpc: cpc,
                 score: score,
-                type: null,
-                source: kw.source || 'semrush'
+                intent: intent,
+                source: source,
+                selected: false,
+                type: null  // primary or secondary
             };
         }
         
@@ -1524,6 +1706,12 @@
                 
                 const explanation = getKeywordExplanation(kw);
                 
+                // Intent badge
+                const intentBadge = getIntentBadge(kw.intent);
+                
+                // Source badge
+                const sourceBadge = getSourceBadge(kw.source);
+                
                 return `
                     <div class="keyword-card ${selectedClass} bg-white rounded-xl p-4 shadow-sm border border-gray-100" data-index="${i}">
                         <div class="flex items-center justify-between">
@@ -1535,7 +1723,11 @@
                                 </div>
                                 
                                 <div>
-                                    <div class="font-medium text-gray-800">${kw.keyword}</div>
+                                    <div class="flex items-center gap-2">
+                                        <span class="font-medium text-gray-800">${kw.keyword}</span>
+                                        ${intentBadge}
+                                        ${sourceBadge}
+                                    </div>
                                     <div class="flex items-center gap-3 text-sm text-gray-500 mt-1">
                                         <span class="tooltip">
                                             📊 ${volumeDisplay}/mo
@@ -1578,6 +1770,33 @@
             }).join('');
             
             updateCounts();
+        }
+        
+        function getIntentBadge(intent) {
+            const badges = {
+                'transactional': '<span class="ml-2 px-2 py-0.5 bg-red-100 text-red-700 rounded text-xs font-medium" title="Ready to buy/hire">🛒 Buy</span>',
+                'commercial': '<span class="ml-2 px-2 py-0.5 bg-orange-100 text-orange-700 rounded text-xs font-medium" title="Comparing/researching services">🔍 Compare</span>',
+                'informational': '<span class="ml-2 px-2 py-0.5 bg-blue-100 text-blue-700 rounded text-xs font-medium" title="Learning/researching topic">📚 Learn</span>'
+            };
+            return badges[intent] || '';
+        }
+        
+        function getSourceBadge(source) {
+            if (!source || source === 'unknown' || source === 'suggested' || source === 'template') return '';
+            
+            const badges = {
+                'competitor_gap': '<span class="ml-1 px-2 py-0.5 bg-purple-100 text-purple-700 rounded text-xs" title="Competitor ranks for this, you don\'t">Gap</span>',
+                'opportunity': '<span class="ml-1 px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded text-xs" title="Low competition opportunity">⚡ Win</span>',
+                'current_ranking': '<span class="ml-1 px-2 py-0.5 bg-gray-100 text-gray-600 rounded text-xs" title="You already rank for this">Ranking</span>',
+                'question': '<span class="ml-1 px-2 py-0.5 bg-cyan-100 text-cyan-700 rounded text-xs" title="Question keyword - good for FAQ/blog">FAQ</span>'
+            };
+            
+            if (source.startsWith('competitor:')) {
+                const domain = source.split(':')[1];
+                return `<span class="ml-1 px-2 py-0.5 bg-purple-100 text-purple-700 rounded text-xs" title="From competitor: ${domain}">🏢</span>`;
+            }
+            
+            return badges[source] || '';
         }
         
         function getKeywordExplanation(kw) {

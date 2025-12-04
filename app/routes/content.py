@@ -12,6 +12,7 @@ from app.routes.auth import token_required
 from app.services.ai_service import AIService
 from app.services.seo_service import SEOService
 from app.services.db_service import DataService
+from app.services.seo_scoring_engine import seo_scoring_engine
 from app.models.db_models import DBBlogPost, ContentStatus
 import json
 
@@ -113,7 +114,42 @@ def _generate_blog_background(task_id, app, client_id, keyword, word_count, incl
                 body_content = link_result['content']
                 links_added = link_result['links_added']
             
-            # Create blog post
+            # Generate FAQ schema if we have FAQs
+            faq_items = result.get('faq_items', [])
+            faq_schema = None
+            if faq_items:
+                faq_schema = {
+                    "@context": "https://schema.org",
+                    "@type": "FAQPage",
+                    "mainEntity": [
+                        {
+                            "@type": "Question",
+                            "name": faq.get('question') or faq.get('q', ''),
+                            "acceptedAnswer": {
+                                "@type": "Answer",
+                                "text": faq.get('answer') or faq.get('a', '')
+                            }
+                        }
+                        for faq in faq_items
+                        if (faq.get('question') or faq.get('q')) and (faq.get('answer') or faq.get('a'))
+                    ]
+                }
+            
+            # Calculate SEO score for the generated content
+            seo_score_result = seo_scoring_engine.score_content(
+                content={
+                    'title': result.get('title', ''),
+                    'meta_title': result.get('meta_title', ''),
+                    'meta_description': result.get('meta_description', ''),
+                    'h1': result.get('title', ''),
+                    'body': body_content
+                },
+                target_keyword=keyword,
+                location=client.geo or ''
+            )
+            seo_score = seo_score_result.get('total_score', 0)
+            
+            # Create blog post with SEO score
             blog_post = DBBlogPost(
                 client_id=client_id,
                 title=result.get('title', keyword),
@@ -123,8 +159,10 @@ def _generate_blog_background(task_id, app, client_id, keyword, word_count, incl
                 primary_keyword=keyword,
                 secondary_keywords=result.get('secondary_keywords', []),
                 internal_links=service_pages,
-                faq_content=result.get('faq_items', []),
+                faq_content=faq_items,
+                schema_markup=faq_schema,
                 word_count=len(body_content.split()),
+                seo_score=seo_score,
                 status=ContentStatus.DRAFT
             )
             
@@ -135,7 +173,9 @@ def _generate_blog_background(task_id, app, client_id, keyword, word_count, incl
                 'blog_id': blog_post.id,
                 'title': blog_post.title,
                 'word_count': blog_post.word_count,
-                'links_added': links_added
+                'links_added': links_added,
+                'seo_score': seo_score,
+                'seo_recommendations': seo_score_result.get('recommendations', [])
             }
             
         except Exception as e:
@@ -305,7 +345,42 @@ def generate_content(current_user):
         body_content = link_result['content']
         links_added = link_result.get('links_added', 0)
     
-    # Create BlogPost object
+    # Generate FAQ schema if we have FAQs
+    faq_items = result.get('faq_items', [])
+    faq_schema = None
+    if faq_items:
+        faq_schema = {
+            "@context": "https://schema.org",
+            "@type": "FAQPage",
+            "mainEntity": [
+                {
+                    "@type": "Question",
+                    "name": faq.get('question') or faq.get('q', ''),
+                    "acceptedAnswer": {
+                        "@type": "Answer",
+                        "text": faq.get('answer') or faq.get('a', '')
+                    }
+                }
+                for faq in faq_items
+                if (faq.get('question') or faq.get('q')) and (faq.get('answer') or faq.get('a'))
+            ]
+        }
+    
+    # Calculate SEO score
+    seo_score_result = seo_scoring_engine.score_content(
+        content={
+            'title': result.get('title', ''),
+            'meta_title': result.get('meta_title', ''),
+            'meta_description': result.get('meta_description', ''),
+            'h1': result.get('title', ''),
+            'body': body_content
+        },
+        target_keyword=data['keyword'],
+        location=data.get('geo', '')
+    )
+    seo_score = seo_score_result.get('total_score', 0)
+    
+    # Create BlogPost object with SEO score
     blog_post = DBBlogPost(
         client_id=data['client_id'],
         title=result['title'],
@@ -315,8 +390,10 @@ def generate_content(current_user):
         primary_keyword=data['keyword'],
         secondary_keywords=result.get('secondary_keywords', []),
         internal_links=internal_links,
-        faq_content=result.get('faq_items', []),
+        faq_content=faq_items,
+        schema_markup=faq_schema,
         word_count=len(body_content.split()),
+        seo_score=seo_score,
         status=ContentStatus.DRAFT
     )
     
@@ -326,7 +403,10 @@ def generate_content(current_user):
     return jsonify({
         'success': True,
         'content': blog_post.to_dict(),
-        'html': result.get('html', '')
+        'html': result.get('html', ''),
+        'seo_score': seo_score,
+        'seo_grade': seo_score_result.get('grade', 'N/A'),
+        'seo_recommendations': seo_score_result.get('recommendations', [])
     })
 
 
@@ -419,7 +499,42 @@ def bulk_generate(current_user):
             else:
                 links_added = 0
             
-            # Create and save blog post
+            # Generate FAQ schema if we have FAQs
+            faq_items = result.get('faq_items', [])
+            faq_schema = None
+            if faq_items:
+                faq_schema = {
+                    "@context": "https://schema.org",
+                    "@type": "FAQPage",
+                    "mainEntity": [
+                        {
+                            "@type": "Question",
+                            "name": faq.get('question') or faq.get('q', ''),
+                            "acceptedAnswer": {
+                                "@type": "Answer",
+                                "text": faq.get('answer') or faq.get('a', '')
+                            }
+                        }
+                        for faq in faq_items
+                        if (faq.get('question') or faq.get('q')) and (faq.get('answer') or faq.get('a'))
+                    ]
+                }
+            
+            # Calculate SEO score
+            seo_score_result = seo_scoring_engine.score_content(
+                content={
+                    'title': result.get('title', ''),
+                    'meta_title': result.get('meta_title', ''),
+                    'meta_description': result.get('meta_description', ''),
+                    'h1': result.get('title', ''),
+                    'body': body_content
+                },
+                target_keyword=keyword,
+                location=client.geo or ''
+            )
+            seo_score = seo_score_result.get('total_score', 0)
+            
+            # Create and save blog post with SEO score
             blog_post = DBBlogPost(
                 client_id=client_id,
                 title=result.get('title', keyword),
@@ -429,8 +544,10 @@ def bulk_generate(current_user):
                 primary_keyword=keyword,
                 secondary_keywords=result.get('secondary_keywords', []),
                 internal_links=service_pages,
-                faq_content=result.get('faq_items', []),
+                faq_content=faq_items,
+                schema_markup=faq_schema,
                 word_count=len(body_content.split()),
+                seo_score=seo_score,
                 status=ContentStatus.DRAFT
             )
             
@@ -442,7 +559,8 @@ def bulk_generate(current_user):
                 'content_id': blog_post.id,
                 'title': blog_post.title,
                 'word_count': blog_post.word_count,
-                'links_added': links_added
+                'links_added': links_added,
+                'seo_score': seo_score
             })
             
         except Exception as e:
@@ -906,12 +1024,55 @@ def publish_to_wordpress(current_user, content_id):
                 'focus_keyword': content.primary_keyword
             }
         
+        # Build full content including FAQs
+        full_content = content.body or ''
+        
+        # Append FAQ section if present
+        if content.faq_content:
+            try:
+                faqs = json.loads(content.faq_content) if isinstance(content.faq_content, str) else content.faq_content
+                if faqs and len(faqs) > 0:
+                    faq_html = '\n\n<div class="faq-section">\n<h2>Frequently Asked Questions</h2>\n'
+                    for faq in faqs:
+                        q = faq.get('question') or faq.get('q', '')
+                        a = faq.get('answer') or faq.get('a', '')
+                        if q and a:
+                            faq_html += f'<div class="faq-item">\n<h3>{q}</h3>\n<p>{a}</p>\n</div>\n'
+                    faq_html += '</div>'
+                    full_content += faq_html
+            except (json.JSONDecodeError, TypeError):
+                pass  # Skip FAQ if parsing fails
+        
+        # Append Schema JSON-LD if present
+        if content.schema_markup:
+            try:
+                schema = json.loads(content.schema_markup) if isinstance(content.schema_markup, str) else content.schema_markup
+                if schema:
+                    schema_html = f'\n\n<script type="application/ld+json">\n{json.dumps(schema, indent=2)}\n</script>'
+                    full_content += schema_html
+            except (json.JSONDecodeError, TypeError):
+                pass  # Skip schema if parsing fails
+        
+        # Build tags from secondary keywords
+        tags = []
+        if content.secondary_keywords:
+            try:
+                keywords = json.loads(content.secondary_keywords) if isinstance(content.secondary_keywords, str) else content.secondary_keywords
+                if keywords:
+                    tags = keywords[:10]  # Limit to 10 tags
+            except (json.JSONDecodeError, TypeError):
+                pass
+        
+        # Add primary keyword as first tag
+        if content.primary_keyword:
+            tags = [content.primary_keyword] + [t for t in tags if t.lower() != content.primary_keyword.lower()]
+        
         # Check if updating existing post
         if content.wordpress_post_id:
             result = wp.update_post(
                 post_id=content.wordpress_post_id,
                 title=content.title,
-                content=content.body,
+                content=full_content,
                 status=wp_status,
                 excerpt=content.meta_description
             )
@@ -919,10 +1080,11 @@ def publish_to_wordpress(current_user, content_id):
             # Create new post
             result = wp.create_post(
                 title=content.title,
-                content=content.body,
+                content=full_content,
                 status=wp_status,
                 excerpt=content.meta_description,
                 meta=meta,
+                tags=tags if tags else None,
                 date=content.scheduled_for if wp_status == 'future' else None
             )
         

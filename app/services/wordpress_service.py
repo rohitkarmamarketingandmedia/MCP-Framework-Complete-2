@@ -133,7 +133,8 @@ class WordPressService:
         except Exception as e:
             return {
                 'success': False,
-                'error': str(e)
+                'error': str(e),
+                'message': f'Connection test failed: {str(e)}'
             }
     
     def create_post(
@@ -234,16 +235,19 @@ class WordPressService:
             return {
                 'success': True,
                 'post_id': post_id,
+                'post_url': post.get('link'),
                 'url': post.get('link'),
                 'edit_url': f"{self.site_url}/wp-admin/post.php?post={post_id}&action=edit",
-                'status': post.get('status')
+                'status': post.get('status'),
+                'message': f'Published to WordPress successfully'
             }
             
         except Exception as e:
             logger.error(f"WordPress publish error: {e}")
             return {
                 'success': False,
-                'error': str(e)
+                'error': str(e),
+                'message': f'WordPress publish failed: {str(e)}'
             }
     
     def update_post(self, post_id: int, **kwargs) -> Dict[str, Any]:
@@ -261,15 +265,18 @@ class WordPressService:
                 return {
                     'success': True,
                     'post_id': post_id,
-                    'url': post.get('link')
+                    'post_url': post.get('link'),
+                    'url': post.get('link'),
+                    'message': 'WordPress post updated successfully'
                 }
             else:
                 return {
                     'success': False,
-                    'error': f"Update failed: {response.status_code}"
+                    'error': f"Update failed: {response.status_code}",
+                    'message': f'WordPress update failed with status {response.status_code}'
                 }
         except Exception as e:
-            return {'success': False, 'error': str(e)}
+            return {'success': False, 'error': str(e), 'message': f'WordPress update failed: {str(e)}'}
     
     def _resolve_categories(self, categories: list) -> list:
         """Convert category names to IDs, creating if needed"""
