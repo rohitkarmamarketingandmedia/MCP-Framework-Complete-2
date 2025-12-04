@@ -1727,6 +1727,134 @@
                         </div>
                     </div>
                 </div>
+                
+                <!-- Integrations Section -->
+                <div class="mt-6">
+                    <div class="glass rounded-2xl p-6">
+                        <div class="flex items-center gap-3 mb-6">
+                            <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-600 flex items-center justify-center">
+                                <i class="fas fa-plug text-white text-xl"></i>
+                            </div>
+                            <div>
+                                <h3 class="text-lg font-bold text-white">Integrations</h3>
+                                <p class="text-sm text-gray-400">Connect external services to enhance your dashboard</p>
+                            </div>
+                        </div>
+                        
+                        <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            <!-- Google Analytics 4 -->
+                            <div class="p-4 bg-white/5 rounded-xl border border-white/10">
+                                <div class="flex items-center gap-3 mb-3">
+                                    <div class="w-10 h-10 rounded-lg bg-orange-500/20 flex items-center justify-center">
+                                        <i class="fas fa-chart-bar text-orange-400"></i>
+                                    </div>
+                                    <div>
+                                        <h4 class="font-medium text-white">Google Analytics 4</h4>
+                                        <p id="ga4Status" class="text-xs text-gray-400">Not configured</p>
+                                    </div>
+                                </div>
+                                <input type="text" id="ga4PropertyId" placeholder="GA4 Property ID (e.g., 123456789)"
+                                    class="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-sm mb-2 focus:outline-none focus:border-orange-500"
+                                    onchange="saveIntegration('ga4')">
+                                <p class="text-xs text-gray-500">Find in GA4 → Admin → Property Settings</p>
+                            </div>
+                            
+                            <!-- CallRail -->
+                            <div class="p-4 bg-white/5 rounded-xl border border-white/10">
+                                <div class="flex items-center gap-3 mb-3">
+                                    <div class="w-10 h-10 rounded-lg bg-green-500/20 flex items-center justify-center">
+                                        <i class="fas fa-phone text-green-400"></i>
+                                    </div>
+                                    <div>
+                                        <h4 class="font-medium text-white">CallRail</h4>
+                                        <p id="callrailStatus" class="text-xs text-gray-400">Not configured</p>
+                                    </div>
+                                </div>
+                                <input type="text" id="callrailCompanyId" placeholder="CallRail Company ID"
+                                    class="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-sm mb-2 focus:outline-none focus:border-green-500"
+                                    onchange="saveIntegration('callrail')">
+                                <p class="text-xs text-gray-500">Links this client to your CallRail account</p>
+                            </div>
+                            
+                            <!-- Google Search Console -->
+                            <div class="p-4 bg-white/5 rounded-xl border border-white/10">
+                                <div class="flex items-center gap-3 mb-3">
+                                    <div class="w-10 h-10 rounded-lg bg-blue-500/20 flex items-center justify-center">
+                                        <i class="fas fa-search text-blue-400"></i>
+                                    </div>
+                                    <div>
+                                        <h4 class="font-medium text-white">Search Console</h4>
+                                        <p id="gscStatus" class="text-xs text-gray-400">Not configured</p>
+                                    </div>
+                                </div>
+                                <input type="text" id="gscSiteUrl" placeholder="Site URL (e.g., https://example.com)"
+                                    class="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-sm mb-2 focus:outline-none focus:border-blue-500"
+                                    onchange="saveIntegration('gsc')">
+                                <p class="text-xs text-gray-500">Must match URL in Search Console</p>
+                            </div>
+                            
+                            <!-- WordPress -->
+                            <div class="p-4 bg-white/5 rounded-xl border border-white/10">
+                                <div class="flex items-center gap-3 mb-3">
+                                    <div class="w-10 h-10 rounded-lg bg-sky-500/20 flex items-center justify-center">
+                                        <i class="fab fa-wordpress text-sky-400"></i>
+                                    </div>
+                                    <div>
+                                        <h4 class="font-medium text-white">WordPress</h4>
+                                        <p id="wpStatus" class="text-xs text-gray-400">Not configured</p>
+                                    </div>
+                                </div>
+                                <input type="text" id="wpSiteUrl" placeholder="WordPress URL"
+                                    class="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-sm mb-2 focus:outline-none focus:border-sky-500">
+                                <input type="password" id="wpAppPassword" placeholder="Application Password"
+                                    class="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-sm mb-2 focus:outline-none focus:border-sky-500"
+                                    onchange="saveIntegration('wordpress')">
+                                <p class="text-xs text-gray-500">Users → Edit → Application Passwords</p>
+                            </div>
+                            
+                            <!-- SEMrush -->
+                            <div class="p-4 bg-white/5 rounded-xl border border-white/10">
+                                <div class="flex items-center gap-3 mb-3">
+                                    <div class="w-10 h-10 rounded-lg bg-orange-600/20 flex items-center justify-center">
+                                        <i class="fas fa-rocket text-orange-500"></i>
+                                    </div>
+                                    <div>
+                                        <h4 class="font-medium text-white">SEMrush</h4>
+                                        <p id="semrushStatus" class="text-xs text-gray-400">Server-side config</p>
+                                    </div>
+                                </div>
+                                <div class="text-xs text-gray-400 p-2 bg-white/5 rounded-lg">
+                                    <i class="fas fa-server mr-1"></i> Configured via environment variable
+                                    <code class="text-purple-400 ml-1">SEMRUSH_API_KEY</code>
+                                </div>
+                            </div>
+                            
+                            <!-- OpenAI -->
+                            <div class="p-4 bg-white/5 rounded-xl border border-white/10">
+                                <div class="flex items-center gap-3 mb-3">
+                                    <div class="w-10 h-10 rounded-lg bg-emerald-500/20 flex items-center justify-center">
+                                        <i class="fas fa-brain text-emerald-400"></i>
+                                    </div>
+                                    <div>
+                                        <h4 class="font-medium text-white">OpenAI</h4>
+                                        <p id="openaiStatus" class="text-xs text-gray-400">Server-side config</p>
+                                    </div>
+                                </div>
+                                <div class="text-xs text-gray-400 p-2 bg-white/5 rounded-lg">
+                                    <i class="fas fa-server mr-1"></i> Configured via environment variable
+                                    <code class="text-purple-400 ml-1">OPENAI_API_KEY</code>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Save Button -->
+                        <div class="mt-6 flex justify-end">
+                            <button onclick="saveAllIntegrations()" class="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition">
+                                <i class="fas fa-save mr-2"></i>Save Integrations
+                            </button>
+                        </div>
+                    </div>
+                </div>
             </div>
             
             <!-- Chatbot Panel -->
@@ -2694,6 +2822,9 @@
                 
                 // Load overview data
                 loadOverviewData();
+                
+                // Load integrations settings
+                loadIntegrations();
 
             } catch (e) {
                 console.error('Failed to load client:', e);
@@ -3916,6 +4047,180 @@
                     </div>
                 `;
             }).join('');
+        }
+        
+        // ==========================================
+        // INTEGRATIONS
+        // ==========================================
+        
+        async function loadIntegrations() {
+            if (!currentClient) return;
+            
+            // Load from current client data
+            const ga4Input = document.getElementById('ga4PropertyId');
+            const callrailInput = document.getElementById('callrailCompanyId');
+            const gscInput = document.getElementById('gscSiteUrl');
+            const wpUrlInput = document.getElementById('wpSiteUrl');
+            const wpPasswordInput = document.getElementById('wpAppPassword');
+            
+            if (ga4Input) ga4Input.value = currentClient.ga4_property_id || '';
+            if (callrailInput) callrailInput.value = currentClient.callrail_company_id || '';
+            if (gscInput) gscInput.value = currentClient.gsc_site_url || '';
+            if (wpUrlInput) wpUrlInput.value = currentClient.wordpress_url || '';
+            if (wpPasswordInput) wpPasswordInput.value = currentClient.wordpress_app_password ? '••••••••' : '';
+            
+            // Update status indicators
+            updateIntegrationStatus('ga4', currentClient.ga4_property_id);
+            updateIntegrationStatus('callrail', currentClient.callrail_company_id);
+            updateIntegrationStatus('gsc', currentClient.gsc_site_url);
+            updateIntegrationStatus('wp', currentClient.wordpress_url);
+            
+            // Check server-side integrations
+            checkServerIntegrations();
+        }
+        
+        function updateIntegrationStatus(type, value) {
+            const statusEl = document.getElementById(`${type}Status`);
+            if (!statusEl) return;
+            
+            if (value) {
+                statusEl.textContent = '✓ Connected';
+                statusEl.className = 'text-xs text-green-400';
+            } else {
+                statusEl.textContent = 'Not configured';
+                statusEl.className = 'text-xs text-gray-400';
+            }
+        }
+        
+        async function checkServerIntegrations() {
+            try {
+                const response = await fetch(`${API_URL}/api/settings/integrations/status`, {
+                    headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    
+                    const openaiStatus = document.getElementById('openaiStatus');
+                    const semrushStatus = document.getElementById('semrushStatus');
+                    
+                    if (openaiStatus) {
+                        if (data.openai_configured) {
+                            openaiStatus.textContent = '✓ Configured';
+                            openaiStatus.className = 'text-xs text-green-400';
+                        } else {
+                            openaiStatus.textContent = '✗ Not configured';
+                            openaiStatus.className = 'text-xs text-red-400';
+                        }
+                    }
+                    
+                    if (semrushStatus) {
+                        if (data.semrush_configured) {
+                            semrushStatus.textContent = '✓ Configured';
+                            semrushStatus.className = 'text-xs text-green-400';
+                        } else {
+                            semrushStatus.textContent = 'Not configured';
+                            semrushStatus.className = 'text-xs text-gray-400';
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error('Failed to check server integrations:', error);
+            }
+        }
+        
+        async function saveIntegration(type) {
+            if (!currentClient) {
+                alert('Please select a client first');
+                return;
+            }
+            
+            const updates = {};
+            
+            switch(type) {
+                case 'ga4':
+                    updates.ga4_property_id = document.getElementById('ga4PropertyId').value.trim();
+                    break;
+                case 'callrail':
+                    updates.callrail_company_id = document.getElementById('callrailCompanyId').value.trim();
+                    break;
+                case 'gsc':
+                    updates.gsc_site_url = document.getElementById('gscSiteUrl').value.trim();
+                    break;
+                case 'wordpress':
+                    updates.wordpress_url = document.getElementById('wpSiteUrl').value.trim();
+                    const wpPass = document.getElementById('wpAppPassword').value;
+                    if (wpPass && !wpPass.includes('••••')) {
+                        updates.wordpress_app_password = wpPass;
+                    }
+                    break;
+            }
+            
+            try {
+                const response = await fetch(`${API_URL}/api/clients/${currentClient.id}/integrations`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${AUTH_TOKEN}`
+                    },
+                    body: JSON.stringify(updates)
+                });
+                
+                if (response.ok) {
+                    // Update local client data
+                    Object.assign(currentClient, updates);
+                    updateIntegrationStatus(type, Object.values(updates)[0]);
+                    showToast(`${type.toUpperCase()} integration saved!`, 'success');
+                } else {
+                    const err = await response.json();
+                    alert('Error saving integration: ' + (err.error || 'Unknown error'));
+                }
+            } catch (error) {
+                console.error('Integration save error:', error);
+                alert('Failed to save integration: ' + error.message);
+            }
+        }
+        
+        async function saveAllIntegrations() {
+            if (!currentClient) {
+                alert('Please select a client first');
+                return;
+            }
+            
+            const updates = {
+                ga4_property_id: document.getElementById('ga4PropertyId')?.value.trim() || null,
+                callrail_company_id: document.getElementById('callrailCompanyId')?.value.trim() || null,
+                gsc_site_url: document.getElementById('gscSiteUrl')?.value.trim() || null,
+                wordpress_url: document.getElementById('wpSiteUrl')?.value.trim() || null
+            };
+            
+            const wpPass = document.getElementById('wpAppPassword')?.value;
+            if (wpPass && !wpPass.includes('••••')) {
+                updates.wordpress_app_password = wpPass;
+            }
+            
+            try {
+                const response = await fetch(`${API_URL}/api/clients/${currentClient.id}/integrations`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${AUTH_TOKEN}`
+                    },
+                    body: JSON.stringify(updates)
+                });
+                
+                if (response.ok) {
+                    Object.assign(currentClient, updates);
+                    loadIntegrations(); // Refresh status
+                    showToast('All integrations saved!', 'success');
+                } else {
+                    const err = await response.json();
+                    alert('Error saving integrations: ' + (err.error || 'Unknown error'));
+                }
+            } catch (error) {
+                console.error('Integration save error:', error);
+                alert('Failed to save integrations: ' + error.message);
+            }
         }
         
         // ==========================================
@@ -5774,7 +6079,7 @@
                 document.getElementById('socialProgressText').textContent = `Generating ${platform.toUpperCase()} post...`;
                 
                 try {
-                    await fetch('/api/content/social/generate', {
+                    const response = await fetch(`${API_URL}/api/content/social/generate`, {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
@@ -5786,7 +6091,18 @@
                             platform: platform
                         })
                     });
-                    generated++;
+                    
+                    const result = await response.json();
+                    
+                    if (response.ok && result.success) {
+                        generated++;
+                    } else {
+                        console.error(`Social generation failed (${platform}):`, result.error || 'Unknown error');
+                        // Show error to user
+                        if (result.error && result.error.includes('API key')) {
+                            alert(`⚠️ ${platform.toUpperCase()}: OpenAI API key not configured. Please add OPENAI_API_KEY to your environment.`);
+                        }
+                    }
                 } catch (error) {
                     console.error(`Social generation error (${platform}):`, error);
                 }
@@ -6050,7 +6366,7 @@
                     progressLog.scrollTop = progressLog.scrollHeight;
                     
                     try {
-                        await fetch('/api/content/social/generate', {
+                        const response = await fetch(`${API_URL}/api/content/social/generate`, {
                             method: 'POST',
                             headers: {
                                 'Content-Type': 'application/json',
@@ -6062,7 +6378,14 @@
                                 platform: platform
                             })
                         });
-                        progressLog.innerHTML += `<div class="text-green-400">✓ ${platform}: ${topic}</div>`;
+                        
+                        const result = await response.json();
+                        
+                        if (response.ok && result.success) {
+                            progressLog.innerHTML += `<div class="text-green-400">✓ ${platform}: ${topic}</div>`;
+                        } else {
+                            progressLog.innerHTML += `<div class="text-red-400">✗ ${platform}: ${result.error || 'Failed'}</div>`;
+                        }
                     } catch (error) {
                         progressLog.innerHTML += `<div class="text-red-400">✗ ${platform}: ${topic}</div>`;
                     }
@@ -6746,11 +7069,23 @@
                 
                 if (!response.ok) {
                     const err = await response.json();
-                    throw new Error(err.error || 'Failed to check rankings');
+                    if (response.status === 403) {
+                        // Check if user needs admin fix
+                        const fixAdmin = confirm('Access denied. This may be a permission issue.\\n\\nWould you like to try fixing your admin role?\\n\\n(Click OK to attempt fix, Cancel to dismiss)');
+                        if (fixAdmin) {
+                            await attemptAdminFix();
+                        }
+                        throw new Error('Access denied. Your account may need admin permissions.');
+                    }
+                    if (response.status === 400 && err.error?.includes('keywords')) {
+                        throw new Error('No keywords configured. Add keywords in Settings first.');
+                    }
+                    throw new Error(err.error || `Failed to check rankings (${response.status})`);
                 }
                 
                 rankingsData = await response.json();
                 renderRankings();
+                showToast('Rankings updated!', 'success');
                 
             } catch (error) {
                 console.error('Rankings error:', error);
@@ -6758,6 +7093,27 @@
             } finally {
                 btn.innerHTML = originalText;
                 btn.disabled = false;
+            }
+        }
+        
+        async function attemptAdminFix() {
+            try {
+                const response = await fetch(`${API_URL}/api/auth/fix-admin`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    alert('✅ Admin role restored!\\n\\nOld role: ' + result.old_role + '\\nNew role: ' + result.new_role + '\\n\\nPlease refresh the page.');
+                    location.reload();
+                } else {
+                    alert('Could not fix admin role: ' + (result.error || 'Unknown error'));
+                }
+            } catch (error) {
+                console.error('Admin fix error:', error);
+                alert('Failed to fix admin role: ' + error.message);
             }
         }
         

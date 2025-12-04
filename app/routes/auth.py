@@ -96,17 +96,16 @@ def bootstrap_admin():
         password = generated_password
     
     try:
-        # Create admin user
+        # Create admin user - use correct constructor signature
+        # DBUser(email, name, password, role)
         admin = DBUser(
             email=email,
             name=name,
-            role=UserRole.ADMIN,
-            is_active=True,
-            can_generate_content=True,
-            can_manage_clients=True,
-            can_view_reports=True
+            password=password,
+            role=UserRole.ADMIN
         )
-        admin.set_password(password)
+        # Password is already set in constructor, but we can update it if needed
+        # admin.set_password(password)  # Not needed - done in __init__
         
         db.session.add(admin)
         db.session.commit()
@@ -476,3 +475,48 @@ def reset_user_password(current_user, user_id):
     data_service.save_user(user)
     
     return jsonify({'message': 'Password reset successfully'})
+
+
+@auth_bp.route('/fix-admin', methods=['POST'])
+@token_required
+def fix_admin_role(current_user):
+    """
+    Fix admin role if it was corrupted during bootstrap.
+    Only works if:
+    1. No other admin exists, OR
+    2. Current user's email matches ADMIN_EMAIL env var
+    
+    POST /api/auth/fix-admin
+    """
+    from app.database import db
+    
+    # Check if there's already a properly working admin
+    existing_admin = DBUser.query.filter_by(role=UserRole.ADMIN).first()
+    admin_email = os.environ.get('ADMIN_EMAIL', 'admin@karma.marketing')
+    
+    # Allow fix if: no admin exists, OR current user matches admin email
+    can_fix = (
+        existing_admin is None or 
+        current_user.email.lower() == admin_email.lower() or
+        current_user == existing_admin  # They're the same but role is wrong
+    )
+    
+    if not can_fix:
+        return jsonify({
+            'error': 'Cannot fix admin role',
+            'reason': 'An admin already exists. Contact them to update your role.',
+            'your_role': current_user.role
+        }), 403
+    
+    # Fix the role
+    old_role = current_user.role
+    current_user.role = UserRole.ADMIN
+    db.session.commit()
+    
+    return jsonify({
+        'success': True,
+        'message': 'Admin role restored',
+        'old_role': old_role,
+        'new_role': current_user.role,
+        'user_id': current_user.id
+    })

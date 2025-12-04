@@ -191,6 +191,12 @@ class DBClient(db.Model):
     callrail_company_id: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     monthly_lead_target: Mapped[int] = mapped_column(Integer, default=10)
     
+    # Google Analytics 4 Integration
+    ga4_property_id: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    
+    # Google Search Console Integration
+    gsc_site_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    
     # Relationships
     leads: Mapped[List["DBLead"]] = relationship("DBLead", back_populates="client", lazy="dynamic")
     reviews: Mapped[List["DBReview"]] = relationship("DBReview", back_populates="client", lazy="dynamic")
@@ -339,6 +345,10 @@ class DBClient(db.Model):
             'wordpress_url': self.wordpress_url,
             'wordpress_user': self.wordpress_user,
             'wordpress_app_password': self.wordpress_app_password if self.wordpress_app_password else None,
+            # Analytics & Tracking integrations
+            'ga4_property_id': self.ga4_property_id,
+            'gsc_site_url': self.gsc_site_url,
+            'callrail_company_id': self.callrail_company_id,
             # Social connections (status only, no tokens)
             'social_connections': {
                 'gbp': {

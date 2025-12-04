@@ -55,6 +55,8 @@ def generate_social(current_user):
     
     # Generate content for each platform
     posts = []
+    errors = []
+    
     for platform in platforms:
         result = ai_service.generate_social_post(
             topic=data['topic'],
@@ -67,6 +69,16 @@ def generate_social(current_user):
             hashtag_count=data.get('hashtag_count', 5),
             link_url=data.get('link_url', '')
         )
+        
+        # Check for AI errors
+        if result.get('error'):
+            errors.append(f"{platform}: {result['error']}")
+            continue
+        
+        # Check for empty content
+        if not result.get('text'):
+            errors.append(f"{platform}: No content generated")
+            continue
         
         post = DBSocialPost(
             client_id=data['client_id'],
@@ -81,10 +93,19 @@ def generate_social(current_user):
         data_service.save_social_post(post)
         posts.append(post)
     
-    return jsonify({
-        'success': True,
-        'posts': [p.to_dict() for p in posts]
-    })
+    # Return results with any errors
+    response = {
+        'success': len(posts) > 0,
+        'posts': [p.to_dict() for p in posts],
+        'generated': len(posts),
+        'requested': len(platforms)
+    }
+    
+    if errors:
+        response['errors'] = errors
+        response['warning'] = f'{len(errors)} platform(s) failed to generate'
+    
+    return jsonify(response)
 
 
 @social_bp.route('/kit', methods=['POST'])

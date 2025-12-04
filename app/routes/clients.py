@@ -293,8 +293,21 @@ def update_integrations(current_user, client_id):
         integrations['gbp_location_id'] = data['gbp_location_id']
     if 'ga4_property_id' in data:
         integrations['ga4_property_id'] = data['ga4_property_id']
+        client.ga4_property_id = data['ga4_property_id'] or None  # Also save to direct field
     if 'callrail_company_id' in data:
         integrations['callrail_company_id'] = data['callrail_company_id']
+        client.callrail_company_id = data['callrail_company_id'] or None  # Also save to direct field
+    if 'gsc_site_url' in data:
+        integrations['gsc_site_url'] = data['gsc_site_url']
+        client.gsc_site_url = data['gsc_site_url'] or None  # Also save to direct field
+    
+    # Direct field updates for WordPress
+    if 'wordpress_url' in data:
+        client.wordpress_url = data['wordpress_url'] or None
+    if 'wordpress_user' in data:
+        client.wordpress_user = data['wordpress_user'] or None
+    if 'wordpress_app_password' in data:
+        client.wordpress_app_password = data['wordpress_app_password'] or None
     
     client.integrations = json.dumps(integrations)
     data_service.save_client(client)

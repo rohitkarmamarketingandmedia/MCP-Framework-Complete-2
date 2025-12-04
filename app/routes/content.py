@@ -874,9 +874,8 @@ def generate_social_simple(current_user):
         social_post = DBSocialPost(
             client_id=data['client_id'],
             platform=platform,
-            content=result.get('content', ''),
+            content=result.get('text', result.get('content', '')),  # AI returns 'text' not 'content'
             hashtags=result.get('hashtags', []),
-            topic=data['topic'],
             status=ContentStatus.DRAFT
         )
         

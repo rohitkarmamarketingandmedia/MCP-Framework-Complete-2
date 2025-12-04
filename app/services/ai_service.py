@@ -253,13 +253,24 @@ Requirements:
 
 Return as JSON:
 {{
-    "text": "post text without hashtags",
-    "hashtags": ["hashtag1", "hashtag2"],
+    "text": "The complete post text with engaging copy. This must contain actual content, not be empty.",
+    "hashtags": ["keyword1", "keyword2"],
     "cta": "call to action text",
     "image_alt": "suggested image alt text"
 }}
 
-IMPORTANT: Return ONLY valid JSON, no markdown, no explanation."""
+CRITICAL RULES:
+1. Return ONLY valid JSON, no markdown, no explanation
+2. "text" MUST contain the actual post copy - never leave it empty
+3. "hashtags" must be words WITHOUT the # symbol (we add it later)
+
+Example for HVAC business:
+{{
+    "text": "Is your AC struggling to keep up with Florida heat? Here are 3 signs it's time for a tune-up! 🌡️ Don't wait until it breaks down.",
+    "hashtags": ["HVAC", "ACRepair", "FloridaHeat", "CoolingTips"],
+    "cta": "Schedule your tune-up today!",
+    "image_alt": "Air conditioning unit being serviced"
+}}"""
 
         # Enforce rate limiting
         self._rate_limit_delay()
@@ -299,16 +310,21 @@ IMPORTANT: Return ONLY valid JSON, no markdown, no explanation."""
                     content = content[start:end+1]
             
             result = json.loads(content)
+            
+            # Strip # from hashtags if AI included them
+            if 'hashtags' in result and isinstance(result['hashtags'], list):
+                result['hashtags'] = [h.lstrip('#') for h in result['hashtags']]
+            
             logger.info(f"Social post generated: {len(result.get('text', ''))} chars")
             return result
             
         except json.JSONDecodeError as e:
             logger.warning(f"Social JSON parse failed: {e}, using raw content")
-            # Generate a usable fallback
+            # Generate a usable fallback - DON'T add # prefix since render adds it
             raw_text = response.get('content', topic)
             return {
                 'text': raw_text[:char_limit] if len(raw_text) > char_limit else raw_text,
-                'hashtags': [f"#{industry.replace(' ', '')}", f"#{geo.split(',')[0].replace(' ', '')}", f"#{business_name.replace(' ', '')}"][:hashtag_count],
+                'hashtags': [industry.replace(' ', ''), geo.split(',')[0].replace(' ', ''), business_name.replace(' ', '')][:hashtag_count],
                 'cta': f"Contact {business_name} today!",
                 'image_alt': f"{topic} - {business_name}"
             }

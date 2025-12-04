@@ -1,5 +1,236 @@
 # MCP Framework Changelog
 
+## v5.5.21 - Integrations Settings Panel
+
+### 🔌 New Feature: Integrations Settings
+
+Added a full Integrations panel in Settings tab where users can configure:
+
+| Integration | Field | Description |
+|------------|-------|-------------|
+| **Google Analytics 4** | Property ID | Connect GA4 for traffic analytics |
+| **CallRail** | Company ID | Link client to CallRail account |
+| **Search Console** | Site URL | Connect GSC for ranking data |
+| **WordPress** | URL + App Password | Auto-publish blog posts |
+| **SEMrush** | (Server-side) | Shows if configured via env var |
+| **OpenAI** | (Server-side) | Shows if configured via env var |
+
+### 🗄️ Database Changes
+
+Added new fields to Client model:
+```python
+ga4_property_id: Mapped[Optional[str]]
+gsc_site_url: Mapped[Optional[str]]
+```
+
+### 📡 New API Endpoints
+
+**GET /api/settings/integrations/status**
+Returns which server-side integrations are configured:
+```json
+{
+    "openai_configured": true,
+    "semrush_configured": false,
+    "callrail_configured": true,
+    ...
+}
+```
+
+**PUT /api/clients/{id}/integrations** (Updated)
+Now saves to direct database fields in addition to JSON:
+- ga4_property_id
+- gsc_site_url  
+- callrail_company_id
+- wordpress_url
+- wordpress_app_password
+
+### 🖥️ Dashboard Changes
+
+- Added Integrations section to Settings tab
+- Visual cards for each integration with status indicators
+- Auto-loads current values when client is selected
+- Shows ✓ Connected / Not configured status
+- Server-side integrations show "Configured via environment variable"
+
+---
+
+## v5.5.20 - Social Posts Actually Generate Content Now
+
+### 🐛 Fixed: Social Posts Were Empty (Only Hashtags)
+
+**Root Causes Found:**
+
+1. **Double Hashtags (##)**: AI returned hashtags with `#` prefix, then dashboard added another → `##SarasotaAC`
+   - **Fix**: Strip `#` from hashtags after JSON parsing in `ai_service.py`
+
+2. **Empty Content**: AI prompt didn't emphasize that `text` field must have content
+   - **Fix**: Improved prompt with explicit example and "CRITICAL RULES" section
+
+3. **Errors Silently Ignored**: 
+   - `social.py` created empty posts even when AI failed (no error check)
+   - Frontend didn't check response, always said "Generated!"
+   - **Fix**: Added error checking in both backend and frontend
+
+### 📝 Changes Made
+
+**ai_service.py - generate_social_post():**
+```python
+# Better prompt with example
+prompt = """...
+CRITICAL RULES:
+1. Return ONLY valid JSON, no markdown
+2. "text" MUST contain actual post copy - never leave it empty
+3. "hashtags" must be words WITHOUT the # symbol
+
+Example for HVAC business:
+{
+    "text": "Is your AC struggling to keep up?...",
+    "hashtags": ["HVAC", "ACRepair", "FloridaHeat"],
+    ...
+}
+"""
+
+# Strip # from hashtags after parsing
+result['hashtags'] = [h.lstrip('#') for h in result['hashtags']]
+```
+
+**social.py - /api/social/generate:**
+```python
+# Now checks for errors before saving
+if result.get('error'):
+    errors.append(f"{platform}: {result['error']}")
+    continue
+
+if not result.get('text'):
+    errors.append(f"{platform}: No content generated")
+    continue
+```
+
+**client-dashboard.html:**
+```javascript
+// Now checks response and shows errors
+const result = await response.json();
+if (response.ok && result.success) {
+    generated++;
+} else {
+    if (result.error.includes('API key')) {
+        alert('OpenAI API key not configured');
+    }
+}
+```
+
+### ⚠️ Requirements for Social Generation
+
+For social posts to generate actual content, you need:
+
+1. **OpenAI API Key** configured in environment:
+   ```
+   OPENAI_API_KEY=sk-...
+   ```
+
+2. Without API key, you'll see error message instead of empty posts
+
+---
+
+## v5.5.19 - Admin Role Fix + Rankings Permission Fix
+
+### 🔐 Critical: Fixed Admin Bootstrap Bug
+
+**Problem:** The 403 error on Rankings was caused by a broken admin user creation.
+
+**Root Cause:** Bootstrap code passed wrong parameters to `DBUser` constructor:
+```python
+# WRONG (old code):
+admin = DBUser(email=email, name=name, role=UserRole.ADMIN, is_active=True, ...)
+admin.set_password(password)
+
+# CORRECT (fixed):
+admin = DBUser(email=email, name=name, password=password, role=UserRole.ADMIN)
+```
+
+The old code didn't pass `password` as the 3rd required argument, causing the admin to be created with the default role `viewer` instead of `admin`.
+
+### 🛠️ New Fix-Admin Endpoint
+
+Added `POST /api/auth/fix-admin` to repair corrupted admin accounts:
+
+```bash
+curl -X POST https://your-domain/api/auth/fix-admin \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Admin role restored",
+  "old_role": "viewer",
+  "new_role": "admin"
+}
+```
+
+### 🖥️ Dashboard Auto-Fix
+
+When users get a 403 error on Rankings, they now see a prompt:
+- "Would you like to try fixing your admin role?"
+- Clicking OK calls the fix-admin endpoint automatically
+- Page reloads after successful fix
+
+### 📋 How To Fix Existing Installations
+
+**Option 1: Use Dashboard**
+1. Click "Check Rankings" 
+2. When you see the 403 error, click OK to attempt fix
+3. Page will reload with fixed permissions
+
+**Option 2: Manual API Call**
+```bash
+curl -X POST https://mcp-framework-complete-2.onrender.com/api/auth/fix-admin \
+  -H "Authorization: Bearer YOUR_AUTH_TOKEN"
+```
+
+**Option 3: Reset Database (Nuclear Option)**
+If nothing works, delete the database and re-bootstrap:
+```bash
+rm instance/mcp.db
+# Restart server, it will create fresh database
+# Hit /api/auth/bootstrap to create new admin
+```
+
+---
+
+## v5.5.18 - Social Posts Fix + Better Error Messages
+
+### 🐛 Critical Bug Fixes
+
+#### Social Posts Now Generate Actual Content
+**Problem:** Social posts only showed hashtags, no actual post copy
+**Root Cause:** Code used `result.get('content', '')` but AI returns `result.get('text', '')`
+**Fix:** Changed to `result.get('text', result.get('content', ''))` in `/api/content/social/generate`
+
+#### Double Hashtag Fix (##hashtag → #hashtag)
+**Problem:** Hashtags displayed as `##SarasotaAC` instead of `#SarasotaAC`
+**Root Cause:** AI fallback added `#` prefix, then render added another `#`
+**Fix:** Removed `#` prefix from fallback hashtag generation in `ai_service.py`
+
+### 🔧 Improved Error Messages
+
+#### Rankings 403 Error
+Now shows: "Access denied. Please contact your admin to grant access to this client."
+Instead of: "API error: 403"
+
+#### Missing Keywords Error  
+Now shows: "No keywords configured. Add keywords in Settings first."
+
+### 📝 Notes
+
+**Rankings 403 Error Cause:** User is not ADMIN/MANAGER and doesn't have the client assigned. Solutions:
+1. Log in with admin account (created during bootstrap)
+2. Have admin assign client to user via API
+3. Make user an admin/manager
+
+---
+
 ## v5.5.17 - CRITICAL: API Endpoints Fixed (Actually Connected Now!)
 
 ### 🚨 Critical Fixes - Dashboard Now Uses REAL APIs

@@ -526,3 +526,27 @@ def get_webhook_stats(current_user):
         return jsonify(stats), 404
     
     return jsonify(stats)
+
+
+@settings_bp.route('/integrations/status', methods=['GET'])
+@token_required
+def get_integrations_status(current_user):
+    """
+    Get status of server-side integrations (API keys)
+    
+    GET /api/settings/integrations/status
+    
+    Returns which integrations have API keys configured
+    """
+    import os
+    
+    return jsonify({
+        'openai_configured': bool(os.environ.get('OPENAI_API_KEY')),
+        'anthropic_configured': bool(os.environ.get('ANTHROPIC_API_KEY')),
+        'semrush_configured': bool(os.environ.get('SEMRUSH_API_KEY')),
+        'callrail_configured': bool(os.environ.get('CALLRAIL_API_KEY')),
+        'sendgrid_configured': bool(os.environ.get('SENDGRID_API_KEY')),
+        'facebook_configured': bool(os.environ.get('FACEBOOK_APP_ID')),
+        'google_configured': bool(os.environ.get('GOOGLE_CLIENT_ID')),
+        'ga4_configured': bool(os.environ.get('GA4_PROPERTY_ID')),  # Global default
+    })
