@@ -117,7 +117,7 @@ def get_traffic(current_user, client_id):
         return jsonify({
             'configured': False,
             'client_id': client_id,
-            'message': 'GA4 not configured. Set GA4_PROPERTY_ID environment variable.'
+            'message': 'GA4 not configured. Add your GA4 Property ID in Settings → Integrations.'
         })
     
     try:

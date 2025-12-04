@@ -1216,7 +1216,7 @@
                         </div>
                         
                         <div id="ga4NotConfigured" class="p-4 bg-amber-500/10 border border-amber-500/30 rounded-xl mb-4">
-                            <p class="text-amber-400 text-sm"><i class="fas fa-exclamation-triangle mr-2"></i>GA4 not configured. Add GA4_PROPERTY_ID to connect.</p>
+                            <p class="text-amber-400 text-sm"><i class="fas fa-exclamation-triangle mr-2"></i>GA4 not configured. <a href="#" onclick="showTab('settings'); return false;" class="underline hover:text-amber-300">Add your GA4 Property ID in Settings → Integrations</a></p>
                         </div>
                         
                         <div id="ga4Data" class="hidden">
@@ -1852,6 +1852,40 @@
                             <button onclick="saveAllIntegrations()" class="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition">
                                 <i class="fas fa-save mr-2"></i>Save Integrations
                             </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- System Status Section -->
+                <div class="mt-6">
+                    <div class="glass rounded-2xl p-6">
+                        <div class="flex items-center justify-between mb-6">
+                            <div class="flex items-center gap-3">
+                                <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center">
+                                    <i class="fas fa-heartbeat text-white text-xl"></i>
+                                </div>
+                                <div>
+                                    <h3 class="text-lg font-bold text-white">System Status</h3>
+                                    <p class="text-sm text-gray-400">Server-side integrations & API connections</p>
+                                </div>
+                            </div>
+                            <button onclick="loadSystemStatus()" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-medium transition">
+                                <i class="fas fa-sync-alt mr-2"></i>Refresh
+                            </button>
+                        </div>
+                        
+                        <div id="systemStatusContent" class="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            <p class="text-gray-500 col-span-full">Loading system status...</p>
+                        </div>
+                        
+                        <div id="systemStatusSummary" class="mt-4 p-4 bg-white/5 rounded-xl hidden">
+                            <div class="flex items-center justify-between">
+                                <span class="text-gray-400">Overall Status</span>
+                                <span id="systemStatusPercent" class="text-lg font-bold text-white">--%</span>
+                            </div>
+                            <div class="w-full bg-gray-700 rounded-full h-2 mt-2">
+                                <div id="systemStatusBar" class="bg-gradient-to-r from-green-500 to-emerald-400 h-2 rounded-full transition-all duration-500" style="width: 0%"></div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -2825,6 +2859,9 @@
                 
                 // Load integrations settings
                 loadIntegrations();
+                
+                // Load system status
+                loadSystemStatus();
 
             } catch (e) {
                 console.error('Failed to load client:', e);
@@ -4220,6 +4257,74 @@
             } catch (error) {
                 console.error('Integration save error:', error);
                 alert('Failed to save integrations: ' + error.message);
+            }
+        }
+        
+        async function loadSystemStatus() {
+            const container = document.getElementById('systemStatusContent');
+            const summary = document.getElementById('systemStatusSummary');
+            
+            try {
+                const response = await fetch(`${API_URL}/api/settings/system-status`, {
+                    headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
+                });
+                
+                if (!response.ok) {
+                    container.innerHTML = '<p class="text-red-400 col-span-full">Failed to load system status</p>';
+                    return;
+                }
+                
+                const data = await response.json();
+                
+                // Render each integration
+                const statusColors = {
+                    'ready': 'text-green-400',
+                    'not_configured': 'text-red-400',
+                    'per_client': 'text-blue-400',
+                    'manual_only': 'text-yellow-400'
+                };
+                
+                const statusIcons = {
+                    'ready': 'fa-check-circle',
+                    'not_configured': 'fa-times-circle',
+                    'per_client': 'fa-user-cog',
+                    'manual_only': 'fa-hand-paper'
+                };
+                
+                const statusLabels = {
+                    'ready': 'Ready',
+                    'not_configured': 'Not Configured',
+                    'per_client': 'Per-Client',
+                    'manual_only': 'Manual Only'
+                };
+                
+                container.innerHTML = Object.entries(data.integrations).map(([key, int]) => `
+                    <div class="p-4 bg-white/5 rounded-xl border border-white/10">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="font-medium text-white">${int.name}</span>
+                            <span class="${statusColors[int.status]}">
+                                <i class="fas ${statusIcons[int.status]} mr-1"></i>${statusLabels[int.status]}
+                            </span>
+                        </div>
+                        <div class="text-xs text-gray-500 mb-2">
+                            ${int.features.slice(0, 3).join(' • ')}
+                        </div>
+                        ${int.status !== 'ready' ? `
+                            <div class="text-xs text-gray-400 mt-2 p-2 bg-black/20 rounded">
+                                <strong>Needs:</strong> ${int.required_env.slice(0, 2).join(', ')}
+                            </div>
+                        ` : ''}
+                    </div>
+                `).join('');
+                
+                // Show summary
+                summary.classList.remove('hidden');
+                document.getElementById('systemStatusPercent').textContent = `${data.summary.percentage}%`;
+                document.getElementById('systemStatusBar').style.width = `${data.summary.percentage}%`;
+                
+            } catch (error) {
+                console.error('System status error:', error);
+                container.innerHTML = '<p class="text-red-400 col-span-full">Error loading system status</p>';
             }
         }
         
@@ -7140,6 +7245,25 @@
             if (!rankingsData || !rankingsData.keywords) return;
             
             const keywords = rankingsData.keywords;
+            
+            // Show demo mode notice if applicable
+            const demoNotice = document.getElementById('rankingsDemoNotice');
+            if (rankingsData.demo_mode) {
+                if (!demoNotice) {
+                    const notice = document.createElement('div');
+                    notice.id = 'rankingsDemoNotice';
+                    notice.className = 'mb-4 p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl';
+                    notice.innerHTML = `
+                        <p class="text-amber-400 text-sm">
+                            <i class="fas fa-flask mr-2"></i>
+                            <strong>Demo Mode:</strong> ${rankingsData.message || 'Add SEMRUSH_API_KEY to enable real ranking data'}
+                        </p>
+                    `;
+                    document.getElementById('rankingsTable')?.parentElement?.insertBefore(notice, document.getElementById('rankingsTable'));
+                }
+            } else if (demoNotice) {
+                demoNotice.remove();
+            }
             
             // Update stats
             const positions = keywords.filter(k => k.position && k.position <= 100).map(k => k.position);

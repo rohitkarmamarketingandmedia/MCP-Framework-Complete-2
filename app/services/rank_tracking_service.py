@@ -134,11 +134,12 @@ class RankTrackingService:
                 }
             }
         """
-        if not self.api_key:
-            return {'error': 'SEMRush API key not configured'}
-        
         domain = self._clean_domain(domain)
         database = database or self.default_database
+        
+        # If no API key, return simulated data so dashboard still works
+        if not self.api_key:
+            return self._generate_demo_rankings(domain, keywords)
         
         result = {
             'domain': domain,
@@ -392,6 +393,89 @@ class RankTrackingService:
         heatmap.sort(key=lambda x: x['volume'], reverse=True)
         
         return heatmap
+    
+    def _generate_demo_rankings(self, domain: str, keywords: List[str]) -> Dict:
+        """
+        Generate simulated ranking data when SEMRush API is not configured.
+        Shows realistic demo data so the dashboard is still usable.
+        """
+        import random
+        import hashlib
+        
+        result = {
+            'domain': domain,
+            'checked_at': datetime.utcnow().isoformat(),
+            'keywords': [],
+            'summary': {
+                'total': len(keywords),
+                'in_top_3': 0,
+                'in_top_10': 0,
+                'in_top_20': 0,
+                'not_ranking': 0,
+                'improved': 0,
+                'declined': 0,
+                'unchanged': 0
+            },
+            'demo_mode': True,
+            'message': 'Demo data - Add SEMRUSH_API_KEY for real rankings'
+        }
+        
+        for keyword in keywords:
+            # Use hash for consistent "random" positions per keyword
+            seed = int(hashlib.md5(keyword.encode()).hexdigest()[:8], 16)
+            random.seed(seed)
+            
+            # 70% chance to be ranking
+            if random.random() < 0.7:
+                position = random.choice([
+                    random.randint(1, 3),   # 20% top 3
+                    random.randint(4, 10),  # 30% top 10
+                    random.randint(11, 20), # 25% top 20
+                    random.randint(21, 50)  # 25% 21-50
+                ])
+                change = random.choice([-3, -2, -1, 0, 0, 0, 1, 1, 2, 3, 5])
+                prev_pos = position - change if position - change > 0 else None
+            else:
+                position = None
+                prev_pos = None
+                change = 0
+            
+            # Estimate search volume (higher for shorter keywords)
+            base_volume = max(100, 2000 - len(keyword) * 50)
+            volume = base_volume + random.randint(-200, 500)
+            
+            kw_data = {
+                'keyword': keyword,
+                'position': position,
+                'previous_position': prev_pos,
+                'change': change,
+                'url': f'https://{domain}/{"".join(keyword.split()[:2]).lower()}' if position else None,
+                'search_volume': max(10, volume),
+                'cpc': round(random.uniform(0.5, 8.0), 2),
+                'competition': round(random.uniform(0.3, 0.9), 2)
+            }
+            
+            result['keywords'].append(kw_data)
+            
+            # Update summary
+            if position:
+                if position <= 3:
+                    result['summary']['in_top_3'] += 1
+                if position <= 10:
+                    result['summary']['in_top_10'] += 1
+                if position <= 20:
+                    result['summary']['in_top_20'] += 1
+                
+                if change > 0:
+                    result['summary']['improved'] += 1
+                elif change < 0:
+                    result['summary']['declined'] += 1
+                else:
+                    result['summary']['unchanged'] += 1
+            else:
+                result['summary']['not_ranking'] += 1
+        
+        return result
     
     def calculate_traffic_value(
         self,

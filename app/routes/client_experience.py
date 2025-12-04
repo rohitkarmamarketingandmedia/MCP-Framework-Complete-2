@@ -134,10 +134,32 @@ def get_calls(current_user, client_id):
     from app.services.callrail_service import CallRailConfig, get_callrail_service
     
     if not CallRailConfig.is_configured():
+        # Return demo data so dashboard still looks good
+        from datetime import datetime, timedelta
+        import random
+        
+        demo_calls = []
+        for i in range(5):
+            call_time = datetime.utcnow() - timedelta(hours=random.randint(1, 72))
+            demo_calls.append({
+                'id': f'demo_call_{i}',
+                'date': call_time.isoformat(),
+                'duration': random.randint(30, 300),
+                'caller_name': ['John S.', 'Mary T.', 'Bob K.', 'Lisa M.', 'Dave R.'][i],
+                'caller_number': '(941) 555-****',
+                'source': ['Google', 'Direct', 'Referral', 'Facebook', 'Website'][i],
+                'answered': i != 2,  # One missed call
+                'has_transcript': i < 3,
+                'lead_status': ['qualified', 'qualified', 'missed', 'new', 'converted'][i],
+                'transcript_preview': 'Demo transcript - configure CallRail for real data' if i < 3 else None
+            })
+        
         return jsonify({
             'configured': False,
-            'message': 'CallRail not configured',
-            'calls': []
+            'demo_mode': True,
+            'message': 'Demo data - Add CALLRAIL_API_KEY and CALLRAIL_ACCOUNT_ID for real call tracking',
+            'calls': demo_calls,
+            'total': 5
         })
     
     limit = request.args.get('limit', 20, type=int)

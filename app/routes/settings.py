@@ -550,3 +550,82 @@ def get_integrations_status(current_user):
         'google_configured': bool(os.environ.get('GOOGLE_CLIENT_ID')),
         'ga4_configured': bool(os.environ.get('GA4_PROPERTY_ID')),  # Global default
     })
+
+
+@settings_bp.route('/system-status', methods=['GET'])
+@token_required
+def get_system_status(current_user):
+    """
+    Get comprehensive system status for debugging
+    
+    GET /api/settings/system-status
+    
+    Shows what's configured and what's missing
+    """
+    import os
+    from app import __version__
+    
+    # Check each integration
+    integrations = {
+        'ai_content': {
+            'name': 'AI Content Generation',
+            'status': 'ready' if os.environ.get('OPENAI_API_KEY') else 'not_configured',
+            'required_env': ['OPENAI_API_KEY'],
+            'features': ['Blog generation', 'Social posts', 'Chatbot', 'Image generation']
+        },
+        'rankings': {
+            'name': 'Keyword Rankings',
+            'status': 'ready' if os.environ.get('SEMRUSH_API_KEY') else 'not_configured',
+            'required_env': ['SEMRUSH_API_KEY'],
+            'features': ['Rank tracking', 'Competitor analysis', 'Traffic value']
+        },
+        'analytics': {
+            'name': 'Traffic Analytics',
+            'status': 'ready' if os.environ.get('GA4_PROPERTY_ID') else 'per_client',
+            'required_env': ['GA4_PROPERTY_ID (optional - can set per client)'],
+            'features': ['Website traffic', 'Page views', 'Bounce rate']
+        },
+        'call_tracking': {
+            'name': 'Call Intelligence',
+            'status': 'ready' if (os.environ.get('CALLRAIL_API_KEY') and os.environ.get('CALLRAIL_ACCOUNT_ID')) else 'not_configured',
+            'required_env': ['CALLRAIL_API_KEY', 'CALLRAIL_ACCOUNT_ID'],
+            'features': ['Call analytics', 'Transcripts', 'AI analysis', 'Lead scoring']
+        },
+        'email': {
+            'name': 'Email Notifications',
+            'status': 'ready' if os.environ.get('SENDGRID_API_KEY') else 'not_configured',
+            'required_env': ['SENDGRID_API_KEY', 'FROM_EMAIL'],
+            'features': ['Notifications', 'Reports', 'Alerts']
+        },
+        'social_oauth': {
+            'name': 'Social Media OAuth',
+            'status': 'ready' if os.environ.get('FACEBOOK_APP_ID') else 'manual_only',
+            'required_env': ['FACEBOOK_APP_ID', 'FACEBOOK_APP_SECRET', 'GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET'],
+            'features': ['Facebook posting', 'Instagram posting', 'GBP posting']
+        },
+        'images': {
+            'name': 'AI Image Generation',
+            'status': 'ready' if os.environ.get('OPENAI_API_KEY') else 'not_configured',
+            'required_env': ['OPENAI_API_KEY (DALL-E)', 'STABILITY_API_KEY (optional)', 'UNSPLASH_ACCESS_KEY (optional)'],
+            'features': ['Blog headers', 'Social images', 'Custom prompts']
+        }
+    }
+    
+    # Count ready vs not ready
+    ready_count = sum(1 for i in integrations.values() if i['status'] == 'ready')
+    total_count = len(integrations)
+    
+    return jsonify({
+        'version': __version__,
+        'status': 'healthy',
+        'integrations': integrations,
+        'summary': {
+            'ready': ready_count,
+            'total': total_count,
+            'percentage': round((ready_count / total_count) * 100)
+        },
+        'quick_start': {
+            'minimum_required': ['OPENAI_API_KEY', 'ADMIN_EMAIL', 'ADMIN_PASSWORD'],
+            'recommended': ['OPENAI_API_KEY', 'SEMRUSH_API_KEY', 'SENDGRID_API_KEY']
+        }
+    })

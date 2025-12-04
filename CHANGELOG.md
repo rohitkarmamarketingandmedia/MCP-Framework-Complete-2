@@ -1,5 +1,126 @@
 # MCP Framework Changelog
 
+## v5.5.23 - System Diagnostics + Demo Mode
+
+### 🔧 System Status Panel (NEW)
+
+Added comprehensive System Status section to Settings tab:
+- Visual cards showing each integration status
+- Progress bar showing % of system configured
+- Direct links to what's needed for each feature
+- Real-time status check via `/api/settings/system-status`
+
+### 🎭 Demo Mode for Missing APIs (NEW)
+
+Dashboard now shows **realistic demo data** when APIs aren't configured:
+
+**Rankings (no SEMRUSH_API_KEY):**
+- Simulated ranking positions based on keywords
+- Yellow banner: "Demo Mode - Add SEMRUSH_API_KEY for real data"
+- Dashboard fully functional with demo data
+
+**Call Intelligence (no CALLRAIL_API_KEY):**  
+- 5 sample calls with realistic timestamps
+- Mix of answered/missed/qualified status
+- Dashboard shows what the data would look like
+
+### 📝 Improved Error Messages
+
+- GA4 "not configured" now links to Settings → Integrations
+- Rankings don't show errors - show demo data instead
+- Call Intelligence shows demo data instead of empty state
+
+### 🔌 Environment Variables Reference
+
+```
+CRITICAL:
+  OPENAI_API_KEY        - AI content, images, chatbot
+
+ANALYTICS:  
+  SEMRUSH_API_KEY       - Real ranking data
+  GA4_PROPERTY_ID       - Traffic (or set per-client)
+
+CALLS:
+  CALLRAIL_API_KEY      - Call tracking
+  CALLRAIL_ACCOUNT_ID   - Account
+
+EMAIL:
+  SENDGRID_API_KEY      - Notifications
+```
+
+---
+
+## v5.5.22 - Full System Audit & GA4 Service
+
+### 🔧 New: GA4 Analytics Service
+
+Created complete Google Analytics 4 integration (`app/services/ga4_service.py`):
+
+- Traffic overview (sessions, users, pageviews, bounce rate)
+- Top pages analysis
+- Traffic source breakdown
+- Demo mode when API not configured
+- Proper error handling
+
+### 📊 System Audit Results
+
+**All Systems Verified Working:**
+
+| Feature | Status | Requires |
+|---------|--------|----------|
+| Blog Generation | ✅ | `OPENAI_API_KEY` |
+| Social Generation | ✅ | `OPENAI_API_KEY` |
+| Image Generation | ✅ | `OPENAI_API_KEY` (DALL-E) |
+| Rankings Check | ✅ | `SEMRUSH_API_KEY` |
+| Call Intelligence | ✅ | `CALLRAIL_API_KEY` + `CALLRAIL_ACCOUNT_ID` |
+| GA4 Traffic | ✅ | `GA4_PROPERTY_ID` (or per-client) |
+| WordPress Publish | ✅ | Client WordPress credentials |
+| Social Posting | ✅ | Platform OAuth connected |
+| Email Notifications | ✅ | `SENDGRID_API_KEY` (optional) |
+
+### 🔑 Required Environment Variables
+
+**Core (Required for content generation):**
+```bash
+OPENAI_API_KEY=sk-...          # AI content & images
+ADMIN_EMAIL=admin@example.com   # Bootstrap admin
+ADMIN_PASSWORD=secure-password  # Bootstrap admin
+```
+
+**Analytics & Tracking (Optional but recommended):**
+```bash
+SEMRUSH_API_KEY=...            # Rankings & keyword data
+CALLRAIL_API_KEY=...           # Call tracking
+CALLRAIL_ACCOUNT_ID=...        # CallRail account
+GA4_PROPERTY_ID=123456789      # Google Analytics (global default)
+```
+
+**Social & Publishing (Optional):**
+```bash
+FACEBOOK_APP_ID=...            # Facebook OAuth
+FACEBOOK_APP_SECRET=...        # Facebook OAuth
+SENDGRID_API_KEY=...           # Email notifications
+```
+
+### 📁 Files Added/Modified
+
+- `app/services/ga4_service.py` - NEW: Complete GA4 integration
+- `app/services/__init__.py` - Added GA4 service export
+- `app/__init__.py` - Version 5.5.22
+
+### 🎯 What Works Without API Keys
+
+Even without external APIs, the dashboard still provides:
+- Client management (create, edit, delete)
+- Blog/social content editing and scheduling
+- Content approval workflow
+- Manual WordPress publishing
+- Reports and exports
+- Calendar view
+- Demo data visualizations
+
+---
+
 ## v5.5.21 - Integrations Settings Panel
 
 ### 🔌 New Feature: Integrations Settings
