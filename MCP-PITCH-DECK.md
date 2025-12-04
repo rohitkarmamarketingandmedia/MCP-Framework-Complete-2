@@ -264,11 +264,11 @@ Discovery Call → AI Analysis → Content Generated → Auto-Published
 - WordPress publishing
 - Competitor monitoring
 
-**Next (v5.0):**
-- Visual workflow builder (n8n)
-- Per-client customization
-- Auto-documentation
-- White-label client apps
+**Current (v5.5):**
+- SEO scoring engine
+- GA4 integration
+- Auto-review responses
+- Direct webhook integrations
 
 **Future:**
 - Multi-language support

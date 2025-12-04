@@ -2,8 +2,8 @@
 MCP Framework - Webhook Routes
 Routes for managing webhook endpoints and receiving incoming webhooks
 
-OUTBOUND: MCP fires webhooks to N8N when events happen
-INBOUND: External services (CallRail, etc.) fire webhooks to MCP
+OUTBOUND: MCP fires webhooks to configured endpoints when events happen
+INBOUND: External services (CallRail, forms, chatbot) send webhooks to MCP
 """
 from flask import Blueprint, request, jsonify, current_app
 import logging
@@ -50,8 +50,8 @@ def create_webhook_endpoint(current_user):
     
     POST /api/webhooks/endpoints
     {
-        "name": "N8N Content Publisher",
-        "url": "https://n8n.example.com/webhook/abc123",
+        "name": "Content Publisher",
+        "url": "https://your-server.com/webhook/content",
         "event_types": ["content.approved", "content.published"],
         "client_id": null,  // null = all clients
         "secret": "optional-secret"
@@ -315,7 +315,7 @@ def _process_callrail_call(data: dict, event_id: str):
         client = DBClient.query.filter_by(callrail_company_id=company_id).first()
         client_id = client.id if client else None
         
-        # Fire event for N8N
+        # Fire event for external systems
         webhook_service = get_webhook_events_service()
         webhook_service.call_received(
             call_id=call_id,
@@ -425,7 +425,7 @@ def receive_form_webhook():
             notes=data.get('message') or data.get('notes')
         )
         
-        # Fire webhook for N8N
+        # Fire webhook to configured endpoints
         webhook_service = get_webhook_events_service()
         webhook_service.lead_created(
             lead_id=lead.id,
@@ -480,7 +480,7 @@ def receive_chatbot_webhook():
     db.session.add(log)
     db.session.commit()
     
-    # Fire to N8N
+    # Fire to configured endpoints
     try:
         from app.services.webhook_events_service import get_webhook_events_service
         

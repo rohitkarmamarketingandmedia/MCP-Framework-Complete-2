@@ -10,17 +10,56 @@
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
         * { font-family: 'Inter', sans-serif; }
-        body { background: #0f172a; }
+        
+        /* Premium gradient background */
+        body { 
+            background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #0f172a 100%);
+            min-height: 100vh;
+        }
+        
         .glass { background: rgba(255,255,255,0.03); backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.1); }
         .glass-light { background: rgba(255,255,255,0.95); }
         .gradient-text { background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
         .gradient-border { border: 2px solid transparent; background: linear-gradient(#1e293b, #1e293b) padding-box, linear-gradient(135deg, #667eea, #764ba2, #f093fb) border-box; }
+        
+        /* Glow effects */
+        .glow { box-shadow: 0 0 60px rgba(99, 102, 241, 0.3); }
+        .glow-green { box-shadow: 0 0 40px rgba(16, 185, 129, 0.3); }
+        .glow-purple { box-shadow: 0 0 40px rgba(139, 92, 246, 0.3); }
+        .glow-orange { box-shadow: 0 0 40px rgba(249, 115, 22, 0.3); }
+        
         .stat-card { transition: all 0.3s; }
         .stat-card:hover { transform: translateY(-4px); box-shadow: 0 20px 40px rgba(102,126,234,0.2); }
         .content-card { transition: all 0.3s; }
         .content-card:hover { transform: translateY(-2px); }
         .pulse-dot { animation: pulse 2s infinite; }
         @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+        
+        /* Health score circle animation */
+        .health-circle {
+            stroke-dasharray: 283;
+            stroke-dashoffset: 283;
+            transition: stroke-dashoffset 2s ease-out;
+        }
+        
+        /* Slide up animation */
+        .slide-up {
+            animation: slideUp 0.6s ease-out forwards;
+        }
+        @keyframes slideUp {
+            from { transform: translateY(30px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        
+        /* Scale in animation */
+        .scale-in {
+            animation: scaleIn 0.5s ease-out forwards;
+        }
+        @keyframes scaleIn {
+            from { transform: scale(0.8); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
+        
         .blog-content { line-height: 1.8; }
         .blog-content h2 { font-size: 1.5rem; font-weight: 700; margin: 1.5rem 0 1rem; color: #1e293b; }
         .blog-content h3 { font-size: 1.25rem; font-weight: 600; margin: 1.25rem 0 0.75rem; color: #334155; }
@@ -37,6 +76,86 @@
         .social-gbp { border-left: 4px solid #4285f4; }
         .social-facebook { border-left: 4px solid #1877f2; }
         .social-instagram { border-left: 4px solid #e4405f; }
+        
+        /* Win item styles */
+        .win-item {
+            animation: slideIn 0.5s ease-out forwards;
+            opacity: 0;
+        }
+        @keyframes slideIn {
+            from { transform: translateX(-20px); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        
+        /* Progress bar animation */
+        .progress-bar-animated {
+            transition: width 1.5s ease-out;
+        }
+        
+        /* Phone mockup styles */
+        .phone-mockup {
+            background: linear-gradient(145deg, #1e293b, #0f172a);
+            border: 3px solid #334155;
+            border-radius: 36px;
+            padding: 8px;
+        }
+        .phone-screen {
+            background: #000;
+            border-radius: 28px;
+            overflow: hidden;
+        }
+        .phone-notch {
+            width: 80px;
+            height: 20px;
+            background: #000;
+            border-radius: 0 0 12px 12px;
+            margin: 0 auto;
+        }
+        
+        /* Pulse ring animation */
+        .pulse-ring {
+            animation: pulse-ring 2s ease-out infinite;
+        }
+        @keyframes pulse-ring {
+            0% { transform: scale(1); opacity: 1; }
+            100% { transform: scale(1.5); opacity: 0; }
+        }
+        
+        /* Audio waveform */
+        .waveform {
+            display: flex;
+            align-items: center;
+            gap: 3px;
+            height: 30px;
+        }
+        .waveform-bar {
+            width: 3px;
+            background: linear-gradient(to top, #10b981, #34d399);
+            border-radius: 2px;
+            animation: waveform 0.5s ease-in-out infinite alternate;
+        }
+        @keyframes waveform {
+            from { height: 20%; }
+            to { height: 100%; }
+        }
+        
+        /* Float animation */
+        .float {
+            animation: float 3s ease-in-out infinite;
+        }
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+        
+        /* Toast styles */
+        .toast-enter {
+            animation: toastEnter 0.3s ease-out;
+        }
+        @keyframes toastEnter {
+            from { transform: translateY(100%); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
         
         /* Onboarding Tour Styles */
         .tour-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 9998; }
@@ -217,10 +336,13 @@
         <!-- Tabs -->
         <div class="max-w-7xl mx-auto px-4 mb-6">
             <div class="flex gap-2 overflow-x-auto pb-2 scrollbar-thin">
+                <button onclick="showTab('overview')" id="tab-overview" class="tab-active px-3 sm:px-6 py-2 rounded-lg text-xs sm:text-sm font-medium transition whitespace-nowrap">
+                    <i class="fas fa-home sm:mr-2"></i><span class="hidden sm:inline">Overview</span><span class="sm:hidden">Home</span>
+                </button>
                 <button onclick="showTab('generate')" id="tab-generate" class="px-3 sm:px-6 py-2 rounded-lg text-xs sm:text-sm font-medium text-gray-400 hover:text-white transition whitespace-nowrap glass bg-gradient-to-r from-green-600 to-emerald-600 text-white">
                     <i class="fas fa-magic sm:mr-2"></i><span class="hidden sm:inline">Generate Content</span><span class="sm:hidden">Generate</span>
                 </button>
-                <button onclick="showTab('blogs')" id="tab-blogs" class="tab-active px-3 sm:px-6 py-2 rounded-lg text-xs sm:text-sm font-medium transition whitespace-nowrap">
+                <button onclick="showTab('blogs')" id="tab-blogs" class="px-3 sm:px-6 py-2 rounded-lg text-xs sm:text-sm font-medium text-gray-400 hover:text-white transition whitespace-nowrap glass">
                     <i class="fas fa-file-alt sm:mr-2"></i><span class="hidden sm:inline">Blog Posts</span><span class="sm:hidden">Blogs</span>
                 </button>
                 <button onclick="showTab('social')" id="tab-social" class="px-3 sm:px-6 py-2 rounded-lg text-xs sm:text-sm font-medium text-gray-400 hover:text-white transition whitespace-nowrap glass">
@@ -247,11 +369,292 @@
                 <button onclick="showTab('chatbot')" id="tab-chatbot" class="px-3 sm:px-6 py-2 rounded-lg text-xs sm:text-sm font-medium text-gray-400 hover:text-white transition whitespace-nowrap glass">
                     <i class="fas fa-robot sm:mr-2"></i><span class="hidden sm:inline">AI Chatbot</span><span class="sm:hidden">Bot</span>
                 </button>
+                <button onclick="showTab('leads')" id="tab-leads" class="px-3 sm:px-6 py-2 rounded-lg text-xs sm:text-sm font-medium text-gray-400 hover:text-white transition whitespace-nowrap glass">
+                    <i class="fas fa-user-plus sm:mr-2"></i><span class="hidden sm:inline">Leads</span><span class="sm:hidden">Lead</span>
+                </button>
+                <button onclick="showTab('reviews')" id="tab-reviews" class="px-3 sm:px-6 py-2 rounded-lg text-xs sm:text-sm font-medium text-gray-400 hover:text-white transition whitespace-nowrap glass">
+                    <i class="fas fa-star sm:mr-2"></i><span class="hidden sm:inline">Reviews</span><span class="sm:hidden">Rev</span>
+                </button>
+                <button onclick="showTab('calls')" id="tab-calls" class="px-3 sm:px-6 py-2 rounded-lg text-xs sm:text-sm font-medium text-gray-400 hover:text-white transition whitespace-nowrap glass">
+                    <i class="fas fa-phone sm:mr-2"></i><span class="hidden sm:inline">Call Intel</span><span class="sm:hidden">Call</span>
+                </button>
+                <button onclick="showTab('pages')" id="tab-pages" class="px-3 sm:px-6 py-2 rounded-lg text-xs sm:text-sm font-medium text-gray-400 hover:text-white transition whitespace-nowrap glass">
+                    <i class="fas fa-file-code sm:mr-2"></i><span class="hidden sm:inline">Pages</span><span class="sm:hidden">Page</span>
+                </button>
             </div>
         </div>
 
         <!-- Content Panels -->
         <div class="max-w-7xl mx-auto px-4 pb-12">
+            
+            <!-- Overview Panel - Client Home Dashboard -->
+            <div id="panel-overview" class="fade-in">
+                <div class="grid lg:grid-cols-4 gap-6 mb-8">
+                    <!-- Health Score -->
+                    <div class="glass rounded-2xl p-6 text-center glow-green">
+                        <div class="relative w-32 h-32 mx-auto mb-4">
+                            <svg class="w-full h-full transform -rotate-90">
+                                <circle cx="64" cy="64" r="56" stroke="rgba(255,255,255,0.1)" stroke-width="10" fill="none"/>
+                                <circle id="health-circle" cx="64" cy="64" r="56" stroke="#10b981" stroke-width="10" fill="none" class="health-circle" stroke-linecap="round"/>
+                            </svg>
+                            <div class="absolute inset-0 flex items-center justify-center">
+                                <div>
+                                    <div class="text-4xl font-bold text-white" id="health-score-value">--</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="text-emerald-400 font-bold text-lg" id="health-grade">Loading...</div>
+                        <div class="text-sm text-gray-400">Marketing Health Score</div>
+                    </div>
+                    
+                    <!-- Leads This Month -->
+                    <div class="glass rounded-2xl p-6 text-center">
+                        <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-500 to-cyan-600 flex items-center justify-center mx-auto mb-4">
+                            <i class="fas fa-user-plus text-white text-2xl"></i>
+                        </div>
+                        <div class="text-4xl font-bold text-white mb-1" id="overview-leads">--</div>
+                        <div class="text-sm text-gray-400 mb-3">New Leads</div>
+                        <div class="flex items-center justify-center gap-1 text-emerald-400 text-sm" id="leads-change">
+                            <span>--</span>
+                        </div>
+                    </div>
+                    
+                    <!-- Calls This Month -->
+                    <div class="glass rounded-2xl p-6 text-center">
+                        <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-purple-500 to-violet-600 flex items-center justify-center mx-auto mb-4">
+                            <i class="fas fa-phone text-white text-2xl"></i>
+                        </div>
+                        <div class="text-4xl font-bold text-white mb-1" id="overview-calls">--</div>
+                        <div class="text-sm text-gray-400 mb-3">Phone Calls</div>
+                        <div class="w-full bg-slate-700 rounded-full h-2 mb-1">
+                            <div id="answer-rate-bar" class="bg-emerald-500 h-2 rounded-full progress-bar-animated" style="width: 0%"></div>
+                        </div>
+                        <div class="text-xs text-gray-500"><span id="answer-rate">--</span>% answered</div>
+                    </div>
+                    
+                    <!-- Content Created -->
+                    <div class="glass rounded-2xl p-6 text-center">
+                        <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-orange-500 to-red-600 flex items-center justify-center mx-auto mb-4">
+                            <i class="fas fa-file-alt text-white text-2xl"></i>
+                        </div>
+                        <div class="text-4xl font-bold text-white mb-1" id="overview-content">--</div>
+                        <div class="text-sm text-gray-400 mb-3">Content Created</div>
+                        <div class="text-xs text-gray-500">This month</div>
+                    </div>
+                </div>
+                
+                <div class="grid lg:grid-cols-2 gap-6">
+                    <!-- This Week's Wins -->
+                    <div class="glass rounded-2xl p-6 glow-purple">
+                        <div class="flex items-center gap-3 mb-6">
+                            <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center">
+                                <i class="fas fa-trophy text-white text-xl"></i>
+                            </div>
+                            <div>
+                                <h3 class="text-lg font-bold text-white">This Week's Wins</h3>
+                                <p class="text-sm text-gray-400">Your marketing victories</p>
+                            </div>
+                        </div>
+                        <div class="space-y-3" id="wins-list">
+                            <div class="flex items-center gap-3 text-sm win-item" style="animation-delay: 0.1s">
+                                <span class="text-emerald-400">✓</span>
+                                <span class="text-gray-300">Loading wins...</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Pending Approval -->
+                    <div class="glass rounded-2xl p-6 glow">
+                        <div class="flex items-center justify-between mb-6">
+                            <div class="flex items-center gap-3">
+                                <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center">
+                                    <i class="fas fa-clipboard-check text-white text-xl"></i>
+                                </div>
+                                <div>
+                                    <h3 class="text-lg font-bold text-white">Ready for Approval</h3>
+                                    <p class="text-sm text-gray-400">Content awaiting your review</p>
+                                </div>
+                            </div>
+                            <span class="bg-indigo-500 text-white text-xs px-3 py-1 rounded-full font-bold" id="pending-count">0</span>
+                        </div>
+                        <div class="space-y-4" id="pending-list">
+                            <div class="text-gray-500 text-sm">No content pending approval</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Live Call Intelligence + Recent Activity -->
+                <div class="mt-8 grid lg:grid-cols-3 gap-6">
+                    <!-- Phone Mockup - Live Calls -->
+                    <div class="glass rounded-2xl p-6 glow-green">
+                        <div class="flex items-center gap-3 mb-4">
+                            <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center">
+                                <i class="fas fa-phone text-white"></i>
+                            </div>
+                            <div>
+                                <h3 class="text-lg font-bold text-white">Call Intelligence</h3>
+                                <p class="text-xs text-gray-400">AI listens to every call</p>
+                            </div>
+                        </div>
+                        
+                        <!-- Phone Mockup -->
+                        <div class="phone-mockup mx-auto max-w-[200px]">
+                            <div class="phone-screen">
+                                <div class="bg-slate-900 p-3">
+                                    <div class="phone-notch"></div>
+                                    
+                                    <div class="text-center py-4">
+                                        <div class="w-16 h-16 bg-emerald-500/20 rounded-full flex items-center justify-center mx-auto mb-3 relative">
+                                            <span class="text-3xl">👤</span>
+                                            <div class="absolute inset-0 bg-emerald-500/30 rounded-full pulse-ring"></div>
+                                        </div>
+                                        <div class="text-sm font-semibold text-white mb-0.5" id="caller-name">Waiting...</div>
+                                        <div class="text-slate-400 text-xs mb-3" id="caller-location">for next call</div>
+                                        
+                                        <div class="text-emerald-400 text-xl font-mono mb-2" id="call-timer">--:--</div>
+                                        
+                                        <!-- Waveform -->
+                                        <div class="waveform justify-center mb-4" id="waveform">
+                                            <div class="waveform-bar" style="animation-delay: 0s"></div>
+                                            <div class="waveform-bar" style="animation-delay: 0.1s"></div>
+                                            <div class="waveform-bar" style="animation-delay: 0.2s"></div>
+                                            <div class="waveform-bar" style="animation-delay: 0.3s"></div>
+                                            <div class="waveform-bar" style="animation-delay: 0.4s"></div>
+                                            <div class="waveform-bar" style="animation-delay: 0.5s"></div>
+                                            <div class="waveform-bar" style="animation-delay: 0.6s"></div>
+                                            <div class="waveform-bar" style="animation-delay: 0.7s"></div>
+                                        </div>
+                                        
+                                        <div class="flex justify-center gap-3">
+                                            <div class="w-10 h-10 bg-slate-700 rounded-full flex items-center justify-center text-xs">🔇</div>
+                                            <div class="w-10 h-10 bg-emerald-500 rounded-full flex items-center justify-center text-xs" id="call-status-icon">📞</div>
+                                            <div class="w-10 h-10 bg-slate-700 rounded-full flex items-center justify-center text-xs">🔊</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="mt-4 text-center">
+                            <div class="text-xs text-gray-500" id="calls-today">0 calls analyzed today</div>
+                        </div>
+                    </div>
+                    
+                    <!-- Live Transcript / Extracted Keywords -->
+                    <div class="lg:col-span-2 glass rounded-2xl p-6">
+                        <div class="flex items-center justify-between mb-4">
+                            <div class="flex items-center gap-3">
+                                <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 to-pink-600 flex items-center justify-center">
+                                    <i class="fas fa-brain text-white"></i>
+                                </div>
+                                <div>
+                                    <h3 class="text-lg font-bold text-white">AI Extracted Insights</h3>
+                                    <p class="text-xs text-gray-400">From recent customer interactions</p>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <span class="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span>
+                                <span class="text-xs text-gray-400">Live</span>
+                            </div>
+                        </div>
+                        
+                        <div class="grid md:grid-cols-2 gap-4">
+                            <!-- Questions Extracted -->
+                            <div class="bg-slate-900/50 rounded-xl p-4">
+                                <div class="flex items-center gap-2 mb-3">
+                                    <span class="text-blue-400">❓</span>
+                                    <span class="text-sm font-medium text-white">Top Questions Asked</span>
+                                </div>
+                                <div class="space-y-2" id="extracted-questions">
+                                    <div class="bg-slate-800/50 rounded-lg p-2 text-xs text-gray-300">Loading...</div>
+                                </div>
+                            </div>
+                            
+                            <!-- Keywords Identified -->
+                            <div class="bg-slate-900/50 rounded-xl p-4">
+                                <div class="flex items-center gap-2 mb-3">
+                                    <span class="text-purple-400">🔑</span>
+                                    <span class="text-sm font-medium text-white">Keywords Identified</span>
+                                </div>
+                                <div class="flex flex-wrap gap-2" id="extracted-keywords">
+                                    <span class="bg-purple-500/20 text-purple-300 px-2 py-1 rounded-full text-xs">Loading...</span>
+                                </div>
+                            </div>
+                            
+                            <!-- Pain Points -->
+                            <div class="bg-slate-900/50 rounded-xl p-4">
+                                <div class="flex items-center gap-2 mb-3">
+                                    <span class="text-orange-400">⚠️</span>
+                                    <span class="text-sm font-medium text-white">Pain Points</span>
+                                </div>
+                                <div class="space-y-2" id="extracted-pain">
+                                    <div class="text-xs text-orange-300">Loading...</div>
+                                </div>
+                            </div>
+                            
+                            <!-- Content Opportunities -->
+                            <div class="bg-slate-900/50 rounded-xl p-4">
+                                <div class="flex items-center gap-2 mb-3">
+                                    <span class="text-emerald-400">💡</span>
+                                    <span class="text-sm font-medium text-white">Content Opportunities</span>
+                                </div>
+                                <div class="space-y-2" id="content-opportunities">
+                                    <div class="text-xs text-emerald-300">Loading...</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Quick Actions -->
+                <div class="mt-8 grid md:grid-cols-4 gap-4">
+                    <button onclick="showTab('generate')" class="glass rounded-xl p-4 text-left hover:bg-white/5 transition group">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-lg bg-green-500/20 flex items-center justify-center group-hover:scale-110 transition">
+                                <i class="fas fa-magic text-green-400"></i>
+                            </div>
+                            <div>
+                                <div class="text-white font-medium">Generate Content</div>
+                                <div class="text-xs text-gray-500">Create blogs & social</div>
+                            </div>
+                        </div>
+                    </button>
+                    <button onclick="showTab('rankings')" class="glass rounded-xl p-4 text-left hover:bg-white/5 transition group">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-lg bg-yellow-500/20 flex items-center justify-center group-hover:scale-110 transition">
+                                <i class="fas fa-trophy text-yellow-400"></i>
+                            </div>
+                            <div>
+                                <div class="text-white font-medium">Check Rankings</div>
+                                <div class="text-xs text-gray-500">See keyword positions</div>
+                            </div>
+                        </div>
+                    </button>
+                    <button onclick="showTab('reports')" class="glass rounded-xl p-4 text-left hover:bg-white/5 transition group">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-lg bg-purple-500/20 flex items-center justify-center group-hover:scale-110 transition">
+                                <i class="fas fa-chart-bar text-purple-400"></i>
+                            </div>
+                            <div>
+                                <div class="text-white font-medium">View Reports</div>
+                                <div class="text-xs text-gray-500">Analytics & insights</div>
+                            </div>
+                        </div>
+                    </button>
+                    <button onclick="showTab('competitors')" class="glass rounded-xl p-4 text-left hover:bg-white/5 transition group">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-lg bg-red-500/20 flex items-center justify-center group-hover:scale-110 transition">
+                                <i class="fas fa-users text-red-400"></i>
+                            </div>
+                            <div>
+                                <div class="text-white font-medium">Spy on Competitors</div>
+                                <div class="text-xs text-gray-500">See what they're doing</div>
+                            </div>
+                        </div>
+                    </button>
+                </div>
+            </div>
+            
             <!-- Generate Panel -->
             <div id="panel-generate" class="hidden fade-in">
                 <div class="grid md:grid-cols-2 gap-6">
@@ -1528,6 +1931,94 @@
                     </div>
                 </div>
             </div>
+            
+            <!-- Leads Panel -->
+            <div id="panel-leads" class="hidden fade-in">
+                <div class="glass rounded-2xl p-6">
+                    <div class="flex items-center gap-3 mb-6">
+                        <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-600 flex items-center justify-center">
+                            <i class="fas fa-user-plus text-white text-xl"></i>
+                        </div>
+                        <div>
+                            <h3 class="text-lg font-bold text-white">Lead Management</h3>
+                            <p class="text-sm text-gray-400">Track and manage your leads</p>
+                        </div>
+                    </div>
+                    <div id="leadsList" class="space-y-4">
+                        <div class="text-center py-12 text-gray-500">
+                            <i class="fas fa-user-plus text-4xl mb-4 opacity-50"></i>
+                            <p>No leads captured yet</p>
+                            <p class="text-sm mt-2">Leads from calls, forms, and chatbot will appear here</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Reviews Panel -->
+            <div id="panel-reviews" class="hidden fade-in">
+                <div class="glass rounded-2xl p-6">
+                    <div class="flex items-center gap-3 mb-6">
+                        <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-yellow-500 to-orange-600 flex items-center justify-center">
+                            <i class="fas fa-star text-white text-xl"></i>
+                        </div>
+                        <div>
+                            <h3 class="text-lg font-bold text-white">Review Management</h3>
+                            <p class="text-sm text-gray-400">Monitor and respond to reviews</p>
+                        </div>
+                    </div>
+                    <div id="reviewsList" class="space-y-4">
+                        <div class="text-center py-12 text-gray-500">
+                            <i class="fas fa-star text-4xl mb-4 opacity-50"></i>
+                            <p>No reviews synced yet</p>
+                            <p class="text-sm mt-2">Connect your Google Business Profile to see reviews</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Calls Panel -->
+            <div id="panel-calls" class="hidden fade-in">
+                <div class="glass rounded-2xl p-6">
+                    <div class="flex items-center gap-3 mb-6">
+                        <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center">
+                            <i class="fas fa-phone text-white text-xl"></i>
+                        </div>
+                        <div>
+                            <h3 class="text-lg font-bold text-white">Call Intelligence</h3>
+                            <p class="text-sm text-gray-400">AI-analyzed call transcripts and insights</p>
+                        </div>
+                    </div>
+                    <div id="callsList" class="space-y-4">
+                        <div class="text-center py-12 text-gray-500">
+                            <i class="fas fa-phone text-4xl mb-4 opacity-50"></i>
+                            <p>No calls analyzed yet</p>
+                            <p class="text-sm mt-2">Connect CallRail to start analyzing customer calls</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Pages Panel -->
+            <div id="panel-pages" class="hidden fade-in">
+                <div class="glass rounded-2xl p-6">
+                    <div class="flex items-center gap-3 mb-6">
+                        <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500 to-pink-600 flex items-center justify-center">
+                            <i class="fas fa-file-code text-white text-xl"></i>
+                        </div>
+                        <div>
+                            <h3 class="text-lg font-bold text-white">Website Pages</h3>
+                            <p class="text-sm text-gray-400">Manage service pages and landing pages</p>
+                        </div>
+                    </div>
+                    <div id="pagesList" class="space-y-4">
+                        <div class="text-center py-12 text-gray-500">
+                            <i class="fas fa-file-code text-4xl mb-4 opacity-50"></i>
+                            <p>No pages created yet</p>
+                            <p class="text-sm mt-2">Generate service pages from the Generate tab</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -2178,8 +2669,8 @@
                     headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
                 });
                 if (blogsRes.ok) {
-                    const blogsData = await blogsRes.json();
-                    allBlogs = blogsData.content || blogsData.blogs || [];
+                    const blogsJson = await blogsRes.json();
+                    allBlogs = blogsJson.content || blogsJson.blogs || [];
                 } else {
                     allBlogs = [];
                 }
@@ -2200,6 +2691,9 @@
                 renderBlogs();
                 renderSocial();
                 renderSEO();
+                
+                // Load overview data
+                loadOverviewData();
 
             } catch (e) {
                 console.error('Failed to load client:', e);
@@ -2442,17 +2936,33 @@
         // TABS
         // ==========================================
         function showTab(tab) {
-            ['generate', 'blogs', 'social', 'seo', 'calendar', 'reports', 'rankings', 'competitors', 'settings', 'chatbot'].forEach(t => {
-                document.getElementById(`panel-${t}`).classList.add('hidden');
-                document.getElementById(`tab-${t}`).classList.remove('tab-active');
-                if (t !== 'generate') {
-                    document.getElementById(`tab-${t}`).classList.add('glass', 'text-gray-400');
+            const allTabs = ['overview', 'generate', 'blogs', 'social', 'seo', 'calendar', 'reports', 'rankings', 'competitors', 'settings', 'chatbot', 'leads', 'reviews', 'calls', 'pages'];
+            
+            allTabs.forEach(t => {
+                const panel = document.getElementById(`panel-${t}`);
+                const tabBtn = document.getElementById(`tab-${t}`);
+                if (panel) panel.classList.add('hidden');
+                if (tabBtn) {
+                    tabBtn.classList.remove('tab-active');
+                    if (t !== 'generate') {
+                        tabBtn.classList.add('glass', 'text-gray-400');
+                    }
                 }
             });
-            document.getElementById(`panel-${tab}`).classList.remove('hidden');
-            document.getElementById(`tab-${tab}`).classList.add('tab-active');
-            if (tab !== 'generate') {
-                document.getElementById(`tab-${tab}`).classList.remove('glass', 'text-gray-400');
+            
+            const activePanel = document.getElementById(`panel-${tab}`);
+            const activeTab = document.getElementById(`tab-${tab}`);
+            if (activePanel) activePanel.classList.remove('hidden');
+            if (activeTab) {
+                activeTab.classList.add('tab-active');
+                if (tab !== 'generate') {
+                    activeTab.classList.remove('glass', 'text-gray-400');
+                }
+            }
+            
+            // Load overview data when overview tab is shown
+            if (tab === 'overview') {
+                loadOverviewData();
             }
             
             // Populate keyword dropdown when generate tab is shown
@@ -2492,6 +3002,582 @@
                 loadNotificationHistory();
                 setTimeout(updateDigestPreview, 100);
             }
+        }
+        
+        // ==========================================
+        // OVERVIEW DASHBOARD
+        // ==========================================
+        
+        async function loadOverviewData() {
+            if (!currentClient) return;
+            
+            try {
+                // Load health score
+                loadHealthScore();
+                
+                // Load leads and calls stats
+                loadOverviewStats();
+                
+                // Load this week's wins
+                loadWins();
+                
+                // Load pending approvals
+                loadPendingApprovals();
+                
+                // Load call intelligence
+                loadCallIntelligence();
+                
+            } catch (error) {
+                console.error('Error loading overview:', error);
+            }
+        }
+        
+        async function loadHealthScore() {
+            try {
+                const response = await fetch(`${API_URL}/api/clients/${currentClient.id}/health`, {
+                    headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
+                });
+                
+                let score = 0;
+                if (response.ok) {
+                    const data = await response.json();
+                    score = data.score || data.health_score || 0;
+                } else {
+                    // Calculate fallback score from available data
+                    score = calculateFallbackHealthScore();
+                }
+                
+                // Animate the health score circle
+                const circle = document.getElementById('health-circle');
+                if (circle) {
+                    const circumference = 2 * Math.PI * 56; // r=56
+                    const offset = circumference - (score / 100) * circumference;
+                    
+                    setTimeout(() => {
+                        circle.style.strokeDashoffset = offset;
+                    }, 100);
+                }
+                
+                // Animate the number
+                animateNumber('health-score-value', 0, score, 2000);
+                
+                // Set grade
+                const gradeEl = document.getElementById('health-grade');
+                if (gradeEl) {
+                    if (score >= 90) {
+                        gradeEl.textContent = 'A+ Excellent!';
+                        gradeEl.className = 'text-emerald-400 font-bold text-lg';
+                    } else if (score >= 80) {
+                        gradeEl.textContent = 'A Grade';
+                        gradeEl.className = 'text-emerald-400 font-bold text-lg';
+                    } else if (score >= 70) {
+                        gradeEl.textContent = 'B Grade';
+                        gradeEl.className = 'text-blue-400 font-bold text-lg';
+                    } else if (score >= 60) {
+                        gradeEl.textContent = 'C Grade';
+                        gradeEl.className = 'text-yellow-400 font-bold text-lg';
+                    } else {
+                        gradeEl.textContent = 'Needs Work';
+                        gradeEl.className = 'text-orange-400 font-bold text-lg';
+                    }
+                }
+            } catch (error) {
+                console.error('Error loading health score:', error);
+                // Show fallback score
+                const fallbackScore = calculateFallbackHealthScore();
+                animateNumber('health-score-value', 0, fallbackScore, 2000);
+                const gradeEl = document.getElementById('health-grade');
+                if (gradeEl) {
+                    gradeEl.textContent = fallbackScore >= 70 ? 'Good' : 'Getting Started';
+                    gradeEl.className = 'text-blue-400 font-bold text-lg';
+                }
+            }
+        }
+        
+        function calculateFallbackHealthScore() {
+            // Calculate a basic score from available data
+            let score = 50; // Base score
+            
+            // Add points for content
+            const publishedBlogs = allBlogs.filter(b => b.status === 'published').length;
+            score += Math.min(publishedBlogs * 5, 25); // Up to 25 points
+            
+            // Add points for having keywords
+            const keywordCount = (currentClient?.primary_keywords?.length || 0) + (currentClient?.secondary_keywords?.length || 0);
+            score += Math.min(keywordCount * 2, 15); // Up to 15 points
+            
+            // Add points for social posts
+            const socialCount = allSocial?.length || 0;
+            score += Math.min(socialCount * 2, 10); // Up to 10 points
+            
+            return Math.min(score, 100);
+        }
+        
+        async function loadOverviewStats() {
+            // Default values
+            let leads = 0;
+            let calls = 0;
+            let answerRate = 0;
+            let contentCount = 0;
+            let leadsChangeVal = 0;
+            
+            try {
+                // Try to get analytics overview
+                const response = await fetch(`${API_URL}/api/analytics/overview/${currentClient.id}`, {
+                    headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    leads = data.leads || data.new_leads || 0;
+                    calls = data.calls || data.phone_calls || 0;
+                    answerRate = data.answer_rate || 0;
+                    contentCount = data.content_count || data.blogs_published || 0;
+                    leadsChangeVal = data.leads_change || data.lead_growth || 0;
+                }
+            } catch (error) {
+                console.error('Error loading overview stats:', error);
+            }
+            
+            // Use fallbacks from local data if API didn't return values
+            if (contentCount === 0) {
+                contentCount = allBlogs?.filter(b => b.status === 'published').length || 0;
+            }
+            
+            // Animate all stats with either API data or fallbacks
+            animateNumber('overview-leads', 0, leads, 1500);
+            animateNumber('overview-calls', 0, calls, 1500);
+            animateNumber('overview-content', 0, contentCount, 1500);
+            
+            // Show leads change
+            const leadsChange = document.getElementById('leads-change');
+            if (leadsChange) {
+                if (leadsChangeVal > 0) {
+                    leadsChange.innerHTML = `<span class="text-emerald-400">↑ ${leadsChangeVal}%</span> vs last month`;
+                } else if (leadsChangeVal < 0) {
+                    leadsChange.innerHTML = `<span class="text-red-400">↓ ${Math.abs(leadsChangeVal)}%</span> vs last month`;
+                } else {
+                    leadsChange.innerHTML = `<span class="text-gray-400">This month</span>`;
+                }
+            }
+            
+            // Animate answer rate bar
+            const answerRateBar = document.getElementById('answer-rate-bar');
+            const answerRateText = document.getElementById('answer-rate');
+            if (answerRateBar && answerRateText) {
+                setTimeout(() => {
+                    answerRateBar.style.width = (answerRate || 0) + '%';
+                    answerRateText.textContent = answerRate || '--';
+                }, 500);
+            }
+        }
+        
+        async function loadWins() {
+            const winsList = document.getElementById('wins-list');
+            if (!winsList) return;
+            
+            let wins = [];
+            
+            try {
+                // Try to get activity feed for wins
+                const response = await fetch(`${API_URL}/api/clients/${currentClient.id}/activity?limit=5`, {
+                    headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    wins = (data.activities || data.items || []).slice(0, 5);
+                }
+            } catch (error) {
+                console.error('Error loading wins:', error);
+            }
+            
+            // If no activities from API, create wins from available data
+            if (wins.length === 0) {
+                const published = allBlogs?.filter(b => b.status === 'published').length || 0;
+                const scheduled = allBlogs?.filter(b => b.status === 'scheduled').length || 0;
+                const socialCount = allSocial?.length || 0;
+                const keywordCount = (currentClient?.primary_keywords?.length || 0) + (currentClient?.secondary_keywords?.length || 0);
+                
+                if (published > 0) {
+                    wins.push({ message: `${published} blog post${published > 1 ? 's' : ''} published` });
+                }
+                if (scheduled > 0) {
+                    wins.push({ message: `${scheduled} post${scheduled > 1 ? 's' : ''} scheduled for publishing` });
+                }
+                if (socialCount > 0) {
+                    wins.push({ message: `${socialCount} social post${socialCount > 1 ? 's' : ''} created` });
+                }
+                if (keywordCount > 0) {
+                    wins.push({ message: `Tracking ${keywordCount} keyword${keywordCount > 1 ? 's' : ''}` });
+                }
+                if (currentClient?.competitors?.length > 0) {
+                    wins.push({ message: `Monitoring ${currentClient.competitors.length} competitor${currentClient.competitors.length > 1 ? 's' : ''}` });
+                }
+            }
+            
+            // Render wins
+            if (wins.length > 0) {
+                winsList.innerHTML = wins.map((win, i) => `
+                    <div class="flex items-center gap-3 text-sm win-item" style="animation-delay: ${i * 0.1}s">
+                        <span class="text-emerald-400">✓</span>
+                        <span class="text-gray-300">${win.message || win.description || win.title}</span>
+                    </div>
+                `).join('');
+            } else {
+                winsList.innerHTML = `
+                    <div class="flex items-center gap-3 text-sm text-gray-500">
+                        <span>💡</span>
+                        <span>Generate your first blog post to see wins here!</span>
+                    </div>
+                `;
+            }
+        }
+        
+        async function loadPendingApprovals() {
+            const pendingList = document.getElementById('pending-list');
+            const pendingCount = document.getElementById('pending-count');
+            
+            if (!pendingList || !pendingCount) return;
+            
+            try {
+                // Get blogs that need approval (draft status)
+                const pending = allBlogs?.filter(b => b.status === 'draft' || b.status === 'pending') || [];
+                
+                pendingCount.textContent = pending.length;
+                
+                if (pending.length > 0) {
+                    pendingList.innerHTML = pending.slice(0, 3).map(blog => `
+                        <div class="bg-slate-900/50 rounded-xl p-4 border border-slate-700/50">
+                            <div class="font-medium text-white mb-1">${blog.title || blog.keyword || 'Untitled'}</div>
+                            <div class="text-sm text-gray-400 mb-3">${blog.word_count || '~1,500'} words • SEO Score: ${blog.seo_score || '--'}</div>
+                            <div class="flex gap-2">
+                                <button onclick="quickApprove('${blog.id}')" class="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white py-2 rounded-lg font-medium transition text-sm">
+                                    ✓ Approve
+                                </button>
+                                <button onclick="viewBlog('${blog.id}')" class="px-4 bg-slate-700 hover:bg-slate-600 text-white py-2 rounded-lg font-medium transition text-sm">
+                                    View
+                                </button>
+                            </div>
+                        </div>
+                    `).join('');
+                } else {
+                    pendingList.innerHTML = `
+                        <div class="text-center py-4">
+                            <div class="text-emerald-400 text-2xl mb-2">✓</div>
+                            <div class="text-gray-400 text-sm">All caught up! No content pending approval.</div>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                console.error('Error loading pending approvals:', error);
+                pendingList.innerHTML = `
+                    <div class="text-center py-4 text-gray-500 text-sm">
+                        Unable to load pending approvals
+                    </div>
+                `;
+            }
+        }
+        
+        async function quickApprove(blogId) {
+            try {
+                const response = await fetch(`${API_URL}/api/content/blog/${blogId}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Authorization': `Bearer ${AUTH_TOKEN}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ status: 'approved' })
+                });
+                
+                if (response.ok) {
+                    // Refresh the overview
+                    loadOverviewData();
+                    loadBlogs();
+                    showToast('Content approved!', 'success');
+                }
+            } catch (error) {
+                console.error('Error approving blog:', error);
+                showToast('Error approving content', 'error');
+            }
+        }
+        
+        function viewBlog(blogId) {
+            // Switch to blogs tab and highlight the blog
+            showTab('blogs');
+            setTimeout(() => {
+                const blogCard = document.querySelector(`[data-blog-id="${blogId}"]`);
+                if (blogCard) {
+                    blogCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    blogCard.classList.add('ring-2', 'ring-purple-500');
+                    setTimeout(() => blogCard.classList.remove('ring-2', 'ring-purple-500'), 3000);
+                }
+            }, 100);
+        }
+        
+        // Toast notification system
+        function showToast(message, type = 'info') {
+            const toast = document.createElement('div');
+            const colors = {
+                success: 'bg-emerald-500',
+                error: 'bg-red-500',
+                info: 'bg-blue-500',
+                warning: 'bg-yellow-500'
+            };
+            toast.className = `fixed bottom-4 right-4 ${colors[type]} text-white px-6 py-3 rounded-xl shadow-lg z-50 slide-up`;
+            toast.innerHTML = `
+                <div class="flex items-center gap-3">
+                    <span>${type === 'success' ? '✓' : type === 'error' ? '✕' : 'ℹ'}</span>
+                    <span>${message}</span>
+                </div>
+            `;
+            document.body.appendChild(toast);
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateY(20px)';
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+        
+        // ==========================================
+        // CALL INTELLIGENCE
+        // ==========================================
+        
+        let callSimulationInterval = null;
+        
+        async function loadCallIntelligence() {
+            try {
+                // Try to load real call data
+                const response = await fetch(`${API_URL}/api/intelligence/calls/${currentClient.id}?limit=10`, {
+                    headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    const calls = data.calls || data.interactions || [];
+                    
+                    // Update calls today count
+                    document.getElementById('calls-today').textContent = `${calls.length} calls analyzed today`;
+                    
+                    // If there are recent calls, show the latest one
+                    if (calls.length > 0) {
+                        const latestCall = calls[0];
+                        updatePhoneMockup(latestCall);
+                        updateExtractedInsights(calls);
+                    } else {
+                        // Show demo data
+                        loadDemoCallData();
+                    }
+                } else {
+                    // Show demo data if API fails
+                    loadDemoCallData();
+                }
+            } catch (error) {
+                console.error('Error loading call intelligence:', error);
+                loadDemoCallData();
+            }
+        }
+        
+        function loadDemoCallData() {
+            // Demo data for visualization
+            const demoQuestions = [
+                "How much does AC repair cost?",
+                "Do you offer emergency service?",
+                "What brands do you service?",
+                "How long until you can come out?"
+            ];
+            
+            const demoKeywords = [
+                "AC repair", "emergency", "same day", 
+                "cost estimate", "warranty", "maintenance"
+            ];
+            
+            const demoPainPoints = [
+                "AC stopped working suddenly",
+                "High energy bills",
+                "Uneven cooling in rooms"
+            ];
+            
+            const demoOpportunities = [
+                "Create blog: 'Emergency AC Repair Guide'",
+                "FAQ: 'AC repair cost breakdown'",
+                "Service page: 'Same-day AC service'"
+            ];
+            
+            // Update UI with demo data
+            updateExtractedUI(demoQuestions, demoKeywords, demoPainPoints, demoOpportunities);
+            
+            // Start phone simulation
+            simulateIncomingCall();
+        }
+        
+        function updatePhoneMockup(call) {
+            const callerName = document.getElementById('caller-name');
+            const callerLocation = document.getElementById('caller-location');
+            const callTimer = document.getElementById('call-timer');
+            const callStatus = document.getElementById('call-status-icon');
+            
+            if (!callerName || !callerLocation || !callTimer || !callStatus) return;
+            
+            if (call) {
+                callerName.textContent = call.caller_name || 'Customer';
+                callerLocation.textContent = call.caller_location || currentClient?.geo || 'Local';
+                
+                // Format duration
+                const duration = call.duration || 0;
+                const mins = Math.floor(duration / 60);
+                const secs = duration % 60;
+                callTimer.textContent = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+                
+                callStatus.textContent = '✓';
+                callStatus.classList.remove('bg-emerald-500');
+                callStatus.classList.add('bg-slate-600');
+            }
+        }
+        
+        function updateExtractedInsights(calls) {
+            // Aggregate insights from all calls
+            let allQuestions = [];
+            let allKeywords = [];
+            let allPainPoints = [];
+            let allOpportunities = [];
+            
+            calls.forEach(call => {
+                if (call.questions) allQuestions = allQuestions.concat(call.questions);
+                if (call.keywords) allKeywords = allKeywords.concat(call.keywords);
+                if (call.pain_points) allPainPoints = allPainPoints.concat(call.pain_points);
+                if (call.opportunities) allOpportunities = allOpportunities.concat(call.opportunities);
+            });
+            
+            // Dedupe and limit
+            allQuestions = [...new Set(allQuestions)].slice(0, 4);
+            allKeywords = [...new Set(allKeywords)].slice(0, 8);
+            allPainPoints = [...new Set(allPainPoints)].slice(0, 3);
+            allOpportunities = [...new Set(allOpportunities)].slice(0, 3);
+            
+            updateExtractedUI(allQuestions, allKeywords, allPainPoints, allOpportunities);
+        }
+        
+        function updateExtractedUI(questions, keywords, painPoints, opportunities) {
+            // Update questions
+            const questionsEl = document.getElementById('extracted-questions');
+            if (questionsEl && questions.length > 0) {
+                questionsEl.innerHTML = questions.map((q, i) => `
+                    <div class="bg-slate-800/50 rounded-lg p-2 text-xs text-gray-300 fade-in" style="animation-delay: ${i * 0.1}s">
+                        ${q}
+                    </div>
+                `).join('');
+            }
+            
+            // Update keywords
+            const keywordsEl = document.getElementById('extracted-keywords');
+            if (keywordsEl && keywords.length > 0) {
+                keywordsEl.innerHTML = keywords.map((k, i) => `
+                    <span class="bg-purple-500/20 text-purple-300 px-2 py-1 rounded-full text-xs fade-in" style="animation-delay: ${i * 0.1}s">
+                        ${k}
+                    </span>
+                `).join('');
+            }
+            
+            // Update pain points
+            const painEl = document.getElementById('extracted-pain');
+            if (painEl && painPoints.length > 0) {
+                painEl.innerHTML = painPoints.map((p, i) => `
+                    <div class="text-xs text-orange-300 fade-in" style="animation-delay: ${i * 0.15}s">
+                        ⚠️ ${p}
+                    </div>
+                `).join('');
+            }
+            
+            // Update opportunities
+            const opportunitiesEl = document.getElementById('content-opportunities');
+            if (opportunitiesEl && opportunities.length > 0) {
+                opportunitiesEl.innerHTML = opportunities.map((o, i) => `
+                    <div class="text-xs text-emerald-300 fade-in cursor-pointer hover:text-emerald-200" style="animation-delay: ${i * 0.15}s">
+                        💡 ${o}
+                    </div>
+                `).join('');
+            }
+        }
+        
+        function simulateIncomingCall() {
+            const names = ['Sarah M.', 'John D.', 'Mike R.', 'Lisa K.', 'Tom B.'];
+            const locations = ['Port Charlotte, FL', 'Sarasota, FL', 'Venice, FL', 'Bradenton, FL', 'Punta Gorda, FL'];
+            
+            const callerName = document.getElementById('caller-name');
+            const callerLocation = document.getElementById('caller-location');
+            const callTimer = document.getElementById('call-timer');
+            const callStatus = document.getElementById('call-status-icon');
+            const callsToday = document.getElementById('calls-today');
+            
+            // Check if elements exist
+            if (!callerName || !callerLocation || !callTimer || !callStatus || !callsToday) {
+                return;
+            }
+            
+            // Pick random caller
+            const randomName = names[Math.floor(Math.random() * names.length)];
+            const randomLocation = locations[Math.floor(Math.random() * locations.length)];
+            
+            callerName.textContent = randomName;
+            callerLocation.textContent = randomLocation;
+            callStatus.textContent = '📞';
+            callStatus.classList.remove('bg-slate-600');
+            callStatus.classList.add('bg-emerald-500');
+            
+            // Start timer
+            let seconds = 0;
+            if (callSimulationInterval) clearInterval(callSimulationInterval);
+            
+            callSimulationInterval = setInterval(() => {
+                seconds++;
+                const mins = Math.floor(seconds / 60);
+                const secs = seconds % 60;
+                if (callTimer) {
+                    callTimer.textContent = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+                }
+                
+                // End call after random duration (30-180 seconds)
+                if (seconds >= 30 + Math.floor(Math.random() * 150)) {
+                    clearInterval(callSimulationInterval);
+                    if (callStatus) {
+                        callStatus.textContent = '✓';
+                        callStatus.classList.remove('bg-emerald-500');
+                        callStatus.classList.add('bg-slate-600');
+                    }
+                    
+                    // Update calls today
+                    if (callsToday) {
+                        const current = parseInt(callsToday.textContent) || 0;
+                        callsToday.textContent = `${current + 1} calls analyzed today`;
+                    }
+                    
+                    // Simulate next call after delay
+                    setTimeout(simulateIncomingCall, 10000 + Math.random() * 20000);
+                }
+            }, 1000);
+        }
+        
+        function animateNumber(elementId, start, end, duration) {
+            const el = document.getElementById(elementId);
+            if (!el) return;
+            
+            const range = end - start;
+            const startTime = performance.now();
+            
+            function update(currentTime) {
+                const elapsed = currentTime - startTime;
+                const progress = Math.min(elapsed / duration, 1);
+                const easeOut = 1 - Math.pow(1 - progress, 3);
+                const current = Math.floor(start + range * easeOut);
+                el.textContent = current;
+                
+                if (progress < 1) {
+                    requestAnimationFrame(update);
+                }
+            }
+            
+            requestAnimationFrame(update);
         }
         
         // ==========================================
@@ -3247,7 +4333,7 @@
                     : '';
                 
                 return `
-                <div class="content-card glass rounded-xl p-6 ${isSelected ? 'ring-2 ring-purple-500' : ''}">
+                <div class="content-card glass rounded-xl p-6 ${isSelected ? 'ring-2 ring-purple-500' : ''}" data-blog-id="${blog.id}">
                     <div class="flex items-start gap-4">
                         ${checkbox}
                         ${featuredImage}

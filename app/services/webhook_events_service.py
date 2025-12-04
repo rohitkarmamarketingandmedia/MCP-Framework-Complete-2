@@ -1,8 +1,6 @@
 """
 MCP Framework - Webhook Events Service
-Fires webhooks to external systems (N8N, Zapier, etc.) when events occur
-
-This is the BRIDGE between MCP (the brain) and N8N (the hands)
+Fires webhooks to external systems when events occur
 
 Events fired:
 - content.approved      → Blog/content approved, ready to publish

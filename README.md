@@ -1,4 +1,4 @@
-# MCP Framework v5.5.1
+# MCP Framework v5.5.13
 
 **Marketing Control Platform** - AI-powered SEO content automation engine by Karma Marketing + Media.
 
@@ -8,7 +8,7 @@
 |-------|-----|
 | **`QUICKSTART.md`** | Deploy in 10 minutes (one page) |
 | `DEPLOY_ROHIT.md` | Detailed step-by-step guide |
-| `N8N_SETUP.md` | Add automation workflows |
+| `WEBHOOKS.md` | Direct webhook integrations |
 
 ## Overview
 
@@ -282,5 +282,5 @@ Proprietary - Karma Marketing + Media
 
 - **Quick Start:** `QUICKSTART.md` (10 min deploy)
 - Deployment Guide: `DEPLOY_ROHIT.md`
-- N8N Automation: `N8N_SETUP.md`
+- Webhook Integrations: `WEBHOOKS.md`
 - Production Docs: `PRODUCTION.md`

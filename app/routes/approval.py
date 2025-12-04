@@ -162,7 +162,7 @@ def approve_content(current_user, content_type, content_id):
     except Exception as e:
         logger.warning(f"Failed to send approval notification: {e}")
     
-    # Fire webhook for N8N/external systems
+    # Fire webhook for external systems
     try:
         from app.services.webhook_events_service import get_webhook_events_service
         webhook_service = get_webhook_events_service()

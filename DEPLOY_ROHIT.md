@@ -1,4 +1,4 @@
-# 🚀 ROHIT DEPLOY GUIDE - MCP Framework v5.5.1
+# 🚀 ROHIT DEPLOY GUIDE - MCP Framework v5.5.16
 
 ## 👉 WANT THE SHORT VERSION?
 **See `QUICKSTART.md` - Deploy in 10 minutes, one page.**
@@ -10,7 +10,12 @@ This is the detailed step-by-step guide. Follow it exactly.
 
 ---
 
-## WHAT'S NEW IN v5.5.0
+## WHAT'S IN v5.5.16
+
+### 🏗️ Clean Architecture
+- **No middleware required** - MCP handles everything directly
+- **Direct webhook integration** - CallRail, forms, chatbot → MCP API
+- **Built-in automation** - No external tools needed
 
 ### 🎯 Client Value Experience
 - **Health Score Report Card** - 100-point score clients understand
@@ -19,25 +24,37 @@ This is the detailed step-by-step guide. Follow it exactly.
 - **Activity Feed** - Show clients we're working for them
 - **Wins Celebration** - Highlight successes in portal
 
-### 🧠 Customer Intelligence Engine (NEW!)
+### 🧠 Customer Intelligence Engine
 - **Analyze Interactions** - Extract questions from calls, chats, forms
 - **Auto-Generate Content** - FAQ pages, blogs from real customer questions
 - **Content Calendar** - Based on actual customer demand
 - **Voice of Customer** - Use THEIR words for SEO
 
-### 🔌 N8N/Webhook Integration (NEW!)
-- **Event System** - MCP fires webhooks when things happen
-- **Pre-Built Workflows** - Import JSON files into N8N
-- **Inbound Webhooks** - Receive CallRail, form submissions
-- **WordPress Publishing** - Via N8N for reliability
+### 📊 SEO & Analytics
+- **SEO Scoring Engine** - Every blog gets a quality score
+- **Keyword Research** - Comprehensive gap analysis
+- **GA4 Integration** - Traffic metrics in dashboard
+- **Competitor Monitoring** - Track what competitors publish
 
-### Previous Features (v5.4)
-- Unified Header - Consistent navigation
-- Approval Workflow - Client content approval
-- OAuth Integration - Facebook, Instagram, LinkedIn, GBP
-- AI Image Generation - DALL-E, Stability AI, Replicate
-- Email Notifications - 14 types with digest modes
-- **319 API Routes** - Full REST API coverage
+### 🔌 Direct Integrations (No Middleware!)
+- **CallRail Webhooks** - Direct to MCP, no middleware needed
+- **WordPress Publishing** - Direct API calls
+- **Social Auto-Posting** - OAuth for FB, LinkedIn, GBP
+- **Review Management** - Auto-generate responses
+
+### ⚙️ Built-in Automation
+MCP runs 10 scheduled jobs automatically:
+- Auto-publish every 5 minutes
+- Competitor crawl daily at 3 AM
+- Rank check daily at 5 AM
+- Review response generation every 2 hours
+- Hourly alert digest
+- Content due notifications at 7 AM
+- Daily summary at 8 AM
+- Daily/weekly notification digests
+- Client reports Mon/Thu at 9 AM
+
+**No external automation tools needed!**
 
 ---
 
@@ -63,7 +80,7 @@ If you see errors, fix them first.
 ```bash
 cd mcp-framework
 git add .
-git commit -m "Deploy v5.5.1"
+git commit -m "Deploy v5.5.16"
 git push origin main
 ```
 
@@ -117,11 +134,11 @@ Render will show you a list of env vars. Set these:
 | `CALLRAIL_API_KEY` | From CallRail Settings > API > API V3 |
 | `CALLRAIL_ACCOUNT_ID` | Your CallRail account ID |
 
-**Optional - N8N/Webhooks (Add after N8N is deployed):**
+**Optional - Analytics:**
 | Variable | Value |
 |----------|-------|
-| `WEBHOOK_URL_DEFAULT` | Your N8N webhook URL |
-| `WEBHOOK_SECRET` | Shared secret for signing |
+| `GA4_PROPERTY_ID` | From Google Analytics 4 |
+| `SEMRUSH_API_KEY` | For keyword research |
 
 **Leave everything else as default.**
 
@@ -134,7 +151,7 @@ Wait 3-5 minutes. Watch the logs.
 ### Step 6: Verify
 
 1. Go to: `https://mcp-framework.onrender.com/health`
-   - Should show: `{"status": "healthy", "version": "5.5.0"}`
+   - Should show: `{"status": "healthy", "version": "5.5.16"}`
 
 2. Go to: `https://mcp-framework.onrender.com/admin`
    - Login with `ADMIN_EMAIL` / `ADMIN_PASSWORD`
@@ -227,6 +244,31 @@ Open browser: `http://localhost:8000/admin`
 
 ---
 
+## CONFIGURE WEBHOOKS (After Deploy)
+
+### CallRail Setup
+
+1. Log into CallRail
+2. Go to Settings → Webhooks
+3. Add URL: `https://your-domain.com/api/webhooks/callrail`
+4. Select events: `call_completed`, `form_submission`
+5. Save
+
+That's it! MCP handles everything directly.
+
+### WordPress Setup (Per Client)
+
+1. In client settings, add:
+   - WordPress URL
+   - WordPress username
+   - WordPress app password (generate in WP admin)
+
+2. MCP publishes directly - no middleware needed
+
+**See `WEBHOOKS.md` for full integration guide.**
+
+---
+
 ## TROUBLESHOOTING
 
 ### "ModuleNotFoundError"
@@ -279,40 +321,7 @@ Check logs:
 - [ ] AI Agents tab shows 7 agents
 - [ ] Can create test client in `/intake`
 - [ ] Test client appears in `/agency`
-
----
-
-## OPTIONAL: Deploy N8N (Automation Layer)
-
-N8N handles external tasks like WordPress publishing, email sequences, Slack alerts.
-
-**See full guide:** `N8N_SETUP.md`
-
-### Quick Version:
-
-#### Option 1: N8N Cloud ($20/mo - Easiest)
-1. Sign up at https://n8n.io
-2. Import workflows from `n8n-workflows/` folder
-3. Copy webhook URL
-4. Add to MCP: `WEBHOOK_URL_DEFAULT=<url>`
-
-#### Option 2: Self-Host on Render
-1. New Web Service → Image: `n8nio/n8n`
-2. Add env vars (see N8N_SETUP.md)
-3. Add 1GB disk at `/home/node/.n8n`
-4. Import workflows
-
-### After N8N Setup:
-
-Add these to MCP environment:
-
-```
-WEBHOOK_URL_DEFAULT=https://your-n8n.com/webhook/mcp-events
-WEBHOOK_URL_CONTENT=https://your-n8n.com/webhook/content
-WEBHOOK_URL_LEADS=https://your-n8n.com/webhook/leads
-WEBHOOK_URL_CALLS=https://your-n8n.com/webhook/calls
-WEBHOOK_SECRET=your-shared-secret
-```
+- [ ] Scheduler running (check logs for "10 jobs added")
 
 ---
 
@@ -324,5 +333,5 @@ WEBHOOK_SECRET=your-shared-secret
 
 ---
 
-**Version:** 5.5.1
-**Last Updated:** November 2024
+**Version:** 5.5.16
+**Last Updated:** December 2024

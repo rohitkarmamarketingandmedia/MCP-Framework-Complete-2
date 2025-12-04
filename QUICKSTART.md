@@ -84,8 +84,11 @@ Add these env vars for extra features:
 CALLRAIL_API_KEY=xxx
 CALLRAIL_ACCOUNT_ID=xxx
 
-# N8N (automation - see N8N_SETUP.md)
-WEBHOOK_URL_DEFAULT=https://your-n8n.com/webhook/mcp-events
+# Google Analytics 4
+GA4_PROPERTY_ID=xxx
+
+# SEMrush (keyword research)
+SEMRUSH_API_KEY=xxx
 ```
 
 ---
@@ -98,4 +101,4 @@ WEBHOOK_URL_DEFAULT=https://your-n8n.com/webhook/mcp-events
 
 ---
 
-**v5.5.1** | Takes 10 minutes | You got this 💪
+**v5.5.13** | Takes 10 minutes | You got this 💪

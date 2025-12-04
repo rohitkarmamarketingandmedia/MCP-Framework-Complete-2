@@ -2002,7 +2002,7 @@ class DBWebhookLog(db.Model):
 
 
 class DBWebhookEndpoint(db.Model):
-    """Configured webhook endpoints for N8N/Zapier integration"""
+    """Configured webhook endpoints for external system integration"""
     __tablename__ = 'webhook_endpoints'
     
     id: Mapped[str] = mapped_column(String(50), primary_key=True)
