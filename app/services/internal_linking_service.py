@@ -241,17 +241,19 @@ class InternalLinkingService:
         self,
         service_pages: List[Dict],
         business_name: str,
-        location: str
+        location: str,
+        phone: str = None,
+        website_url: str = None
     ) -> str:
         """
-        Generate a CTA paragraph with internal links
+        Generate a CTA paragraph with internal links and contact info
         Useful for adding at end of blog posts
         """
-        if not service_pages:
+        if not service_pages and not business_name:
             return ''
         
         # Select up to 3 service pages for CTA
-        selected = service_pages[:3]
+        selected = service_pages[:3] if service_pages else []
         
         links = []
         for page in selected:
@@ -261,18 +263,32 @@ class InternalLinkingService:
             if keyword and url:
                 links.append(f'<a href="{url}" title="{title}">{keyword}</a>')
         
-        if not links:
-            return ''
-        
-        if len(links) == 1:
-            link_text = links[0]
-        elif len(links) == 2:
-            link_text = f'{links[0]} and {links[1]}'
+        if links:
+            if len(links) == 1:
+                link_text = links[0]
+            elif len(links) == 2:
+                link_text = f'{links[0]} and {links[1]}'
+            else:
+                link_text = f'{", ".join(links[:-1])}, and {links[-1]}'
+            service_text = f' provides professional {link_text} services in {location}.'
         else:
-            link_text = f'{", ".join(links[:-1])}, and {links[-1]}'
+            service_text = f' serves {location} with professional, reliable service.'
+        
+        # Build contact section
+        contact_parts = []
+        if phone:
+            contact_parts.append(f'Call us at <a href="tel:{phone.replace("-", "").replace(" ", "").replace("(", "").replace(")", "")}">{phone}</a>')
+        if website_url:
+            contact_parts.append(f'visit <a href="{website_url}">{website_url.replace("https://", "").replace("http://", "").rstrip("/")}</a>')
+        
+        if contact_parts:
+            contact_text = ' or '.join(contact_parts)
+            contact_cta = f' {contact_text} for a free consultation!'
+        else:
+            contact_cta = ' Contact us today for a free consultation!'
         
         return f'''
-<p><strong>Ready to get started?</strong> {business_name} provides professional {link_text} services in {location}. Contact us today for a free consultation!</p>
+<p><strong>Ready to get started?</strong> {business_name}{service_text}{contact_cta}</p>
 '''
     
     def process_blog_content(
@@ -283,7 +299,9 @@ class InternalLinkingService:
         location: str,
         business_name: str,
         fix_headings: bool = True,
-        add_cta: bool = True
+        add_cta: bool = True,
+        phone: str = None,
+        website_url: str = None
     ) -> Dict:
         """
         Complete blog content processing:
@@ -327,9 +345,15 @@ class InternalLinkingService:
         )
         result['total_links'] = total_links
         
-        # Step 5: Add CTA if enabled and we have service pages
-        if add_cta and service_pages:
-            cta = self.generate_cta_paragraph(service_pages, business_name, location)
+        # Step 5: Add CTA if enabled
+        if add_cta:
+            cta = self.generate_cta_paragraph(
+                service_pages, 
+                business_name, 
+                location,
+                phone=phone,
+                website_url=website_url
+            )
             if cta:
                 content += cta
                 result['cta_added'] = True

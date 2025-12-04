@@ -101,15 +101,17 @@ def _generate_blog_background(task_id, app, client_id, keyword, word_count, incl
             body_content = result.get('body', '')
             links_added = 0
             
-            if service_pages and body_content:
+            if body_content:
                 link_result = internal_linking_service.process_blog_content(
                     content=body_content,
-                    service_pages=service_pages,
+                    service_pages=service_pages or [],
                     primary_keyword=keyword,
                     location=client.geo or '',
                     business_name=client.business_name or '',
                     fix_headings=True,
-                    add_cta=True
+                    add_cta=True,
+                    phone=client.phone,
+                    website_url=client.website_url
                 )
                 body_content = link_result['content']
                 links_added = link_result['links_added']
@@ -332,15 +334,17 @@ def generate_content(current_user):
     body_content = result.get('body', '')
     links_added = 0
     
-    if internal_links and body_content:
+    if body_content:
         link_result = internal_linking_service.process_blog_content(
             content=body_content,
-            service_pages=internal_links,
+            service_pages=internal_links or [],
             primary_keyword=data['keyword'],
             location=data.get('geo', ''),
             business_name=client.business_name or '',
             fix_headings=True,
-            add_cta=True
+            add_cta=True,
+            phone=client.phone,
+            website_url=client.website_url
         )
         body_content = link_result['content']
         links_added = link_result.get('links_added', 0)
@@ -484,15 +488,17 @@ def bulk_generate(current_user):
             
             # Process content with internal linking service
             body_content = result.get('body', '')
-            if service_pages and body_content:
+            if body_content:
                 link_result = internal_linking_service.process_blog_content(
                     content=body_content,
-                    service_pages=service_pages,
+                    service_pages=service_pages or [],
                     primary_keyword=keyword,
                     location=client.geo or '',
                     business_name=client.business_name or '',
                     fix_headings=True,
-                    add_cta=True
+                    add_cta=True,
+                    phone=client.phone,
+                    website_url=client.website_url
                 )
                 body_content = link_result['content']
                 links_added = link_result['links_added']
@@ -1075,6 +1081,14 @@ def publish_to_wordpress(current_user, content_id):
                 status=wp_status,
                 excerpt=content.meta_description
             )
+            # Also update Yoast SEO meta on existing post
+            if result.get('success') and (content.meta_title or content.meta_description or content.primary_keyword):
+                wp._set_seo_meta(
+                    content.wordpress_post_id,
+                    meta_title=content.meta_title,
+                    meta_description=content.meta_description,
+                    focus_keyword=content.primary_keyword
+                )
         else:
             # Create new post
             result = wp.create_post(
@@ -1082,6 +1096,10 @@ def publish_to_wordpress(current_user, content_id):
                 content=full_content,
                 status=wp_status,
                 excerpt=content.meta_description,
+                meta_title=content.meta_title,  # For Yoast SEO title
+                meta_description=content.meta_description,  # For Yoast meta description
+                focus_keyword=content.primary_keyword,  # For Yoast focus keyword
+                featured_image_url=content.featured_image_url,  # Featured image for post
                 meta=meta,
                 tags=tags if tags else None,
                 date=content.scheduled_for if wp_status == 'future' else None

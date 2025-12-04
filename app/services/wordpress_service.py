@@ -150,7 +150,9 @@ class WordPressService:
         author_id: int = None,
         excerpt: str = None,
         date: str = None,
-        meta: dict = None
+        meta: dict = None,
+        meta_title: str = None,
+        focus_keyword: str = None
     ) -> Dict[str, Any]:
         """
         Create a new WordPress post
@@ -162,7 +164,8 @@ class WordPressService:
             categories: List of category IDs or names
             tags: List of tag IDs or names
             featured_image_url: URL of image to set as featured
-            meta_description: SEO meta description (requires Yoast/RankMath)
+            meta_description: SEO meta description (Yoast/RankMath)
+            meta_title: SEO meta title (Yoast/RankMath) - different from post title
             slug: URL slug (auto-generated if not provided)
             author_id: WordPress user ID for author
             excerpt: Post excerpt/summary
@@ -228,9 +231,16 @@ class WordPressService:
                 if not image_result.get('success'):
                     logger.warning(f"Failed to set featured image: {image_result.get('error')}")
             
-            # Set SEO meta if plugin available
-            if meta_description and post_id:
-                self._set_seo_meta(post_id, meta_description)
+            # Set SEO meta if plugin available (Yoast or RankMath)
+            if (meta_title or meta_description or focus_keyword) and post_id:
+                seo_result = self._set_seo_meta(
+                    post_id, 
+                    meta_title=meta_title, 
+                    meta_description=meta_description,
+                    focus_keyword=focus_keyword
+                )
+                if seo_result.get('success'):
+                    logger.info(f"SEO meta set for post {post_id}")
             
             return {
                 'success': True,
@@ -394,23 +404,73 @@ class WordPressService:
         except Exception as e:
             return {'success': False, 'error': str(e)}
     
-    def _set_seo_meta(self, post_id: int, meta_description: str) -> bool:
-        """Try to set SEO meta description (Yoast or RankMath)"""
+    def _set_seo_meta(self, post_id: int, meta_title: str = None, meta_description: str = None, focus_keyword: str = None) -> Dict[str, Any]:
+        """
+        Set SEO meta fields for Yoast SEO or RankMath
+        
+        Yoast SEO meta keys:
+            _yoast_wpseo_title - SEO Title
+            _yoast_wpseo_metadesc - Meta Description
+            _yoast_wpseo_focuskw - Focus Keyword
+            
+        RankMath meta keys:
+            rank_math_title - SEO Title
+            rank_math_description - Meta Description
+            rank_math_focus_keyword - Focus Keyword
+        """
+        result = {'success': False, 'yoast': False, 'rankmath': False}
+        
         try:
-            # Try Yoast format
-            requests.post(
-                f"{self.api_url}/posts/{post_id}",
-                headers=self.headers,
-                json={
-                    'meta': {
-                        '_yoast_wpseo_metadesc': meta_description
-                    }
-                },
-                timeout=10
-            )
-            return True
+            meta_fields = {}
+            
+            # Yoast SEO fields
+            if meta_title:
+                meta_fields['_yoast_wpseo_title'] = meta_title
+            if meta_description:
+                meta_fields['_yoast_wpseo_metadesc'] = meta_description
+            if focus_keyword:
+                meta_fields['_yoast_wpseo_focuskw'] = focus_keyword
+            
+            if meta_fields:
+                response = requests.post(
+                    f"{self.api_url}/posts/{post_id}",
+                    headers=self.headers,
+                    json={'meta': meta_fields},
+                    timeout=10
+                )
+                if response.status_code == 200:
+                    result['yoast'] = True
+                    result['success'] = True
+                    logger.info(f"Yoast SEO meta set for post {post_id}: title={bool(meta_title)}, desc={bool(meta_description)}, kw={bool(focus_keyword)}")
+            
+            # Also try RankMath format (in case they switch plugins)
+            rankmath_fields = {}
+            if meta_title:
+                rankmath_fields['rank_math_title'] = meta_title
+            if meta_description:
+                rankmath_fields['rank_math_description'] = meta_description
+            if focus_keyword:
+                rankmath_fields['rank_math_focus_keyword'] = focus_keyword
+            
+            if rankmath_fields:
+                try:
+                    response = requests.post(
+                        f"{self.api_url}/posts/{post_id}",
+                        headers=self.headers,
+                        json={'meta': rankmath_fields},
+                        timeout=10
+                    )
+                    if response.status_code == 200:
+                        result['rankmath'] = True
+                        result['success'] = True
+                except Exception:
+                    pass  # RankMath not installed, ignore
+            
+            return result
+            
         except Exception as e:
-            return False
+            logger.warning(f"Failed to set SEO meta for post {post_id}: {e}")
+            return {'success': False, 'error': str(e)}
     
     def get_categories(self) -> list:
         """Get all categories"""

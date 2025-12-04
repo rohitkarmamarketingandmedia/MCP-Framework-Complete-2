@@ -1522,6 +1522,123 @@
             
             <!-- Settings Panel -->
             <div id="panel-settings" class="hidden fade-in">
+                <!-- Settings Sub-Navigation -->
+                <div class="flex gap-2 mb-6 overflow-x-auto pb-2">
+                    <button onclick="showSettingsSection('integrations')" id="settings-tab-integrations" class="px-4 py-2 rounded-lg text-sm font-medium bg-blue-600 text-white transition whitespace-nowrap">
+                        <i class="fas fa-plug mr-2"></i>Integrations
+                    </button>
+                    <button onclick="showSettingsSection('notifications')" id="settings-tab-notifications" class="px-4 py-2 rounded-lg text-sm font-medium text-gray-400 hover:text-white glass transition whitespace-nowrap">
+                        <i class="fas fa-bell mr-2"></i>Notifications
+                    </button>
+                    <button onclick="showSettingsSection('system')" id="settings-tab-system" class="px-4 py-2 rounded-lg text-sm font-medium text-gray-400 hover:text-white glass transition whitespace-nowrap">
+                        <i class="fas fa-heartbeat mr-2"></i>System Status
+                    </button>
+                </div>
+                
+                <!-- INTEGRATIONS SECTION (shown by default) -->
+                <div id="settings-section-integrations" class="space-y-6">
+                    <div class="glass rounded-2xl p-6">
+                        <div class="flex items-center gap-3 mb-6">
+                            <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-600 flex items-center justify-center">
+                                <i class="fas fa-plug text-white text-xl"></i>
+                            </div>
+                            <div>
+                                <h3 class="text-lg font-bold text-white">API Integrations</h3>
+                                <p class="text-sm text-gray-400">Connect your accounts to enable full functionality</p>
+                            </div>
+                        </div>
+                        
+                        <div class="grid md:grid-cols-2 gap-4">
+                            <!-- Google Analytics 4 -->
+                            <div class="p-4 bg-white/5 rounded-xl border border-white/10">
+                                <div class="flex items-center gap-3 mb-3">
+                                    <div class="w-10 h-10 rounded-lg bg-orange-500/20 flex items-center justify-center">
+                                        <i class="fas fa-chart-bar text-orange-400"></i>
+                                    </div>
+                                    <div>
+                                        <h4 class="font-medium text-white">Google Analytics 4</h4>
+                                        <p id="ga4StatusTop" class="text-xs text-gray-400">Not configured</p>
+                                    </div>
+                                </div>
+                                <input type="text" id="ga4PropertyIdTop" placeholder="GA4 Property ID (e.g., 123456789)"
+                                    class="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-sm mb-2 focus:outline-none focus:border-orange-500">
+                                <p class="text-xs text-gray-500">Find in GA4 → Admin → Property Settings</p>
+                            </div>
+                            
+                            <!-- CallRail -->
+                            <div class="p-4 bg-white/5 rounded-xl border border-white/10">
+                                <div class="flex items-center gap-3 mb-3">
+                                    <div class="w-10 h-10 rounded-lg bg-green-500/20 flex items-center justify-center">
+                                        <i class="fas fa-phone text-green-400"></i>
+                                    </div>
+                                    <div>
+                                        <h4 class="font-medium text-white">CallRail</h4>
+                                        <p id="callrailStatusTop" class="text-xs text-gray-400">Not configured</p>
+                                    </div>
+                                </div>
+                                <input type="text" id="callrailCompanyIdTop" placeholder="CallRail Company ID"
+                                    class="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-sm mb-2 focus:outline-none focus:border-green-500">
+                                <p class="text-xs text-gray-500">Links this client to your CallRail account</p>
+                            </div>
+                            
+                            <!-- WordPress -->
+                            <div class="p-4 bg-white/5 rounded-xl border border-white/10">
+                                <div class="flex items-center gap-3 mb-3">
+                                    <div class="w-10 h-10 rounded-lg bg-sky-500/20 flex items-center justify-center">
+                                        <i class="fab fa-wordpress text-sky-400"></i>
+                                    </div>
+                                    <div>
+                                        <h4 class="font-medium text-white">WordPress</h4>
+                                        <p id="wpStatusTop" class="text-xs text-gray-400">Not configured</p>
+                                    </div>
+                                </div>
+                                <input type="text" id="wpSiteUrlTop" placeholder="WordPress URL (https://yoursite.com)"
+                                    class="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-sm mb-2 focus:outline-none focus:border-sky-500">
+                                <input type="text" id="wpUsernameTop" placeholder="WordPress Username"
+                                    class="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-sm mb-2 focus:outline-none focus:border-sky-500">
+                                <input type="password" id="wpAppPasswordTop" placeholder="Application Password"
+                                    class="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-sm mb-2 focus:outline-none focus:border-sky-500">
+                                <p class="text-xs text-gray-500">Users → Profile → Application Passwords</p>
+                            </div>
+                            
+                            <!-- SEMrush / OpenAI Status -->
+                            <div class="p-4 bg-white/5 rounded-xl border border-white/10">
+                                <div class="flex items-center gap-3 mb-3">
+                                    <div class="w-10 h-10 rounded-lg bg-purple-500/20 flex items-center justify-center">
+                                        <i class="fas fa-server text-purple-400"></i>
+                                    </div>
+                                    <div>
+                                        <h4 class="font-medium text-white">Server APIs</h4>
+                                        <p class="text-xs text-gray-400">Configured by admin</p>
+                                    </div>
+                                </div>
+                                <div class="space-y-2 text-sm">
+                                    <div class="flex justify-between">
+                                        <span class="text-gray-400">OpenAI (Content)</span>
+                                        <span id="openaiStatusTop" class="text-gray-400">Checking...</span>
+                                    </div>
+                                    <div class="flex justify-between">
+                                        <span class="text-gray-400">SEMrush (Rankings)</span>
+                                        <span id="semrushStatusTop" class="text-gray-400">Checking...</span>
+                                    </div>
+                                    <div class="flex justify-between">
+                                        <span class="text-gray-400">SendGrid (Email)</span>
+                                        <span id="sendgridStatusTop" class="text-gray-400">Checking...</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="mt-6 flex justify-end">
+                            <button onclick="saveIntegrationsTop()" class="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition">
+                                <i class="fas fa-save mr-2"></i>Save Integrations
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- NOTIFICATIONS SECTION (hidden by default) -->
+                <div id="settings-section-notifications" class="hidden">
                 <div class="grid lg:grid-cols-3 gap-6">
                     <!-- Notification Preferences -->
                     <div class="lg:col-span-2 space-y-6">
@@ -1727,8 +1844,10 @@
                         </div>
                     </div>
                 </div>
+                </div> <!-- End notifications section -->
                 
-                <!-- Integrations Section -->
+                <!-- Old Integrations Section - hidden, using new one at top -->
+                <div id="settings-section-integrations-old" class="hidden">
                 <div class="mt-6">
                     <div class="glass rounded-2xl p-6">
                         <div class="flex items-center gap-3 mb-6">
@@ -1855,8 +1974,10 @@
                         </div>
                     </div>
                 </div>
+                </div> <!-- End old integrations hidden section -->
                 
-                <!-- System Status Section -->
+                <!-- SYSTEM STATUS SECTION -->
+                <div id="settings-section-system" class="hidden">
                 <div class="mt-6">
                     <div class="glass rounded-2xl p-6">
                         <div class="flex items-center justify-between mb-6">
@@ -1889,6 +2010,7 @@
                         </div>
                     </div>
                 </div>
+                </div> <!-- End system status section -->
             </div>
             
             <!-- Chatbot Panel -->
@@ -2788,6 +2910,18 @@
                 const res = await fetch(`${API_URL}/api/clients/`, {
                     headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
                 });
+                
+                // AUTO-FIX 403 ERRORS
+                if (res.status === 403) {
+                    console.log('403 detected - attempting auto-fix...');
+                    const fixResult = await autoFixAdmin();
+                    if (fixResult) {
+                        // Retry after fix
+                        return loadClients();
+                    }
+                    throw new Error('Access denied. Please contact admin.');
+                }
+                
                 if (!res.ok) {
                     throw new Error(`Failed to load clients: ${res.status}`);
                 }
@@ -2806,6 +2940,30 @@
                 }
             } catch (e) {
                 console.error('Failed to load clients:', e);
+            }
+        }
+        
+        // Auto-fix admin role when 403 occurs
+        async function autoFixAdmin() {
+            try {
+                console.log('Calling fix-admin endpoint...');
+                const res = await fetch(`${API_URL}/api/auth/fix-admin`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
+                });
+                const data = await res.json();
+                
+                if (res.ok && data.success) {
+                    console.log('Admin role fixed:', data);
+                    showToast('Admin access restored!', 'success');
+                    return true;
+                } else {
+                    console.warn('Fix-admin failed:', data);
+                    return false;
+                }
+            } catch (e) {
+                console.error('Auto-fix error:', e);
+                return false;
             }
         }
 
@@ -3166,6 +3324,8 @@
             
             // Load notification settings when settings tab is shown
             if (tab === 'settings') {
+                // Show Integrations section first (most important)
+                showSettingsSection('integrations');
                 loadNotificationPrefs();
                 loadNotificationHistory();
                 setTimeout(updateDigestPreview, 100);
@@ -4088,6 +4248,151 @@
         
         // ==========================================
         // INTEGRATIONS
+        // ==========================================
+        
+        // ==========================================
+        // SETTINGS SUB-NAVIGATION
+        // ==========================================
+        
+        function showSettingsSection(section) {
+            // Hide all sections
+            document.getElementById('settings-section-integrations').classList.add('hidden');
+            document.getElementById('settings-section-notifications').classList.add('hidden');
+            document.getElementById('settings-section-system').classList.add('hidden');
+            
+            // Reset all tab buttons
+            document.getElementById('settings-tab-integrations').className = 'px-4 py-2 rounded-lg text-sm font-medium text-gray-400 hover:text-white glass transition whitespace-nowrap';
+            document.getElementById('settings-tab-notifications').className = 'px-4 py-2 rounded-lg text-sm font-medium text-gray-400 hover:text-white glass transition whitespace-nowrap';
+            document.getElementById('settings-tab-system').className = 'px-4 py-2 rounded-lg text-sm font-medium text-gray-400 hover:text-white glass transition whitespace-nowrap';
+            
+            // Show selected section and highlight tab
+            document.getElementById(`settings-section-${section}`).classList.remove('hidden');
+            document.getElementById(`settings-tab-${section}`).className = 'px-4 py-2 rounded-lg text-sm font-medium bg-blue-600 text-white transition whitespace-nowrap';
+            
+            // Load data for section
+            if (section === 'integrations') {
+                loadIntegrationsTop();
+            } else if (section === 'system') {
+                loadSystemStatus();
+            }
+        }
+        
+        async function loadIntegrationsTop() {
+            if (!currentClient) return;
+            
+            // Populate fields from client data
+            const ga4Input = document.getElementById('ga4PropertyIdTop');
+            const callrailInput = document.getElementById('callrailCompanyIdTop');
+            const wpUrlInput = document.getElementById('wpSiteUrlTop');
+            const wpUserInput = document.getElementById('wpUsernameTop');
+            const wpPasswordInput = document.getElementById('wpAppPasswordTop');
+            
+            if (ga4Input) ga4Input.value = currentClient.ga4_property_id || '';
+            if (callrailInput) callrailInput.value = currentClient.callrail_company_id || '';
+            if (wpUrlInput) wpUrlInput.value = currentClient.wordpress_url || '';
+            if (wpUserInput) wpUserInput.value = currentClient.wordpress_user || '';
+            if (wpPasswordInput) wpPasswordInput.value = currentClient.wordpress_app_password ? '••••••••' : '';
+            
+            // Update status indicators
+            updateIntegrationStatusTop('ga4', currentClient.ga4_property_id);
+            updateIntegrationStatusTop('callrail', currentClient.callrail_company_id);
+            updateIntegrationStatusTop('wp', currentClient.wordpress_url);
+            
+            // Check server-side APIs
+            checkServerApisTop();
+        }
+        
+        function updateIntegrationStatusTop(type, value) {
+            const statusEl = document.getElementById(`${type}StatusTop`);
+            if (!statusEl) return;
+            
+            if (value) {
+                statusEl.textContent = '✓ Connected';
+                statusEl.className = 'text-xs text-green-400';
+            } else {
+                statusEl.textContent = 'Not configured';
+                statusEl.className = 'text-xs text-gray-400';
+            }
+        }
+        
+        async function checkServerApisTop() {
+            try {
+                const response = await fetch(`${API_URL}/api/settings/integrations/status`, {
+                    headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    
+                    // OpenAI
+                    const openaiEl = document.getElementById('openaiStatusTop');
+                    if (openaiEl) {
+                        openaiEl.textContent = data.openai_configured ? '✓ Ready' : '✗ Missing';
+                        openaiEl.className = data.openai_configured ? 'text-green-400' : 'text-red-400';
+                    }
+                    
+                    // SEMrush
+                    const semrushEl = document.getElementById('semrushStatusTop');
+                    if (semrushEl) {
+                        semrushEl.textContent = data.semrush_configured ? '✓ Ready' : '✗ Missing';
+                        semrushEl.className = data.semrush_configured ? 'text-green-400' : 'text-yellow-400';
+                    }
+                    
+                    // SendGrid
+                    const sendgridEl = document.getElementById('sendgridStatusTop');
+                    if (sendgridEl) {
+                        sendgridEl.textContent = data.sendgrid_configured ? '✓ Ready' : '– Optional';
+                        sendgridEl.className = data.sendgrid_configured ? 'text-green-400' : 'text-gray-400';
+                    }
+                }
+            } catch (error) {
+                console.error('Failed to check server APIs:', error);
+            }
+        }
+        
+        async function saveIntegrationsTop() {
+            if (!currentClient) {
+                alert('Please select a client first');
+                return;
+            }
+            
+            const updates = {
+                ga4_property_id: document.getElementById('ga4PropertyIdTop')?.value.trim() || null,
+                callrail_company_id: document.getElementById('callrailCompanyIdTop')?.value.trim() || null,
+                wordpress_url: document.getElementById('wpSiteUrlTop')?.value.trim() || null,
+                wordpress_user: document.getElementById('wpUsernameTop')?.value.trim() || null
+            };
+            
+            const wpPass = document.getElementById('wpAppPasswordTop')?.value;
+            if (wpPass && !wpPass.includes('••••')) {
+                updates.wordpress_app_password = wpPass;
+            }
+            
+            try {
+                const response = await fetch(`${API_URL}/api/clients/${currentClient.id}/integrations`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${AUTH_TOKEN}`
+                    },
+                    body: JSON.stringify(updates)
+                });
+                
+                if (response.ok) {
+                    Object.assign(currentClient, updates);
+                    loadIntegrationsTop();
+                    showToast('Integrations saved!', 'success');
+                } else {
+                    const err = await response.json();
+                    alert('Error: ' + (err.error || 'Failed to save'));
+                }
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        }
+        
+        // ==========================================
+        // INTEGRATIONS (OLD)
         // ==========================================
         
         async function loadIntegrations() {

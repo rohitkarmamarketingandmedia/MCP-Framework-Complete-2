@@ -1,5 +1,87 @@
 # MCP Framework Changelog
 
+## v5.5.25 - Settings UI + Blog Personalization + Auto-Fix 403
+
+### 🔧 CRITICAL FIXES
+
+**403 Auto-Fix:**
+- Dashboard now automatically calls `/api/auth/fix-admin` when 403 detected
+- No more manual console commands needed
+
+**Settings → Integrations NOW FIRST:**
+- Settings tab now shows Integrations section FIRST (not buried at bottom)
+- Sub-tabs: Integrations | Notifications | System Status
+- GA4, CallRail, WordPress all easily accessible
+
+### 📝 Blog Personalization Improvements
+
+**CTA now includes contact info:**
+- Phone number with clickable tel: link
+- Website URL with link
+- Service pages with internal links
+
+Example CTA:
+```
+Ready to get started? ABC Company provides professional AC repair services in Sarasota.
+Call us at (941) 555-1234 or visit abccompany.com for a free consultation!
+```
+
+### 🖼️ WordPress Publishing
+
+**Now posts to Yoast SEO:**
+- `meta_title` → `_yoast_wpseo_title`
+- `meta_description` → `_yoast_wpseo_metadesc`  
+- `primary_keyword` → `_yoast_wpseo_focuskw`
+
+**Featured image:**
+- `featured_image_url` now passed to WordPress
+- Uploads to media library and sets as featured
+
+---
+
+## v5.5.24 - Yoast SEO Integration
+
+### 🔍 WordPress + Yoast SEO Support
+
+When publishing to WordPress, now automatically sets:
+
+**Yoast SEO Fields:**
+- `_yoast_wpseo_title` - SEO Title (meta_title from blog)
+- `_yoast_wpseo_metadesc` - Meta Description
+- `_yoast_wpseo_focuskw` - Focus Keyword (primary_keyword)
+
+**Also works with RankMath:**
+- `rank_math_title`
+- `rank_math_description`  
+- `rank_math_focus_keyword`
+
+### 📝 What Gets Posted to Yoast
+
+| MCP Field | Yoast Field | Example |
+|-----------|------------|---------|
+| meta_title | SEO Title | "AC Repair Sarasota \| Cliff's HVAC" |
+| meta_description | Meta Description | "Need AC repair in Sarasota? Call..." |
+| primary_keyword | Focus Keyword | "AC repair Sarasota" |
+
+### ✅ Works on Both Create & Update
+
+- New posts: SEO meta set immediately after creation
+- Updated posts: SEO meta also updated
+
+### 🔧 Technical Details
+
+```python
+# WordPress Service now sets:
+wp._set_seo_meta(
+    post_id=123,
+    meta_title="Your SEO Title",
+    meta_description="Your meta description...",
+    focus_keyword="target keyword"
+)
+```
+
+---
+
 ## v5.5.23 - System Diagnostics + Demo Mode
 
 ### 🔧 System Status Panel (NEW)
