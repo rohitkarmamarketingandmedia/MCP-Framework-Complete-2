@@ -1,5 +1,37 @@
 # MCP Framework Changelog
 
+## v5.5.17 - CRITICAL: API Endpoints Fixed (Actually Connected Now!)
+
+### 🚨 Critical Fixes - Dashboard Now Uses REAL APIs
+
+The dashboard was calling **wrong API endpoints**, causing all data to be simulated/calculated instead of real:
+
+| Feature | Was Calling (Wrong) | Now Calls (Correct) |
+|---------|--------------------|--------------------|
+| Health Score | `/api/clients/{id}/health` | `/api/client/health-score/{id}` + `/api/analytics/health/{id}` |
+| Activity/Wins | `/api/clients/{id}/activity` | `/api/client/activity/{id}` + `/api/client/wins/{id}` |
+| Call Intelligence | `/api/intelligence/calls/{id}` | `/api/intelligence/report/{id}` + `/api/client/calls/{id}` |
+
+### 🔗 Now Actually Connected To:
+- **CallRail** - Real phone call data and transcripts
+- **AI Analysis** - Real extracted questions, keywords, pain points
+- **Activity Feed** - Real client activity and wins
+- **Health Scores** - Real calculated health metrics
+
+### 📊 What This Means For Clients
+Before v5.5.17: Phone mockup showed fake "Sarah M." calling, insights were hardcoded demo data
+After v5.5.17: Shows REAL CallRail data, REAL AI-extracted insights from actual calls
+
+### ⚠️ Requirements For Real Data
+For Call Intelligence to show real data, clients need:
+1. CallRail account configured in environment
+2. `callrail_company_id` linked to client record
+3. Actual phone calls with transcripts
+
+If not configured, gracefully falls back to simulation/demo data.
+
+---
+
 ## v5.5.16 - Comprehensive Bug Fixes
 
 ### 🐛 Critical Fixes

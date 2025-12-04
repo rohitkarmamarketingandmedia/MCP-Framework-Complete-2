@@ -3034,7 +3034,8 @@
         
         async function loadHealthScore() {
             try {
-                const response = await fetch(`${API_URL}/api/clients/${currentClient.id}/health`, {
+                // Try the correct health score endpoint
+                const response = await fetch(`${API_URL}/api/client/health-score/${currentClient.id}`, {
                     headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
                 });
                 
@@ -3043,8 +3044,17 @@
                     const data = await response.json();
                     score = data.score || data.health_score || 0;
                 } else {
-                    // Calculate fallback score from available data
-                    score = calculateFallbackHealthScore();
+                    // Try analytics health endpoint as fallback
+                    const altResponse = await fetch(`${API_URL}/api/analytics/health/${currentClient.id}`, {
+                        headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
+                    });
+                    if (altResponse.ok) {
+                        const altData = await altResponse.json();
+                        score = altData.score || altData.health_score || 0;
+                    } else {
+                        // Calculate fallback score from available data
+                        score = calculateFallbackHealthScore();
+                    }
                 }
                 
                 // Animate the health score circle
@@ -3179,14 +3189,23 @@
             let wins = [];
             
             try {
-                // Try to get activity feed for wins
-                const response = await fetch(`${API_URL}/api/clients/${currentClient.id}/activity?limit=5`, {
+                // Try to get activity feed for wins (correct endpoint)
+                const response = await fetch(`${API_URL}/api/client/activity/${currentClient.id}?limit=5`, {
                     headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
                 });
                 
                 if (response.ok) {
                     const data = await response.json();
                     wins = (data.activities || data.items || []).slice(0, 5);
+                } else {
+                    // Try wins-specific endpoint
+                    const winsResponse = await fetch(`${API_URL}/api/client/wins/${currentClient.id}`, {
+                        headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
+                    });
+                    if (winsResponse.ok) {
+                        const winsData = await winsResponse.json();
+                        wins = (winsData.wins || winsData.items || []).slice(0, 5);
+                    }
                 }
             } catch (error) {
                 console.error('Error loading wins:', error);
@@ -3347,30 +3366,69 @@
         
         async function loadCallIntelligence() {
             try {
-                // Try to load real call data
-                const response = await fetch(`${API_URL}/api/intelligence/calls/${currentClient.id}?limit=10`, {
+                // First try the full intelligence report which includes AI analysis
+                const reportResponse = await fetch(`${API_URL}/api/intelligence/report/${currentClient.id}?days=30`, {
                     headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
                 });
                 
-                if (response.ok) {
-                    const data = await response.json();
-                    const calls = data.calls || data.interactions || [];
+                if (reportResponse.ok) {
+                    const report = await reportResponse.json();
                     
-                    // Update calls today count
-                    document.getElementById('calls-today').textContent = `${calls.length} calls analyzed today`;
+                    // Update calls count
+                    const callsToday = document.getElementById('calls-today');
+                    if (callsToday) {
+                        const callCount = report.call_count || report.total_calls || 0;
+                        callsToday.textContent = `${callCount} calls analyzed`;
+                    }
                     
-                    // If there are recent calls, show the latest one
-                    if (calls.length > 0) {
-                        const latestCall = calls[0];
-                        updatePhoneMockup(latestCall);
-                        updateExtractedInsights(calls);
+                    // Update extracted insights from AI analysis
+                    if (report.questions || report.keywords || report.pain_points || report.opportunities) {
+                        updateExtractedUI(
+                            report.questions || report.top_questions || [],
+                            report.keywords || report.trending_keywords || [],
+                            report.pain_points || [],
+                            report.opportunities || report.content_opportunities || []
+                        );
+                    }
+                    
+                    // Get recent call for phone mockup
+                    const callsResponse = await fetch(`${API_URL}/api/client/calls/${currentClient.id}?limit=1`, {
+                        headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
+                    });
+                    if (callsResponse.ok) {
+                        const callsData = await callsResponse.json();
+                        if (callsData.calls && callsData.calls.length > 0) {
+                            updatePhoneMockup(callsData.calls[0]);
+                            return; // Don't start simulation if we have real call
+                        }
+                    }
+                    
+                    // Only simulate if no real calls
+                    simulateIncomingCall();
+                    
+                } else {
+                    // Fall back to just getting calls
+                    const callsResponse = await fetch(`${API_URL}/api/client/calls/${currentClient.id}?limit=10`, {
+                        headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
+                    });
+                    
+                    if (callsResponse.ok) {
+                        const data = await callsResponse.json();
+                        const calls = data.calls || [];
+                        
+                        const callsToday = document.getElementById('calls-today');
+                        if (callsToday) {
+                            callsToday.textContent = `${calls.length} calls today`;
+                        }
+                        
+                        if (calls.length > 0) {
+                            updatePhoneMockup(calls[0]);
+                        } else {
+                            loadDemoCallData();
+                        }
                     } else {
-                        // Show demo data
                         loadDemoCallData();
                     }
-                } else {
-                    // Show demo data if API fails
-                    loadDemoCallData();
                 }
             } catch (error) {
                 console.error('Error loading call intelligence:', error);
