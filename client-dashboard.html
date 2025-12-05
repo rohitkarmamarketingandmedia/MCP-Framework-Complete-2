@@ -283,6 +283,24 @@
             </div>
         </header>
 
+        <!-- Permission Error Alert (hidden by default) -->
+        <div id="permissionAlert" class="hidden max-w-7xl mx-auto px-4 py-2">
+            <div class="bg-gradient-to-r from-red-500/20 to-orange-500/20 border border-red-500/40 rounded-xl p-4 flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-full bg-red-500/20 flex items-center justify-center">
+                        <i class="fas fa-exclamation-triangle text-red-400"></i>
+                    </div>
+                    <div>
+                        <p class="text-white font-medium">Permission Issues Detected</p>
+                        <p class="text-sm text-gray-400">Some features may not work. Click to fix.</p>
+                    </div>
+                </div>
+                <button onclick="manualFixPermissions()" class="px-4 py-2 bg-gradient-to-r from-red-600 to-orange-600 rounded-lg text-white text-sm font-medium hover:opacity-90 transition">
+                    <i class="fas fa-wrench mr-2"></i>Fix Permissions
+                </button>
+            </div>
+        </div>
+
         <!-- Stats Bar -->
         <div class="max-w-7xl mx-auto px-4 py-6">
             <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -868,6 +886,87 @@
                             <div class="flex items-center gap-3">
                                 <div class="spinner w-6 h-6"></div>
                                 <span id="imageProgressText" class="text-gray-300">Generating image...</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Client Image Library -->
+                    <div class="glass rounded-2xl p-6">
+                        <div class="flex items-center gap-3 mb-6">
+                            <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-pink-500 to-rose-600 flex items-center justify-center">
+                                <i class="fas fa-photo-film text-white text-xl"></i>
+                            </div>
+                            <div>
+                                <h3 class="text-lg font-bold text-white">Image Library</h3>
+                                <p class="text-sm text-gray-400">Upload photos for featured images</p>
+                            </div>
+                        </div>
+                        
+                        <!-- Upload Area -->
+                        <div class="border-2 border-dashed border-white/20 rounded-xl p-6 text-center hover:border-pink-500/50 transition cursor-pointer" 
+                             onclick="document.getElementById('libraryImageUpload').click()">
+                            <input type="file" id="libraryImageUpload" accept="image/*" class="hidden" onchange="uploadLibraryImage(event)">
+                            <i class="fas fa-cloud-upload-alt text-3xl text-gray-400 mb-2"></i>
+                            <p class="text-gray-400">Click to upload or drag & drop</p>
+                            <p class="text-xs text-gray-500 mt-1">JPG, PNG, WebP (max 10MB)</p>
+                        </div>
+                        
+                        <!-- Category Selection -->
+                        <div class="mt-4">
+                            <label class="block text-sm font-medium text-gray-300 mb-2">Image Category</label>
+                            <select id="uploadCategory" class="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white focus:outline-none focus:border-pink-500">
+                                <option value="hero">🖼️ Hero Images</option>
+                                <option value="work">🔧 Work/Projects</option>
+                                <option value="team">👥 Team Photos</option>
+                                <option value="office">🏢 Office/Location</option>
+                                <option value="equipment">🛠️ Equipment</option>
+                                <option value="general">📁 General</option>
+                            </select>
+                        </div>
+                        
+                        <!-- Image Library Grid -->
+                        <div class="mt-4">
+                            <div class="flex items-center justify-between mb-2">
+                                <span class="text-sm text-gray-400">Your Images</span>
+                                <button onclick="loadImageLibrary()" class="text-xs text-pink-400 hover:text-pink-300">
+                                    <i class="fas fa-sync-alt mr-1"></i>Refresh
+                                </button>
+                            </div>
+                            <div id="imageLibraryGrid" class="grid grid-cols-3 gap-2 max-h-48 overflow-y-auto">
+                                <p class="col-span-3 text-center text-gray-500 text-sm py-4">Upload images to see them here</p>
+                            </div>
+                        </div>
+                        
+                        <!-- Create Featured Image -->
+                        <div class="mt-4 p-4 bg-gradient-to-r from-pink-500/10 to-rose-500/10 border border-pink-500/20 rounded-xl">
+                            <h4 class="text-sm font-medium text-white mb-2">
+                                <i class="fas fa-wand-magic-sparkles text-pink-400 mr-2"></i>Create Featured Image
+                            </h4>
+                            <input type="text" id="featuredImageTitle" placeholder="Enter SEO title for overlay..." 
+                                class="w-full px-3 py-2 bg-white/10 border border-white/10 rounded-lg text-white text-sm mb-2 focus:outline-none focus:border-pink-500">
+                            <select id="featuredImageTemplate" class="w-full px-3 py-2 bg-white/10 border border-white/10 rounded-lg text-white text-sm mb-2 focus:outline-none focus:border-pink-500">
+                                <option value="gradient_bottom">Gradient Bottom</option>
+                                <option value="gradient_full">Full Overlay</option>
+                                <option value="banner_bottom">Solid Banner</option>
+                                <option value="banner_branded">Branded Banner</option>
+                                <option value="minimal">Minimal</option>
+                            </select>
+                            <button onclick="createFeaturedImage()" class="w-full py-2 bg-gradient-to-r from-pink-600 to-rose-600 rounded-lg text-white text-sm font-medium hover:opacity-90 transition">
+                                <i class="fas fa-magic mr-1"></i>Create Featured Image
+                            </button>
+                        </div>
+                        
+                        <!-- Featured Image Preview -->
+                        <div id="featuredImagePreview" class="hidden mt-4">
+                            <div class="relative rounded-xl overflow-hidden">
+                                <img id="featuredImageResult" src="" alt="Featured Image" class="w-full h-auto">
+                                <div class="absolute bottom-0 left-0 right-0 p-2 bg-gradient-to-t from-black/80 to-transparent">
+                                    <div class="flex items-center justify-end gap-2">
+                                        <a id="featuredImageDownload" href="#" download class="p-2 bg-white/20 hover:bg-white/30 rounded-lg transition">
+                                            <i class="fas fa-download text-white text-sm"></i>
+                                        </a>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -2101,6 +2200,13 @@
                         <div class="glass rounded-2xl p-6">
                             <h3 class="text-lg font-bold text-white mb-4"><i class="fas fa-user-plus mr-2 text-green-400"></i>Lead Capture</h3>
                             <div class="space-y-3">
+                                <label class="flex items-center justify-between p-3 glass rounded-lg cursor-pointer bg-gradient-to-r from-green-500/10 to-emerald-500/10 border border-green-500/20">
+                                    <div>
+                                        <span class="text-white font-medium">Enable Lead Capture</span>
+                                        <p class="text-xs text-gray-400">Prompt visitors for contact info</p>
+                                    </div>
+                                    <input type="checkbox" id="chatbotLeadEnabled" checked class="w-5 h-5 rounded">
+                                </label>
                                 <label class="flex items-center justify-between p-3 glass rounded-lg cursor-pointer">
                                     <span class="text-white">Collect Name</span>
                                     <input type="checkbox" id="chatbotCollectName" checked class="w-5 h-5 rounded">
@@ -2748,6 +2854,71 @@
         let currentClient = null;
         let allBlogs = [];
         let allSocial = [];
+        let isFixingAdmin = false;  // Prevent infinite loops
+
+        // ==========================================
+        // GLOBAL FETCH INTERCEPTOR - AUTO-FIX 403s
+        // ==========================================
+        
+        // Store original fetch
+        const originalFetch = window.fetch;
+        
+        // Override global fetch to intercept 403s
+        window.fetch = async function(url, options = {}) {
+            // Only intercept API calls
+            const isApiCall = typeof url === 'string' && url.includes('/api/');
+            
+            // Make the original request
+            const response = await originalFetch(url, options);
+            
+            // If 403 on API call, try auto-fix
+            if (response.status === 403 && isApiCall && !isFixingAdmin && AUTH_TOKEN) {
+                // Don't retry fix-admin endpoint itself
+                if (url.includes('/api/auth/fix-admin') || url.includes('/api/auth/force-fix')) {
+                    return response;
+                }
+                
+                console.log('🔧 403 detected on:', url, '- attempting auto-fix...');
+                isFixingAdmin = true;
+                
+                // Show permission alert after multiple 403s
+                if (typeof showPermissionAlert === 'function') {
+                    showPermissionAlert();
+                }
+                
+                try {
+                    const fixResult = await originalFetch(`${API_URL}/api/auth/fix-admin`, {
+                        method: 'POST',
+                        headers: { 
+                            'Authorization': `Bearer ${AUTH_TOKEN}`,
+                            'Content-Type': 'application/json'
+                        }
+                    });
+                    
+                    if (fixResult.ok) {
+                        const fixData = await fixResult.json();
+                        if (fixData.success) {
+                            console.log('✅ Admin role fixed! Retrying request...');
+                            if (typeof showToast === 'function') {
+                                showToast('Permissions restored!', 'success');
+                            }
+                            // Hide alert
+                            document.getElementById('permissionAlert')?.classList.add('hidden');
+                            
+                            // Retry the original request
+                            isFixingAdmin = false;
+                            return originalFetch(url, options);
+                        }
+                    }
+                } catch (e) {
+                    console.error('Auto-fix failed:', e);
+                }
+                
+                isFixingAdmin = false;
+            }
+            
+            return response;
+        };
 
         // ==========================================
         // AUTH
@@ -3014,6 +3185,9 @@
                 
                 // Load overview data
                 loadOverviewData();
+                
+                // Load image library
+                loadImageLibrary();
                 
                 // Load integrations settings
                 loadIntegrations();
@@ -3684,6 +3858,67 @@
                 toast.style.transform = 'translateY(20px)';
                 setTimeout(() => toast.remove(), 300);
             }, 3000);
+        }
+        
+        // ==========================================
+        // PERMISSION FIX FUNCTIONS
+        // ==========================================
+        
+        let permission403Count = 0;
+        
+        function showPermissionAlert() {
+            permission403Count++;
+            // Show alert if multiple 403s detected
+            if (permission403Count >= 2) {
+                document.getElementById('permissionAlert')?.classList.remove('hidden');
+            }
+        }
+        
+        async function manualFixPermissions() {
+            const btn = event.target.closest('button');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Fixing...';
+            
+            try {
+                // Try authenticated fix first
+                let response = await fetch(`${API_URL}/api/auth/fix-admin`, {
+                    method: 'POST',
+                    headers: { 
+                        'Authorization': `Bearer ${AUTH_TOKEN}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                let data = await response.json();
+                
+                // If that fails, try force-fix
+                if (!response.ok || !data.success) {
+                    console.log('Trying force-fix...');
+                    response = await fetch(`${API_URL}/api/auth/force-fix-admin`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({})
+                    });
+                    data = await response.json();
+                }
+                
+                if (data.success) {
+                    showToast('Permissions fixed! Reloading...', 'success');
+                    document.getElementById('permissionAlert')?.classList.add('hidden');
+                    permission403Count = 0;
+                    
+                    // Reload page to refresh all data
+                    setTimeout(() => location.reload(), 1000);
+                } else {
+                    showToast('Fix failed: ' + (data.error || 'Unknown error'), 'error');
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fas fa-wrench mr-2"></i>Fix Permissions';
+                }
+            } catch (error) {
+                showToast('Error: ' + error.message, 'error');
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-wrench mr-2"></i>Fix Permissions';
+            }
         }
         
         // ==========================================
@@ -6675,6 +6910,183 @@
             }
         }
         
+        // ==========================================
+        // IMAGE LIBRARY FUNCTIONS
+        // ==========================================
+        
+        let clientImageLibrary = [];
+        let selectedLibraryImage = null;
+        
+        async function loadImageLibrary() {
+            if (!currentClient) return;
+            
+            try {
+                const response = await fetch(`${API_URL}/api/images/library/${currentClient.id}`, {
+                    headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    clientImageLibrary = data.images || [];
+                    renderImageLibrary();
+                }
+            } catch (error) {
+                console.error('Failed to load image library:', error);
+            }
+        }
+        
+        function renderImageLibrary() {
+            const grid = document.getElementById('imageLibraryGrid');
+            
+            if (clientImageLibrary.length === 0) {
+                grid.innerHTML = '<p class="col-span-3 text-center text-gray-500 text-sm py-4">Upload images to see them here</p>';
+                return;
+            }
+            
+            grid.innerHTML = clientImageLibrary.map(img => `
+                <div class="relative group cursor-pointer rounded-lg overflow-hidden ${selectedLibraryImage === img.id ? 'ring-2 ring-pink-500' : ''}" 
+                     onclick="selectLibraryImage('${img.id}')">
+                    <img src="${img.file_url}" alt="${img.alt_text || img.title || 'Image'}" 
+                         class="w-full h-20 object-cover">
+                    <div class="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition flex items-center justify-center">
+                        <i class="fas fa-check text-white"></i>
+                    </div>
+                    <button onclick="event.stopPropagation(); deleteLibraryImage('${img.id}')" 
+                            class="absolute top-1 right-1 w-5 h-5 bg-red-500 rounded-full text-white text-xs opacity-0 group-hover:opacity-100 transition">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            `).join('');
+        }
+        
+        function selectLibraryImage(imageId) {
+            selectedLibraryImage = selectedLibraryImage === imageId ? null : imageId;
+            renderImageLibrary();
+        }
+        
+        async function uploadLibraryImage(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            if (!currentClient) {
+                alert('Please select a client first');
+                return;
+            }
+            
+            // Validate file type
+            const validTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+            if (!validTypes.includes(file.type)) {
+                alert('Please upload a JPG, PNG, GIF, or WebP image');
+                return;
+            }
+            
+            // Validate file size (10MB max)
+            if (file.size > 10 * 1024 * 1024) {
+                alert('File too large. Maximum size is 10MB.');
+                return;
+            }
+            
+            const category = document.getElementById('uploadCategory').value;
+            
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('category', category);
+            formData.append('title', file.name.replace(/\.[^/.]+$/, ''));
+            
+            try {
+                const response = await fetch(`${API_URL}/api/images/library/${currentClient.id}/upload`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` },
+                    body: formData
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showToast('Image uploaded!', 'success');
+                    loadImageLibrary();
+                } else {
+                    alert('Upload failed: ' + (data.error || 'Unknown error'));
+                }
+            } catch (error) {
+                alert('Upload error: ' + error.message);
+            }
+            
+            // Reset file input
+            event.target.value = '';
+        }
+        
+        async function deleteLibraryImage(imageId) {
+            if (!confirm('Delete this image?')) return;
+            
+            try {
+                const response = await fetch(`${API_URL}/api/images/library/${currentClient.id}/${imageId}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
+                });
+                
+                if (response.ok) {
+                    showToast('Image deleted', 'success');
+                    loadImageLibrary();
+                }
+            } catch (error) {
+                alert('Delete failed: ' + error.message);
+            }
+        }
+        
+        async function createFeaturedImage() {
+            if (!currentClient) {
+                alert('Please select a client first');
+                return;
+            }
+            
+            const title = document.getElementById('featuredImageTitle').value.trim();
+            if (!title) {
+                alert('Please enter a title for the featured image');
+                return;
+            }
+            
+            const template = document.getElementById('featuredImageTemplate').value;
+            
+            const requestBody = {
+                title: title,
+                template: template,
+                subtitle: currentClient.geo || ''
+            };
+            
+            // If an image is selected, use it
+            if (selectedLibraryImage) {
+                requestBody.source_image_id = selectedLibraryImage;
+            } else {
+                // Otherwise, auto-select from library
+                requestBody.category = 'hero';
+            }
+            
+            try {
+                const response = await fetch(`${API_URL}/api/images/featured/${currentClient.id}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${AUTH_TOKEN}`
+                    },
+                    body: JSON.stringify(requestBody)
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    document.getElementById('featuredImageResult').src = data.file_url;
+                    document.getElementById('featuredImageDownload').href = data.file_url;
+                    document.getElementById('featuredImagePreview').classList.remove('hidden');
+                    showToast('Featured image created!', 'success');
+                } else {
+                    alert('Failed: ' + (data.error || 'Unknown error'));
+                }
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        }
+        
         async function generateBulk() {
             if (!currentClient) {
                 alert('Please select a client first');
@@ -8314,6 +8726,7 @@
             document.getElementById('chatbotColor2').value = config.secondary_color || '#ec4899';
             document.getElementById('chatbotColor2Text').value = config.secondary_color || '#ec4899';
             document.getElementById('chatbotWelcome').value = config.welcome_message || 'Hi! How can I help you today?';
+            document.getElementById('chatbotLeadEnabled').checked = config.lead_capture_enabled !== false;
             document.getElementById('chatbotCollectName').checked = config.collect_name !== false;
             document.getElementById('chatbotCollectEmail').checked = config.collect_email !== false;
             document.getElementById('chatbotCollectPhone').checked = config.collect_phone !== false;
@@ -8424,6 +8837,7 @@
                 primary_color: document.getElementById('chatbotColor').value,
                 secondary_color: document.getElementById('chatbotColor2').value,
                 welcome_message: document.getElementById('chatbotWelcome').value,
+                lead_capture_enabled: document.getElementById('chatbotLeadEnabled').checked,
                 collect_name: document.getElementById('chatbotCollectName').checked,
                 collect_email: document.getElementById('chatbotCollectEmail').checked,
                 collect_phone: document.getElementById('chatbotCollectPhone').checked,

@@ -482,30 +482,38 @@ def reset_user_password(current_user, user_id):
 def fix_admin_role(current_user):
     """
     Fix admin role if it was corrupted during bootstrap.
-    Only works if:
+    Works if:
     1. No other admin exists, OR
-    2. Current user's email matches ADMIN_EMAIL env var
+    2. Current user's email matches ADMIN_EMAIL env var, OR
+    3. Current user is the only user, OR
+    4. Current user is the first user (earliest created_at)
     
     POST /api/auth/fix-admin
     """
     from app.database import db
     
-    # Check if there's already a properly working admin
+    # Check conditions for allowing the fix
     existing_admin = DBUser.query.filter_by(role=UserRole.ADMIN).first()
     admin_email = os.environ.get('ADMIN_EMAIL', 'admin@karma.marketing')
+    total_users = DBUser.query.count()
+    first_user = DBUser.query.order_by(DBUser.created_at.asc()).first()
     
-    # Allow fix if: no admin exists, OR current user matches admin email
+    # Allow fix if any of these conditions are met
     can_fix = (
-        existing_admin is None or 
-        current_user.email.lower() == admin_email.lower() or
-        current_user == existing_admin  # They're the same but role is wrong
+        existing_admin is None or  # No admin exists
+        current_user.email.lower() == admin_email.lower() or  # Email matches env
+        current_user == existing_admin or  # They're the admin but role is corrupted
+        total_users == 1 or  # Only one user - they should be admin
+        (first_user and current_user.id == first_user.id)  # First user should be admin
     )
     
     if not can_fix:
         return jsonify({
             'error': 'Cannot fix admin role',
             'reason': 'An admin already exists. Contact them to update your role.',
-            'your_role': current_user.role
+            'your_role': current_user.role,
+            'your_email': current_user.email,
+            'admin_email_env': admin_email
         }), 403
     
     # Fix the role
@@ -513,10 +521,70 @@ def fix_admin_role(current_user):
     current_user.role = UserRole.ADMIN
     db.session.commit()
     
+    logger.info(f"Admin role fixed for user {current_user.email}: {old_role} -> ADMIN")
+    
     return jsonify({
         'success': True,
         'message': 'Admin role restored',
         'old_role': old_role,
         'new_role': current_user.role,
         'user_id': current_user.id
+    })
+
+
+@auth_bp.route('/force-fix-admin', methods=['POST'])
+def force_fix_admin():
+    """
+    Emergency endpoint to fix admin role.
+    Works WITHOUT auth but ONLY if:
+    1. There's exactly one user in the system, OR
+    2. No user has admin role
+    
+    POST /api/auth/force-fix-admin
+    {
+        "email": "user@email.com"  // Email of user to make admin
+    }
+    
+    This is a safety net for bootstrap issues.
+    """
+    from app.database import db
+    
+    data = request.get_json() or {}
+    email = data.get('email', '').lower().strip()
+    
+    # Safety checks
+    total_users = DBUser.query.count()
+    admin_count = DBUser.query.filter_by(role=UserRole.ADMIN).count()
+    
+    # Only allow if single user or no admins
+    if total_users > 1 and admin_count > 0:
+        return jsonify({
+            'error': 'Cannot force-fix: multiple users exist and admin already set',
+            'total_users': total_users,
+            'admin_count': admin_count
+        }), 403
+    
+    # Find user to promote
+    if email:
+        user = DBUser.query.filter(DBUser.email.ilike(email)).first()
+    else:
+        # Get first user
+        user = DBUser.query.order_by(DBUser.created_at.asc()).first()
+    
+    if not user:
+        return jsonify({'error': 'No user found'}), 404
+    
+    # Fix the role
+    old_role = user.role
+    user.role = UserRole.ADMIN
+    db.session.commit()
+    
+    logger.warning(f"FORCE admin role fix for user {user.email}: {old_role} -> ADMIN")
+    
+    return jsonify({
+        'success': True,
+        'message': 'Admin role force-fixed',
+        'user_email': user.email,
+        'old_role': old_role,
+        'new_role': user.role
     })

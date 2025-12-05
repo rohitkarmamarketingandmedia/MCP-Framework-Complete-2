@@ -2063,3 +2063,86 @@ class DBWebhookEndpoint(db.Model):
             'failure_count': self.failure_count,
             'created_at': self.created_at.isoformat() if self.created_at else None
         }
+
+
+# ============================================
+# Client Image Library
+# ============================================
+
+class DBClientImage(db.Model):
+    """Images uploaded by clients for use in content"""
+    __tablename__ = 'client_images'
+    
+    id: Mapped[str] = mapped_column(String(50), primary_key=True)
+    client_id: Mapped[str] = mapped_column(String(50), ForeignKey('clients.id'), index=True)
+    
+    # Image info
+    filename: Mapped[str] = mapped_column(String(255))
+    original_filename: Mapped[str] = mapped_column(String(255))
+    file_path: Mapped[str] = mapped_column(String(500))  # Local storage path
+    file_url: Mapped[str] = mapped_column(String(500))   # Public URL
+    file_size: Mapped[int] = mapped_column(Integer, default=0)
+    mime_type: Mapped[str] = mapped_column(String(100), default='image/jpeg')
+    
+    # Dimensions
+    width: Mapped[int] = mapped_column(Integer, default=0)
+    height: Mapped[int] = mapped_column(Integer, default=0)
+    
+    # Metadata
+    title: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    alt_text: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    tags: Mapped[str] = mapped_column(Text, default='[]')  # JSON array
+    category: Mapped[str] = mapped_column(String(100), default='general')  # hero, team, work, logo, etc.
+    
+    # Usage tracking
+    use_count: Mapped[int] = mapped_column(Integer, default=0)
+    last_used_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    
+    # Status
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    uploaded_by: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    
+    def __init__(self, client_id: str, filename: str, file_path: str, **kwargs):
+        self.id = f"img_{uuid.uuid4().hex[:12]}"
+        self.client_id = client_id
+        self.filename = filename
+        self.original_filename = kwargs.get('original_filename', filename)
+        self.file_path = file_path
+        self.file_url = kwargs.get('file_url', '')
+        self.file_size = kwargs.get('file_size', 0)
+        self.mime_type = kwargs.get('mime_type', 'image/jpeg')
+        self.width = kwargs.get('width', 0)
+        self.height = kwargs.get('height', 0)
+        self.title = kwargs.get('title')
+        self.alt_text = kwargs.get('alt_text')
+        self.description = kwargs.get('description')
+        self.tags = json.dumps(kwargs.get('tags', []))
+        self.category = kwargs.get('category', 'general')
+        self.uploaded_by = kwargs.get('uploaded_by')
+    
+    def get_tags(self) -> List[str]:
+        return safe_json_loads(self.tags, [])
+    
+    def to_dict(self) -> dict:
+        return {
+            'id': self.id,
+            'client_id': self.client_id,
+            'filename': self.filename,
+            'original_filename': self.original_filename,
+            'file_path': self.file_path,
+            'file_url': self.file_url,
+            'file_size': self.file_size,
+            'mime_type': self.mime_type,
+            'width': self.width,
+            'height': self.height,
+            'title': self.title,
+            'alt_text': self.alt_text,
+            'description': self.description,
+            'tags': self.get_tags(),
+            'category': self.category,
+            'use_count': self.use_count,
+            'is_active': self.is_active,
+            'created_at': self.created_at.isoformat() if self.created_at else None
+        }
