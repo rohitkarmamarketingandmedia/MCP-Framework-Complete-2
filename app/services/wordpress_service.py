@@ -4,6 +4,7 @@ Publishes content to client WordPress sites via REST API
 """
 import os
 import re
+import time
 import logging
 import requests
 import base64
@@ -11,6 +12,22 @@ from typing import Optional, Dict, Any
 from datetime import datetime
 
 logger = logging.getLogger(__name__)
+
+
+def retry_request(func, max_retries=3, delay=1):
+    """Retry a request with exponential backoff"""
+    last_error = None
+    for attempt in range(max_retries):
+        try:
+            result = func()
+            return result
+        except requests.exceptions.RequestException as e:
+            last_error = e
+            if attempt < max_retries - 1:
+                wait_time = delay * (2 ** attempt)  # Exponential backoff
+                logger.warning(f"Request failed, retrying in {wait_time}s... ({e})")
+                time.sleep(wait_time)
+    raise last_error
 
 
 class WordPressService:
@@ -36,7 +53,12 @@ class WordPressService:
         token = base64.b64encode(credentials.encode()).decode()
         self.headers = {
             'Authorization': f'Basic {token}',
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Accept': 'application/json, text/plain, */*',
+            'Accept-Language': 'en-US,en;q=0.9',
+            'Cache-Control': 'no-cache',
+            'X-Requested-With': 'XMLHttpRequest'
         }
     
     def test_connection(self) -> Dict[str, Any]:
@@ -56,7 +78,11 @@ class WordPressService:
                 api_check = requests.get(
                     f"{self.site_url}/wp-json/",
                     timeout=10,
-                    headers={'User-Agent': 'MCP-Framework/1.0'}
+                    headers={
+                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                        'Accept': 'application/json',
+                        'Accept-Language': 'en-US,en;q=0.9'
+                    }
                 )
                 
                 if is_security_block(api_check):

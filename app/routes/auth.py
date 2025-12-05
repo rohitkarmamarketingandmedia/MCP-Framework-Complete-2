@@ -536,9 +536,10 @@ def fix_admin_role(current_user):
 def force_fix_admin():
     """
     Emergency endpoint to fix admin role.
-    Works WITHOUT auth but ONLY if:
+    Works WITHOUT auth in these cases:
     1. There's exactly one user in the system, OR
-    2. No user has admin role
+    2. No user has admin role, OR
+    3. Email provided matches ADMIN_EMAIL env var
     
     POST /api/auth/force-fix-admin
     {
@@ -551,25 +552,44 @@ def force_fix_admin():
     
     data = request.get_json() or {}
     email = data.get('email', '').lower().strip()
+    admin_email = os.environ.get('ADMIN_EMAIL', 'admin@karma.marketing').lower()
     
     # Safety checks
     total_users = DBUser.query.count()
     admin_count = DBUser.query.filter_by(role=UserRole.ADMIN).count()
     
-    # Only allow if single user or no admins
-    if total_users > 1 and admin_count > 0:
-        return jsonify({
-            'error': 'Cannot force-fix: multiple users exist and admin already set',
-            'total_users': total_users,
-            'admin_count': admin_count
-        }), 403
-    
     # Find user to promote
+    user = None
     if email:
         user = DBUser.query.filter(DBUser.email.ilike(email)).first()
-    else:
-        # Get first user
-        user = DBUser.query.order_by(DBUser.created_at.asc()).first()
+    
+    # Allow if:
+    # 1. Single user system
+    # 2. No admins exist
+    # 3. Email matches ADMIN_EMAIL env var
+    # 4. Email matches the first user created
+    first_user = DBUser.query.order_by(DBUser.created_at.asc()).first()
+    
+    can_fix = (
+        total_users == 1 or
+        admin_count == 0 or
+        (email and email == admin_email) or
+        (email and first_user and email == first_user.email.lower())
+    )
+    
+    if not can_fix:
+        # Return helpful info
+        return jsonify({
+            'error': 'Cannot force-fix: specify the correct admin email',
+            'hint': f'Try with email matching ADMIN_EMAIL env var or first user',
+            'total_users': total_users,
+            'admin_count': admin_count,
+            'first_user_email': first_user.email if first_user else None
+        }), 403
+    
+    # If no specific user requested, use first user
+    if not user:
+        user = first_user
     
     if not user:
         return jsonify({'error': 'No user found'}), 404
@@ -587,4 +607,46 @@ def force_fix_admin():
         'user_email': user.email,
         'old_role': old_role,
         'new_role': user.role
+    })
+
+
+@auth_bp.route('/promote-to-admin', methods=['POST'])
+@token_required
+def promote_to_admin(current_user):
+    """
+    Promote the currently logged-in user to admin.
+    Only works if current user is the first user OR matches ADMIN_EMAIL.
+    
+    POST /api/auth/promote-to-admin
+    """
+    from app.database import db
+    
+    admin_email = os.environ.get('ADMIN_EMAIL', 'admin@karma.marketing').lower()
+    first_user = DBUser.query.order_by(DBUser.created_at.asc()).first()
+    
+    # Check if current user should be admin
+    can_promote = (
+        current_user.email.lower() == admin_email or
+        (first_user and current_user.id == first_user.id)
+    )
+    
+    if not can_promote:
+        return jsonify({
+            'error': 'Cannot promote: you are not the designated admin',
+            'your_email': current_user.email,
+            'admin_email': admin_email
+        }), 403
+    
+    # Promote
+    old_role = current_user.role
+    current_user.role = UserRole.ADMIN
+    db.session.commit()
+    
+    logger.info(f"User promoted to admin: {current_user.email}")
+    
+    return jsonify({
+        'success': True,
+        'message': 'You are now an admin',
+        'old_role': old_role,
+        'new_role': current_user.role
     })

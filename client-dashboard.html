@@ -3016,6 +3016,7 @@
                 
                 if (res.ok && data.token) {
                     AUTH_TOKEN = data.token;
+                    localStorage.setItem('mcp_user_email', email);  // Save for permission fixes
                     alert('✓ Admin created! Email: ' + email);
                     document.getElementById('authModal').classList.add('hidden');
                     document.getElementById('dashboard').classList.remove('hidden');
@@ -3060,6 +3061,7 @@
 
                 if (data.token) {
                     AUTH_TOKEN = data.token;
+                    localStorage.setItem('mcp_user_email', email);  // Save for permission fixes
                     document.getElementById('authModal').classList.add('hidden');
                     document.getElementById('dashboard').classList.remove('hidden');
                     loadClients();
@@ -3880,7 +3882,8 @@
             btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Fixing...';
             
             try {
-                // Try authenticated fix first
+                // Strategy 1: Try authenticated fix-admin
+                console.log('Strategy 1: Trying fix-admin...');
                 let response = await fetch(`${API_URL}/api/auth/fix-admin`, {
                     method: 'POST',
                     headers: { 
@@ -3891,34 +3894,65 @@
                 
                 let data = await response.json();
                 
-                // If that fails, try force-fix
-                if (!response.ok || !data.success) {
-                    console.log('Trying force-fix...');
+                if (data.success) {
+                    handleFixSuccess();
+                    return;
+                }
+                
+                // Strategy 2: Try promote-to-admin (for logged-in user)
+                console.log('Strategy 2: Trying promote-to-admin...');
+                response = await fetch(`${API_URL}/api/auth/promote-to-admin`, {
+                    method: 'POST',
+                    headers: { 
+                        'Authorization': `Bearer ${AUTH_TOKEN}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                data = await response.json();
+                
+                if (data.success) {
+                    handleFixSuccess();
+                    return;
+                }
+                
+                // Strategy 3: Try force-fix with user's email
+                const userEmail = localStorage.getItem('mcp_user_email') || prompt('Enter your admin email to fix permissions:');
+                if (userEmail) {
+                    localStorage.setItem('mcp_user_email', userEmail);
+                    console.log('Strategy 3: Trying force-fix with email...');
                     response = await fetch(`${API_URL}/api/auth/force-fix-admin`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({})
+                        body: JSON.stringify({ email: userEmail })
                     });
+                    
                     data = await response.json();
+                    
+                    if (data.success) {
+                        handleFixSuccess();
+                        return;
+                    }
                 }
                 
-                if (data.success) {
-                    showToast('Permissions fixed! Reloading...', 'success');
-                    document.getElementById('permissionAlert')?.classList.add('hidden');
-                    permission403Count = 0;
-                    
-                    // Reload page to refresh all data
-                    setTimeout(() => location.reload(), 1000);
-                } else {
-                    showToast('Fix failed: ' + (data.error || 'Unknown error'), 'error');
-                    btn.disabled = false;
-                    btn.innerHTML = '<i class="fas fa-wrench mr-2"></i>Fix Permissions';
-                }
+                // All strategies failed
+                showToast('Fix failed: ' + (data.error || data.hint || 'Contact support'), 'error');
+                console.log('Fix failed:', data);
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-wrench mr-2"></i>Fix Permissions';
+                
             } catch (error) {
                 showToast('Error: ' + error.message, 'error');
                 btn.disabled = false;
                 btn.innerHTML = '<i class="fas fa-wrench mr-2"></i>Fix Permissions';
             }
+        }
+        
+        function handleFixSuccess() {
+            showToast('Permissions fixed! Reloading...', 'success');
+            document.getElementById('permissionAlert')?.classList.add('hidden');
+            permission403Count = 0;
+            setTimeout(() => location.reload(), 1000);
         }
         
         // ==========================================
