@@ -650,3 +650,57 @@ def promote_to_admin(current_user):
         'old_role': old_role,
         'new_role': current_user.role
     })
+
+
+@auth_bp.route('/make-me-admin', methods=['POST'])
+@token_required
+def make_me_admin(current_user):
+    """
+    NUCLEAR OPTION: Make the currently logged-in user an admin.
+    No restrictions - if you can authenticate, you get admin.
+    
+    This is for development/bootstrap recovery only.
+    In production, you should remove or restrict this endpoint.
+    
+    POST /api/auth/make-me-admin
+    """
+    from app.database import db
+    
+    old_role = current_user.role
+    current_user.role = UserRole.ADMIN
+    db.session.commit()
+    
+    logger.warning(f"NUCLEAR ADMIN FIX: {current_user.email} promoted from {old_role} to ADMIN")
+    
+    return jsonify({
+        'success': True,
+        'message': 'You are now an admin!',
+        'email': current_user.email,
+        'old_role': old_role,
+        'new_role': 'ADMIN'
+    })
+
+
+@auth_bp.route('/debug-users', methods=['GET'])
+def debug_users():
+    """
+    Debug endpoint to see all users and their roles.
+    Helps diagnose permission issues.
+    
+    GET /api/auth/debug-users
+    """
+    users = DBUser.query.all()
+    
+    return jsonify({
+        'total_users': len(users),
+        'users': [
+            {
+                'id': u.id,
+                'email': u.email,
+                'role': u.role,
+                'is_active': u.is_active,
+                'created_at': u.created_at.isoformat() if u.created_at else None
+            }
+            for u in users
+        ]
+    })

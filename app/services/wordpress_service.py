@@ -64,38 +64,7 @@ class WordPressService:
     def test_connection(self) -> Dict[str, Any]:
         """Test the WordPress connection"""
         try:
-            # Check if response is HTML (security block like SiteGround captcha)
-            def is_security_block(response):
-                content_type = response.headers.get('Content-Type', '')
-                if 'text/html' in content_type:
-                    text = response.text.lower()
-                    if any(x in text for x in ['captcha', 'security', 'blocked', 'cloudflare', 'challenge']):
-                        return True
-                return False
-            
-            # First, test if the REST API is accessible at all (no auth needed)
-            try:
-                api_check = requests.get(
-                    f"{self.site_url}/wp-json/",
-                    timeout=10,
-                    headers={
-                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                        'Accept': 'application/json',
-                        'Accept-Language': 'en-US,en;q=0.9'
-                    }
-                )
-                
-                if is_security_block(api_check):
-                    return {
-                        'success': False,
-                        'error': 'Security block detected',
-                        'message': 'Your hosting provider (likely SiteGround) is blocking API requests. Please whitelist the MCP server IP in your hosting security settings, or temporarily disable bot protection.',
-                        'hosting_tip': 'SiteGround: Site Tools → Security → Access Control → Add IP to Whitelist'
-                    }
-            except Exception:
-                pass  # Continue to try authenticated request
-            
-            # Try to get posts (less restricted than /users/me)
+            # Try to get posts with auth
             response = requests.get(
                 f"{self.api_url}/posts",
                 headers=self.headers,
@@ -103,17 +72,20 @@ class WordPressService:
                 timeout=15
             )
             
-            # Check for security block in response
-            if is_security_block(response):
-                return {
-                    'success': False,
-                    'error': 'Security block detected',
-                    'message': 'Your hosting provider is blocking API requests. Please whitelist the MCP server IP address in your hosting security settings.',
-                    'response_preview': response.text[:300]
-                }
+            # Check for captcha/challenge page (very specific)
+            content_type = response.headers.get('Content-Type', '')
+            if 'text/html' in content_type and 'application/json' not in content_type:
+                text = response.text.lower()
+                # Only trigger on actual captcha pages
+                if 'checking your browser' in text or 'cf-browser-verification' in text:
+                    return {
+                        'success': False,
+                        'error': 'Security challenge detected',
+                        'message': 'Cloudflare or similar protection is showing a browser check. Try whitelisting the server IP.',
+                        'response_preview': response.text[:300]
+                    }
             
             if response.status_code == 200:
-                # Posts endpoint worked, now verify we have write access
                 return {
                     'success': True,
                     'connected_as': self.username,
