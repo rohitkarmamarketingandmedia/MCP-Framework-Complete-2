@@ -64,11 +64,11 @@ class WordPressService:
     def test_connection(self) -> Dict[str, Any]:
         """Test the WordPress connection"""
         try:
-            # Try to get posts with auth
+            # Try to get posts with auth - don't use status=any as it requires admin
             response = requests.get(
                 f"{self.api_url}/posts",
                 headers=self.headers,
-                params={'per_page': 1, 'status': 'any'},
+                params={'per_page': 1},  # Just get one published post
                 timeout=15
             )
             
@@ -86,6 +86,7 @@ class WordPressService:
                     }
             
             if response.status_code == 200:
+                # Can read posts, now test write access by checking user capabilities
                 return {
                     'success': True,
                     'connected_as': self.username,
@@ -99,10 +100,22 @@ class WordPressService:
                     'message': 'Invalid username or application password. Make sure you are using an Application Password (not your regular password). Generate one at: WordPress Admin → Users → Profile → Application Passwords'
                 }
             elif response.status_code == 403:
+                # Try without auth to see if it's a permission issue or site block
+                public_check = requests.get(
+                    f"{self.site_url}/wp-json/wp/v2/posts",
+                    params={'per_page': 1},
+                    timeout=10
+                )
+                if public_check.status_code == 200:
+                    return {
+                        'success': False,
+                        'error': 'Authentication issue',
+                        'message': 'The REST API is accessible but authentication failed. Try regenerating the Application Password in WordPress.'
+                    }
                 return {
                     'success': False,
-                    'error': 'Permission denied',
-                    'message': 'The user does not have permission to access posts. Make sure the WordPress user has Editor or Administrator role.'
+                    'error': 'Access denied',
+                    'message': 'WordPress is blocking access. This might be a security plugin. Check your WordPress security settings.'
                 }
             elif response.status_code == 404:
                 return {
