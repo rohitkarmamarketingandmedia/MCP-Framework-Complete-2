@@ -401,23 +401,6 @@ def generate_content(current_user):
         status=ContentStatus.DRAFT
     )
     
-    # Auto-generate featured image if client has images in library
-    try:
-        from app.services.featured_image_service import featured_image_service
-        if featured_image_service.is_available():
-            featured_result = featured_image_service.create_from_client_library(
-                client_id=client.id,
-                title=result['meta_title'] or result['title'],
-                category='hero',
-                template='gradient_bottom',
-                subtitle=data.get('geo', client.geo)
-            )
-            if featured_result.get('success'):
-                blog_post.featured_image_url = featured_result['file_url']
-                logger.info(f"Auto-generated featured image for blog: {featured_result['file_url']}")
-    except Exception as e:
-        logger.warning(f"Could not auto-generate featured image: {e}")
-    
     # Save to database
     data_service.save_blog_post(blog_post)
     
