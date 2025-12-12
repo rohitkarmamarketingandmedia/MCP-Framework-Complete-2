@@ -260,12 +260,17 @@ def update_integrations(current_user, client_id):
         "ga4_property_id": "123456789"
     }
     """
-    # Check access - admin/manager can manage integrations
+    # Check access - admin/manager/client can manage their own integrations
+    # FIXED: Allow client users to update their OWN integration settings
     if not current_user.can_manage_clients:
-        return jsonify({'error': 'Permission denied'}), 403
+        # If not admin/manager, must be client updating their own settings
+        if not current_user.client_id or str(current_user.client_id) != str(client_id):
+            return jsonify({'error': 'Permission denied'}), 403
     
     if not current_user.is_admin and not current_user.has_access_to_client(client_id):
-        return jsonify({'error': 'Access denied to this client'}), 403
+        # Double-check client access
+        if not current_user.client_id or str(current_user.client_id) != str(client_id):
+            return jsonify({'error': 'Access denied to this client'}), 403
     
     client = data_service.get_client(client_id)
     
@@ -613,4 +618,236 @@ def auto_generate_service_pages(current_user, client_id):
         'new_pages': new_pages,
         'total_pages': len(all_pages),
         'service_pages': all_pages
+    })
+
+
+# ==========================================
+# OVERVIEW DASHBOARD ENDPOINTS
+# ==========================================
+
+@clients_bp.route('/health-score/<client_id>', methods=['GET'])
+@token_required
+def get_health_score(current_user, client_id):
+    """
+    Get client marketing health score
+    
+    GET /api/client/health-score/<client_id>
+    """
+    if not current_user.has_access_to_client(client_id):
+        return jsonify({'error': 'Access denied'}), 403
+    
+    client = data_service.get_client(client_id)
+    if not client:
+        return jsonify({'error': 'Client not found'}), 404
+    
+    # Calculate health score based on various factors
+    score = 50  # Base score
+    factors = []
+    
+    # Check WordPress connection (+20)
+    if client.wordpress_url:
+        score += 20
+        factors.append({'name': 'WordPress Connected', 'points': 20})
+    else:
+        factors.append({'name': 'WordPress Not Connected', 'points': 0, 'max': 20})
+    
+    # Check keywords defined (+15)
+    keywords = client.get_keywords()
+    if keywords.get('primary') or keywords.get('secondary'):
+        score += 15
+        factors.append({'name': 'Keywords Defined', 'points': 15})
+    else:
+        factors.append({'name': 'No Keywords', 'points': 0, 'max': 15})
+    
+    # Check content created (+15)
+    from app.models.db_models import DBContent
+    content_count = DBContent.query.filter_by(client_id=client_id).count()
+    if content_count >= 5:
+        score += 15
+        factors.append({'name': f'{content_count} Content Pieces', 'points': 15})
+    elif content_count > 0:
+        partial = min(content_count * 3, 15)
+        score += partial
+        factors.append({'name': f'{content_count} Content Pieces', 'points': partial, 'max': 15})
+    
+    # Cap at 100
+    score = min(score, 100)
+    
+    return jsonify({
+        'score': score,
+        'health_score': score,
+        'factors': factors,
+        'grade': 'A+' if score >= 90 else 'A' if score >= 80 else 'B' if score >= 70 else 'C' if score >= 60 else 'D'
+    })
+
+
+@clients_bp.route('/wins/<client_id>', methods=['GET'])
+@token_required
+def get_wins(current_user, client_id):
+    """
+    Get recent wins/achievements for client
+    
+    GET /api/client/wins/<client_id>
+    """
+    if not current_user.has_access_to_client(client_id):
+        return jsonify({'error': 'Access denied'}), 403
+    
+    from app.models.db_models import DBContent, DBLead
+    from datetime import datetime, timedelta
+    
+    wins = []
+    week_ago = datetime.utcnow() - timedelta(days=7)
+    
+    # Content created this week
+    content_count = DBContent.query.filter(
+        DBContent.client_id == client_id,
+        DBContent.created_at >= week_ago
+    ).count()
+    if content_count > 0:
+        wins.append({
+            'type': 'content',
+            'title': f'{content_count} new content pieces created',
+            'icon': 'fa-file-alt',
+            'color': 'purple'
+        })
+    
+    # Leads captured this week
+    lead_count = DBLead.query.filter(
+        DBLead.client_id == client_id,
+        DBLead.created_at >= week_ago
+    ).count()
+    if lead_count > 0:
+        wins.append({
+            'type': 'leads',
+            'title': f'{lead_count} new leads captured',
+            'icon': 'fa-user-plus',
+            'color': 'green'
+        })
+    
+    # Published to WordPress this week
+    published = DBContent.query.filter(
+        DBContent.client_id == client_id,
+        DBContent.wordpress_post_id.isnot(None),
+        DBContent.published_at >= week_ago
+    ).count()
+    if published > 0:
+        wins.append({
+            'type': 'published',
+            'title': f'{published} posts published to WordPress',
+            'icon': 'fa-globe',
+            'color': 'blue'
+        })
+    
+    return jsonify({
+        'wins': wins,
+        'total': len(wins)
+    })
+
+
+@clients_bp.route('/activity/<client_id>', methods=['GET'])
+@token_required
+def get_activity(current_user, client_id):
+    """
+    Get recent activity for client
+    
+    GET /api/client/activity/<client_id>?limit=10
+    """
+    if not current_user.has_access_to_client(client_id):
+        return jsonify({'error': 'Access denied'}), 403
+    
+    from app.models.db_models import DBContent, DBLead
+    from datetime import datetime
+    
+    limit = request.args.get('limit', 10, type=int)
+    activities = []
+    
+    # Get recent content
+    contents = DBContent.query.filter_by(client_id=client_id).order_by(
+        DBContent.created_at.desc()
+    ).limit(limit).all()
+    
+    for content in contents:
+        activities.append({
+            'type': 'content',
+            'title': f'Created: {content.title[:50]}...' if len(content.title) > 50 else f'Created: {content.title}',
+            'time': content.created_at.isoformat() if content.created_at else None,
+            'icon': 'fa-file-alt',
+            'color': 'purple'
+        })
+    
+    # Get recent leads
+    leads = DBLead.query.filter_by(client_id=client_id).order_by(
+        DBLead.created_at.desc()
+    ).limit(limit).all()
+    
+    for lead in leads:
+        activities.append({
+            'type': 'lead',
+            'title': f'New lead: {lead.name or lead.email or "Unknown"}',
+            'time': lead.created_at.isoformat() if lead.created_at else None,
+            'icon': 'fa-user-plus',
+            'color': 'green'
+        })
+    
+    # Sort by time and limit
+    activities.sort(key=lambda x: x['time'] or '', reverse=True)
+    activities = activities[:limit]
+    
+    return jsonify({
+        'activities': activities,
+        'total': len(activities)
+    })
+
+
+@clients_bp.route('/calls/<client_id>', methods=['GET'])
+@token_required
+def get_calls(current_user, client_id):
+    """
+    Get call data for client (from CallRail or mock)
+    
+    GET /api/client/calls/<client_id>?limit=10
+    """
+    if not current_user.has_access_to_client(client_id):
+        return jsonify({'error': 'Access denied'}), 403
+    
+    client = data_service.get_client(client_id)
+    if not client:
+        return jsonify({'error': 'Client not found'}), 404
+    
+    limit = request.args.get('limit', 10, type=int)
+    
+    # Check if CallRail is configured
+    callrail_id = client.callrail_company_id
+    if not callrail_id:
+        return jsonify({
+            'calls': [],
+            'total': 0,
+            'answered': 0,
+            'answer_rate': 0,
+            'demo_mode': True,
+            'message': 'Connect CallRail in Settings to see real call data'
+        })
+    
+    # Try to get real calls from CallRail
+    try:
+        from app.services.callrail_service import callrail_service
+        if callrail_service.is_configured():
+            calls = callrail_service.get_calls(callrail_id, limit=limit)
+            answered = sum(1 for c in calls if c.get('answered'))
+            return jsonify({
+                'calls': calls,
+                'total': len(calls),
+                'answered': answered,
+                'answer_rate': round(answered / len(calls) * 100) if calls else 0
+            })
+    except Exception as e:
+        logger.warning(f"CallRail error: {e}")
+    
+    return jsonify({
+        'calls': [],
+        'total': 0,
+        'answered': 0,
+        'answer_rate': 0,
+        'demo_mode': True,
+        'message': 'CallRail not configured or error fetching calls'
     })

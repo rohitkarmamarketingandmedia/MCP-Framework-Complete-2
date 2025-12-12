@@ -1,5 +1,106 @@
 # MCP Framework Changelog
 
+## v5.5.35 - CRITICAL HOTFIX: WordPress Authentication Fixed
+
+### 🔴 CRITICAL BUG FIX
+**WordPress Authentication Regression Fixed**
+
+Fixed a critical bug introduced in v5.5.34 that broke WordPress authentication for all users.
+
+**Issue:** WordPress connection tests were failing with error "The REST API is accessible but authentication failed" even with valid credentials.
+
+**Root Cause:** The `status='any'` parameter was removed from the WordPress REST API request in v5.5.34, which prevented proper authentication validation. Without this parameter, the test only checked if published posts were accessible (which anyone can do), rather than checking if the user had proper authentication and write permissions.
+
+**Fix Applied:**
+1. Restored `status='any'` parameter to WordPress REST API requests
+2. Simplified HTTP headers to avoid triggering security plugins
+3. Improved comments to explain why `status='any'` is essential
+
+**Impact:** All WordPress integrations that stopped working in v5.5.34 will now work correctly.
+
+**Upgrade Priority:** 🔴 IMMEDIATE - If you upgraded to v5.5.34, upgrade to v5.5.35 immediately.
+
+**Files Changed:**
+- `app/services/wordpress_service.py` - Fixed authentication test method
+
+**Technical Details:**
+- Added back: `params={'per_page': 1, 'status': 'any'}` (line 71)
+- Simplified headers from browser-like to simple 'MCP-Framework/1.0'
+- This reverts to the working behavior from v5.5.25
+
+---
+
+## v5.5.26 - Image Library + Featured Image Generator
+
+### 🖼️ NEW: Client Image Library
+
+Upload and manage client photos for use in content:
+
+**Upload images:**
+- Drag & drop or click to upload
+- Supports JPG, PNG, GIF, WebP (up to 10MB)
+- Categorize: Hero, Work/Projects, Team, Office, Equipment
+
+**API Endpoints:**
+- `GET /api/images/library/{client_id}` - List images
+- `POST /api/images/library/{client_id}/upload` - Upload image
+- `PUT /api/images/library/{client_id}/{image_id}` - Update metadata
+- `DELETE /api/images/library/{client_id}/{image_id}` - Delete image
+
+### ✨ NEW: Featured Image Generator
+
+Create professional featured images with text overlays (like Nandip's style):
+
+**Templates:**
+- `gradient_bottom` - Dark gradient at bottom with white text
+- `gradient_full` - Full dark overlay, centered text
+- `banner_bottom` - Solid color banner at bottom
+- `banner_branded` - Uses client's brand color
+- `minimal` - Light text shadow, clean look
+
+**How it works:**
+1. Upload client photos to Image Library
+2. Enter SEO title
+3. Select template
+4. Click "Create Featured Image"
+5. Downloads/displays image with text overlay
+
+**API:**
+```
+POST /api/images/featured/{client_id}
+{
+    "title": "AC Repair Sarasota | Professional HVAC Services",
+    "subtitle": "Sarasota, FL",
+    "template": "gradient_bottom",
+    "source_image_id": "img_xxx"  // or omit to auto-select
+}
+```
+
+### 📝 Blog Personalization Improvements
+
+**Auto-generated featured images:**
+- Blogs now auto-create featured images from client library
+- Uses meta_title as text overlay
+- Falls back gracefully if no images uploaded
+
+**Better CTAs:**
+- Now includes phone number with clickable tel: link
+- Includes website URL with link
+- Internal links to service pages
+
+### 🔧 Technical Details
+
+**New Database Model:**
+- `client_images` table for image library
+
+**New Service:**
+- `FeaturedImageService` - PIL/Pillow-based text overlay
+
+**Requirements:**
+- `pip install Pillow` for image processing (optional but recommended)
+
+---
+
 ## v5.5.25 - Settings UI + Blog Personalization + Auto-Fix 403
 
 ### 🔧 CRITICAL FIXES
