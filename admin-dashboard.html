@@ -6,6 +6,34 @@
     <title>Admin Panel | Karma Marketing + Media</title>
         <!-- CRITICAL: HTTPS redirect MUST be first - before ANY other scripts -->
     <script>
+    <script>
+        // ==========================================
+        // ULTRA-AGGRESSIVE HTTPS ENFORCEMENT
+        // ==========================================
+        // Version: 1.0.3 - Force HTTPS on all dashboards
+        (function() {
+            if (window.location.protocol === 'http:' && 
+                (window.location.hostname.includes('onrender.com') || window.location.hostname.includes('render.com'))) {
+                console.warn('🔒 Redirecting to HTTPS...');
+                window.location.protocol = 'https:';
+                return;
+            }
+        })();
+        
+        // FORCE HTTPS for API_URL
+        let API_URL = window.location.origin;
+        if (API_URL.includes('onrender.com') || API_URL.includes('render.com')) {
+            API_URL = API_URL.replace('http://', 'https://');
+        } else if (API_URL.startsWith('http://') && !API_URL.includes('localhost') && !API_URL.includes('127.0.0.1')) {
+            API_URL = API_URL.replace('http://', 'https://');
+        }
+        if (!API_URL.startsWith('http')) {
+            API_URL = 'https://mcp-framework-complete-2.onrender.com';
+        }
+        console.log('✅ API_URL:', API_URL);
+        
+        let AUTH_TOKEN = '';
+
     (function() {
         if (location.protocol === 'http:' && 
             location.hostname !== 'localhost' && 
