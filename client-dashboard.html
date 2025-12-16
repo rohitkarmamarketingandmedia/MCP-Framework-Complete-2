@@ -2927,10 +2927,15 @@
         
         // Override global fetch to intercept 403s AND force HTTPS
         window.fetch = async function(url, options = {}) {
-            // FORCE HTTPS on all URLs
-            if (typeof url === 'string' && url.startsWith('http://')) {
-                url = url.replace('http://', 'https://');
-                console.warn('⚠️ Forced fetch URL to HTTPS:', url);
+            // FORCE HTTPS on all URLs (multiple checks for safety)
+            if (typeof url === 'string') {
+                // Replace http:// with https://
+                if (url.startsWith('http://') && !url.includes('localhost') && !url.includes('127.0.0.1')) {
+                    url = url.replace('http://', 'https://');
+                    console.warn('⚠️ Forced fetch URL to HTTPS:', url);
+                }
+                // Also fix any double slashes before query params (e.g., /api/leads/?client_id)
+                url = url.replace(/\/\?/g, '?');
             }
             // Only intercept API calls
             const isApiCall = typeof url === 'string' && url.includes('/api/');
