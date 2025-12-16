@@ -1,19 +1,23 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    <!-- CRITICAL: HTTPS redirect MUST be first - before ANY other scripts -->
+    <script>
+    (function() {
+        if (location.protocol === 'http:' && 
+            location.hostname !== 'localhost' && 
+            location.hostname !== '127.0.0.1') {
+            location.replace('https://' + location.host + location.pathname + location.search);
+        }
+    })();
+    </script>
+    
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Content Dashboard | Karma Marketing + Media</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="/static/js/unified-header.js"></script>
-    <!-- Force HTTPS Redirect -->
-    <script>
-    if (location.protocol !== 'https:' && 
-        !location.hostname.includes('localhost') && 
-        !location.hostname.includes('127.0.0.1')) {
-        location.replace('https://' + location.host + location.pathname + location.search);
-    }
-    </script>
+    
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
