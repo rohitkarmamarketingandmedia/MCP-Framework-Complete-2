@@ -2898,7 +2898,13 @@
         // Load branding on page load
         document.addEventListener('DOMContentLoaded', loadBranding);
         
+        // FORCE HTTPS for API_URL
         let API_URL = window.location.origin;
+        if (API_URL.startsWith('http://')) {
+            API_URL = API_URL.replace('http://', 'https://');
+            console.warn('⚠️ Forced API_URL to HTTPS:', API_URL);
+        }
+        console.log('✅ API_URL:', API_URL);
         let AUTH_TOKEN = '';
         let currentClient = null;
         let allBlogs = [];
@@ -2912,8 +2918,13 @@
         // Store original fetch
         const originalFetch = window.fetch;
         
-        // Override global fetch to intercept 403s
+        // Override global fetch to intercept 403s AND force HTTPS
         window.fetch = async function(url, options = {}) {
+            // FORCE HTTPS on all URLs
+            if (typeof url === 'string' && url.startsWith('http://')) {
+                url = url.replace('http://', 'https://');
+                console.warn('⚠️ Forced fetch URL to HTTPS:', url);
+            }
             // Only intercept API calls
             const isApiCall = typeof url === 'string' && url.includes('/api/');
             
