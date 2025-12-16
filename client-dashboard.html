@@ -2898,6 +2898,20 @@
         // Load branding on page load
         document.addEventListener('DOMContentLoaded', loadBranding);
         
+        // ==========================================
+        // ULTRA-AGGRESSIVE HTTPS ENFORCEMENT
+        // ==========================================
+        // Run immediately before anything else
+        (function() {
+            // If page loaded via HTTP on Render, redirect to HTTPS immediately
+            if (window.location.protocol === 'http:' && 
+                (window.location.hostname.includes('onrender.com') || window.location.hostname.includes('render.com'))) {
+                console.warn('🔒 Redirecting to HTTPS...');
+                window.location.protocol = 'https:';
+                return; // Stop execution
+            }
+        })();
+        
         // FORCE HTTPS for API_URL - Always use HTTPS regardless of how page was loaded
         let API_URL = window.location.origin;
         // Always force HTTPS for Render.com deployments
