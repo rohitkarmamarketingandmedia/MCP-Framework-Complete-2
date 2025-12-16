@@ -26,18 +26,6 @@ def create_app(config_name=None):
     
     app = Flask(__name__, static_folder=static_dir, static_url_path='/static')
     
-    # FORCE HTTPS - Redirect all HTTP to HTTPS on Render.com
-    @app.before_request
-    def force_https():
-        """Force HTTPS on production"""
-        if request.url.startswith('http://') and (
-            'onrender.com' in request.host or 
-            'render.com' in request.host or
-            os.environ.get('FORCE_HTTPS', 'false').lower() == 'true'
-        ):
-            url = request.url.replace('http://', 'https://', 1)
-            return redirect(url, code=301)
-    
     # Load config
     if config_name is None:
         config_name = os.environ.get('FLASK_ENV', 'development')
