@@ -184,9 +184,9 @@ def update_lead_status(current_user, lead_id):
             client = DBClient.query.get(lead.client_id)
             review_url = None
             
-            if client and client.gbp_place_id:
+            if client and client.gbp_location_id:
                 # Use Google Business Profile review URL
-                review_url = f"https://search.google.com/local/writereview?placeid={client.gbp_place_id}"
+                review_url = f"https://search.google.com/local/writereview?placeid={client.gbp_location_id}"
             elif client and client.website_url:
                 # Fallback to generic review page
                 review_url = f"{client.website_url.rstrip('/')}/reviews"

@@ -17,6 +17,9 @@ from app.services.audit_service import audit_service
 auth_bp = Blueprint('auth', __name__)
 data_service = DataService()
 
+import logging
+logger = logging.getLogger(__name__)
+
 import re
 
 def validate_password(password):

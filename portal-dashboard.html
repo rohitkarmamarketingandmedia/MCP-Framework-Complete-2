@@ -701,8 +701,16 @@
         const DEBUG = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
         if (!DEBUG) { console.log = () => {}; console.error = () => {}; }
         
-        // Configuration
-        const API_URL = window.location.origin;
+        // Configuration - FORCE HTTPS for API_URL
+        let API_URL = window.location.origin;
+        // Always force HTTPS for Render.com deployments
+        if (API_URL.includes('onrender.com') || API_URL.includes('render.com')) {
+            API_URL = API_URL.replace('http://', 'https://');
+        } else if (API_URL.startsWith('http://') && !API_URL.includes('localhost') && !API_URL.includes('127.0.0.1')) {
+            API_URL = API_URL.replace('http://', 'https://');
+        }
+        console.log('✅ API_URL:', API_URL);
+        
         let token = localStorage.getItem('portal_token');
         let clientId = localStorage.getItem('portal_client_id');
         let currentUser = null;
@@ -878,7 +886,7 @@
                 renderSourceBreakdown(stats.by_source || {});
                 
                 // Load leads
-                const leadsRes = await fetch(`${API_URL}/api/leads/?client_id=${clientId}&days=${days}&limit=100`, { headers });
+                const leadsRes = await fetch(`${API_URL}/api/leads?client_id=${clientId}&days=${days}&limit=100`, { headers });
                 const leadsData = await leadsRes.json();
                 allLeads = leadsData.leads || [];
                 

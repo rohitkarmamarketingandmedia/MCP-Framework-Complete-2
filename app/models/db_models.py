@@ -88,6 +88,12 @@ class DBUser(db.Model):
     def set_client_ids(self, ids: List[str]):
         self.client_ids = json.dumps(ids)
     
+    @property
+    def client_id(self) -> str:
+        """Return the first client_id for backwards compatibility with client users"""
+        ids = self.get_client_ids()
+        return ids[0] if ids else None
+    
     def has_access_to_client(self, client_id: str) -> bool:
         if self.role in [UserRole.ADMIN, UserRole.MANAGER]:
             return True

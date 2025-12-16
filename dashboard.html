@@ -1452,8 +1452,16 @@ We're really known for our 24-hour emergency service - if there's a storm and so
         let selectedTopics = { blog: [], social: [] };
         let generatedContent = [];
 
-        // API Configuration
-        const API_BASE = window.location.origin + '/api';
+        // API Configuration - FORCE HTTPS
+        let apiOrigin = window.location.origin;
+        // Always force HTTPS for Render.com deployments
+        if (apiOrigin.includes('onrender.com') || apiOrigin.includes('render.com')) {
+            apiOrigin = apiOrigin.replace('http://', 'https://');
+        } else if (apiOrigin.startsWith('http://') && !apiOrigin.includes('localhost') && !apiOrigin.includes('127.0.0.1')) {
+            apiOrigin = apiOrigin.replace('http://', 'https://');
+        }
+        const API_BASE = apiOrigin + '/api';
+        console.log('✅ API_BASE:', API_BASE);
 
         // ============================================
         // Authentication
