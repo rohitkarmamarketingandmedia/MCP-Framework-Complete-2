@@ -82,27 +82,38 @@ def get_leads(current_user):
     import logging
     logger = logging.getLogger(__name__)
     
+    # Log incoming request
+    logger.info(f"GET /api/leads - User: {current_user.email}, Role: {current_user.role}")
+    logger.info(f"Query params: {dict(request.args)}")
+    
     client_id = request.args.get('client_id')
     
     if not client_id:
+        logger.warning("Missing client_id parameter")
         return jsonify({'error': 'client_id is required'}), 400
     
     # FIXED: Improved permission check for client users
     # Admin/Manager can access any client
     if current_user.role in ['admin', 'manager']:
+        logger.info(f"Admin/Manager access granted for client_id={client_id}")
         pass  # Has access
     # Client users can only access their own client
     elif current_user.client_id and str(current_user.client_id) == str(client_id):
+        logger.info(f"Client user accessing own leads: {client_id}")
         pass  # Client accessing their own leads
     # Check has_access_to_client for other cases
     elif not current_user.has_access_to_client(client_id):
         logger.warning(f"Access denied: user={current_user.email}, role={current_user.role}, user_client_id={getattr(current_user, 'client_id', None)}, requested_client_id={client_id}")
         return jsonify({'error': 'Access denied'}), 403
+    else:
+        logger.info(f"Access granted via has_access_to_client for client_id={client_id}")
     
     status = request.args.get('status')
     source = request.args.get('source')
     days = safe_int(request.args.get('days'), 30, max_val=365)
     limit = safe_int(request.args.get('limit'), 100, max_val=500)
+    
+    logger.info(f"Fetching leads: client_id={client_id}, status={status}, days={days}, limit={limit}")
     
     leads = lead_service.get_client_leads(
         client_id=client_id,
@@ -111,6 +122,8 @@ def get_leads(current_user):
         days=days,
         limit=limit
     )
+    
+    logger.info(f"Returning {len(leads)} leads")
     
     return jsonify({
         'leads': leads,

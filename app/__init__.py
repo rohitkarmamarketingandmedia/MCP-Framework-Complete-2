@@ -4,7 +4,7 @@ AI-powered SEO content automation engine
 
 By Karma Marketing + Media
 """
-from flask import Flask, send_from_directory, jsonify
+from flask import Flask, send_from_directory, jsonify, request, redirect
 from flask_cors import CORS
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
@@ -26,6 +26,18 @@ def create_app(config_name=None):
     
     app = Flask(__name__, static_folder=static_dir, static_url_path='/static')
     
+    # FORCE HTTPS - Redirect all HTTP to HTTPS on Render.com
+    @app.before_request
+    def force_https():
+        """Force HTTPS on production"""
+        if request.url.startswith('http://') and (
+            'onrender.com' in request.host or 
+            'render.com' in request.host or
+            os.environ.get('FORCE_HTTPS', 'false').lower() == 'true'
+        ):
+            url = request.url.replace('http://', 'https://', 1)
+            return redirect(url, code=301)
+    
     # Load config
     if config_name is None:
         config_name = os.environ.get('FLASK_ENV', 'development')
@@ -39,7 +51,12 @@ def create_app(config_name=None):
     cors_origins = app.config.get('CORS_ORIGINS', '*')
     if cors_origins == '*' and app.config.get('ENV') == 'production':
         logger.warning("SECURITY: CORS_ORIGINS is set to '*' in production! Set specific origins.")
-    CORS(app, origins=cors_origins)
+    CORS(app, 
+         origins=cors_origins,
+         supports_credentials=True,
+         allow_headers=["Content-Type", "Authorization", "X-Requested-With"],
+         expose_headers=["Content-Type", "Authorization"],
+         methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"])
 
     # Rate limiting
     limiter = Limiter(

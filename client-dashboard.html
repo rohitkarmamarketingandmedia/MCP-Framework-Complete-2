@@ -2901,6 +2901,7 @@
         // ==========================================
         // ULTRA-AGGRESSIVE HTTPS ENFORCEMENT
         // ==========================================
+        // Version: 1.0.2 - Added comprehensive debugging and CORS fixes
         // Run immediately before anything else
         (function() {
             // If page loaded via HTTP on Render, redirect to HTTPS immediately
@@ -4528,10 +4529,20 @@
         // ==========================================
         
         async function loadLeads() {
-            if (!currentClient) return;
+            console.log('🔍 loadLeads() called');
+            
+            if (!currentClient) {
+                console.warn('⚠️ No currentClient - aborting');
+                return;
+            }
+            
+            console.log('✓ currentClient:', currentClient.id, currentClient.business_name);
             
             const container = document.getElementById('leadsList');
-            if (!container) return;
+            if (!container) {
+                console.error('❌ leadsList container not found');
+                return;
+            }
             
             const statusFilter = document.getElementById('leadStatusFilter')?.value || '';
             
@@ -4541,13 +4552,23 @@
                 let url = `${API_URL}/api/leads?client_id=${currentClient.id}`;
                 if (statusFilter) url += `&status=${statusFilter}`;
                 
+                console.log('📡 Fetching:', url);
+                console.log('🔑 AUTH_TOKEN:', AUTH_TOKEN ? 'Present' : 'MISSING');
+                console.log('🌐 API_URL:', API_URL);
+                
                 const response = await fetch(url, {
                     headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
                 });
                 
+                console.log('📥 Response status:', response.status);
+                console.log('📥 Response OK:', response.ok);
+                console.log('📥 Response URL:', response.url);
+                
                 if (response.ok) {
                     const data = await response.json();
+                    console.log('✓ Data received:', data);
                     const leads = data.leads || [];
+                    console.log('✓ Leads count:', leads.length);
                     
                     // Update stats
                     const totalLeads = leads.length;
@@ -4604,10 +4625,13 @@
                         </div>
                     `).join('');
                 } else {
-                    container.innerHTML = '<div class="text-center py-8 text-red-400">Failed to load leads</div>';
+                    const errorText = await response.text();
+                    console.error('❌ Response not OK:', response.status, errorText);
+                    container.innerHTML = `<div class="text-center py-8 text-red-400">Failed to load leads (${response.status})</div>`;
                 }
             } catch (error) {
-                console.error('Failed to load leads:', error);
+                console.error('❌ Failed to load leads:', error);
+                console.error('Error details:', error.message, error.stack);
                 container.innerHTML = '<div class="text-center py-8 text-red-400">Error loading leads</div>';
             }
         }
