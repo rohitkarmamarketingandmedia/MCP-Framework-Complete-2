@@ -576,9 +576,11 @@ def create_featured_image(current_user, client_id):
     """
     try:
         from app.services.featured_image_service import featured_image_service
-        from app.services.data_service import data_service
+        from app.services.data_service import DataService
         from app.models.db_models import DBClientImage
         import json
+        
+        data_service = DataService()
         
         logger.info(f"Creating featured image for client: {client_id}")
         
