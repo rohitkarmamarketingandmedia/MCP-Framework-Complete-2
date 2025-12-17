@@ -1,37 +1,11 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <!-- CRITICAL: HTTPS redirect MUST be first - before ANY other scripts -->
-    <script>
-    
-        // v1.0.6 - Force HTTPS on Render
-        (function() {
-            if (location.hostname.includes('onrender.com') && location.protocol === 'http:') {
-                location.protocol = 'https:';
-            }
-            // Override API_URL to always use HTTPS on Render
-            window.FORCE_HTTPS_API = function(url) {
-                if (location.hostname.includes('onrender.com') && url.startsWith('http://')) {
-                    return url.replace('http://', 'https://');
-                }
-                return url;
-            };
-        })();
-(function() {
-        if (location.protocol === 'http:' && 
-            location.hostname !== 'localhost' && 
-            location.hostname !== '127.0.0.1') {
-            location.replace('https://' + location.host + location.pathname + location.search);
-        }
-    })();
-    </script>
-    
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Content Dashboard | Karma Marketing + Media</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="/static/js/unified-header.js"></script>
-    
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
@@ -2912,25 +2886,8 @@
         // Load branding on page load
         document.addEventListener('DOMContentLoaded', loadBranding);
         
-        // FORCE HTTPS for API_URL - Always use HTTPS regardless of how page was loaded
-        let API_URL = window.location.origin; if(location.hostname.includes('onrender.com')){API_URL='https://'+location.hostname;}
-        // Always force HTTPS for Render.com deployments
-        if (API_URL.includes('onrender.com') || API_URL.includes('render.com')) {
-            API_URL = API_URL.replace('http://', 'https://');
-        } else if (API_URL.startsWith('http://') && !API_URL.includes('localhost') && !API_URL.includes('127.0.0.1')) {
-            API_URL = API_URL.replace('http://', 'https://');
-            console.warn('⚠️ Forced API_URL to HTTPS:', API_URL);
-        }
-        // If page was loaded via file:// or has issues, use the known production URL
-        if (!API_URL.startsWith('http')) {
-            API_URL = 'https://mcp-framework-complete-2.onrender.com';
-        }
-        console.log('✅ API_URL:', API_URL);
-        
-        // Load AUTH_TOKEN from localStorage if available
-        let AUTH_TOKEN = localStorage.getItem('mcp_token') || '';
-        console.log('✅ AUTH_TOKEN:', AUTH_TOKEN ? 'Present (from localStorage)' : 'Not found');
-        
+        let API_URL = window.location.origin;
+        let AUTH_TOKEN = '';
         let currentClient = null;
         let allBlogs = [];
         let allSocial = [];
@@ -2943,13 +2900,8 @@
         // Store original fetch
         const originalFetch = window.fetch;
         
-        // Override global fetch to intercept 403s AND force HTTPS
+        // Override global fetch to intercept 403s
         window.fetch = async function(url, options = {}) {
-            // FORCE HTTPS on all URLs
-            if (typeof url === 'string' && url.startsWith('http://')) {
-                url = url.replace('http://', 'https://');
-                console.warn('⚠️ Forced fetch URL to HTTPS:', url);
-            }
             // Only intercept API calls
             const isApiCall = typeof url === 'string' && url.includes('/api/');
             
@@ -3009,32 +2961,6 @@
         // ==========================================
         // AUTH
         // ==========================================
-        
-        // Check if already logged in (token exists)
-        (async function checkExistingAuth() {
-            if (AUTH_TOKEN) {
-                console.log('Found existing token, verifying...');
-                try {
-                    const res = await fetch(`${API_URL}/api/auth/me`, {
-                        headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
-                    });
-                    
-                    if (res.ok) {
-                        console.log('Token valid, loading dashboard...');
-                        document.getElementById('authModal').classList.add('hidden');
-                        document.getElementById('dashboard').classList.remove('hidden');
-                        loadClients();
-                        return;
-                    } else {
-                        console.log('Token invalid, clearing...');
-                        localStorage.removeItem('mcp_token');
-                        AUTH_TOKEN = '';
-                    }
-                } catch (e) {
-                    console.log('Auth check failed:', e);
-                }
-            }
-        })();
         
         // Check if bootstrap is needed on page load
         (async function checkBootstrap() {
@@ -3128,7 +3054,6 @@
                 
                 if (res.ok && data.token) {
                     AUTH_TOKEN = data.token;
-                    localStorage.setItem('mcp_token', data.token);  // Save token
                     localStorage.setItem('mcp_user_email', email);  // Save for permission fixes
                     alert('✓ Admin created! Email: ' + email);
                     document.getElementById('authModal').classList.add('hidden');
@@ -3174,7 +3099,6 @@
 
                 if (data.token) {
                     AUTH_TOKEN = data.token;
-                    localStorage.setItem('mcp_token', data.token);  // Save token
                     localStorage.setItem('mcp_user_email', email);  // Save for permission fixes
                     document.getElementById('authModal').classList.add('hidden');
                     document.getElementById('dashboard').classList.remove('hidden');

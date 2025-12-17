@@ -1,35 +1,5 @@
 # MCP Framework Changelog
 
-## v5.5.35 - CRITICAL HOTFIX: WordPress Authentication Fixed
-
-### 🔴 CRITICAL BUG FIX
-**WordPress Authentication Regression Fixed**
-
-Fixed a critical bug introduced in v5.5.34 that broke WordPress authentication for all users.
-
-**Issue:** WordPress connection tests were failing with error "The REST API is accessible but authentication failed" even with valid credentials.
-
-**Root Cause:** The `status='any'` parameter was removed from the WordPress REST API request in v5.5.34, which prevented proper authentication validation. Without this parameter, the test only checked if published posts were accessible (which anyone can do), rather than checking if the user had proper authentication and write permissions.
-
-**Fix Applied:**
-1. Restored `status='any'` parameter to WordPress REST API requests
-2. Simplified HTTP headers to avoid triggering security plugins
-3. Improved comments to explain why `status='any'` is essential
-
-**Impact:** All WordPress integrations that stopped working in v5.5.34 will now work correctly.
-
-**Upgrade Priority:** 🔴 IMMEDIATE - If you upgraded to v5.5.34, upgrade to v5.5.35 immediately.
-
-**Files Changed:**
-- `app/services/wordpress_service.py` - Fixed authentication test method
-
-**Technical Details:**
-- Added back: `params={'per_page': 1, 'status': 'any'}` (line 71)
-- Simplified headers from browser-like to simple 'MCP-Framework/1.0'
-- This reverts to the working behavior from v5.5.25
-
----
-
 ## v5.5.26 - Image Library + Featured Image Generator
 
 ### 🖼️ NEW: Client Image Library

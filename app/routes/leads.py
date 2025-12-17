@@ -79,24 +79,12 @@ def get_leads(current_user):
     
     GET /api/leads?client_id=xxx&status=new&source=form&days=30&limit=100
     """
-    import logging
-    logger = logging.getLogger(__name__)
-    
     client_id = request.args.get('client_id')
     
     if not client_id:
         return jsonify({'error': 'client_id is required'}), 400
     
-    # FIXED: Improved permission check for client users
-    # Admin/Manager can access any client
-    if current_user.role in ['admin', 'manager']:
-        pass  # Has access
-    # Client users can only access their own client
-    elif current_user.client_id and str(current_user.client_id) == str(client_id):
-        pass  # Client accessing their own leads
-    # Check has_access_to_client for other cases
-    elif not current_user.has_access_to_client(client_id):
-        logger.warning(f"Access denied: user={current_user.email}, role={current_user.role}, user_client_id={getattr(current_user, 'client_id', None)}, requested_client_id={client_id}")
+    if not current_user.has_access_to_client(client_id):
         return jsonify({'error': 'Access denied'}), 403
     
     status = request.args.get('status')
@@ -127,12 +115,7 @@ def get_lead(current_user, lead_id):
     if not lead:
         return jsonify({'error': 'Lead not found'}), 404
     
-    # FIXED: Improved permission check
-    if current_user.role in ['admin', 'manager']:
-        pass  # Has access
-    elif current_user.client_id and str(current_user.client_id) == str(lead.client_id):
-        pass  # Client accessing their own lead
-    elif not current_user.has_access_to_client(lead.client_id):
+    if not current_user.has_access_to_client(lead.client_id):
         return jsonify({'error': 'Access denied'}), 403
     
     return jsonify({'lead': lead.to_dict()})

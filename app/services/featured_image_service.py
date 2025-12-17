@@ -71,15 +71,6 @@ class FeaturedImageConfig:
             'use_brand_color': True,
             'banner_height': 120
         },
-        'banner_left': {
-            'name': 'Professional Left Banner',
-            'description': 'Large text on colored left banner - like professional featured images',
-            'text_position': 'left_banner',
-            'text_color': (255, 255, 255),
-            'banner_color': (30, 64, 175),  # Blue - can be overridden by brand color
-            'use_brand_color': True,
-            'banner_width': 0.45  # 45% of image width
-        },
         'split_left': {
             'name': 'Split Left',
             'description': 'Text on left side with gradient',
@@ -169,38 +160,18 @@ class FeaturedImageService:
     def _load_image(self, source: str) -> Optional['Image.Image']:
         """Load image from URL or file path"""
         if not PIL_AVAILABLE:
-            logger.error("PIL not available")
             return None
-        
-        logger.info(f"Loading image from: {source}")
         
         try:
             if source.startswith('http://') or source.startswith('https://'):
-                logger.info(f"Fetching from URL: {source}")
                 response = requests.get(source, timeout=30)
                 if response.status_code == 200:
                     return Image.open(io.BytesIO(response.content))
-                else:
-                    logger.error(f"Failed to fetch image: HTTP {response.status_code}")
-            elif source.startswith('/static/'):
-                # Handle relative static paths - convert to absolute file path
-                # Get the root directory (where static folder is)
-                root_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-                absolute_path = os.path.join(root_dir, source.lstrip('/'))
-                logger.info(f"Converted relative path to: {absolute_path}")
-                if os.path.exists(absolute_path):
-                    return Image.open(absolute_path)
-                else:
-                    logger.error(f"File not found: {absolute_path}")
             else:
                 if os.path.exists(source):
                     return Image.open(source)
-                else:
-                    logger.error(f"File not found: {source}")
         except Exception as e:
             logger.error(f"Failed to load image from {source}: {e}")
-            import traceback
-            traceback.print_exc()
         
         return None
     
@@ -284,24 +255,6 @@ class FeaturedImageService:
         draw = ImageDraw.Draw(img)
         y_start = img.height - height
         draw.rectangle([(0, y_start), (img.width, img.height)], fill=(*color, 255))
-        
-        return img
-    
-    def _add_left_banner(self, img: 'Image.Image', width_ratio: float, color: Tuple[int, int, int]) -> 'Image.Image':
-        """Add solid banner on left side - professional style"""
-        if img.mode != 'RGBA':
-            img = img.convert('RGBA')
-        
-        # Create overlay
-        overlay = Image.new('RGBA', img.size, (0, 0, 0, 0))
-        draw = ImageDraw.Draw(overlay)
-        
-        banner_width = int(img.width * width_ratio)
-        # Semi-transparent banner
-        draw.rectangle([(0, 0), (banner_width, img.height)], fill=(*color, 220))
-        
-        # Composite
-        img = Image.alpha_composite(img, overlay)
         
         return img
     
@@ -391,42 +344,32 @@ class FeaturedImageService:
                 banner_color = brand_color if template_config.get('use_brand_color') and brand_color else template_config.get('banner_color', (30, 64, 175))
                 img = self._add_banner(img, template_config['banner_height'], banner_color)
             
-            # Left banner (professional style)
-            if 'banner_width' in template_config:
-                banner_color = brand_color if template_config.get('use_brand_color') and brand_color else template_config.get('banner_color', (30, 64, 175))
-                img = self._add_left_banner(img, template_config['banner_width'], banner_color)
-            
             # Prepare for drawing
             draw = ImageDraw.Draw(img)
             text_color = template_config.get('text_color', (255, 255, 255))
             
-            # Calculate text size - MUCH LARGER for professional look
-            # Target: text should be easily readable and take up significant space
-            max_text_width = int(width * 0.45)  # Left side only, like professional designs
-            
-            # Larger base font sizes
-            title_font_size = 72  # Increased from 64
-            if len(title) > 40:
-                title_font_size = 64
-            if len(title) > 60:
-                title_font_size = 56
-            if len(title) > 80:
+            # Calculate text size based on title length
+            max_text_width = int(width * 0.85)
+            title_font_size = 64
+            if len(title) > 50:
                 title_font_size = 48
+            if len(title) > 80:
+                title_font_size = 40
             
             title_font = self._get_font(title_font_size)
-            subtitle_font = self._get_font(36)  # Increased from 28
+            subtitle_font = self._get_font(28)
             
             # Wrap text
             title_lines = self._wrap_text(title, title_font, max_text_width)
             
             # Calculate total text height
-            line_height = title_font_size + 15  # More line spacing
+            line_height = title_font_size + 10
             total_text_height = len(title_lines) * line_height
             if subtitle:
-                total_text_height += 60  # More space for subtitle
+                total_text_height += 50  # Space for subtitle
             
-            # Position text - more padding
-            padding = 50
+            # Position text
+            padding = 40
             
             if text_position == 'bottom' or text_position == 'bottom_banner':
                 if 'banner_height' in template_config:
@@ -441,10 +384,6 @@ class FeaturedImageService:
                 y_start = height - total_text_height - padding
                 x_start = padding
             elif text_position == 'left':
-                y_start = (height - total_text_height) // 2
-                x_start = padding
-            elif text_position == 'left_banner':
-                # Center text vertically in left banner area
                 y_start = (height - total_text_height) // 2
                 x_start = padding
             else:
@@ -527,8 +466,6 @@ class FeaturedImageService:
         """
         from app.models.db_models import DBClientImage
         
-        logger.info(f"Creating from client library: client_id={client_id}, category={category}")
-        
         # Find an image from client's library
         query = DBClientImage.query.filter_by(client_id=client_id, is_active=True)
         if category:
@@ -538,13 +475,10 @@ class FeaturedImageService:
         image = query.order_by(DBClientImage.use_count.asc()).first()
         
         if not image:
-            logger.warning(f"No images found for client {client_id}")
             return {
                 'success': False,
                 'error': f'No images found in client library. Upload images first.'
             }
-        
-        logger.info(f"Found image: {image.id}, file_url={image.file_url}, file_path={image.file_path}")
         
         # Update usage
         image.use_count += 1
@@ -553,35 +487,8 @@ class FeaturedImageService:
         from app.database import db
         db.session.commit()
         
-        # Determine source - prefer local file path if it exists
-        source = None
-        if image.file_path:
-            # Check if path exists directly
-            if os.path.exists(image.file_path):
-                source = image.file_path
-            else:
-                # Try relative to app root
-                root_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-                full_path = os.path.join(root_dir, image.file_path.lstrip('/'))
-                if os.path.exists(full_path):
-                    source = full_path
-        
-        # Fall back to URL
-        if not source and image.file_url:
-            if image.file_url.startswith('http'):
-                source = image.file_url
-            else:
-                # It's a relative URL like /static/uploads/...
-                source = image.file_url  # _load_image will handle this
-        
-        if not source:
-            logger.error(f"Could not determine source for image {image.id}")
-            return {
-                'success': False,
-                'error': 'Could not locate image file'
-            }
-        
-        logger.info(f"Using source: {source}")
+        # Create featured image
+        source = image.file_url if image.file_url.startswith('http') else image.file_path
         
         result = self.create_featured_image(
             source_image=source,

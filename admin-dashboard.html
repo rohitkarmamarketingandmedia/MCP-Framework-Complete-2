@@ -4,31 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Admin Panel | Karma Marketing + Media</title>
-        <!-- CRITICAL: HTTPS redirect MUST be first - before ANY other scripts -->
-    <script>
-    
-        // v1.0.6 - Force HTTPS on Render
-        (function() {
-            if (location.hostname.includes('onrender.com') && location.protocol === 'http:') {
-                location.protocol = 'https:';
-            }
-            // Override API_URL to always use HTTPS on Render
-            window.FORCE_HTTPS_API = function(url) {
-                if (location.hostname.includes('onrender.com') && url.startsWith('http://')) {
-                    return url.replace('http://', 'https://');
-                }
-                return url;
-            };
-        })();
-(function() {
-        if (location.protocol === 'http:' && 
-            location.hostname !== 'localhost' && 
-            location.hostname !== '127.0.0.1') {
-            location.replace('https://' + location.host + location.pathname + location.search);
-        }
-    })();
-    </script>
-    
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
@@ -837,8 +812,7 @@
             }
         }
         
-        const API_URL_BASE = window.location.origin;
-        const API_URL = location.hostname.includes('onrender.com') ? 'https://'+location.hostname : API_URL_BASE.replace('http://', 'https://');
+        const API_URL = window.location.origin;
         let token = localStorage.getItem('mcp_token');
         let currentUser = null;
         let allUsers = [];

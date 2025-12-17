@@ -48,26 +48,27 @@ class WordPressService:
         self.username = username
         self.app_password = app_password
         
-        # Create auth header - simplified to avoid triggering security plugins
-        # Complex browser-like headers can be flagged as suspicious by WordPress security
+        # Create auth header
         credentials = f"{username}:{app_password}"
         token = base64.b64encode(credentials.encode()).decode()
         self.headers = {
             'Authorization': f'Basic {token}',
             'Content-Type': 'application/json',
-            'User-Agent': 'MCP-Framework/1.0'
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Accept': 'application/json, text/plain, */*',
+            'Accept-Language': 'en-US,en;q=0.9',
+            'Cache-Control': 'no-cache',
+            'X-Requested-With': 'XMLHttpRequest'
         }
     
     def test_connection(self) -> Dict[str, Any]:
         """Test the WordPress connection"""
         try:
-            # CRITICAL FIX: Restored status='any' parameter from v5.5.25
-            # This properly validates authentication by checking if user can access draft posts
-            # Without this, we only check published posts which doesn't validate auth properly
+            # Try to get posts with auth - don't use status=any as it requires admin
             response = requests.get(
                 f"{self.api_url}/posts",
                 headers=self.headers,
-                params={'per_page': 1, 'status': 'any'},  # FIXED: Added status='any' back
+                params={'per_page': 1},  # Just get one published post
                 timeout=15
             )
             

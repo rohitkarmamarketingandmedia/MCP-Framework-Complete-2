@@ -697,26 +697,12 @@
     </div>
 
     <script>
-        
-        // v1.0.6 - Force HTTPS on Render
-        (function() {
-            if (location.hostname.includes('onrender.com') && location.protocol === 'http:') {
-                location.protocol = 'https:';
-            }
-            // Override API_URL to always use HTTPS on Render
-            window.FORCE_HTTPS_API = function(url) {
-                if (location.hostname.includes('onrender.com') && url.startsWith('http://')) {
-                    return url.replace('http://', 'https://');
-                }
-                return url;
-            };
-        })();
-// Debug logging - disabled in production
+        // Debug logging - disabled in production
         const DEBUG = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
         if (!DEBUG) { console.log = () => {}; console.error = () => {}; }
         
         // Configuration
-        const API_URL = location.hostname.includes('onrender.com') ? 'https://'+location.hostname : window.location.origin.replace('http://', 'https://');
+        const API_URL = window.location.origin;
         let token = localStorage.getItem('portal_token');
         let clientId = localStorage.getItem('portal_client_id');
         let currentUser = null;

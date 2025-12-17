@@ -260,17 +260,12 @@ def update_integrations(current_user, client_id):
         "ga4_property_id": "123456789"
     }
     """
-    # Check access - admin/manager/client can manage their own integrations
-    # FIXED: Allow client users to update their OWN integration settings
+    # Check access - admin/manager can manage integrations
     if not current_user.can_manage_clients:
-        # If not admin/manager, must be client updating their own settings
-        if not current_user.client_id or str(current_user.client_id) != str(client_id):
-            return jsonify({'error': 'Permission denied'}), 403
+        return jsonify({'error': 'Permission denied'}), 403
     
     if not current_user.is_admin and not current_user.has_access_to_client(client_id):
-        # Double-check client access
-        if not current_user.client_id or str(current_user.client_id) != str(client_id):
-            return jsonify({'error': 'Access denied to this client'}), 403
+        return jsonify({'error': 'Access denied to this client'}), 403
     
     client = data_service.get_client(client_id)
     
