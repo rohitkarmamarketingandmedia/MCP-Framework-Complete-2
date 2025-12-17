@@ -1053,40 +1053,20 @@
         }
     </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.6/purify.min.js">
-    <script>
-        // ==========================================
-        // ULTRA-AGGRESSIVE HTTPS ENFORCEMENT
-        // ==========================================
-        // Version: 1.0.3 - Force HTTPS on all dashboards
-        (function() {
-            if (window.location.protocol === 'http:' && 
-                (window.location.hostname.includes('onrender.com') || window.location.hostname.includes('render.com'))) {
-                console.warn('🔒 Redirecting to HTTPS...');
-                window.location.protocol = 'https:';
-                return;
-            }
-        })();
-        
-        // FORCE HTTPS for API_URL
+        // HTTPS v1.0.5
+        if (window.location.protocol === 'http:' && window.location.hostname.includes('onrender.com')) {
+            window.location.protocol = 'https:';
+        }
         let API_URL = window.location.origin;
-        // Force HTTPS
-        if (API_URL.includes('onrender.com') || API_URL.includes('render.com')) {
-            API_URL = API_URL.replace('http://', 'https://');
-        } else if (API_URL.startsWith('http://') && !API_URL.includes('localhost') && !API_URL.includes('127.0.0.1')) {
-            API_URL = API_URL.replace('http://', 'https://');
-        }
-        if (API_URL.includes('onrender.com') || API_URL.includes('render.com')) {
-            API_URL = API_URL.replace('http://', 'https://');
-        } else if (API_URL.startsWith('http://') && !API_URL.includes('localhost') && !API_URL.includes('127.0.0.1')) {
+        // ALWAYS force HTTPS on Render (load balancer terminates SSL)
+        if (window.location.hostname.includes('onrender.com') || window.location.hostname.includes('render.com')) {
+            API_URL = 'https://' + window.location.hostname;
+        } else if (API_URL.startsWith('http://')) {
             API_URL = API_URL.replace('http://', 'https://');
         }
-        if (!API_URL.startsWith('http')) {
-            API_URL = 'https://mcp-framework-complete-2.onrender.com';
-        }
-        console.log('✅ API_URL:', API_URL);
-        
         let AUTH_TOKEN = '';
-</script>
+
+    
 </head>
 <body>
     <div class="bg-animation"></div>
