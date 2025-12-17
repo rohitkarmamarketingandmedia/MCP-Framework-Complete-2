@@ -102,7 +102,19 @@ def create_app(config_name=None):
     @app.errorhandler(Exception)
     def handle_exception(error):
         """Catch-all for unhandled exceptions"""
-        logger.error(f"Unhandled exception: {error}", exc_info=True)
+        import traceback
+        error_traceback = traceback.format_exc()
+        logger.error(f"Unhandled exception: {error}")
+        logger.error(f"Traceback: {error_traceback}")
+        
+        # In development, return detailed error
+        if app.config.get('DEBUG'):
+            return jsonify({
+                'error': 'Server error',
+                'message': str(error),
+                'traceback': error_traceback
+            }), 500
+        
         return jsonify({
             'error': 'Server error',
             'message': 'An unexpected error occurred'
