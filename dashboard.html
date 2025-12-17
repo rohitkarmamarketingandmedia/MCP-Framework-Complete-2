@@ -1467,7 +1467,7 @@ We're really known for our 24-hour emergency service - if there's a storm and so
         let generatedContent = [];
 
         // API Configuration
-        const API_BASE = window.location.origin + '/api';
+        const API_BASE = (location.hostname.includes('onrender.com') ? 'https://'+location.hostname : window.location.origin.replace('http://', 'https://')) + '/api';
 
         // ============================================
         // Authentication

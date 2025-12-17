@@ -837,7 +837,8 @@
             }
         }
         
-        const API_URL = window.location.origin; if(location.hostname.includes('onrender.com')){API_URL='https://'+location.hostname;}
+        const API_URL_BASE = window.location.origin;
+        const API_URL = location.hostname.includes('onrender.com') ? 'https://'+location.hostname : API_URL_BASE.replace('http://', 'https://');
         let token = localStorage.getItem('mcp_token');
         let currentUser = null;
         let allUsers = [];
