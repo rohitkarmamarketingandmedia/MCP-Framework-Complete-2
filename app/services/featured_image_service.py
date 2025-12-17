@@ -71,6 +71,15 @@ class FeaturedImageConfig:
             'use_brand_color': True,
             'banner_height': 120
         },
+        'banner_left': {
+            'name': 'Professional Left Banner',
+            'description': 'Large text on colored left banner - like professional featured images',
+            'text_position': 'left_banner',
+            'text_color': (255, 255, 255),
+            'banner_color': (30, 64, 175),  # Blue - can be overridden by brand color
+            'use_brand_color': True,
+            'banner_width': 0.45  # 45% of image width
+        },
         'split_left': {
             'name': 'Split Left',
             'description': 'Text on left side with gradient',
@@ -278,6 +287,24 @@ class FeaturedImageService:
         
         return img
     
+    def _add_left_banner(self, img: 'Image.Image', width_ratio: float, color: Tuple[int, int, int]) -> 'Image.Image':
+        """Add solid banner on left side - professional style"""
+        if img.mode != 'RGBA':
+            img = img.convert('RGBA')
+        
+        # Create overlay
+        overlay = Image.new('RGBA', img.size, (0, 0, 0, 0))
+        draw = ImageDraw.Draw(overlay)
+        
+        banner_width = int(img.width * width_ratio)
+        # Semi-transparent banner
+        draw.rectangle([(0, 0), (banner_width, img.height)], fill=(*color, 220))
+        
+        # Composite
+        img = Image.alpha_composite(img, overlay)
+        
+        return img
+    
     def _draw_text_with_shadow(
         self, 
         draw: 'ImageDraw.Draw', 
@@ -364,32 +391,42 @@ class FeaturedImageService:
                 banner_color = brand_color if template_config.get('use_brand_color') and brand_color else template_config.get('banner_color', (30, 64, 175))
                 img = self._add_banner(img, template_config['banner_height'], banner_color)
             
+            # Left banner (professional style)
+            if 'banner_width' in template_config:
+                banner_color = brand_color if template_config.get('use_brand_color') and brand_color else template_config.get('banner_color', (30, 64, 175))
+                img = self._add_left_banner(img, template_config['banner_width'], banner_color)
+            
             # Prepare for drawing
             draw = ImageDraw.Draw(img)
             text_color = template_config.get('text_color', (255, 255, 255))
             
-            # Calculate text size based on title length
-            max_text_width = int(width * 0.85)
-            title_font_size = 64
-            if len(title) > 50:
-                title_font_size = 48
+            # Calculate text size - MUCH LARGER for professional look
+            # Target: text should be easily readable and take up significant space
+            max_text_width = int(width * 0.45)  # Left side only, like professional designs
+            
+            # Larger base font sizes
+            title_font_size = 72  # Increased from 64
+            if len(title) > 40:
+                title_font_size = 64
+            if len(title) > 60:
+                title_font_size = 56
             if len(title) > 80:
-                title_font_size = 40
+                title_font_size = 48
             
             title_font = self._get_font(title_font_size)
-            subtitle_font = self._get_font(28)
+            subtitle_font = self._get_font(36)  # Increased from 28
             
             # Wrap text
             title_lines = self._wrap_text(title, title_font, max_text_width)
             
             # Calculate total text height
-            line_height = title_font_size + 10
+            line_height = title_font_size + 15  # More line spacing
             total_text_height = len(title_lines) * line_height
             if subtitle:
-                total_text_height += 50  # Space for subtitle
+                total_text_height += 60  # More space for subtitle
             
-            # Position text
-            padding = 40
+            # Position text - more padding
+            padding = 50
             
             if text_position == 'bottom' or text_position == 'bottom_banner':
                 if 'banner_height' in template_config:
@@ -404,6 +441,10 @@ class FeaturedImageService:
                 y_start = height - total_text_height - padding
                 x_start = padding
             elif text_position == 'left':
+                y_start = (height - total_text_height) // 2
+                x_start = padding
+            elif text_position == 'left_banner':
+                # Center text vertically in left banner area
                 y_start = (height - total_text_height) // 2
                 x_start = padding
             else:
