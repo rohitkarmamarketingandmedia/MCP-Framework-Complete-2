@@ -28,7 +28,7 @@ except Exception as e:
 # Test 2: Check if HTTP redirects to HTTPS
 print("\n[TEST 2] HTTP to HTTPS Redirect")
 try:
-    response = requests.get("http://mcp-framework-complete-2.onrender.com/health", 
+    response = requests.get("https://mcp-framework-complete-2.onrender.com/health", 
                           allow_redirects=True, timeout=10)
     print(f"✓ Final URL: {response.url}")
     if response.url.startswith('https://'):
