@@ -160,18 +160,38 @@ class FeaturedImageService:
     def _load_image(self, source: str) -> Optional['Image.Image']:
         """Load image from URL or file path"""
         if not PIL_AVAILABLE:
+            logger.error("PIL not available")
             return None
+        
+        logger.info(f"Loading image from: {source}")
         
         try:
             if source.startswith('http://') or source.startswith('https://'):
+                logger.info(f"Fetching from URL: {source}")
                 response = requests.get(source, timeout=30)
                 if response.status_code == 200:
                     return Image.open(io.BytesIO(response.content))
+                else:
+                    logger.error(f"Failed to fetch image: HTTP {response.status_code}")
+            elif source.startswith('/static/'):
+                # Handle relative static paths - convert to absolute file path
+                # Get the root directory (where static folder is)
+                root_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+                absolute_path = os.path.join(root_dir, source.lstrip('/'))
+                logger.info(f"Converted relative path to: {absolute_path}")
+                if os.path.exists(absolute_path):
+                    return Image.open(absolute_path)
+                else:
+                    logger.error(f"File not found: {absolute_path}")
             else:
                 if os.path.exists(source):
                     return Image.open(source)
+                else:
+                    logger.error(f"File not found: {source}")
         except Exception as e:
             logger.error(f"Failed to load image from {source}: {e}")
+            import traceback
+            traceback.print_exc()
         
         return None
     
@@ -466,6 +486,8 @@ class FeaturedImageService:
         """
         from app.models.db_models import DBClientImage
         
+        logger.info(f"Creating from client library: client_id={client_id}, category={category}")
+        
         # Find an image from client's library
         query = DBClientImage.query.filter_by(client_id=client_id, is_active=True)
         if category:
@@ -475,10 +497,13 @@ class FeaturedImageService:
         image = query.order_by(DBClientImage.use_count.asc()).first()
         
         if not image:
+            logger.warning(f"No images found for client {client_id}")
             return {
                 'success': False,
                 'error': f'No images found in client library. Upload images first.'
             }
+        
+        logger.info(f"Found image: {image.id}, file_url={image.file_url}, file_path={image.file_path}")
         
         # Update usage
         image.use_count += 1
@@ -487,8 +512,35 @@ class FeaturedImageService:
         from app.database import db
         db.session.commit()
         
-        # Create featured image
-        source = image.file_url if image.file_url.startswith('http') else image.file_path
+        # Determine source - prefer local file path if it exists
+        source = None
+        if image.file_path:
+            # Check if path exists directly
+            if os.path.exists(image.file_path):
+                source = image.file_path
+            else:
+                # Try relative to app root
+                root_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+                full_path = os.path.join(root_dir, image.file_path.lstrip('/'))
+                if os.path.exists(full_path):
+                    source = full_path
+        
+        # Fall back to URL
+        if not source and image.file_url:
+            if image.file_url.startswith('http'):
+                source = image.file_url
+            else:
+                # It's a relative URL like /static/uploads/...
+                source = image.file_url  # _load_image will handle this
+        
+        if not source:
+            logger.error(f"Could not determine source for image {image.id}")
+            return {
+                'success': False,
+                'error': 'Could not locate image file'
+            }
+        
+        logger.info(f"Using source: {source}")
         
         result = self.create_featured_image(
             source_image=source,

@@ -574,76 +574,105 @@ def create_featured_image(current_user, client_id):
     
     Templates: gradient_bottom, gradient_full, banner_bottom, banner_branded, split_left, minimal
     """
-    from app.services.featured_image_service import featured_image_service
-    from app.services.data_service import data_service
-    from app.models.db_models import DBClientImage
-    import json
-    
-    if not current_user.has_access_to_client(client_id):
-        return jsonify({'error': 'Access denied'}), 403
-    
-    if not featured_image_service.is_available():
-        return jsonify({
-            'error': 'Featured image generation not available. Install Pillow: pip install Pillow'
-        }), 500
-    
-    data = request.get_json() or {}
-    
-    title = data.get('title')
-    if not title:
-        return jsonify({'error': 'Title is required'}), 400
-    
-    template = data.get('template', 'gradient_bottom')
-    subtitle = data.get('subtitle')
-    
-    # Get client for brand color
-    client = data_service.get_client(client_id)
-    brand_color = None
-    if client:
-        try:
-            integrations = json.loads(client.integrations) if client.integrations else {}
-            brand_hex = integrations.get('brand_color')
-            if brand_hex:
-                brand_hex = brand_hex.lstrip('#')
-                brand_color = tuple(int(brand_hex[i:i+2], 16) for i in (0, 2, 4))
-        except:
-            pass
-    
-    # Determine source image
-    source_image = None
-    
-    if data.get('source_image_id'):
-        img = DBClientImage.query.filter_by(id=data['source_image_id'], client_id=client_id).first()
-        if img:
-            source_image = img.file_path if os.path.exists(img.file_path) else img.file_url
-    
-    elif data.get('source_image_url'):
-        source_image = data['source_image_url']
-    
-    else:
-        # Pick from client library
-        result = featured_image_service.create_from_client_library(
-            client_id=client_id,
+    try:
+        from app.services.featured_image_service import featured_image_service
+        from app.services.data_service import data_service
+        from app.models.db_models import DBClientImage
+        import json
+        
+        logger.info(f"Creating featured image for client: {client_id}")
+        
+        if not current_user.has_access_to_client(client_id):
+            return jsonify({'error': 'Access denied'}), 403
+        
+        if not featured_image_service.is_available():
+            logger.error("Pillow not available")
+            return jsonify({
+                'error': 'Featured image generation not available. Pillow library not installed.'
+            }), 500
+        
+        data = request.get_json() or {}
+        logger.info(f"Request data: {data}")
+        
+        title = data.get('title')
+        if not title:
+            return jsonify({'error': 'Title is required'}), 400
+        
+        template = data.get('template', 'gradient_bottom')
+        subtitle = data.get('subtitle')
+        
+        # Get client for brand color
+        client = data_service.get_client(client_id)
+        brand_color = None
+        if client:
+            try:
+                integrations = json.loads(client.integrations) if client.integrations else {}
+                brand_hex = integrations.get('brand_color')
+                if brand_hex:
+                    brand_hex = brand_hex.lstrip('#')
+                    brand_color = tuple(int(brand_hex[i:i+2], 16) for i in (0, 2, 4))
+            except Exception as e:
+                logger.warning(f"Could not parse brand color: {e}")
+        
+        # Determine source image
+        source_image = None
+        
+        if data.get('source_image_id'):
+            logger.info(f"Looking for image ID: {data.get('source_image_id')}")
+            img = DBClientImage.query.filter_by(id=data['source_image_id'], client_id=client_id).first()
+            if img:
+                # Check if file exists locally first
+                if img.file_path and os.path.exists(img.file_path):
+                    source_image = img.file_path
+                    logger.info(f"Using local file: {source_image}")
+                elif img.file_url:
+                    # Use URL - make sure it's absolute
+                    if img.file_url.startswith('/'):
+                        # Convert relative URL to absolute
+                        source_image = request.host_url.rstrip('/') + img.file_url
+                    else:
+                        source_image = img.file_url
+                    logger.info(f"Using URL: {source_image}")
+            else:
+                logger.warning(f"Image not found: {data.get('source_image_id')}")
+        
+        elif data.get('source_image_url'):
+            source_image = data['source_image_url']
+            logger.info(f"Using provided URL: {source_image}")
+        
+        else:
+            # Pick from client library
+            logger.info("Picking image from client library")
+            result = featured_image_service.create_from_client_library(
+                client_id=client_id,
+                title=title,
+                category=data.get('category'),
+                template=template,
+                subtitle=subtitle,
+                brand_color=brand_color
+            )
+            return jsonify(result), 200 if result.get('success') else 400
+        
+        if not source_image:
+            return jsonify({'error': 'No source image provided or found'}), 400
+        
+        logger.info(f"Creating featured image with source: {source_image}")
+        result = featured_image_service.create_featured_image(
+            source_image=source_image,
             title=title,
-            category=data.get('category'),
             template=template,
             subtitle=subtitle,
             brand_color=brand_color
         )
+        
+        logger.info(f"Result: {result}")
         return jsonify(result), 200 if result.get('success') else 400
-    
-    if not source_image:
-        return jsonify({'error': 'No source image provided or found'}), 400
-    
-    result = featured_image_service.create_featured_image(
-        source_image=source_image,
-        title=title,
-        template=template,
-        subtitle=subtitle,
-        brand_color=brand_color
-    )
-    
-    return jsonify(result), 200 if result.get('success') else 400
+        
+    except Exception as e:
+        logger.error(f"Featured image creation failed: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': f'Failed to create featured image: {str(e)}'}), 500
 
 
 @images_bp.route('/featured/templates', methods=['GET'])
