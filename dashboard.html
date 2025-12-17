@@ -1052,21 +1052,7 @@
             font-weight: 500;
         }
     </style>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.6/purify.min.js">
-        // HTTPS v1.0.5
-        if (window.location.protocol === 'http:' && window.location.hostname.includes('onrender.com')) {
-            window.location.protocol = 'https:';
-        }
-        let API_URL = window.location.origin;
-        // ALWAYS force HTTPS on Render (load balancer terminates SSL)
-        if (window.location.hostname.includes('onrender.com') || window.location.hostname.includes('render.com')) {
-            API_URL = 'https://' + window.location.hostname;
-        } else if (API_URL.startsWith('http://')) {
-            API_URL = API_URL.replace('http://', 'https://');
-        }
-        let AUTH_TOKEN = '';
-
-    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.6/purify.min.js"></script>
 </head>
 <body>
     <div class="bg-animation"></div>
@@ -1449,7 +1435,21 @@ We're really known for our 24-hour emergency service - if there's a storm and so
     <div class="toast-container" id="toast-container"></div>
 
     <script>
-        // Debug logging - disabled in production
+        
+        // v1.0.6 - Force HTTPS on Render
+        (function() {
+            if (location.hostname.includes('onrender.com') && location.protocol === 'http:') {
+                location.protocol = 'https:';
+            }
+            // Override API_URL to always use HTTPS on Render
+            window.FORCE_HTTPS_API = function(url) {
+                if (location.hostname.includes('onrender.com') && url.startsWith('http://')) {
+                    return url.replace('http://', 'https://');
+                }
+                return url;
+            };
+        })();
+// Debug logging - disabled in production
         const DEBUG = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
         if (!DEBUG) { console.log = () => {}; console.error = () => {}; }
         
@@ -1466,16 +1466,8 @@ We're really known for our 24-hour emergency service - if there's a storm and so
         let selectedTopics = { blog: [], social: [] };
         let generatedContent = [];
 
-        // API Configuration - FORCE HTTPS
-        let apiOrigin = window.location.origin;
-        // Always force HTTPS for Render.com deployments
-        if (apiOrigin.includes('onrender.com') || apiOrigin.includes('render.com')) {
-            apiOrigin = apiOrigin.replace('http://', 'https://');
-        } else if (apiOrigin.startsWith('http://') && !apiOrigin.includes('localhost') && !apiOrigin.includes('127.0.0.1')) {
-            apiOrigin = apiOrigin.replace('http://', 'https://');
-        }
-        const API_BASE = apiOrigin + '/api';
-        console.log('✅ API_BASE:', API_BASE);
+        // API Configuration
+        const API_BASE = window.location.origin + '/api';
 
         // ============================================
         // Authentication

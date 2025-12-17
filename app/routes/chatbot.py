@@ -97,15 +97,7 @@ def get_embed_code(current_user, client_id):
     if not config:
         return jsonify({'error': 'Chatbot not configured'}), 404
     
-    # ALWAYS use HTTPS for embed code
     base_url = request.host_url.rstrip('/')
-    # Force HTTPS for production (Render.com)
-    if 'onrender.com' in base_url or 'render.com' in base_url:
-        base_url = base_url.replace('http://', 'https://')
-    # Also force HTTPS for any non-localhost
-    elif base_url.startswith('http://') and 'localhost' not in base_url and '127.0.0.1' not in base_url:
-        base_url = base_url.replace('http://', 'https://')
-    
     embed_code = chatbot_service.generate_embed_code(config.id, base_url)
     
     return jsonify({

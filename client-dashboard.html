@@ -3,29 +3,21 @@
 <head>
     <!-- CRITICAL: HTTPS redirect MUST be first - before ANY other scripts -->
     <script>
-        // HTTPS ENFORCEMENT v1.0.5
+    
+        // v1.0.6 - Force HTTPS on Render
         (function() {
-            if (window.location.protocol === 'http:' && 
-                (window.location.hostname.includes('onrender.com') || window.location.hostname.includes('render.com'))) {
-                window.location.protocol = 'https:';
-                return;
+            if (location.hostname.includes('onrender.com') && location.protocol === 'http:') {
+                location.protocol = 'https:';
             }
+            // Override API_URL to always use HTTPS on Render
+            window.FORCE_HTTPS_API = function(url) {
+                if (location.hostname.includes('onrender.com') && url.startsWith('http://')) {
+                    return url.replace('http://', 'https://');
+                }
+                return url;
+            };
         })();
-        
-        // API_URL
-        let API_URL = window.location.origin;
-        // ALWAYS force HTTPS on Render (load balancer terminates SSL)
-        if (window.location.hostname.includes('onrender.com') || window.location.hostname.includes('render.com')) {
-            API_URL = 'https://' + window.location.hostname;
-        } else if (API_URL.startsWith('http://')) {
-            API_URL = API_URL.replace('http://', 'https://');
-        }
-        console.log('API_URL:', API_URL);
-        
-        let AUTH_TOKEN = '';
-        let currentClient = null;
-
-    (function() {
+(function() {
         if (location.protocol === 'http:' && 
             location.hostname !== 'localhost' && 
             location.hostname !== '127.0.0.1') {
@@ -2920,7 +2912,22 @@
         // Load branding on page load
         document.addEventListener('DOMContentLoaded', loadBranding);
         
-        // Variables already defined at top of file - don't redefine
+        // FORCE HTTPS for API_URL - Always use HTTPS regardless of how page was loaded
+        let API_URL = window.location.origin; if(location.hostname.includes('onrender.com')){API_URL='https://'+location.hostname;}
+        // Always force HTTPS for Render.com deployments
+        if (API_URL.includes('onrender.com') || API_URL.includes('render.com')) {
+            API_URL = API_URL.replace('http://', 'https://');
+        } else if (API_URL.startsWith('http://') && !API_URL.includes('localhost') && !API_URL.includes('127.0.0.1')) {
+            API_URL = API_URL.replace('http://', 'https://');
+            console.warn('⚠️ Forced API_URL to HTTPS:', API_URL);
+        }
+        // If page was loaded via file:// or has issues, use the known production URL
+        if (!API_URL.startsWith('http')) {
+            API_URL = 'https://mcp-framework-complete-2.onrender.com';
+        }
+        console.log('✅ API_URL:', API_URL);
+        let AUTH_TOKEN = '';
+        let currentClient = null;
         let allBlogs = [];
         let allSocial = [];
         let isFixingAdmin = false;  // Prevent infinite loops
@@ -2934,15 +2941,10 @@
         
         // Override global fetch to intercept 403s AND force HTTPS
         window.fetch = async function(url, options = {}) {
-            // FORCE HTTPS on all URLs (multiple checks for safety)
-            if (typeof url === 'string') {
-                // Replace http:// with https://
-                if (url.startsWith('http://') && !url.includes('localhost') && !url.includes('127.0.0.1')) {
-                    url = url.replace('http://', 'https://');
-                    console.warn('⚠️ Forced fetch URL to HTTPS:', url);
-                }
-                // Also fix any double slashes before query params (e.g., /api/leads/?client_id)
-                url = url.replace(/\/\?/g, '?');
+            // FORCE HTTPS on all URLs
+            if (typeof url === 'string' && url.startsWith('http://')) {
+                url = url.replace('http://', 'https://');
+                console.warn('⚠️ Forced fetch URL to HTTPS:', url);
             }
             // Only intercept API calls
             const isApiCall = typeof url === 'string' && url.includes('/api/');
@@ -4521,20 +4523,10 @@
         // ==========================================
         
         async function loadLeads() {
-            console.log('🔍 loadLeads() called');
-            
-            if (!currentClient) {
-                console.warn('⚠️ No currentClient - aborting');
-                return;
-            }
-            
-            console.log('✓ currentClient:', currentClient.id, currentClient.business_name);
+            if (!currentClient) return;
             
             const container = document.getElementById('leadsList');
-            if (!container) {
-                console.error('❌ leadsList container not found');
-                return;
-            }
+            if (!container) return;
             
             const statusFilter = document.getElementById('leadStatusFilter')?.value || '';
             
@@ -4544,23 +4536,13 @@
                 let url = `${API_URL}/api/leads?client_id=${currentClient.id}`;
                 if (statusFilter) url += `&status=${statusFilter}`;
                 
-                console.log('📡 Fetching:', url);
-                console.log('🔑 AUTH_TOKEN:', AUTH_TOKEN ? 'Present' : 'MISSING');
-                console.log('🌐 API_URL:', API_URL);
-                
                 const response = await fetch(url, {
                     headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
                 });
                 
-                console.log('📥 Response status:', response.status);
-                console.log('📥 Response OK:', response.ok);
-                console.log('📥 Response URL:', response.url);
-                
                 if (response.ok) {
                     const data = await response.json();
-                    console.log('✓ Data received:', data);
                     const leads = data.leads || [];
-                    console.log('✓ Leads count:', leads.length);
                     
                     // Update stats
                     const totalLeads = leads.length;
@@ -4617,13 +4599,10 @@
                         </div>
                     `).join('');
                 } else {
-                    const errorText = await response.text();
-                    console.error('❌ Response not OK:', response.status, errorText);
-                    container.innerHTML = `<div class="text-center py-8 text-red-400">Failed to load leads (${response.status})</div>`;
+                    container.innerHTML = '<div class="text-center py-8 text-red-400">Failed to load leads</div>';
                 }
             } catch (error) {
-                console.error('❌ Failed to load leads:', error);
-                console.error('Error details:', error.message, error.stack);
+                console.error('Failed to load leads:', error);
                 container.innerHTML = '<div class="text-center py-8 text-red-400">Error loading leads</div>';
             }
         }

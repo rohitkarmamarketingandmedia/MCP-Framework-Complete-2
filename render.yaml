@@ -27,10 +27,6 @@ services:
       - key: CORS_ORIGINS
         value: "*"  # Change to: https://yourdomain.com
       
-      # Force HTTPS redirect
-      - key: FORCE_HTTPS
-        value: "true"
-      
       # Database (auto-linked)
       - key: DATABASE_URL
         fromDatabase:

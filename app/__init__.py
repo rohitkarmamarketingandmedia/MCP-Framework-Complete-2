@@ -4,7 +4,7 @@ AI-powered SEO content automation engine
 
 By Karma Marketing + Media
 """
-from flask import Flask, send_from_directory, jsonify, request, redirect
+from flask import Flask, send_from_directory, jsonify
 from flask_cors import CORS
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
@@ -39,12 +39,7 @@ def create_app(config_name=None):
     cors_origins = app.config.get('CORS_ORIGINS', '*')
     if cors_origins == '*' and app.config.get('ENV') == 'production':
         logger.warning("SECURITY: CORS_ORIGINS is set to '*' in production! Set specific origins.")
-    CORS(app, 
-         origins=cors_origins,
-         supports_credentials=True,
-         allow_headers=["Content-Type", "Authorization", "X-Requested-With"],
-         expose_headers=["Content-Type", "Authorization"],
-         methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"])
+    CORS(app, origins=cors_origins)
 
     # Rate limiting
     limiter = Limiter(

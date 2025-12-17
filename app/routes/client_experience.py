@@ -24,36 +24,17 @@ def get_health_score(current_user, client_id):
     
     GET /api/client/health-score/{client_id}?days=30
     """
-    try:
-        if not current_user.has_access_to_client(client_id):
-            return jsonify({'error': 'Access denied'}), 403
-        
-        days = request.args.get('days', 30, type=int)
-        
-        from app.services.client_health_service import get_client_health_service
-        health_service = get_client_health_service()
-        
-        score = health_service.calculate_health_score(client_id, days=days)
-        
-        return jsonify(score.to_dict())
-    except Exception as e:
-        logger.error(f"Error getting health score for {client_id}: {e}", exc_info=True)
-        # Return a default score instead of 500 error
-        return jsonify({
-            'total': 0,
-            'grade': 'N/A',
-            'color': 'gray',
-            'rankings_score': 0,
-            'rankings_detail': 'Data unavailable',
-            'content_score': 0,
-            'content_detail': 'Data unavailable',
-            'leads_score': 0,
-            'leads_detail': 'Data unavailable',
-            'reviews_score': 0,
-            'reviews_detail': 'Data unavailable',
-            'engagement_score': 0,
-            'engagement_detail': 'Data unavailable'
-        })
+    if not current_user.has_access_to_client(client_id):
+        return jsonify({'error': 'Access denied'}), 403
+    
+    days = request.args.get('days', 30, type=int)
+    
+    from app.services.client_health_service import get_client_health_service
+    health_service = get_client_health_service()
+    
+    score = health_service.calculate_health_score(client_id, days=days)
+    
+    return jsonify(score.to_dict())
 
 
 @client_exp_bp.route('/wins/<client_id>', methods=['GET'])
@@ -64,21 +45,17 @@ def get_wins(current_user, client_id):
     
     GET /api/client/wins/{client_id}?days=7
     """
-    try:
-        if not current_user.has_access_to_client(client_id):
-            return jsonify({'error': 'Access denied'}), 403
-        
-        days = request.args.get('days', 7, type=int)
-        
-        from app.services.client_health_service import get_client_health_service
-        health_service = get_client_health_service()
-        
-        wins = health_service.get_wins(client_id, days=days)
-        
-        return jsonify({'wins': wins, 'days': days})
-    except Exception as e:
-        logger.error(f"Error getting wins for {client_id}: {e}", exc_info=True)
-        return jsonify({'wins': [], 'days': days})
+    if not current_user.has_access_to_client(client_id):
+        return jsonify({'error': 'Access denied'}), 403
+    
+    days = request.args.get('days', 7, type=int)
+    
+    from app.services.client_health_service import get_client_health_service
+    health_service = get_client_health_service()
+    
+    wins = health_service.get_wins(client_id, days=days)
+    
+    return jsonify({'wins': wins, 'days': days})
 
 
 @client_exp_bp.route('/upcoming/<client_id>', methods=['GET'])
@@ -110,21 +87,17 @@ def get_activity(current_user, client_id):
     
     GET /api/client/activity/{client_id}?limit=20
     """
-    try:
-        if not current_user.has_access_to_client(client_id):
-            return jsonify({'error': 'Access denied'}), 403
-        
-        limit = request.args.get('limit', 20, type=int)
-        
-        from app.services.client_health_service import get_client_health_service
-        health_service = get_client_health_service()
-        
-        activity = health_service.get_activity_feed(client_id, limit=limit)
-        
-        return jsonify({'activity': activity})
-    except Exception as e:
-        logger.error(f"Error getting activity for {client_id}: {e}", exc_info=True)
-        return jsonify({'activity': []})
+    if not current_user.has_access_to_client(client_id):
+        return jsonify({'error': 'Access denied'}), 403
+    
+    limit = request.args.get('limit', 20, type=int)
+    
+    from app.services.client_health_service import get_client_health_service
+    health_service = get_client_health_service()
+    
+    activity = health_service.get_activity_feed(client_id, limit=limit)
+    
+    return jsonify({'activity': activity})
 
 
 # ==========================================
