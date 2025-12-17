@@ -2926,7 +2926,11 @@
             API_URL = 'https://mcp-framework-complete-2.onrender.com';
         }
         console.log('✅ API_URL:', API_URL);
-        let AUTH_TOKEN = '';
+        
+        // Load AUTH_TOKEN from localStorage if available
+        let AUTH_TOKEN = localStorage.getItem('mcp_token') || '';
+        console.log('✅ AUTH_TOKEN:', AUTH_TOKEN ? 'Present (from localStorage)' : 'Not found');
+        
         let currentClient = null;
         let allBlogs = [];
         let allSocial = [];
@@ -3005,6 +3009,32 @@
         // ==========================================
         // AUTH
         // ==========================================
+        
+        // Check if already logged in (token exists)
+        (async function checkExistingAuth() {
+            if (AUTH_TOKEN) {
+                console.log('Found existing token, verifying...');
+                try {
+                    const res = await fetch(`${API_URL}/api/auth/me`, {
+                        headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
+                    });
+                    
+                    if (res.ok) {
+                        console.log('Token valid, loading dashboard...');
+                        document.getElementById('authModal').classList.add('hidden');
+                        document.getElementById('dashboard').classList.remove('hidden');
+                        loadClients();
+                        return;
+                    } else {
+                        console.log('Token invalid, clearing...');
+                        localStorage.removeItem('mcp_token');
+                        AUTH_TOKEN = '';
+                    }
+                } catch (e) {
+                    console.log('Auth check failed:', e);
+                }
+            }
+        })();
         
         // Check if bootstrap is needed on page load
         (async function checkBootstrap() {
@@ -3098,6 +3128,7 @@
                 
                 if (res.ok && data.token) {
                     AUTH_TOKEN = data.token;
+                    localStorage.setItem('mcp_token', data.token);  // Save token
                     localStorage.setItem('mcp_user_email', email);  // Save for permission fixes
                     alert('✓ Admin created! Email: ' + email);
                     document.getElementById('authModal').classList.add('hidden');
@@ -3143,6 +3174,7 @@
 
                 if (data.token) {
                     AUTH_TOKEN = data.token;
+                    localStorage.setItem('mcp_token', data.token);  // Save token
                     localStorage.setItem('mcp_user_email', email);  // Save for permission fixes
                     document.getElementById('authModal').classList.add('hidden');
                     document.getElementById('dashboard').classList.remove('hidden');
