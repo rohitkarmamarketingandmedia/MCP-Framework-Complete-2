@@ -650,8 +650,9 @@ def get_health_score(current_user, client_id):
         factors.append({'name': 'WordPress Not Connected', 'points': 0, 'max': 20})
     
     # Check keywords defined (+15)
-    keywords = client.get_keywords()
-    if keywords.get('primary') or keywords.get('secondary'):
+    primary_kws = client.get_primary_keywords()
+    secondary_kws = client.get_secondary_keywords()
+    if primary_kws or secondary_kws:
         score += 15
         factors.append({'name': 'Keywords Defined', 'points': 15})
     else:

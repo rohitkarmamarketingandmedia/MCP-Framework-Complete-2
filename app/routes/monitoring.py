@@ -1245,7 +1245,7 @@ def get_rank_history(current_user, client_id):
             {
                 'date': h.checked_at.isoformat() if h.checked_at else None,
                 'position': h.position,
-                'url': h.ranking_url
+                'url': h.url
             }
             for h in history
         ]
@@ -1300,7 +1300,7 @@ def get_competitor_dashboard(current_user, client_id):
         if rank.keyword not in client_rankings:
             client_rankings[rank.keyword] = {
                 'position': rank.position,
-                'url': rank.ranking_url,
+                'url': rank.url,
                 'change': rank.change
             }
     
@@ -1504,7 +1504,7 @@ def compare_with_competitor(current_user, client_id, competitor_id):
             'domain': competitor.domain,
             'total_pages': len(comp_pages),
             'blog_posts': len(blog_pages),
-            'last_crawled': competitor.last_crawled.isoformat() if competitor.last_crawled else None
+            'last_crawled': competitor.last_crawl_at.isoformat() if competitor.last_crawl_at else None
         },
         'rankings_summary': {
             'total_keywords': len(all_keywords),
@@ -1518,7 +1518,7 @@ def compare_with_competitor(current_user, client_id, competitor_id):
             {
                 'title': p.title,
                 'url': p.url,
-                'last_modified': p.last_modified.isoformat() if p.last_modified else None
+                'last_modified': p.last_checked_at.isoformat() if p.last_checked_at else None
             }
             for p in blog_pages[:20]
         ]
@@ -1630,8 +1630,8 @@ def _crawl_single_competitor(competitor):
                     db.session.add(page)
                     new_pages += 1
         
-        # Update competitor last_crawled
-        competitor.last_crawled = datetime.utcnow()
+        # Update competitor last_crawl_at
+        competitor.last_crawl_at = datetime.utcnow()
         competitor.next_crawl_at = datetime.utcnow() + timedelta(days=1)
         
         db.session.commit()

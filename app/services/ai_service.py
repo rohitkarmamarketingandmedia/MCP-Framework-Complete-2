@@ -726,6 +726,8 @@ CRITICAL REMINDERS:
         """Generate raw text response (for simple prompts)"""
         self._rate_limit_delay()
         result = self._call_openai(prompt, max_tokens)
+        if 'error' in result:
+            raise Exception(result['error'])
         return result.get('content', '')
     
     def generate_raw_with_agent(
