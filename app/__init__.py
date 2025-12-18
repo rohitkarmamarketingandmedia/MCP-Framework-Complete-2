@@ -11,7 +11,7 @@ from flask_limiter.util import get_remote_address
 import os
 import logging
 
-__version__ = "5.5.34"
+__version__ = "5.5.41"
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -116,9 +116,14 @@ def create_app(config_name=None):
     def dashboard():
         return send_from_directory(root_dir, 'dashboard.html')
     
-    # Serve intake dashboard
+    # Serve intake dashboard (new wizard)
     @app.route('/intake')
     def intake_dashboard():
+        return send_from_directory(root_dir, 'intake-wizard.html')
+    
+    # Serve old intake dashboard (legacy)
+    @app.route('/intake-legacy')
+    def intake_legacy():
         return send_from_directory(root_dir, 'intake-dashboard.html')
     
     # Serve client content dashboard (for demos)

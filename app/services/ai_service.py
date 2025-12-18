@@ -738,3 +738,6 @@ CRITICAL REMINDERS:
         self._rate_limit_delay()
         result = self.generate_with_agent(agent_name, user_input, variables)
         return result.get('content', '')
+
+# Singleton instance
+ai_service = AIService()

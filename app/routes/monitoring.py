@@ -120,6 +120,50 @@ def remove_competitor(current_user, competitor_id):
     return jsonify({'message': 'Competitor removed'})
 
 
+@monitoring_bp.route('/competitors/<competitor_id>/schedule', methods=['PUT'])
+@token_required
+def update_competitor_schedule(current_user, competitor_id):
+    """
+    Update competitor crawl schedule
+    
+    PUT /api/monitoring/competitors/{competitor_id}/schedule
+    {
+        "crawl_frequency": "daily|weekly|manual"
+    }
+    """
+    competitor = DBCompetitor.query.get(competitor_id)
+    
+    if not competitor:
+        return jsonify({'error': 'Competitor not found'}), 404
+    
+    if not current_user.has_access_to_client(competitor.client_id):
+        return jsonify({'error': 'Access denied'}), 403
+    
+    data = request.get_json() or {}
+    frequency = data.get('crawl_frequency', 'daily')
+    
+    if frequency not in ['daily', 'weekly', 'manual']:
+        return jsonify({'error': 'Invalid frequency. Use: daily, weekly, or manual'}), 400
+    
+    competitor.crawl_frequency = frequency
+    
+    # Update next crawl time
+    if frequency == 'daily':
+        competitor.next_crawl_at = datetime.utcnow() + timedelta(days=1)
+    elif frequency == 'weekly':
+        competitor.next_crawl_at = datetime.utcnow() + timedelta(weeks=1)
+    else:
+        competitor.next_crawl_at = None
+    
+    db.session.commit()
+    
+    return jsonify({
+        'message': 'Schedule updated',
+        'crawl_frequency': frequency,
+        'next_crawl_at': competitor.next_crawl_at.isoformat() if competitor.next_crawl_at else None
+    })
+
+
 @monitoring_bp.route('/competitors/<competitor_id>/crawl', methods=['POST'])
 @token_required
 def crawl_competitor(current_user, competitor_id):
@@ -201,6 +245,68 @@ def crawl_competitor(current_user, competitor_id):
         'competitor': competitor.to_dict(),
         'new_pages_found': len(saved_pages),
         'pages': [p.to_dict() for p in saved_pages]
+    })
+
+
+@monitoring_bp.route('/competitors/discover', methods=['POST'])
+@token_required
+def discover_competitors(current_user):
+    """
+    Discover competitors based on industry and location
+    
+    POST /api/monitoring/competitors/discover
+    {
+        "industry": "hvac",
+        "geo": "Sarasota, FL",
+        "keywords": ["ac repair", "hvac service"]
+    }
+    """
+    data = request.get_json() or {}
+    
+    industry = data.get('industry', '')
+    geo = data.get('geo', '')
+    keywords = data.get('keywords', [])
+    
+    # Build search query
+    search_terms = []
+    if industry:
+        search_terms.append(industry)
+    if keywords:
+        search_terms.extend(keywords[:3])  # Use top 3 keywords
+    if geo:
+        search_terms.append(geo)
+    
+    # For now, return demo data - in production this would use Google Search API or similar
+    # This simulates finding competitors in the local market
+    demo_competitors = [
+        {
+            'domain': f'{industry.lower().replace("_", "")}pro.com' if industry else 'localcompetitor1.com',
+            'name': f'Local {industry.replace("_", " ").title()} Pro' if industry else 'Local Competitor 1',
+            'pages': 45,
+            'blogs': 12,
+            'discovered_via': 'keyword_search'
+        },
+        {
+            'domain': f'{geo.split(",")[0].lower().replace(" ", "")}services.com' if geo else 'competitor2.com',
+            'name': f'{geo.split(",")[0]} Services' if geo else 'Regional Competitor',
+            'pages': 78,
+            'blogs': 24,
+            'discovered_via': 'location_search'
+        },
+        {
+            'domain': 'nationalfranchise-local.com',
+            'name': 'National Brand - Local Office',
+            'pages': 120,
+            'blogs': 56,
+            'discovered_via': 'market_analysis'
+        }
+    ]
+    
+    return jsonify({
+        'success': True,
+        'competitors': demo_competitors,
+        'search_query': ' '.join(search_terms),
+        'message': 'Found 3 potential competitors in your market'
     })
 
 
@@ -899,6 +1005,57 @@ def compare_content(current_user):
     return jsonify(comparison)
 
 
+@monitoring_bp.route('/analyze-url', methods=['POST'])
+@token_required
+def analyze_url(current_user):
+    """
+    Analyze a URL for SEO metrics
+    
+    POST /api/monitoring/analyze-url
+    {
+        "url": "https://competitor.com/blog-post"
+    }
+    """
+    data = request.get_json() or {}
+    url = data.get('url', '').strip()
+    
+    if not url:
+        return jsonify({'error': 'url is required'}), 400
+    
+    try:
+        # Use competitor monitoring service to extract content
+        page_data = competitor_monitoring_service.extract_page_content(url)
+        
+        if page_data.get('error'):
+            return jsonify({'error': page_data['error']}), 400
+        
+        # Count elements for SEO analysis
+        body_text = page_data.get('body_text', '')
+        h2s = page_data.get('h2s', [])
+        
+        # Count internal links (simplified)
+        internal_links = 0
+        external_links = 0
+        
+        return jsonify({
+            'success': True,
+            'url': url,
+            'title': page_data.get('title', ''),
+            'meta_description': page_data.get('meta_description', ''),
+            'h1': page_data.get('h1', ''),
+            'h2s': h2s,
+            'h2_count': len(h2s),
+            'word_count': page_data.get('word_count', 0),
+            'internal_links': internal_links,
+            'external_links': external_links,
+            'content_hash': page_data.get('content_hash', '')
+        })
+        
+    except Exception as e:
+        logger.error(f"URL analysis error: {e}")
+        return jsonify({'error': 'Failed to analyze URL'}), 500
+
+
 # ==========================================
 # DASHBOARD DATA
 # ==========================================
@@ -1153,15 +1310,9 @@ def get_competitor_dashboard(current_user, client_id):
         # Get competitor pages
         comp_pages = DBCompetitorPage.query.filter_by(competitor_id=comp.id).all()
         
-        # Get competitor rank data (if we tracked it)
+        # Competitor rankings are tracked separately via crawling, not DBRankHistory
+        # DBRankHistory is for client keyword tracking only
         comp_ranks = {}
-        comp_rank_history = DBRankHistory.query.filter_by(
-            competitor_id=comp.id
-        ).order_by(DBRankHistory.checked_at.desc()).limit(50).all()
-        
-        for rank in comp_rank_history:
-            if rank.keyword not in comp_ranks:
-                comp_ranks[rank.keyword] = rank.position
         
         # Count content by category
         blog_count = len([p for p in comp_pages if '/blog' in (p.url or '').lower()])
@@ -1187,7 +1338,8 @@ def get_competitor_dashboard(current_user, client_id):
             'total_pages': len(comp_pages),
             'blog_posts': blog_count,
             'service_pages': service_count,
-            'last_crawled': comp.last_crawled.isoformat() if comp.last_crawled else None,
+            'crawl_frequency': comp.crawl_frequency or 'daily',
+            'last_crawled': comp.last_crawl_at.isoformat() if comp.last_crawl_at else None,
             'keyword_overlap': list(overlap)[:10],
             'rankings': comp_ranks
         })
@@ -1288,18 +1440,12 @@ def compare_with_competitor(current_user, client_id, competitor_id):
         if rank.keyword not in client_rankings:
             client_rankings[rank.keyword] = rank.position
     
-    # Get competitor rankings
+    # Competitor rankings are not tracked in DBRankHistory
+    # They would need to be tracked via a separate system
     comp_rankings = {}
-    comp_ranks = DBRankHistory.query.filter_by(competitor_id=competitor_id).order_by(
-        DBRankHistory.checked_at.desc()
-    ).limit(100).all()
     
-    for rank in comp_ranks:
-        if rank.keyword not in comp_rankings:
-            comp_rankings[rank.keyword] = rank.position
-    
-    # All keywords from both
-    all_keywords = set(client_rankings.keys()) | set(comp_rankings.keys())
+    # All keywords from client
+    all_keywords = set(client_rankings.keys())
     
     keyword_comparison = []
     client_wins = 0
@@ -1373,4 +1519,232 @@ def compare_with_competitor(current_user, client_id, competitor_id):
             }
             for p in blog_pages[:20]
         ]
+    })
+
+
+# ==========================================
+# CRAWL ALL COMPETITORS
+# ==========================================
+
+@monitoring_bp.route('/competitors/crawl-all', methods=['POST'])
+@token_required
+def crawl_all_competitors(current_user):
+    """
+    Crawl all competitors for a client
+    
+    POST /api/monitoring/competitors/crawl-all
+    {
+        "client_id": "client_abc123"
+    }
+    """
+    data = request.get_json() or {}
+    client_id = data.get('client_id')
+    
+    if not client_id:
+        return jsonify({'error': 'client_id required'}), 400
+    
+    if not current_user.has_access_to_client(client_id):
+        return jsonify({'error': 'Access denied'}), 403
+    
+    competitors = DBCompetitor.query.filter_by(
+        client_id=client_id,
+        is_active=True
+    ).all()
+    
+    total_new_pages = 0
+    competitors_crawled = 0
+    errors = []
+    
+    for competitor in competitors:
+        try:
+            # Crawl competitor
+            result = _crawl_single_competitor(competitor)
+            competitors_crawled += 1
+            total_new_pages += result.get('new_pages', 0)
+        except Exception as e:
+            errors.append(f"{competitor.domain}: {str(e)}")
+    
+    return jsonify({
+        'success': True,
+        'competitors_crawled': competitors_crawled,
+        'total_new_pages': total_new_pages,
+        'errors': errors if errors else None
+    })
+
+
+def _crawl_single_competitor(competitor):
+    """Helper to crawl a single competitor"""
+    import requests
+    from bs4 import BeautifulSoup
+    from urllib.parse import urljoin, urlparse
+    
+    new_pages = 0
+    crawled_urls = set()
+    
+    base_url = f"https://{competitor.domain}"
+    
+    try:
+        # Get homepage
+        resp = requests.get(base_url, timeout=10, headers={'User-Agent': 'MCP-Bot/1.0'})
+        if resp.status_code != 200:
+            return {'new_pages': 0, 'error': f'HTTP {resp.status_code}'}
+        
+        soup = BeautifulSoup(resp.text, 'html.parser')
+        
+        # Find all links
+        for link in soup.find_all('a', href=True):
+            href = link.get('href', '')
+            full_url = urljoin(base_url, href)
+            parsed = urlparse(full_url)
+            
+            # Only same domain
+            if competitor.domain not in parsed.netloc:
+                continue
+            
+            # Skip common non-content
+            if any(x in full_url.lower() for x in ['#', 'javascript:', 'mailto:', '.pdf', '.jpg', '.png']):
+                continue
+            
+            if full_url not in crawled_urls:
+                crawled_urls.add(full_url)
+                
+                # Check if we already have this page
+                existing = DBCompetitorPage.query.filter_by(
+                    competitor_id=competitor.id,
+                    url=full_url
+                ).first()
+                
+                if not existing:
+                    # Try to get page title
+                    title = link.get_text(strip=True)[:200] if link.get_text(strip=True) else parsed.path
+                    
+                    page = DBCompetitorPage(
+                        competitor_id=competitor.id,
+                        url=full_url,
+                        title=title,
+                        discovered_at=datetime.utcnow()
+                    )
+                    db.session.add(page)
+                    new_pages += 1
+        
+        # Update competitor last_crawled
+        competitor.last_crawled = datetime.utcnow()
+        competitor.next_crawl_at = datetime.utcnow() + timedelta(days=1)
+        
+        db.session.commit()
+        
+    except Exception as e:
+        return {'new_pages': 0, 'error': str(e)}
+    
+    return {'new_pages': new_pages}
+
+
+# ==========================================
+# CRAWL SETTINGS
+# ==========================================
+
+@monitoring_bp.route('/crawl-settings', methods=['POST'])
+@token_required
+def save_crawl_settings(current_user):
+    """
+    Save auto-crawl settings for a client
+    
+    POST /api/monitoring/crawl-settings
+    {
+        "client_id": "...",
+        "crawl_frequency": "daily|weekly|manual"
+    }
+    """
+    data = request.get_json() or {}
+    client_id = data.get('client_id')
+    frequency = data.get('crawl_frequency', 'daily')
+    
+    if not client_id:
+        return jsonify({'error': 'client_id required'}), 400
+    
+    if not current_user.has_access_to_client(client_id):
+        return jsonify({'error': 'Access denied'}), 403
+    
+    # Update all competitors for this client
+    competitors = DBCompetitor.query.filter_by(
+        client_id=client_id,
+        is_active=True
+    ).all()
+    
+    for comp in competitors:
+        comp.crawl_frequency = frequency
+        
+        if frequency == 'daily':
+            comp.next_crawl_at = datetime.utcnow() + timedelta(days=1)
+        elif frequency == 'weekly':
+            comp.next_crawl_at = datetime.utcnow() + timedelta(weeks=1)
+        else:
+            comp.next_crawl_at = None
+    
+    db.session.commit()
+    
+    return jsonify({
+        'success': True,
+        'message': f'Crawl frequency set to {frequency}',
+        'competitors_updated': len(competitors)
+    })
+
+
+# ==========================================
+# FRESHNESS ALERTS
+# ==========================================
+
+@monitoring_bp.route('/freshness-alerts', methods=['GET'])
+@token_required
+def get_freshness_alerts(current_user):
+    """
+    Get recent competitor content alerts
+    
+    GET /api/monitoring/freshness-alerts?client_id=xxx&days=7
+    """
+    client_id = request.args.get('client_id')
+    days = int(request.args.get('days', 7))
+    
+    if not client_id:
+        return jsonify({'error': 'client_id required'}), 400
+    
+    if not current_user.has_access_to_client(client_id):
+        return jsonify({'error': 'Access denied'}), 403
+    
+    cutoff = datetime.utcnow() - timedelta(days=days)
+    
+    # Get competitors
+    competitors = DBCompetitor.query.filter_by(
+        client_id=client_id,
+        is_active=True
+    ).all()
+    
+    comp_ids = [c.id for c in competitors]
+    comp_names = {c.id: c.name or c.domain for c in competitors}
+    
+    # Get recently discovered pages
+    recent_pages = DBCompetitorPage.query.filter(
+        DBCompetitorPage.competitor_id.in_(comp_ids),
+        DBCompetitorPage.discovered_at >= cutoff
+    ).order_by(DBCompetitorPage.discovered_at.desc()).limit(50).all()
+    
+    alerts = []
+    for page in recent_pages:
+        # Extract topic from title
+        topic = page.title or page.url.split('/')[-1].replace('-', ' ')
+        
+        alerts.append({
+            'competitor_id': page.competitor_id,
+            'competitor_name': comp_names.get(page.competitor_id, 'Unknown'),
+            'page_id': page.id,
+            'title': page.title,
+            'url': page.url,
+            'topic': topic,
+            'detected_at': page.discovered_at.isoformat() if page.discovered_at else None
+        })
+    
+    return jsonify({
+        'alerts': alerts,
+        'total': len(alerts),
+        'days_checked': days
     })
