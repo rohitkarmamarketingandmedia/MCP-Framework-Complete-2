@@ -3187,6 +3187,29 @@
         let isFixingAdmin = false;  // Prevent infinite loops
 
         // ==========================================
+        // AUTH-AWARE FETCH WRAPPER
+        // ==========================================
+        async function authFetch(url, options = {}) {
+            const response = await fetch(url, options);
+            
+            // Handle 401 - User not found or token expired
+            if (response.status === 401) {
+                const data = await response.clone().json().catch(() => ({}));
+                if (data.error === 'User not found' || data.error === 'Token has expired' || data.error === 'Invalid token') {
+                    console.warn('Auth error - forcing re-login:', data.error);
+                    AUTH_TOKEN = '';
+                    localStorage.removeItem('mcp_user_email');
+                    showToast('Session expired. Please log in again.', 'warning');
+                    document.getElementById('authModal').classList.remove('hidden');
+                    document.getElementById('dashboard').classList.add('hidden');
+                    throw new Error('Session expired');
+                }
+            }
+            
+            return response;
+        }
+
+        // ==========================================
         // GLOBAL ERROR HANDLER
         // ==========================================
         window.onerror = function(message, source, lineno, colno, error) {
@@ -3459,7 +3482,7 @@
         // ==========================================
         async function loadClients() {
             try {
-                const res = await fetch(`${API_URL}/api/clients/`, {
+                const res = await authFetch(`${API_URL}/api/clients/`, {
                     headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
                 });
                 

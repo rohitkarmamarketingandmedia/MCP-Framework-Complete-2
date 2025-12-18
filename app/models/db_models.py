@@ -1791,7 +1791,7 @@ class DBContentFeedback(db.Model):
     """Content feedback and change requests from clients"""
     __tablename__ = 'content_feedback'
     
-    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     content_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
     client_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
     user_id: Mapped[str] = mapped_column(String(36), nullable=False)
@@ -1860,7 +1860,7 @@ class DBNotificationPreferences(db.Model):
     """User notification preferences"""
     __tablename__ = 'notification_preferences'
     
-    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     user_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
     client_id: Mapped[Optional[str]] = mapped_column(String(36), nullable=True, index=True)  # Null = global prefs
     
@@ -1903,7 +1903,7 @@ class DBNotificationPreferences(db.Model):
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     def __init__(self, user_id: str, **kwargs):
-        self.id = str(uuid4())
+        self.id = str(uuid.uuid4())
         self.user_id = user_id
         for key, value in kwargs.items():
             if hasattr(self, key):
@@ -1963,7 +1963,7 @@ class DBNotificationLog(db.Model):
     """Log of sent notifications for tracking and debugging"""
     __tablename__ = 'notification_log'
     
-    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     user_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
     client_id: Mapped[Optional[str]] = mapped_column(String(36), nullable=True, index=True)
     
@@ -1987,7 +1987,7 @@ class DBNotificationLog(db.Model):
     sent_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     
     def __init__(self, user_id: str, notification_type: str, subject: str, recipient_email: str, **kwargs):
-        self.id = str(uuid4())
+        self.id = str(uuid.uuid4())
         self.user_id = user_id
         self.notification_type = notification_type
         self.subject = subject
@@ -2018,7 +2018,7 @@ class DBNotificationQueue(db.Model):
     """Queue for digest notifications (batched instead of instant)"""
     __tablename__ = 'notification_queue'
     
-    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     user_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
     client_id: Mapped[Optional[str]] = mapped_column(String(36), nullable=True, index=True)
     
@@ -2039,7 +2039,7 @@ class DBNotificationQueue(db.Model):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     
     def __init__(self, user_id: str, notification_type: str, title: str, message: str, **kwargs):
-        self.id = str(uuid4())
+        self.id = str(uuid.uuid4())
         self.user_id = user_id
         self.notification_type = notification_type
         self.title = title

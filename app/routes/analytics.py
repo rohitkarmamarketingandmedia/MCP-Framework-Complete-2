@@ -419,6 +419,7 @@ def get_health_score(current_user, client_id):
 
 
 @analytics_bp.route('/agency-summary', methods=['GET'])
+@token_required
 @admin_required
 def get_agency_summary(current_user):
     """

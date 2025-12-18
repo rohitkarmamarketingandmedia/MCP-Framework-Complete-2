@@ -5,6 +5,7 @@ Handles content approval, feedback, and revision requests
 from flask import Blueprint, request, jsonify
 from datetime import datetime
 import logging
+import uuid
 
 from app.routes.auth import token_required
 from app.database import db
@@ -272,8 +273,8 @@ def request_changes(current_user, content_type, content_id):
                 user_id=admin.id,
                 client_name=client.business_name if client else 'Unknown',
                 content_title=content.title if hasattr(content, 'title') else 'Social Post',
-                feedback_preview=feedback[:100],
-                content_type=content_type,
+                feedback_text=feedback[:100],
+                feedback_type='change_request',
                 content_id=content_id,
                 client_id=content.client_id
             )
@@ -474,23 +475,26 @@ def submit_for_approval(current_user, content_type, content_id):
     content.status = 'pending_approval'
     db.session.commit()
     
-    # Send notification to client if requested
+    # Send notification to admins for review
     if data.get('notify_client', True):
         try:
             from app.services.notification_service import get_notification_service
             notification_service = get_notification_service()
             
             client = DBClient.query.get(content.client_id)
-            # In a full implementation, you'd get the client's user account
-            # For now, notify admins (who can forward to client)
+            client_name = client.business_name if client else 'Unknown'
             
-            notification_service.notify_content_approval_needed(
-                client_id=content.client_id,
-                content_title=content.title if hasattr(content, 'title') else 'Social Post',
-                content_type=content_type,
-                content_id=content_id,
-                message=data.get('message', '')
-            )
+            # Notify all admins
+            admins = DBUser.query.filter_by(role='admin', is_active=True).all()
+            for admin in admins:
+                notification_service.notify_content_approval_needed(
+                    user_id=admin.id,
+                    client_name=client_name,
+                    content_title=content.title if hasattr(content, 'title') else 'Social Post',
+                    content_type=content_type,
+                    content_id=content_id,
+                    client_id=content.client_id
+                )
         except Exception as e:
             logger.warning(f"Failed to send approval request notification: {e}")
     

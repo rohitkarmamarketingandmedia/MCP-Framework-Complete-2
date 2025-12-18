@@ -304,6 +304,7 @@ def login():
 
 
 @auth_bp.route('/register', methods=['POST'])
+@token_required
 @admin_required
 def register(current_user):
     """
@@ -363,6 +364,42 @@ def get_current_user(current_user):
     return jsonify(current_user.to_dict())
 
 
+@auth_bp.route('/me', methods=['PUT'])
+@token_required
+def update_current_user(current_user):
+    """
+    Update current user's profile
+    
+    PUT /api/auth/me
+    {
+        "name": "New Name",
+        "email": "newemail@example.com"
+    }
+    """
+    try:
+        data = request.get_json(silent=True) or {}
+    except Exception:
+        data = {}
+    
+    if 'name' in data:
+        current_user.name = data['name']
+    
+    if 'email' in data:
+        new_email = data['email'].lower().strip()
+        # Check if email is already taken by another user
+        existing = data_service.get_user_by_email(new_email)
+        if existing and existing.id != current_user.id:
+            return jsonify({'error': 'Email already in use'}), 400
+        current_user.email = new_email
+    
+    data_service.save_user(current_user)
+    
+    return jsonify({
+        'message': 'Profile updated',
+        'user': current_user.to_dict()
+    })
+
+
 @auth_bp.route('/change-password', methods=['POST'])
 @token_required
 def change_password(current_user):
@@ -390,6 +427,7 @@ def change_password(current_user):
 
 
 @auth_bp.route('/users', methods=['GET'])
+@token_required
 @admin_required
 def list_users(current_user):
     """List all users (admin only)"""
@@ -398,6 +436,7 @@ def list_users(current_user):
 
 
 @auth_bp.route('/users/<user_id>', methods=['DELETE'])
+@token_required
 @admin_required
 def delete_user(current_user, user_id):
     """Deactivate a user (admin only)"""
@@ -412,6 +451,7 @@ def delete_user(current_user, user_id):
 
 
 @auth_bp.route('/users/<user_id>', methods=['PUT'])
+@token_required
 @admin_required
 def update_user(current_user, user_id):
     """
@@ -454,6 +494,7 @@ def update_user(current_user, user_id):
 
 
 @auth_bp.route('/users/<user_id>/activate', methods=['POST'])
+@token_required
 @admin_required
 def activate_user(current_user, user_id):
     """Reactivate a deactivated user (admin only)"""
@@ -468,6 +509,7 @@ def activate_user(current_user, user_id):
 
 
 @auth_bp.route('/users/<user_id>/reset-password', methods=['POST'])
+@token_required
 @admin_required
 def reset_user_password(current_user, user_id):
     """
@@ -700,6 +742,7 @@ def make_me_admin(current_user):
 
 
 @auth_bp.route('/debug-users', methods=['GET'])
+@token_required
 @admin_required
 def debug_users(current_user):
     """

@@ -36,6 +36,7 @@ def list_clients(current_user):
 
 
 @clients_bp.route('/', methods=['POST'])
+@token_required
 @admin_required
 def create_new_client(current_user):
     """
@@ -164,6 +165,7 @@ def update_client(current_user, client_id):
 
 
 @clients_bp.route('/<client_id>', methods=['DELETE'])
+@token_required
 @admin_required
 def delete_client(current_user, client_id):
     """Delete a client (hard or soft delete based on query param)"""
