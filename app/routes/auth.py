@@ -685,10 +685,12 @@ def make_me_admin(current_user):
 
 
 @auth_bp.route('/debug-users', methods=['GET'])
-def debug_users():
+@admin_required
+def debug_users(current_user):
     """
     Debug endpoint to see all users and their roles.
     Helps diagnose permission issues.
+    Admin only.
     
     GET /api/auth/debug-users
     """

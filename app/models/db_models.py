@@ -1103,6 +1103,34 @@ class DBServicePage(db.Model):
     # Relationships
     client: Mapped["DBClient"] = relationship("DBClient", back_populates="service_pages_rel")
     
+    def __init__(self, client_id: str, page_type: str, title: str, slug: str, primary_keyword: str, hero_headline: str, body_content: str, **kwargs):
+        self.id = f"svcpage_{uuid.uuid4().hex[:12]}"
+        self.client_id = client_id
+        self.page_type = page_type
+        self.title = title
+        self.slug = slug
+        self.primary_keyword = primary_keyword
+        self.hero_headline = hero_headline
+        self.body_content = body_content
+        self.service = kwargs.get('service')
+        self.location = kwargs.get('location')
+        self.secondary_keywords = kwargs.get('secondary_keywords')
+        self.hero_subheadline = kwargs.get('hero_subheadline')
+        self.intro_text = kwargs.get('intro_text')
+        self.cta_headline = kwargs.get('cta_headline')
+        self.cta_button_text = kwargs.get('cta_button_text')
+        self.form_headline = kwargs.get('form_headline')
+        self.trust_badges = kwargs.get('trust_badges')
+        self.meta_title = kwargs.get('meta_title')
+        self.meta_description = kwargs.get('meta_description')
+        self.schema_markup = kwargs.get('schema_markup')
+        self.status = kwargs.get('status', 'draft')
+        self.wordpress_id = kwargs.get('wordpress_id')
+        self.published_url = kwargs.get('published_url')
+        self.published_at = kwargs.get('published_at')
+        self.created_at = datetime.utcnow()
+        self.updated_at = datetime.utcnow()
+    
     def to_dict(self) -> dict:
         return {
             'id': self.id,
@@ -1284,6 +1312,21 @@ class DBWebhook(db.Model):
     def set_events(self, events: list):
         self.events = json.dumps(events)
     
+    def __init__(self, name: str, url: str, **kwargs):
+        self.id = f"webhook_{uuid.uuid4().hex[:12]}"
+        self.name = name
+        self.url = url
+        self.client_id = kwargs.get('client_id')
+        self.secret = kwargs.get('secret')
+        self.events = json.dumps(kwargs.get('events', []))
+        self.is_active = kwargs.get('is_active', True)
+        self.retry_count = kwargs.get('retry_count', 3)
+        self.timeout_seconds = kwargs.get('timeout_seconds', 30)
+        self.total_sent = 0
+        self.total_failed = 0
+        self.created_at = datetime.utcnow()
+        self.updated_at = datetime.utcnow()
+    
     def to_dict(self) -> dict:
         return {
             'id': self.id,
@@ -1419,6 +1462,24 @@ class DBAgentConfig(db.Model):
     def set_tools(self, tools: list):
         """Set allowed tools"""
         self.tools_allowed = json.dumps(tools)
+    
+    def __init__(self, name: str, display_name: str, system_prompt: str, **kwargs):
+        self.id = f"agent_{uuid.uuid4().hex[:12]}"
+        self.name = name
+        self.display_name = display_name
+        self.system_prompt = system_prompt
+        self.description = kwargs.get('description')
+        self.category = kwargs.get('category', 'general')
+        self.output_format = kwargs.get('output_format')
+        self.output_example = kwargs.get('output_example')
+        self.model = kwargs.get('model', 'gpt-4o-mini')
+        self.temperature = kwargs.get('temperature', 0.7)
+        self.max_tokens = kwargs.get('max_tokens', 2000)
+        self.tools_allowed = json.dumps(kwargs.get('tools_allowed', []))
+        self.is_active = kwargs.get('is_active', True)
+        self.version = kwargs.get('version', 1)
+        self.created_at = datetime.utcnow()
+        self.updated_at = datetime.utcnow()
     
     def to_dict(self) -> dict:
         return {

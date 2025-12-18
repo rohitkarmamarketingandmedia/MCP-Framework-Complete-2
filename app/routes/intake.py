@@ -539,6 +539,7 @@ def full_pipeline(current_user):
     # ==========================================
     # SUMMARY
     # ==========================================
+    response['client_id'] = client.id  # Top level for frontend compatibility
     response['summary'] = {
         'client_created': True,
         'client_id': client.id,
@@ -1488,6 +1489,7 @@ def quick_setup(current_user):
     
     return jsonify({
         'success': True,
+        'client_id': client.id,
         'client': client.to_dict(),
         'message': f'Client "{client.business_name}" created successfully'
     })
