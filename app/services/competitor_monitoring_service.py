@@ -6,11 +6,14 @@ import os
 import re
 import json
 import hashlib
+import logging
 import requests
 from datetime import datetime, timedelta
 from typing import List, Dict, Optional, Tuple
 from urllib.parse import urljoin, urlparse
 from bs4 import BeautifulSoup
+
+logger = logging.getLogger(__name__)
 
 
 class CompetitorMonitoringService:

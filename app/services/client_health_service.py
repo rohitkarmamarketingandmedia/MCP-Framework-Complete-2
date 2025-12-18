@@ -30,18 +30,18 @@ class HealthScoreBreakdown:
     grade: str
     color: str
     rankings_score: int
+    content_score: int
+    leads_score: int
+    reviews_score: int
+    engagement_score: int
     rankings_max: int = 25
     rankings_detail: str = ""
-    content_score: int
     content_max: int = 20
     content_detail: str = ""
-    leads_score: int
     leads_max: int = 25
     leads_detail: str = ""
-    reviews_score: int
     reviews_max: int = 15
     reviews_detail: str = ""
-    engagement_score: int
     engagement_max: int = 15
     engagement_detail: str = ""
     

@@ -8,6 +8,9 @@ from app.services.db_service import DataService
 from app.models.db_models import DBClient, UserRole
 from datetime import datetime
 import json
+import logging
+
+logger = logging.getLogger(__name__)
 
 clients_bp = Blueprint('clients', __name__)
 data_service = DataService()

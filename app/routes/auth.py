@@ -8,11 +8,14 @@ import jwt
 import os
 import secrets
 import string
+import logging
 from datetime import datetime, timedelta
 
 from app.models.db_models import DBUser, UserRole
 from app.services.db_service import DataService, create_admin_user
 from app.services.audit_service import audit_service
+
+logger = logging.getLogger(__name__)
 
 auth_bp = Blueprint('auth', __name__)
 data_service = DataService()

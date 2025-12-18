@@ -940,6 +940,31 @@ class DBLead(db.Model):
     # Relationships
     client: Mapped["DBClient"] = relationship("DBClient", back_populates="leads")
     
+    def __init__(self, client_id: str, source: str = 'form', **kwargs):
+        self.id = f"lead_{uuid.uuid4().hex[:12]}"
+        self.client_id = client_id
+        self.source = source
+        self.name = kwargs.get('name', '')
+        self.email = kwargs.get('email')
+        self.phone = kwargs.get('phone')
+        self.service_requested = kwargs.get('service_requested')
+        self.message = kwargs.get('message')
+        self.source_detail = kwargs.get('source_detail')
+        self.landing_page = kwargs.get('landing_page')
+        self.utm_source = kwargs.get('utm_source')
+        self.utm_medium = kwargs.get('utm_medium')
+        self.utm_campaign = kwargs.get('utm_campaign')
+        self.keyword = kwargs.get('keyword')
+        self.status = kwargs.get('status', 'new')
+        self.notes = kwargs.get('notes')
+        self.assigned_to = kwargs.get('assigned_to')
+        self.estimated_value = kwargs.get('estimated_value')
+        self.actual_value = kwargs.get('actual_value')
+        self.notified_email = False
+        self.notified_sms = False
+        self.created_at = datetime.utcnow()
+        self.updated_at = datetime.utcnow()
+    
     def to_dict(self) -> dict:
         return {
             'id': self.id,
@@ -996,6 +1021,23 @@ class DBReview(db.Model):
     
     # Relationships
     client: Mapped["DBClient"] = relationship("DBClient", back_populates="reviews")
+    
+    def __init__(self, client_id: str, platform: str, reviewer_name: str, rating: int, review_date: datetime, **kwargs):
+        self.id = f"review_{uuid.uuid4().hex[:12]}"
+        self.client_id = client_id
+        self.platform = platform
+        self.reviewer_name = reviewer_name
+        self.rating = rating
+        self.review_date = review_date
+        self.platform_review_id = kwargs.get('platform_review_id')
+        self.reviewer_avatar = kwargs.get('reviewer_avatar')
+        self.review_text = kwargs.get('review_text')
+        self.response_text = kwargs.get('response_text')
+        self.response_date = kwargs.get('response_date')
+        self.suggested_response = kwargs.get('suggested_response')
+        self.status = kwargs.get('status', 'pending')
+        self.sentiment = kwargs.get('sentiment')
+        self.created_at = datetime.utcnow()
     
     def to_dict(self) -> dict:
         return {
@@ -2146,3 +2188,7 @@ class DBClientImage(db.Model):
             'is_active': self.is_active,
             'created_at': self.created_at.isoformat() if self.created_at else None
         }
+
+
+# Alias for backward compatibility
+DBContent = DBBlogPost

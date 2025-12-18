@@ -741,3 +741,8 @@ CRITICAL REMINDERS:
 
 # Singleton instance
 ai_service = AIService()
+
+
+def get_ai_service() -> AIService:
+    """Get the AI service singleton instance"""
+    return ai_service

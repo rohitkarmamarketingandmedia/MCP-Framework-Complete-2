@@ -5,6 +5,7 @@ Competitor tracking, rank checking, content queue management
 from flask import Blueprint, request, jsonify, current_app
 from datetime import datetime, timedelta
 import json
+import logging
 
 from app.routes.auth import token_required, admin_required
 from app.utils import safe_int
@@ -17,6 +18,8 @@ from app.services.competitor_monitoring_service import competitor_monitoring_ser
 from app.services.seo_scoring_engine import seo_scoring_engine
 from app.services.rank_tracking_service import rank_tracking_service
 from app.services.ai_service import AIService
+
+logger = logging.getLogger(__name__)
 
 monitoring_bp = Blueprint('monitoring', __name__)
 ai_service = AIService()

@@ -14,6 +14,9 @@ All critical systems are functional:
 
 ---
 
+## This document serves as the ongoing stabilization and improvement backlog for MCP v5.5.x.
+
+
 ## 🟡 Should Fix (Soon After Deploy)
 
 ### 1. Input Validation Gap

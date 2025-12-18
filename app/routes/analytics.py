@@ -8,6 +8,9 @@ from app.services.analytics_service import AnalyticsService, ComparativeAnalytic
 from app.services.seo_service import SEOService
 from app.services.db_service import DataService
 from datetime import datetime, timedelta
+import logging
+
+logger = logging.getLogger(__name__)
 
 analytics_bp = Blueprint('analytics', __name__)
 analytics_service = AnalyticsService()

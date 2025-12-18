@@ -1,6 +1,9 @@
-# 🚀 MCP Framework v4.5 - Production Deployment Guide
+# 🚀 MCP Framework v5.5.x – Production Deployment Guide
+
 
 ## Karma Marketing + Media
+## v5.5.41 is the current production release.
+
 
 ---
 

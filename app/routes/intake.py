@@ -198,6 +198,10 @@ def full_pipeline(current_user):
     
     data = request.get_json() or {}
     
+    # Normalize website field - accept both 'website' and 'website_url'
+    if not data.get('website') and data.get('website_url'):
+        data['website'] = data['website_url']
+    
     # Validate required fields
     required = ['business_name', 'industry', 'geo']
     for field in required:
@@ -566,7 +570,8 @@ def quick_intake(current_user):
         return jsonify({'error': 'Permission denied'}), 403
     
     data = request.get_json() or {}
-    website = data.get('website', '').strip()
+    # Accept both 'website' and 'website_url' for compatibility
+    website = (data.get('website') or data.get('website_url') or '').strip()
     
     if not website:
         return jsonify({'error': 'website is required'}), 400
@@ -1453,6 +1458,10 @@ def quick_setup(current_user):
         return jsonify({'error': 'Permission denied'}), 403
     
     data = request.get_json() or {}
+    
+    # Normalize website field - accept both 'website' and 'website_url'
+    if not data.get('website') and data.get('website_url'):
+        data['website'] = data['website_url']
     
     # Validate required fields
     required = ['business_name', 'industry', 'geo']
