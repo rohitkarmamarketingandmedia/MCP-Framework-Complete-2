@@ -42,8 +42,11 @@ class BaseConfig:
     
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     SQLALCHEMY_ENGINE_OPTIONS = {
-        'pool_pre_ping': True,
-        'pool_recycle': 300,
+        'pool_pre_ping': True,  # Check connection before use
+        'pool_recycle': 300,    # Recycle connections after 5 min
+        'pool_size': 5,         # Number of connections per worker
+        'max_overflow': 10,     # Allow 10 more connections when busy
+        'isolation_level': 'READ COMMITTED',  # Ensure workers see committed data
     }
     
     # API Keys

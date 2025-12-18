@@ -11,7 +11,7 @@ from flask_limiter.util import get_remote_address
 import os
 import logging
 
-__version__ = "5.5.65"
+__version__ = "5.5.67"
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -256,6 +256,54 @@ def create_app(config_name=None):
                 'database': 'error',
                 'error': str(e)[:100],
                 'message': 'Database connection failed'
+            }, 500
+    
+    # Test user lookup endpoint
+    @app.route('/health/user/<user_id>')
+    def health_user_lookup(user_id):
+        """Test user lookup by ID"""
+        try:
+            from app.database import db
+            from app.models.db_models import DBUser
+            from app.services.db_service import DataService
+            
+            results = {
+                'requested_id': user_id,
+                'methods': {}
+            }
+            
+            # Method 1: Direct filter_by
+            user1 = DBUser.query.filter_by(id=user_id).first()
+            results['methods']['filter_by'] = {'found': user1 is not None, 'email': user1.email if user1 else None}
+            
+            # Method 2: filter with ==
+            user2 = DBUser.query.filter(DBUser.id == user_id).first()
+            results['methods']['filter_eq'] = {'found': user2 is not None}
+            
+            # Method 3: Raw SQL
+            raw_result = db.session.execute(
+                db.text("SELECT id, email FROM users WHERE id = :uid"),
+                {'uid': user_id}
+            ).fetchone()
+            results['methods']['raw_sql'] = {'found': raw_result is not None, 'data': dict(raw_result._mapping) if raw_result else None}
+            
+            # Method 4: DataService
+            ds = DataService()
+            user4 = ds.get_user(user_id)
+            results['methods']['data_service'] = {'found': user4 is not None}
+            
+            # List all user IDs for comparison
+            all_ids = [u.id for u in DBUser.query.all()]
+            results['all_user_ids'] = all_ids
+            results['id_exists_in_list'] = user_id in all_ids
+            
+            return results
+        except Exception as e:
+            import traceback
+            return {
+                'status': 'error',
+                'error': str(e),
+                'traceback': traceback.format_exc()
             }, 500
     
     # API info endpoint
