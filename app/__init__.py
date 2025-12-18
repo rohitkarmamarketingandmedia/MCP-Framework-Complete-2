@@ -11,7 +11,7 @@ from flask_limiter.util import get_remote_address
 import os
 import logging
 
-__version__ = "5.5.63"
+__version__ = "5.5.65"
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -26,6 +26,9 @@ def create_app(config_name=None):
     
     app = Flask(__name__, static_folder=static_dir, static_url_path='/static')
     
+    # Disable strict slashes to prevent HTTP redirects
+    app.url_map.strict_slashes = False
+    
     # Load config
     if config_name is None:
         config_name = os.environ.get('FLASK_ENV', 'development')
@@ -34,6 +37,14 @@ def create_app(config_name=None):
     # Use instance instead of class to support @property
     config_instance = config[config_name]()
     app.config.from_object(config_instance)
+    
+    # Force HTTPS in production (fixes mixed content issues)
+    if os.environ.get('RENDER') or os.environ.get('FLASK_ENV') == 'production':
+        app.config['PREFERRED_URL_SCHEME'] = 'https'
+        
+        # Fix redirects to use HTTPS
+        from werkzeug.middleware.proxy_fix import ProxyFix
+        app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
     
     # Enable CORS - IMPORTANT: Set CORS_ORIGINS env var in production!
     cors_origins = app.config.get('CORS_ORIGINS', '*')

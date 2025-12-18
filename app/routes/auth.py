@@ -176,13 +176,21 @@ def token_required(f):
                 # Try to reload from database in case of stale connection
                 from app.database import db
                 db.session.expire_all()
+                db.session.rollback()  # Clear any pending transaction
                 current_user = data_service.get_user(user_id)
+            
+            if not current_user:
+                # Try direct query as last resort
+                from app.models.db_models import DBUser
+                current_user = DBUser.query.filter_by(id=user_id).first()
                 
             if not current_user:
                 # Log more details for debugging
                 from app.models.db_models import DBUser
                 total_users = DBUser.query.count()
-                logger.warning(f"User not found for id: {user_id} (total users in db: {total_users})")
+                # Also log actual user IDs in db
+                sample_ids = [u.id for u in DBUser.query.limit(3).all()]
+                logger.warning(f"User not found for id: {user_id} (total users: {total_users}, sample IDs: {sample_ids})")
                 return jsonify({'error': 'User not found', 'detail': 'Please log in again'}), 401
             if not current_user.is_active:
                 return jsonify({'error': 'User is deactivated'}), 401

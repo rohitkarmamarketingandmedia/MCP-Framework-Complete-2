@@ -4926,10 +4926,11 @@
             container.innerHTML = '<div class="text-center py-8"><i class="fas fa-spinner fa-spin text-2xl text-purple-400"></i><p class="text-gray-400 mt-2">Loading leads...</p></div>';
             
             try {
+                // Use correct URL without trailing slash before query params
                 let url = `${API_URL}/api/leads?client_id=${currentClient.id}`;
                 if (statusFilter) url += `&status=${statusFilter}`;
                 
-                const response = await fetch(url, {
+                const response = await authFetch(url, {
                     headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
                 });
                 
