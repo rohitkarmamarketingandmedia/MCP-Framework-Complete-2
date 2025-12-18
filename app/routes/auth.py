@@ -171,14 +171,11 @@ def token_required(f):
                 logger.warning("Token missing user_id")
                 return jsonify({'error': 'Invalid token format'}), 401
             
-            # Force fresh read from database (not from session cache)
+            # Query user from database
             from app.database import db
             from app.models.db_models import DBUser
             
-            # Close any existing session to force fresh connection
-            db.session.remove()
-            
-            # Direct query with fresh session
+            # Direct query
             current_user = DBUser.query.filter_by(id=user_id).first()
             
             if not current_user:
