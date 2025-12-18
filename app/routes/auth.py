@@ -166,15 +166,31 @@ def token_required(f):
                 current_app.config['JWT_SECRET_KEY'],
                 algorithms=['HS256']
             )
-            current_user = data_service.get_user(payload['user_id'])
+            user_id = payload.get('user_id')
+            if not user_id:
+                logger.warning("Token missing user_id")
+                return jsonify({'error': 'Invalid token format'}), 401
+            
+            current_user = data_service.get_user(user_id)
             if not current_user:
-                return jsonify({'error': 'User not found'}), 401
+                # Try to reload from database in case of stale connection
+                from app.database import db
+                db.session.expire_all()
+                current_user = data_service.get_user(user_id)
+                
+            if not current_user:
+                logger.warning(f"User not found for id: {user_id}")
+                return jsonify({'error': 'User not found', 'detail': 'Please log in again'}), 401
             if not current_user.is_active:
                 return jsonify({'error': 'User is deactivated'}), 401
         except jwt.ExpiredSignatureError:
             return jsonify({'error': 'Token has expired'}), 401
-        except jwt.InvalidTokenError:
+        except jwt.InvalidTokenError as e:
+            logger.warning(f"Invalid token: {e}")
             return jsonify({'error': 'Invalid token'}), 401
+        except Exception as e:
+            logger.error(f"Token validation error: {e}")
+            return jsonify({'error': 'Authentication error', 'detail': 'Please log in again'}), 401
         
         return f(current_user, *args, **kwargs)
     
@@ -217,9 +233,8 @@ def optional_token(f):
 
 
 def admin_required(f):
-    """Decorator to require admin role"""
+    """Decorator to require admin role - use AFTER @token_required"""
     @wraps(f)
-    @token_required
     def decorated(current_user, *args, **kwargs):
         if current_user.role != UserRole.ADMIN:
             return jsonify({'error': 'Admin access required'}), 403

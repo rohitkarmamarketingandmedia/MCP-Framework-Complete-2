@@ -1,21 +1,38 @@
-# MCP Framework v4.5 - Audit & Improvements
+# MCP Framework v5.5.55 - Audit & Improvements
 
 ## 🔴 Critical Issues (Fix Before Deploy)
 
 ### None Found ✅
 All critical systems are functional:
 - App starts correctly
-- All 206 routes load
-- All 19 database tables create
-- All 21 tests pass
+- All routes load and respond
+- All database tables create
+- All tests pass
 - No hardcoded secrets
 - No hardcoded URLs
-- All 7 AI agents integrated
+- AI agents integrated with fallbacks
 
 ---
 
 ## This document serves as the ongoing stabilization and improvement backlog for MCP v5.5.x.
 
+## ✅ Recently Fixed (v5.5.55)
+
+### 1. admin_required Decorator Bug
+**Issue:** `@admin_required` included `@token_required` internally, causing double-wrapping when both decorators used together
+**Fixed:** Removed internal `@token_required` from `admin_required` - decorators now work independently
+
+### 2. Content Generation Fallbacks
+**Issue:** Blog and social generation failed with 500 when AI not configured  
+**Fixed:** Added `_generate_fallback_blog()` and `_generate_fallback_social()` template generators
+
+### 3. FAQ/Service Q&A Fallbacks
+**Issue:** FAQ generation returned empty when AI unavailable
+**Fixed:** Added `_get_fallback_faq_answer()` with keyword-based template responses
+
+### 4. AI Image Prompts
+**Issue:** Generated images were poor quality
+**Fixed:** Rewrote `generate_image_prompt()` with detailed scene descriptions, removed technical camera jargon
 
 ## 🟡 Should Fix (Soon After Deploy)
 

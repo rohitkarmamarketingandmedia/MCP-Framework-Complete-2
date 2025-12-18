@@ -269,6 +269,7 @@ def _generate_industry_keywords(industry: str, location: str, business_name: str
 
 
 @intake_bp.route('/pipeline', methods=['POST'])
+@intake_bp.route('/intake', methods=['POST'])  # Alias for /api/onboarding/intake expectation
 @token_required
 @handle_errors
 def full_pipeline(current_user):

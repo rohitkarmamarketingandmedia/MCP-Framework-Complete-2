@@ -11,7 +11,7 @@ from flask_limiter.util import get_remote_address
 import os
 import logging
 
-__version__ = "5.5.53"
+__version__ = "5.5.57"
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -154,6 +154,8 @@ def create_app(config_name=None):
     
     # Health check
     @app.route('/health')
+    @app.route('/api/health')  # Alias
+    @app.route('/api/system/health')  # Alias
     def health():
         # Basic health check with database ping
         try:
@@ -167,6 +169,26 @@ def create_app(config_name=None):
             'status': 'healthy' if db_status == 'connected' else 'degraded',
             'version': __version__,
             'database': db_status
+        }
+    
+    # System status endpoint
+    @app.route('/api/system/status')
+    def system_status():
+        """Get system status overview"""
+        import os
+        
+        openai_configured = bool(os.environ.get('OPENAI_API_KEY', ''))
+        anthropic_configured = bool(os.environ.get('ANTHROPIC_API_KEY', ''))
+        
+        return {
+            'status': 'operational',
+            'version': __version__,
+            'services': {
+                'database': 'connected',
+                'ai': 'configured' if (openai_configured or anthropic_configured) else 'not_configured',
+                'webhooks': 'available',
+                'scheduler': 'available'
+            }
         }
     
     # Diagnostic endpoint - check configuration
@@ -250,5 +272,15 @@ def create_app(config_name=None):
                     app.logger.warning("⚠ No admin user exists! Run: python scripts/create_admin.py")
             except Exception as e:
                 app.logger.warning(f"Could not check admin users: {e}")
+    
+    # ==========================================
+    # ALIAS ROUTES - Common endpoint patterns
+    # ==========================================
+    
+    @app.route('/api/rankings/client/<client_id>', methods=['GET'])
+    def rankings_client_alias(client_id):
+        """Alias for /api/analytics/rankings/{id}"""
+        from flask import redirect
+        return redirect(f'/api/analytics/rankings/{client_id}', code=307)
     
     return app

@@ -159,6 +159,7 @@ def get_traffic(current_user, client_id):
 
 
 @analytics_bp.route('/rankings/<client_id>', methods=['GET'])
+@analytics_bp.route('/client/<client_id>', methods=['GET'])  # Alias for /api/rankings/client/{id}
 @token_required
 def get_rankings(current_user, client_id):
     """

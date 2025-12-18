@@ -19,14 +19,18 @@ approval_bp = Blueprint('approval', __name__)
 # ==========================================
 
 @approval_bp.route('/pending', methods=['GET'])
+@approval_bp.route('/pending/<client_id>', methods=['GET'])  # Alias for /api/approval/pending/{id}
 @token_required
-def get_pending_approvals(current_user):
+def get_pending_approvals(current_user, client_id=None):
     """
     Get all content pending approval for a client
     
     GET /api/approval/pending?client_id=xxx
+    GET /api/approval/pending/{client_id}
     """
-    client_id = request.args.get('client_id')
+    # Support both query param and path param
+    if not client_id:
+        client_id = request.args.get('client_id')
     
     if not client_id:
         return jsonify({'error': 'client_id is required'}), 400
@@ -106,7 +110,11 @@ def approve_content(current_user, content_type, content_id):
         "schedule_for": "2024-12-20T10:00:00Z"  // Optional, auto-schedule after approval
     }
     """
-    data = request.get_json() or {}
+    # Handle requests with or without JSON body
+    try:
+        data = request.get_json(silent=True) or {}
+    except Exception:
+        data = {}
     
     if content_type == 'blog':
         content = DBBlogPost.query.get(content_id)
@@ -155,7 +163,7 @@ def approve_content(current_user, content_type, content_id):
                 user_id=admin.id,
                 client_name=client.business_name if client else 'Unknown',
                 content_title=content.title if hasattr(content, 'title') else 'Social Post',
-                content_type=content_type,
+                approved_by=current_user.name or current_user.email,
                 content_id=content_id,
                 client_id=content.client_id
             )
@@ -209,7 +217,10 @@ def request_changes(current_user, content_type, content_id):
         "priority": "normal|high|low"
     }
     """
-    data = request.get_json() or {}
+    try:
+        data = request.get_json(silent=True) or {}
+    except Exception:
+        data = {}
     
     feedback = data.get('feedback', '').strip()
     if not feedback:
@@ -310,7 +321,10 @@ def add_feedback(current_user, content_type, content_id):
         "type": "comment|approval|change_request"
     }
     """
-    data = request.get_json() or {}
+    try:
+        data = request.get_json(silent=True) or {}
+    except Exception:
+        data = {}
     
     message = data.get('message', '').strip()
     if not message:
@@ -441,7 +455,10 @@ def submit_for_approval(current_user, content_type, content_id):
     if not current_user.can_generate_content:
         return jsonify({'error': 'Permission denied'}), 403
     
-    data = request.get_json() or {}
+    try:
+        data = request.get_json(silent=True) or {}
+    except Exception:
+        data = {}
     
     if content_type == 'blog':
         content = DBBlogPost.query.get(content_id)
@@ -502,7 +519,10 @@ def bulk_approve(current_user):
         ]
     }
     """
-    data = request.get_json() or {}
+    try:
+        data = request.get_json(silent=True) or {}
+    except Exception:
+        data = {}
     items = data.get('items', [])
     
     if not items:
