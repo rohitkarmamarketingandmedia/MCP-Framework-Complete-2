@@ -11,7 +11,7 @@ from flask_limiter.util import get_remote_address
 import os
 import logging
 
-__version__ = "5.5.62"
+__version__ = "5.5.63"
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -211,6 +211,41 @@ def create_app(config_name=None):
             },
             'message': 'All good!' if (openai_key or anthropic_key) else 'Set OPENAI_API_KEY in Render environment variables'
         }
+    
+    # Database diagnostic endpoint
+    @app.route('/health/db')
+    def health_db():
+        """Check database connection and user table"""
+        try:
+            from app.database import db
+            from app.models.db_models import DBUser
+            
+            # Test connection
+            db.session.execute(db.text('SELECT 1'))
+            
+            # Count users
+            user_count = DBUser.query.count()
+            admin_count = DBUser.query.filter_by(role='admin').count()
+            
+            # Get user IDs (just first 5)
+            users = DBUser.query.limit(5).all()
+            user_list = [{'id': u.id, 'email': u.email[:20] + '...', 'role': u.role} for u in users]
+            
+            return {
+                'status': 'ok',
+                'database': 'connected',
+                'user_count': user_count,
+                'admin_count': admin_count,
+                'sample_users': user_list,
+                'message': 'Database OK' if user_count > 0 else 'No users found - login to create admin'
+            }
+        except Exception as e:
+            return {
+                'status': 'error',
+                'database': 'error',
+                'error': str(e)[:100],
+                'message': 'Database connection failed'
+            }, 500
     
     # API info endpoint
     @app.route('/api')

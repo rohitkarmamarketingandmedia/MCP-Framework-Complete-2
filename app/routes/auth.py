@@ -179,7 +179,10 @@ def token_required(f):
                 current_user = data_service.get_user(user_id)
                 
             if not current_user:
-                logger.warning(f"User not found for id: {user_id}")
+                # Log more details for debugging
+                from app.models.db_models import DBUser
+                total_users = DBUser.query.count()
+                logger.warning(f"User not found for id: {user_id} (total users in db: {total_users})")
                 return jsonify({'error': 'User not found', 'detail': 'Please log in again'}), 401
             if not current_user.is_active:
                 return jsonify({'error': 'User is deactivated'}), 401
