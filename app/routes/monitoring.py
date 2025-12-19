@@ -1242,7 +1242,7 @@ def get_rank_history(current_user, client_id):
             {
                 'date': h.checked_at.isoformat() if h.checked_at else None,
                 'position': h.position,
-                'url': h.ranking_url
+                'url': getattr(h, 'ranking_url', None) or getattr(h, 'url', None) or ''
             }
             for h in history
         ]
@@ -1297,7 +1297,7 @@ def get_competitor_dashboard(current_user, client_id):
         if rank.keyword not in client_rankings:
             client_rankings[rank.keyword] = {
                 'position': rank.position,
-                'url': rank.ranking_url,
+                'url': getattr(rank, 'ranking_url', None) or getattr(rank, 'url', None) or '',
                 'change': rank.change
             }
     
