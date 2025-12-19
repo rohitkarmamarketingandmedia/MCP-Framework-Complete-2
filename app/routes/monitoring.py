@@ -1274,41 +1274,48 @@ def get_competitor_dashboard(current_user, client_id):
     if not client:
         return jsonify({'error': 'Client not found'}), 404
     
-    # Get competitors
+    # Get competitors (limit to prevent timeout)
     competitors = DBCompetitor.query.filter_by(
         client_id=client_id,
         is_active=True
-    ).all()
+    ).limit(10).all()
     
     # Get client keywords
     client_keywords = []
     try:
-        client_keywords = client.get_primary_keywords() + client.get_secondary_keywords()
-    except Exception as e:
+        client_keywords = (client.get_primary_keywords() + client.get_secondary_keywords())[:20]
+    except Exception:
         pass
     
-    # Get client's latest rankings
+    # Get client's latest rankings (limited)
     client_rankings = {}
-    latest_ranks = DBRankHistory.query.filter_by(client_id=client_id).order_by(
-        DBRankHistory.checked_at.desc()
-    ).limit(50).all()
-    
-    for rank in latest_ranks:
-        if rank.keyword not in client_rankings:
-            client_rankings[rank.keyword] = {
-                'position': rank.position,
-                'url': getattr(rank, 'ranking_url', None) or getattr(rank, 'url', None) or '',
-                'change': rank.change
-            }
+    try:
+        latest_ranks = DBRankHistory.query.filter_by(client_id=client_id).order_by(
+            DBRankHistory.checked_at.desc()
+        ).limit(50).all()
+        
+        for rank in latest_ranks:
+            keyword = getattr(rank, 'keyword', None)
+            if keyword and keyword not in client_rankings:
+                client_rankings[keyword] = {
+                    'position': getattr(rank, 'position', None),
+                    'url': getattr(rank, 'ranking_url', None) or getattr(rank, 'url', None) or '',
+                    'change': getattr(rank, 'change', 0)
+                }
+    except Exception:
+        pass  # Continue with empty rankings
     
     # Build competitor comparison data
     competitor_data = []
     content_gaps = []
     keyword_overlap = []
     
-    for comp in competitors:
-        # Get competitor pages
-        comp_pages = DBCompetitorPage.query.filter_by(competitor_id=comp.id).all()
+    for comp in competitors[:5]:  # Limit competitors processed
+        # Get competitor pages (limited)
+        try:
+            comp_pages = DBCompetitorPage.query.filter_by(competitor_id=comp.id).limit(50).all()
+        except Exception:
+            comp_pages = []
         
         # Competitor rankings are tracked separately via crawling, not DBRankHistory
         # DBRankHistory is for client keyword tracking only

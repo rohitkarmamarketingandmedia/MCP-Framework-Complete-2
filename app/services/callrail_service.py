@@ -55,10 +55,20 @@ class CallRailService:
                 url=url,
                 params=params,
                 json=data,
-                timeout=30
+                timeout=15  # Reduced timeout
             )
             response.raise_for_status()
             return response.json()
+        except requests.exceptions.HTTPError as e:
+            # Don't spam logs on 4xx client errors
+            if response.status_code >= 400 and response.status_code < 500:
+                logger.debug(f"CallRail API {response.status_code}: {endpoint}")
+            else:
+                logger.error(f"CallRail API error: {e}")
+            return {'error': str(e), 'status_code': response.status_code}
+        except requests.exceptions.Timeout:
+            logger.warning(f"CallRail API timeout: {endpoint}")
+            return {'error': 'Request timeout', 'status_code': 408}
         except requests.exceptions.RequestException as e:
             logger.error(f"CallRail API error: {e}")
             return {'error': str(e)}

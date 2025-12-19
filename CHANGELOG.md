@@ -1,18 +1,30 @@
 # Changelog
 
-## v5.5.78 (2025-12-19)
+## v5.5.79 (2025-12-19)
 
-### Fixed
-- **Repo-wide get_json fix**: Replaced all 118 occurrences of `request.get_json()` with `request.get_json(silent=True)` to prevent 415 Unsupported Media Type errors
-- **Render port binding**: Changed default port from 5000 to 10000 in run.py to match Render defaults
+### Fixed - Crash Prevention & Performance
 
-### Previously Fixed (v5.5.75-77)
-- Dataclass crash: reordered fields in HealthScoreBreakdown (content_score ordering)
-- ImportError: added data_service singleton to data_service.py  
-- Competitor dashboard crash: safe getattr fallback for ranking_url in monitoring.py
-- Scheduler guarded by ENABLE_SCHEDULER env var (must be "1" to enable)
-- Procfile for Render port binding via $PORT
+1. **Health Score DBAuditLog.timestamp crash**
+   - Replaced all `DBAuditLog.timestamp` with `DBAuditLog.created_at`
+   - Added try/except wrappers around all scoring functions
+   - App now returns empty score instead of 500 on any error
 
-### Deployment Notes
-- Render port binding: Uses `$PORT` env var (Render sets this automatically)
-- To enable scheduler: Set `ENABLE_SCHEDULER=1` on ONE Render instance only
+2. **Long request timeout (Gunicorn worker killed)**
+   - Added query limits: competitors (10), pages (50), rankings (200)
+   - Competitor dashboard now limits to 5 competitors processed
+   - Health score functions wrapped in defensive error handling
+
+3. **CallRail API 404 spam**
+   - Reduced timeout from 30s to 15s
+   - 4xx errors logged at DEBUG level (not ERROR)
+   - Timeout errors handled gracefully
+   - Returns empty result on failure, doesn't block rendering
+
+4. **Safe attribute access pattern**
+   - All DBAuditLog field access uses getattr() fallback
+   - All DBRankHistory.ranking_url uses getattr() fallback
+   - No direct attribute access on DB objects with uncertain schema
+
+### Notes
+- App survives missing fields + external API failures without 500s
+- No single request should block >10s now

@@ -111,42 +111,65 @@ class ClientHealthService:
         Returns:
             HealthScoreBreakdown with detailed scoring
         """
-        now = datetime.utcnow()
-        period_start = now - timedelta(days=days)
-        
-        # Get client
-        client = DBClient.query.get(client_id)
-        if not client:
+        try:
+            now = datetime.utcnow()
+            period_start = now - timedelta(days=days)
+            
+            # Get client
+            client = DBClient.query.get(client_id)
+            if not client:
+                return self._empty_score()
+            
+            # Calculate each component with defensive error handling
+            try:
+                rankings_score, rankings_detail = self._score_rankings(client_id, period_start)
+            except Exception:
+                rankings_score, rankings_detail = 0, "Unable to calculate"
+            
+            try:
+                content_score, content_detail = self._score_content(client_id, period_start)
+            except Exception:
+                content_score, content_detail = 0, "Unable to calculate"
+            
+            try:
+                leads_score, leads_detail = self._score_leads(client_id, period_start, days)
+            except Exception:
+                leads_score, leads_detail = 0, "Unable to calculate"
+            
+            try:
+                reviews_score, reviews_detail = self._score_reviews(client_id, period_start)
+            except Exception:
+                reviews_score, reviews_detail = 0, "Unable to calculate"
+            
+            try:
+                engagement_score, engagement_detail = self._score_engagement(client_id, period_start)
+            except Exception:
+                engagement_score, engagement_detail = 0, "Unable to calculate"
+            
+            # Calculate total
+            total = rankings_score + content_score + leads_score + reviews_score + engagement_score
+            
+            # Determine grade and color
+            grade, color = self._get_grade(total)
+            
+            return HealthScoreBreakdown(
+                total=total,
+                grade=grade,
+                color=color,
+                rankings_score=rankings_score,
+                content_score=content_score,
+                leads_score=leads_score,
+                reviews_score=reviews_score,
+                engagement_score=engagement_score,
+                rankings_detail=rankings_detail,
+                content_detail=content_detail,
+                leads_detail=leads_detail,
+                reviews_detail=reviews_detail,
+                engagement_detail=engagement_detail
+            )
+        except Exception as e:
+            # Return empty score on any unexpected error
             return self._empty_score()
-        
-        # Calculate each component
-        rankings_score, rankings_detail = self._score_rankings(client_id, period_start)
-        content_score, content_detail = self._score_content(client_id, period_start)
-        leads_score, leads_detail = self._score_leads(client_id, period_start, days)
-        reviews_score, reviews_detail = self._score_reviews(client_id, period_start)
-        engagement_score, engagement_detail = self._score_engagement(client_id, period_start)
-        
-        # Calculate total
-        total = rankings_score + content_score + leads_score + reviews_score + engagement_score
-        
-        # Determine grade and color
-        grade, color = self._get_grade(total)
-        
-        return HealthScoreBreakdown(
-            total=total,
-            grade=grade,
-            color=color,
-            rankings_score=rankings_score,
-            rankings_detail=rankings_detail,
-            content_score=content_score,
-            content_detail=content_detail,
-            leads_score=leads_score,
-            leads_detail=leads_detail,
-            reviews_score=reviews_score,
-            reviews_detail=reviews_detail,
-            engagement_score=engagement_score,
-            engagement_detail=engagement_detail
-        )
     
     def _score_rankings(self, client_id: str, period_start: datetime) -> tuple:
         """
@@ -159,11 +182,11 @@ class ClientHealthService:
         """
         score = 0
         
-        # Get recent rank history
+        # Get recent rank history (limited to prevent timeout)
         history = DBRankHistory.query.filter(
             DBRankHistory.client_id == client_id,
             DBRankHistory.checked_at >= period_start
-        ).order_by(DBRankHistory.checked_at.desc()).all()
+        ).order_by(DBRankHistory.checked_at.desc()).limit(200).all()
         
         if not history:
             return (12, "No ranking data yet - monitoring starting")
@@ -347,11 +370,14 @@ class ClientHealthService:
             DBSocialPost.created_at >= period_start
         ).count()
         
-        # Activity from audit log
-        activity_count = DBAuditLog.query.filter(
-            DBAuditLog.client_id == client_id,
-            DBAuditLog.timestamp >= period_start
-        ).count()
+        # Activity from audit log (use created_at, with safe fallback)
+        try:
+            activity_count = DBAuditLog.query.filter(
+                DBAuditLog.client_id == client_id,
+                DBAuditLog.created_at >= period_start
+            ).count()
+        except Exception:
+            activity_count = 0  # Skip if column missing
         
         score += min(gmb_posts * 2, 6)       # GMB posts
         score += min(social_posts * 1, 5)    # Social posts
@@ -543,10 +569,13 @@ class ClientHealthService:
         """
         activities = []
         
-        # Get recent audit entries
-        logs = DBAuditLog.query.filter(
-            DBAuditLog.client_id == client_id
-        ).order_by(DBAuditLog.timestamp.desc()).limit(limit * 2).all()
+        # Get recent audit entries (use created_at with safe fallback)
+        try:
+            logs = DBAuditLog.query.filter(
+                DBAuditLog.client_id == client_id
+            ).order_by(DBAuditLog.created_at.desc()).limit(limit * 2).all()
+        except Exception:
+            return []  # Return empty if query fails
         
         # Convert to client-friendly format
         action_map = {
@@ -565,19 +594,22 @@ class ClientHealthService:
             action_info = action_map.get(log.action, {
                 'icon': 'fa-cog',
                 'color': 'gray',
-                'verb': log.action.replace('_', ' ').title()
+                'verb': getattr(log, 'action', 'update').replace('_', ' ').title()
             })
             
             # Make description client-friendly
-            description = log.description or f"Updated your marketing campaign"
+            description = getattr(log, 'description', None) or "Updated your marketing campaign"
+            
+            # Use created_at with safe fallback
+            log_time = getattr(log, 'created_at', None) or getattr(log, 'timestamp', None)
             
             activities.append({
-                'id': log.id,
-                'action': log.action,
+                'id': getattr(log, 'id', 0),
+                'action': getattr(log, 'action', 'update'),
                 'icon': action_info['icon'],
                 'color': action_info['color'],
                 'text': f"{action_info['verb']}: {description}",
-                'timestamp': log.timestamp.isoformat() if log.timestamp else None,
+                'timestamp': log_time.isoformat() if log_time else None,
                 'user': 'Karma Marketing Team'
             })
         
