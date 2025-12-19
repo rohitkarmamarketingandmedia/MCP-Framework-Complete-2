@@ -5,7 +5,6 @@ Uses APScheduler for in-process job scheduling
 """
 import os
 import logging
-import hashlib
 from datetime import datetime, timedelta
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
@@ -15,90 +14,40 @@ logger = logging.getLogger(__name__)
 
 # Global scheduler instance
 scheduler = None
-_scheduler_lock_acquired = False
-
-
-def _should_run_scheduler():
-    """
-    Determine if this process should run the scheduler.
-    Only one instance should run scheduled jobs to prevent duplicates.
-    """
-    # Check for Render-specific environment
-    render_instance = os.environ.get('RENDER_INSTANCE_ID', '')
-    render_service = os.environ.get('RENDER_SERVICE_ID', '')
-    
-    # If we're on Render with multiple instances
-    if render_instance:
-        # Only run on the "first" instance (lexicographically smallest ID)
-        # This is a simple heuristic that works for most cases
-        instance_hash = hashlib.md5(render_instance.encode()).hexdigest()[:8]
-        
-        # Use an environment variable to specify which instance runs scheduler
-        # If not set, use a simple check based on instance ID
-        scheduler_instance = os.environ.get('SCHEDULER_INSTANCE', '')
-        
-        if scheduler_instance:
-            # Explicit instance specified
-            should_run = render_instance == scheduler_instance
-        else:
-            # Check if this is likely the first instance
-            # Render instance IDs are like "srv-xxxxx-0", "srv-xxxxx-1", etc.
-            # Or UUIDs - in which case we just run on all (better than not running)
-            if render_instance.endswith('-0') or render_instance.endswith('_0'):
-                should_run = True
-            elif '-' in render_instance and render_instance.split('-')[-1].isdigit():
-                should_run = render_instance.split('-')[-1] == '0'
-            else:
-                # Can't determine - run but log warning
-                logger.warning(f"Cannot determine if primary instance (ID: {render_instance}), running scheduler anyway")
-                should_run = True
-        
-        logger.info(f"Render instance check: {render_instance}, should_run={should_run}")
-        return should_run
-    
-    # Check for Gunicorn worker ID (set by some configurations)
-    worker_id = os.environ.get('GUNICORN_WORKER_ID', '')
-    if worker_id and worker_id != '0':
-        logger.info(f"Gunicorn worker {worker_id}, skipping scheduler")
-        return False
-    
-    # Development or single-instance - always run
-    return True
 
 
 def init_scheduler(app):
     """Initialize the background scheduler with the Flask app context"""
-    global scheduler, _scheduler_lock_acquired
+    global scheduler
     
     if scheduler is not None:
         logger.info("Scheduler already initialized")
         return scheduler
     
-    # Check if this instance should run the scheduler
-    if not _should_run_scheduler():
-        logger.info("Scheduler initialization skipped - not the designated instance")
-        return None
+    # Only run scheduler on one worker to prevent duplicate jobs
+    # Check for Gunicorn worker - only run on first worker (worker 0)
+    import os
+    worker_id = os.environ.get('GUNICORN_WORKER_ID', '0')
     
-    # Try database-based locking as additional protection
-    try:
-        from app.database import db
-        from sqlalchemy import text
-        
-        with app.app_context():
-            # Try to acquire a lock using PostgreSQL advisory lock
-            # This only works with PostgreSQL, gracefully skip for SQLite
-            db_url = app.config.get('SQLALCHEMY_DATABASE_URI', '')
-            if 'postgresql' in db_url:
-                # Use advisory lock (lock ID 12345 for scheduler)
-                result = db.session.execute(text("SELECT pg_try_advisory_lock(12345)")).scalar()
-                if not result:
-                    logger.info("Scheduler skipped - another process has the database lock")
-                    return None
-                _scheduler_lock_acquired = True
-                logger.info("Acquired PostgreSQL advisory lock for scheduler")
-    except Exception as e:
-        # If locking fails, continue anyway (better to have duplicates than no scheduler)
-        logger.warning(f"Could not acquire scheduler lock: {e}")
+    # Also check if we're in Gunicorn at all - check for SERVER_SOFTWARE
+    server_software = os.environ.get('SERVER_SOFTWARE', '')
+    
+    # In development (not Gunicorn), always run scheduler
+    # In Gunicorn, check if this is the main process or worker 0
+    if 'gunicorn' in server_software.lower():
+        # Try to detect if we're the first worker using a file lock
+        import tempfile
+        import fcntl
+        lock_file = os.path.join(tempfile.gettempdir(), 'mcp_scheduler.lock')
+        try:
+            lock_fd = open(lock_file, 'w')
+            fcntl.flock(lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            # Got lock - we're the first worker
+            logger.info(f"Scheduler will run on this worker (got lock)")
+        except (IOError, OSError):
+            # Another worker has the lock
+            logger.info("Scheduler skipped - another worker has the lock")
+            return None
     
     scheduler = BackgroundScheduler(
         job_defaults={
