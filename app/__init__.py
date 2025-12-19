@@ -11,7 +11,7 @@ from flask_limiter.util import get_remote_address
 import os
 import logging
 
-__version__ = "5.5.69"
+__version__ = "5.5.75"
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -26,9 +26,6 @@ def create_app(config_name=None):
     
     app = Flask(__name__, static_folder=static_dir, static_url_path='/static')
     
-    # Disable strict slashes to prevent HTTP redirects
-    app.url_map.strict_slashes = False
-    
     # Load config
     if config_name is None:
         config_name = os.environ.get('FLASK_ENV', 'development')
@@ -37,14 +34,6 @@ def create_app(config_name=None):
     # Use instance instead of class to support @property
     config_instance = config[config_name]()
     app.config.from_object(config_instance)
-    
-    # Force HTTPS in production (fixes mixed content issues)
-    if os.environ.get('RENDER') or os.environ.get('FLASK_ENV') == 'production':
-        app.config['PREFERRED_URL_SCHEME'] = 'https'
-        
-        # Fix redirects to use HTTPS
-        from werkzeug.middleware.proxy_fix import ProxyFix
-        app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
     
     # Enable CORS - IMPORTANT: Set CORS_ORIGINS env var in production!
     cors_origins = app.config.get('CORS_ORIGINS', '*')
@@ -165,8 +154,6 @@ def create_app(config_name=None):
     
     # Health check
     @app.route('/health')
-    @app.route('/api/health')  # Alias
-    @app.route('/api/system/health')  # Alias
     def health():
         # Basic health check with database ping
         try:
@@ -180,26 +167,6 @@ def create_app(config_name=None):
             'status': 'healthy' if db_status == 'connected' else 'degraded',
             'version': __version__,
             'database': db_status
-        }
-    
-    # System status endpoint
-    @app.route('/api/system/status')
-    def system_status():
-        """Get system status overview"""
-        import os
-        
-        openai_configured = bool(os.environ.get('OPENAI_API_KEY', ''))
-        anthropic_configured = bool(os.environ.get('ANTHROPIC_API_KEY', ''))
-        
-        return {
-            'status': 'operational',
-            'version': __version__,
-            'services': {
-                'database': 'connected',
-                'ai': 'configured' if (openai_configured or anthropic_configured) else 'not_configured',
-                'webhooks': 'available',
-                'scheduler': 'available'
-            }
         }
     
     # Diagnostic endpoint - check configuration
@@ -222,89 +189,6 @@ def create_app(config_name=None):
             },
             'message': 'All good!' if (openai_key or anthropic_key) else 'Set OPENAI_API_KEY in Render environment variables'
         }
-    
-    # Database diagnostic endpoint
-    @app.route('/health/db')
-    def health_db():
-        """Check database connection and user table"""
-        try:
-            from app.database import db
-            from app.models.db_models import DBUser
-            
-            # Test connection
-            db.session.execute(db.text('SELECT 1'))
-            
-            # Count users
-            user_count = DBUser.query.count()
-            admin_count = DBUser.query.filter_by(role='admin').count()
-            
-            # Get user IDs (just first 5)
-            users = DBUser.query.limit(5).all()
-            user_list = [{'id': u.id, 'email': u.email[:20] + '...', 'role': u.role} for u in users]
-            
-            return {
-                'status': 'ok',
-                'database': 'connected',
-                'user_count': user_count,
-                'admin_count': admin_count,
-                'sample_users': user_list,
-                'message': 'Database OK' if user_count > 0 else 'No users found - login to create admin'
-            }
-        except Exception as e:
-            return {
-                'status': 'error',
-                'database': 'error',
-                'error': str(e)[:100],
-                'message': 'Database connection failed'
-            }, 500
-    
-    # Test user lookup endpoint
-    @app.route('/health/user/<user_id>')
-    def health_user_lookup(user_id):
-        """Test user lookup by ID"""
-        try:
-            from app.database import db
-            from app.models.db_models import DBUser
-            from app.services.db_service import DataService
-            
-            results = {
-                'requested_id': user_id,
-                'methods': {}
-            }
-            
-            # Method 1: Direct filter_by
-            user1 = DBUser.query.filter_by(id=user_id).first()
-            results['methods']['filter_by'] = {'found': user1 is not None, 'email': user1.email if user1 else None}
-            
-            # Method 2: filter with ==
-            user2 = DBUser.query.filter(DBUser.id == user_id).first()
-            results['methods']['filter_eq'] = {'found': user2 is not None}
-            
-            # Method 3: Raw SQL
-            raw_result = db.session.execute(
-                db.text("SELECT id, email FROM users WHERE id = :uid"),
-                {'uid': user_id}
-            ).fetchone()
-            results['methods']['raw_sql'] = {'found': raw_result is not None, 'data': dict(raw_result._mapping) if raw_result else None}
-            
-            # Method 4: DataService
-            ds = DataService()
-            user4 = ds.get_user(user_id)
-            results['methods']['data_service'] = {'found': user4 is not None}
-            
-            # List all user IDs for comparison
-            all_ids = [u.id for u in DBUser.query.all()]
-            results['all_user_ids'] = all_ids
-            results['id_exists_in_list'] = user_id in all_ids
-            
-            return results
-        except Exception as e:
-            import traceback
-            return {
-                'status': 'error',
-                'error': str(e),
-                'traceback': traceback.format_exc()
-            }, 500
     
     # API info endpoint
     @app.route('/api')
@@ -338,8 +222,8 @@ def create_app(config_name=None):
             }
         }
     
-    # Initialize background scheduler (only in production)
-    if not app.config.get('TESTING') and os.environ.get('ENABLE_SCHEDULER', 'true').lower() == 'true':
+    # Initialize background scheduler (only when explicitly enabled)
+    if not app.config.get('TESTING') and os.environ.get('ENABLE_SCHEDULER') == '1':
         try:
             from app.services.scheduler_service import init_scheduler
             init_scheduler(app)
@@ -366,15 +250,5 @@ def create_app(config_name=None):
                     app.logger.warning("⚠ No admin user exists! Run: python scripts/create_admin.py")
             except Exception as e:
                 app.logger.warning(f"Could not check admin users: {e}")
-    
-    # ==========================================
-    # ALIAS ROUTES - Common endpoint patterns
-    # ==========================================
-    
-    @app.route('/api/rankings/client/<client_id>', methods=['GET'])
-    def rankings_client_alias(client_id):
-        """Alias for /api/analytics/rankings/{id}"""
-        from flask import redirect
-        return redirect(f'/api/analytics/rankings/{client_id}', code=307)
     
     return app

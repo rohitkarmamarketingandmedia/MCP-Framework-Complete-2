@@ -4,6 +4,7 @@ Publishes content to client WordPress sites via REST API
 """
 import os
 import re
+import time
 import logging
 import requests
 import base64
@@ -11,6 +12,22 @@ from typing import Optional, Dict, Any
 from datetime import datetime
 
 logger = logging.getLogger(__name__)
+
+
+def retry_request(func, max_retries=3, delay=1):
+    """Retry a request with exponential backoff"""
+    last_error = None
+    for attempt in range(max_retries):
+        try:
+            result = func()
+            return result
+        except requests.exceptions.RequestException as e:
+            last_error = e
+            if attempt < max_retries - 1:
+                wait_time = delay * (2 ** attempt)  # Exponential backoff
+                logger.warning(f"Request failed, retrying in {wait_time}s... ({e})")
+                time.sleep(wait_time)
+    raise last_error
 
 
 class WordPressService:
@@ -36,58 +53,40 @@ class WordPressService:
         token = base64.b64encode(credentials.encode()).decode()
         self.headers = {
             'Authorization': f'Basic {token}',
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Accept': 'application/json, text/plain, */*',
+            'Accept-Language': 'en-US,en;q=0.9',
+            'Cache-Control': 'no-cache',
+            'X-Requested-With': 'XMLHttpRequest'
         }
     
     def test_connection(self) -> Dict[str, Any]:
         """Test the WordPress connection"""
         try:
-            # Check if response is HTML (security block like SiteGround captcha)
-            def is_security_block(response):
-                content_type = response.headers.get('Content-Type', '')
-                if 'text/html' in content_type:
-                    text = response.text.lower()
-                    if any(x in text for x in ['captcha', 'security', 'blocked', 'cloudflare', 'challenge']):
-                        return True
-                return False
-            
-            # First, test if the REST API is accessible at all (no auth needed)
-            try:
-                api_check = requests.get(
-                    f"{self.site_url}/wp-json/",
-                    timeout=10,
-                    headers={'User-Agent': 'MCP-Framework/1.0'}
-                )
-                
-                if is_security_block(api_check):
-                    return {
-                        'success': False,
-                        'error': 'Security block detected',
-                        'message': 'Your hosting provider (likely SiteGround) is blocking API requests. Please whitelist the MCP server IP in your hosting security settings, or temporarily disable bot protection.',
-                        'hosting_tip': 'SiteGround: Site Tools → Security → Access Control → Add IP to Whitelist'
-                    }
-            except Exception:
-                pass  # Continue to try authenticated request
-            
-            # Try to get posts (less restricted than /users/me)
+            # Try to get posts with auth - don't use status=any as it requires admin
             response = requests.get(
                 f"{self.api_url}/posts",
                 headers=self.headers,
-                params={'per_page': 1, 'status': 'any'},
+                params={'per_page': 1},  # Just get one published post
                 timeout=15
             )
             
-            # Check for security block in response
-            if is_security_block(response):
-                return {
-                    'success': False,
-                    'error': 'Security block detected',
-                    'message': 'Your hosting provider is blocking API requests. Please whitelist the MCP server IP address in your hosting security settings.',
-                    'response_preview': response.text[:300]
-                }
+            # Check for captcha/challenge page (very specific)
+            content_type = response.headers.get('Content-Type', '')
+            if 'text/html' in content_type and 'application/json' not in content_type:
+                text = response.text.lower()
+                # Only trigger on actual captcha pages
+                if 'checking your browser' in text or 'cf-browser-verification' in text:
+                    return {
+                        'success': False,
+                        'error': 'Security challenge detected',
+                        'message': 'Cloudflare or similar protection is showing a browser check. Try whitelisting the server IP.',
+                        'response_preview': response.text[:300]
+                    }
             
             if response.status_code == 200:
-                # Posts endpoint worked, now verify we have write access
+                # Can read posts, now test write access by checking user capabilities
                 return {
                     'success': True,
                     'connected_as': self.username,
@@ -101,10 +100,22 @@ class WordPressService:
                     'message': 'Invalid username or application password. Make sure you are using an Application Password (not your regular password). Generate one at: WordPress Admin → Users → Profile → Application Passwords'
                 }
             elif response.status_code == 403:
+                # Try without auth to see if it's a permission issue or site block
+                public_check = requests.get(
+                    f"{self.site_url}/wp-json/wp/v2/posts",
+                    params={'per_page': 1},
+                    timeout=10
+                )
+                if public_check.status_code == 200:
+                    return {
+                        'success': False,
+                        'error': 'Authentication issue',
+                        'message': 'The REST API is accessible but authentication failed. Try regenerating the Application Password in WordPress.'
+                    }
                 return {
                     'success': False,
-                    'error': 'Permission denied',
-                    'message': 'The user does not have permission to access posts. Make sure the WordPress user has Editor or Administrator role.'
+                    'error': 'Access denied',
+                    'message': 'WordPress is blocking access. This might be a security plugin. Check your WordPress security settings.'
                 }
             elif response.status_code == 404:
                 return {

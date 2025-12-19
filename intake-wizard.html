@@ -1718,7 +1718,7 @@
                     }
                 };
 
-                const endpoint = quickSetup ? '/api/intake/quick-setup' : '/api/intake/pipeline';
+                const endpoint = quickSetup ? '/api/intake/quick' : '/api/intake/pipeline';
                 
                 const response = await fetch(`${API_URL}${endpoint}`, {
                     method: 'POST',

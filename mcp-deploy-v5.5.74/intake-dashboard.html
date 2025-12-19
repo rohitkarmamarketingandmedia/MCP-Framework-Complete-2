@@ -1,0 +1,2993 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>New Client Setup | Karma Marketing + Media</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .glass {
+            background: rgba(255, 255, 255, 0.98);
+            backdrop-filter: blur(20px);
+        }
+        .gradient-bg {
+            background: linear-gradient(135deg, #1e3a5f 0%, #0f172a 50%, #1e293b 100%);
+        }
+        
+        /* Opportunity Score Colors */
+        .score-excellent { background: linear-gradient(135deg, #059669, #10b981); }
+        .score-good { background: linear-gradient(135deg, #0891b2, #06b6d4); }
+        .score-moderate { background: linear-gradient(135deg, #d97706, #f59e0b); }
+        .score-difficult { background: linear-gradient(135deg, #dc2626, #ef4444); }
+        
+        /* Keyword Card */
+        .keyword-card {
+            transition: all 0.2s ease;
+            border: 2px solid transparent;
+        }
+        .keyword-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+        }
+        .keyword-card.selected-primary {
+            border-color: #2563eb;
+            background: #eff6ff;
+        }
+        .keyword-card.selected-secondary {
+            border-color: #059669;
+            background: #ecfdf5;
+        }
+        
+        /* Progress Steps */
+        .step-dot {
+            transition: all 0.3s ease;
+        }
+        .step-dot.active {
+            background: #2563eb;
+            transform: scale(1.2);
+        }
+        .step-dot.completed {
+            background: #059669;
+        }
+        .step-line {
+            transition: all 0.3s ease;
+        }
+        .step-line.completed {
+            background: #059669;
+        }
+        
+        /* Animations */
+        .fade-up {
+            animation: fadeUp 0.4s ease-out;
+        }
+        @keyframes fadeUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .pulse-border {
+            animation: pulseBorder 2s ease-in-out infinite;
+        }
+        @keyframes pulseBorder {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.4); }
+            50% { box-shadow: 0 0 0 8px rgba(37, 99, 235, 0); }
+        }
+        
+        /* Tooltip */
+        .tooltip {
+            position: relative;
+        }
+        .tooltip .tooltip-text {
+            visibility: hidden;
+            opacity: 0;
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #1f2937;
+            color: white;
+            padding: 8px 12px;
+            border-radius: 8px;
+            font-size: 12px;
+            white-space: nowrap;
+            transition: all 0.2s ease;
+            z-index: 50;
+            margin-bottom: 8px;
+        }
+        .tooltip:hover .tooltip-text {
+            visibility: visible;
+            opacity: 1;
+        }
+        
+        /* Mobile menu */
+        .action-menu {
+            position: absolute;
+            right: 0;
+            top: 100%;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+            z-index: 40;
+            min-width: 180px;
+            overflow: hidden;
+        }
+        
+        /* Skeleton */
+        .skeleton {
+            background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+            background-size: 200% 100%;
+            animation: skeleton 1.5s infinite;
+        }
+        @keyframes skeleton {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+    </style>
+</head>
+<body class="gradient-bg min-h-screen">
+    <!-- Auth Modal -->
+    <div id="authModal" class="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
+        <div class="glass rounded-2xl p-8 w-full max-w-md mx-4 shadow-2xl">
+            <div class="text-center mb-6">
+                <div class="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-700 flex items-center justify-center">
+                    <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                    </svg>
+                </div>
+                <h1 class="text-2xl font-bold text-gray-800 mb-1">Client Intake</h1>
+                <p class="text-gray-500">Karma Marketing + Media</p>
+            </div>
+            <div class="space-y-4">
+                <input type="email" id="loginEmail" 
+                    class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-800 placeholder-gray-400 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200" 
+                    placeholder="Email">
+                <input type="password" id="loginPassword" autocomplete="current-password" 
+                    class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-800 placeholder-gray-400 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200" 
+                    placeholder="Password"
+                    onkeypress="if(event.key==='Enter')doLogin()">
+                <button onclick="doLogin()" id="loginBtn" class="w-full py-4 bg-gradient-to-r from-blue-600 to-indigo-700 rounded-xl text-white font-bold text-lg hover:opacity-90 transition">
+                    Sign In
+                </button>
+                <p id="authError" class="text-red-500 text-sm text-center hidden"></p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Dashboard (hidden until login) -->
+    <div id="mainDashboard" class="hidden">
+    
+    <!-- Navigation Bar -->
+    <nav class="bg-slate-900 border-b border-white/10 mb-6">
+        <div class="max-w-6xl mx-auto px-4">
+            <div class="flex items-center justify-between h-12">
+                <div class="flex items-center gap-6 text-sm">
+                    <a href="/intake" class="text-white font-medium flex items-center gap-2">
+                        <i class="fas fa-plus-circle"></i> New Client
+                    </a>
+                    <a href="/agency" class="text-gray-400 hover:text-white transition flex items-center gap-2">
+                        <i class="fas fa-building"></i> Agency
+                    </a>
+                    <a href="/client" class="text-gray-400 hover:text-white transition flex items-center gap-2">
+                        <i class="fas fa-file-alt"></i> Content
+                    </a>
+                    <a href="/elite" class="text-gray-400 hover:text-white transition flex items-center gap-2">
+                        <i class="fas fa-chart-line"></i> SEO Elite
+                    </a>
+                    <a href="/admin" class="text-gray-400 hover:text-white transition flex items-center gap-2">
+                        <i class="fas fa-cog"></i> Admin
+                    </a>
+                </div>
+                <div class="text-xs text-gray-500">
+                    <span class="text-blue-400">MCP</span> Framework
+                </div>
+            </div>
+        </div>
+    </nav>
+    
+    <div class="container mx-auto px-4 py-6 max-w-6xl">
+        
+        <!-- Header -->
+        <div class="flex items-center justify-between mb-6">
+            <div>
+                <h1 class="text-2xl font-bold text-white">New Client Setup</h1>
+                <p class="text-gray-400 text-sm">Data-driven keyword targeting</p>
+            </div>
+            <div class="flex items-center gap-4">
+                <button onclick="startFresh()" class="px-4 py-2 bg-red-500/20 border border-red-500/50 text-red-400 rounded-lg text-sm hover:bg-red-500/30 transition flex items-center gap-2">
+                    <i class="fas fa-plus"></i> Start Fresh
+                </button>
+                <div class="text-right">
+                    <div class="text-xs text-gray-500">Auto-saved</div>
+                    <div class="text-xs text-gray-400" id="last-saved">—</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Resume Banner (shown if saved state exists) -->
+        <div id="resume-banner" class="hidden mb-6 bg-amber-500/20 border border-amber-500/50 rounded-xl p-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <i class="fas fa-exclamation-triangle text-amber-400 text-xl"></i>
+                    <div>
+                        <p class="text-white font-medium">You have a saved session</p>
+                        <p class="text-gray-400 text-sm" id="resume-info">Client: Loading...</p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button onclick="resumeSavedSession()" class="px-4 py-2 bg-amber-500 text-white rounded-lg text-sm font-medium hover:bg-amber-600 transition">
+                        <i class="fas fa-play mr-1"></i> Resume
+                    </button>
+                    <button onclick="startFresh()" class="px-4 py-2 bg-gray-600 text-white rounded-lg text-sm hover:bg-gray-500 transition">
+                        <i class="fas fa-times mr-1"></i> Discard
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Progress Bar -->
+        <!-- Progress Steps with Labels -->
+        <div class="flex items-center justify-center mb-8">
+            <div class="flex items-center">
+                <div class="flex flex-col items-center">
+                    <div class="step-dot active w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center text-white text-sm font-bold shadow-lg" id="dot-1">1</div>
+                    <span class="text-xs text-gray-500 mt-1 font-medium" id="label-1">Business</span>
+                </div>
+                <div class="step-line w-16 md:w-24 h-1 bg-gray-300 mx-2" id="line-1"></div>
+                <div class="flex flex-col items-center">
+                    <div class="step-dot w-10 h-10 rounded-full bg-gray-300 flex items-center justify-center text-gray-500 text-sm font-bold" id="dot-2">2</div>
+                    <span class="text-xs text-gray-400 mt-1 font-medium" id="label-2">Keywords</span>
+                </div>
+                <div class="step-line w-16 md:w-24 h-1 bg-gray-300 mx-2" id="line-2"></div>
+                <div class="flex flex-col items-center">
+                    <div class="step-dot w-10 h-10 rounded-full bg-gray-300 flex items-center justify-center text-gray-500 text-sm font-bold" id="dot-3">3</div>
+                    <span class="text-xs text-gray-400 mt-1 font-medium" id="label-3">Review</span>
+                </div>
+                <div class="step-line w-16 md:w-24 h-1 bg-gray-300 mx-2" id="line-3"></div>
+                <div class="flex flex-col items-center">
+                    <div class="step-dot w-10 h-10 rounded-full bg-gray-300 flex items-center justify-center text-gray-500 text-sm font-bold" id="dot-4">4</div>
+                    <span class="text-xs text-gray-400 mt-1 font-medium" id="label-4">Launch</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Card -->
+        <div class="glass rounded-2xl shadow-2xl overflow-hidden">
+            
+            <!-- ==================== STEP 1: BUSINESS INFO ==================== -->
+            <div id="step-1" class="step-content p-8">
+                <div class="max-w-2xl mx-auto">
+                    <!-- Value Header -->
+                    <div class="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 rounded-xl p-6 mb-8">
+                        <div class="flex items-start gap-4">
+                            <div class="w-12 h-12 bg-blue-600 rounded-xl flex items-center justify-center flex-shrink-0">
+                                <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                                </svg>
+                            </div>
+                            <div>
+                                <h3 class="font-bold text-gray-900 mb-1">Here's what we're about to build for you:</h3>
+                                <ul class="text-sm text-gray-600 space-y-1">
+                                    <li>✓ <strong>10-20 SEO blog posts</strong> targeting high-opportunity keywords</li>
+                                    <li>✓ <strong>30-60 social media posts</strong> for Facebook, Instagram, LinkedIn</li>
+                                    <li>✓ <strong>Service & location pages</strong> optimized to rank locally</li>
+                                    <li>✓ <strong>Complete 90-day content calendar</strong></li>
+                                </ul>
+                                <p class="text-xs text-blue-600 mt-2 font-medium">⏱️ Total time: ~5 minutes of your input → months of content</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="flex items-center gap-2 mb-2">
+                        <span class="bg-blue-600 text-white text-xs font-bold px-2 py-1 rounded">STEP 1 OF 4</span>
+                        <span class="text-gray-400 text-sm">Business Profile</span>
+                    </div>
+                    <h2 class="text-2xl font-bold text-gray-800 mb-2">Tell us about the business</h2>
+                    <p class="text-gray-500 mb-8">This information helps our AI understand the business and find the best ranking opportunities in their market.</p>
+                    
+                    <div class="space-y-6">
+                        <!-- Business Name with validation -->
+                        <div class="relative">
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">
+                                Business Name <span class="text-red-500">*</span>
+                            </label>
+                            <div class="relative">
+                                <input type="text" id="business_name" placeholder="e.g., ABC Roofing" 
+                                       class="w-full px-4 py-3 text-lg border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all pr-10"
+                                       oninput="validateField(this, 'business_name')">
+                                <span id="check_business_name" class="absolute right-3 top-1/2 -translate-y-1/2 text-green-500 hidden">
+                                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+                                </span>
+                            </div>
+                        </div>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <!-- Industry -->
+                            <div class="relative">
+                                <label class="block text-sm font-semibold text-gray-700 mb-2">
+                                    Industry <span class="text-red-500">*</span>
+                                </label>
+                                <div class="relative">
+                                    <select id="industry" class="w-full px-4 py-3 text-lg border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all appearance-none pr-10"
+                                            onchange="validateField(this, 'industry'); updateIndustryUSPs()">
+                                        <option value="">Select industry...</option>
+                                        
+                                        <optgroup label="🏥 Medical & Healthcare">
+                                            <option value="dentist">🦷 Dentist / Dental Practice</option>
+                                            <option value="doctor">👨‍⚕️ Doctor / Physician</option>
+                                            <option value="chiropractor">🦴 Chiropractor</option>
+                                            <option value="optometrist">👁️ Optometrist / Eye Care</option>
+                                            <option value="dermatologist">🧴 Dermatologist</option>
+                                            <option value="plastic_surgeon">💉 Plastic Surgeon / Med Spa</option>
+                                            <option value="veterinarian">🐾 Veterinarian</option>
+                                            <option value="physical_therapy">🏃 Physical Therapy</option>
+                                            <option value="mental_health">🧠 Mental Health / Therapist</option>
+                                            <option value="urgent_care">🏨 Urgent Care / Clinic</option>
+                                            <option value="home_health">🏠 Home Health Care</option>
+                                        </optgroup>
+                                        
+                                        <optgroup label="💼 Professional Services">
+                                            <option value="web_design">🌐 Web Design / Development</option>
+                                            <option value="seo">📈 SEO / Digital Marketing</option>
+                                            <option value="marketing_agency">📣 Marketing Agency</option>
+                                            <option value="lawyer">⚖️ Lawyer / Attorney</option>
+                                            <option value="accountant">📊 Accountant / CPA</option>
+                                            <option value="financial_advisor">💰 Financial Advisor</option>
+                                            <option value="insurance">🛡️ Insurance Agency</option>
+                                            <option value="real_estate">🏡 Real Estate Agent</option>
+                                            <option value="mortgage">🏦 Mortgage / Lending</option>
+                                            <option value="consultant">💡 Business Consultant</option>
+                                            <option value="it_services">💻 IT Services / Tech Support</option>
+                                        </optgroup>
+                                        
+                                        <optgroup label="🔧 Home Services & Trades">
+                                            <option value="hvac">❄️ HVAC / Air Conditioning</option>
+                                            <option value="plumbing">🔧 Plumbing</option>
+                                            <option value="electrical">⚡ Electrical</option>
+                                            <option value="roofing">🏠 Roofing</option>
+                                            <option value="windows">🪟 Windows & Doors</option>
+                                            <option value="remodeling">🔨 Remodeling / General Contractor</option>
+                                            <option value="painting">🎨 Painting</option>
+                                            <option value="flooring">🪵 Flooring</option>
+                                            <option value="landscaping">🌳 Landscaping</option>
+                                            <option value="lawn_care">🌿 Lawn Care / Maintenance</option>
+                                            <option value="pool">🏊 Pool Services</option>
+                                            <option value="pest_control">🐜 Pest Control</option>
+                                            <option value="cleaning">🧹 Cleaning Services</option>
+                                            <option value="garage_doors">🚗 Garage Doors</option>
+                                            <option value="solar">☀️ Solar</option>
+                                            <option value="fencing">🏗️ Fencing</option>
+                                            <option value="concrete">🧱 Concrete / Masonry</option>
+                                            <option value="tree_service">🌲 Tree Service</option>
+                                            <option value="locksmith">🔐 Locksmith</option>
+                                            <option value="appliance_repair">🔌 Appliance Repair</option>
+                                            <option value="snow_removal">❄️ Snow Removal</option>
+                                        </optgroup>
+                                        
+                                        <optgroup label="🚗 Automotive">
+                                            <option value="auto_repair">🔧 Auto Repair / Mechanic</option>
+                                            <option value="auto_body">🚙 Auto Body / Collision</option>
+                                            <option value="car_dealer">🚗 Car Dealership</option>
+                                            <option value="towing">🚛 Towing Service</option>
+                                            <option value="auto_detailing">✨ Auto Detailing</option>
+                                        </optgroup>
+                                        
+                                        <optgroup label="🍽️ Food & Hospitality">
+                                            <option value="restaurant">🍽️ Restaurant</option>
+                                            <option value="catering">🍴 Catering</option>
+                                            <option value="bakery">🥐 Bakery</option>
+                                            <option value="bar">🍺 Bar / Nightclub</option>
+                                            <option value="hotel">🏨 Hotel / Lodging</option>
+                                        </optgroup>
+                                        
+                                        <optgroup label="💇 Personal Services">
+                                            <option value="salon">💇 Hair Salon / Barbershop</option>
+                                            <option value="spa">💆 Spa / Massage</option>
+                                            <option value="fitness">🏋️ Gym / Fitness</option>
+                                            <option value="personal_trainer">💪 Personal Trainer</option>
+                                            <option value="photography">📷 Photography</option>
+                                            <option value="wedding">💒 Wedding Services</option>
+                                        </optgroup>
+                                        
+                                        <optgroup label="📦 Other">
+                                            <option value="moving">📦 Moving Services</option>
+                                            <option value="storage">🗄️ Storage Facility</option>
+                                            <option value="pet_services">🐕 Pet Services / Grooming</option>
+                                            <option value="daycare">👶 Daycare / Childcare</option>
+                                            <option value="tutoring">📚 Tutoring / Education</option>
+                                            <option value="nonprofit">❤️ Nonprofit</option>
+                                            <option value="other">📋 Other</option>
+                                        </optgroup>
+                                    </select>
+                                    <span id="check_industry" class="absolute right-8 top-1/2 -translate-y-1/2 text-green-500 hidden">
+                                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+                                    </span>
+                                    <svg class="w-5 h-5 text-gray-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                                    </svg>
+                                </div>
+                            </div>
+                            
+                            <!-- Primary Location -->
+                            <div class="relative">
+                                <label class="block text-sm font-semibold text-gray-700 mb-2">
+                                    Primary Location <span class="text-red-500">*</span>
+                                </label>
+                                <div class="relative">
+                                    <input type="text" id="geo" placeholder="e.g., Sarasota, FL" 
+                                           class="w-full px-4 py-3 text-lg border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all pr-10"
+                                           oninput="validateField(this, 'geo')">
+                                    <span id="check_geo" class="absolute right-3 top-1/2 -translate-y-1/2 text-green-500 hidden">
+                                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+                                    </span>
+                                </div>
+                                <p class="text-xs text-gray-400 mt-1">We'll optimize all content for this location</p>
+                            </div>
+                        </div>
+                        
+                        <!-- Website with auto-competitor discovery -->
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">
+                                Website <span class="text-gray-400 font-normal">(optional but recommended)</span>
+                            </label>
+                            <div class="relative">
+                                <input type="text" id="website" placeholder="https://example.com" 
+                                       class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all pr-32"
+                                       onblur="checkWebsiteForCompetitors()">
+                                <button onclick="checkWebsiteForCompetitors()" class="absolute right-2 top-1/2 -translate-y-1/2 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-600 text-xs rounded-lg transition">
+                                    <i class="fas fa-search mr-1"></i>Find Competitors
+                                </button>
+                            </div>
+                            <p class="text-xs text-gray-400 mt-1">Enter their website to auto-discover competitors</p>
+                        </div>
+                        
+                        <!-- Service Areas (Tags Input) -->
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">
+                                Service Areas <span class="text-gray-400 font-normal">(cities/neighborhoods served)</span>
+                            </label>
+                            <div class="flex flex-wrap gap-2 p-3 border-2 border-gray-200 rounded-xl min-h-[50px] focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-blue-500" id="service_areas_container" onclick="document.getElementById('service_area_input').focus()">
+                                <div id="service_area_tags" class="flex flex-wrap gap-2"></div>
+                                <input type="text" id="service_area_input" placeholder="Type a city and press Enter..." 
+                                       class="flex-1 min-w-[150px] border-none outline-none text-sm py-1"
+                                       onkeydown="handleServiceAreaInput(event)">
+                            </div>
+                            <p class="text-xs text-gray-400 mt-1">Press Enter or comma to add each area</p>
+                            <input type="hidden" id="service_areas" value="">
+                        </div>
+                        
+                        <!-- Common USPs Checkboxes -->
+                        <div id="usp_section">
+                            <label class="block text-sm font-semibold text-gray-700 mb-3">
+                                What Makes Them Stand Out? <span class="text-gray-400 font-normal">(select all that apply)</span>
+                            </label>
+                            <div class="grid grid-cols-2 md:grid-cols-3 gap-2" id="usp_checkboxes">
+                                <label class="flex items-center gap-2 p-2 rounded-lg hover:bg-gray-50 cursor-pointer">
+                                    <input type="checkbox" class="usp-check w-4 h-4 text-blue-600 rounded" value="24/7 Emergency Service">
+                                    <span class="text-sm text-gray-700">24/7 Emergency Service</span>
+                                </label>
+                                <label class="flex items-center gap-2 p-2 rounded-lg hover:bg-gray-50 cursor-pointer">
+                                    <input type="checkbox" class="usp-check w-4 h-4 text-blue-600 rounded" value="Free Estimates">
+                                    <span class="text-sm text-gray-700">Free Estimates</span>
+                                </label>
+                                <label class="flex items-center gap-2 p-2 rounded-lg hover:bg-gray-50 cursor-pointer">
+                                    <input type="checkbox" class="usp-check w-4 h-4 text-blue-600 rounded" value="Family-Owned">
+                                    <span class="text-sm text-gray-700">Family-Owned</span>
+                                </label>
+                                <label class="flex items-center gap-2 p-2 rounded-lg hover:bg-gray-50 cursor-pointer">
+                                    <input type="checkbox" class="usp-check w-4 h-4 text-blue-600 rounded" value="Licensed & Insured">
+                                    <span class="text-sm text-gray-700">Licensed & Insured</span>
+                                </label>
+                                <label class="flex items-center gap-2 p-2 rounded-lg hover:bg-gray-50 cursor-pointer">
+                                    <input type="checkbox" class="usp-check w-4 h-4 text-blue-600 rounded" value="Financing Available">
+                                    <span class="text-sm text-gray-700">Financing Available</span>
+                                </label>
+                                <label class="flex items-center gap-2 p-2 rounded-lg hover:bg-gray-50 cursor-pointer">
+                                    <input type="checkbox" class="usp-check w-4 h-4 text-blue-600 rounded" value="Senior/Military Discount">
+                                    <span class="text-sm text-gray-700">Senior/Military Discount</span>
+                                </label>
+                                <label class="flex items-center gap-2 p-2 rounded-lg hover:bg-gray-50 cursor-pointer">
+                                    <input type="checkbox" class="usp-check w-4 h-4 text-blue-600 rounded" value="Same-Day Service">
+                                    <span class="text-sm text-gray-700">Same-Day Service</span>
+                                </label>
+                                <label class="flex items-center gap-2 p-2 rounded-lg hover:bg-gray-50 cursor-pointer">
+                                    <input type="checkbox" class="usp-check w-4 h-4 text-blue-600 rounded" value="Satisfaction Guaranteed">
+                                    <span class="text-sm text-gray-700">Satisfaction Guaranteed</span>
+                                </label>
+                                <label class="flex items-center gap-2 p-2 rounded-lg hover:bg-gray-50 cursor-pointer">
+                                    <input type="checkbox" class="usp-check w-4 h-4 text-blue-600 rounded" value="Locally Owned">
+                                    <span class="text-sm text-gray-700">Locally Owned</span>
+                                </label>
+                            </div>
+                            <div class="mt-3">
+                                <input type="text" id="custom_usp" placeholder="Add custom differentiator..." 
+                                       class="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                       onkeydown="if(event.key==='Enter'){event.preventDefault();addCustomUSP()}">
+                            </div>
+                            <input type="hidden" id="usps" value="">
+                        </div>
+                        
+                        <!-- Collapsible Additional Info -->
+                        <details class="group border border-gray-200 rounded-xl">
+                            <summary class="cursor-pointer px-4 py-3 text-blue-600 hover:text-blue-700 font-medium flex items-center justify-between bg-gray-50 rounded-xl">
+                                <span class="flex items-center">
+                                    <svg class="w-5 h-5 mr-2 transition-transform group-open:rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                                    </svg>
+                                    Additional Contact Info
+                                </span>
+                                <span class="text-xs text-gray-400 font-normal">Optional</span>
+                            </summary>
+                            <div class="p-4 space-y-4 border-t border-gray-200">
+                                <div class="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label class="block text-sm text-gray-600 mb-1">Phone</label>
+                                        <input type="text" id="phone" placeholder="(941) 555-1234" 
+                                               class="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm text-gray-600 mb-1">Email</label>
+                                        <input type="email" id="email" placeholder="info@example.com" 
+                                               class="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                    </div>
+                                </div>
+                                <div>
+                                    <label class="block text-sm text-gray-600 mb-1">Street Address</label>
+                                    <input type="text" id="address" placeholder="123 Main St, Sarasota, FL 34236" 
+                                           class="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                </div>
+                                <div class="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label class="block text-sm text-gray-600 mb-1">Years in Business</label>
+                                        <input type="number" id="years_in_business" placeholder="e.g., 15" 
+                                               class="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm text-gray-600 mb-1">Google Business Profile</label>
+                                        <input type="text" id="gbp_url" placeholder="Google Maps URL" 
+                                               class="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                    </div>
+                                </div>
+                            </div>
+                        </details>
+                        
+                        <!-- Competitor Discovery Results -->
+                        <div id="competitor_discovery" class="hidden">
+                            <div class="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-xl p-4">
+                                <h4 class="font-semibold text-amber-800 mb-3 flex items-center">
+                                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                    </svg>
+                                    Competitors Found
+                                </h4>
+                                <div id="competitor_list" class="space-y-2">
+                                    <!-- Populated by JS -->
+                                </div>
+                                <p class="text-xs text-amber-600 mt-2">Selected competitors will be tracked for content gaps</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Form Progress Indicator -->
+                    <div class="mt-8 p-4 bg-gray-50 rounded-xl">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-sm text-gray-500">Form Completion</span>
+                            <span class="text-sm font-medium text-blue-600" id="form_completion">0%</span>
+                        </div>
+                        <div class="w-full bg-gray-200 rounded-full h-2">
+                            <div id="form_progress_bar" class="bg-blue-600 h-2 rounded-full transition-all" style="width: 0%"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-10 flex justify-between items-center">
+                        <button onclick="saveDraft()" class="px-4 py-2 text-gray-500 hover:text-gray-700 text-sm flex items-center">
+                            <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"/>
+                            </svg>
+                            Save Draft
+                        </button>
+                        <button onclick="goToStep(2)" class="px-8 py-4 bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 transition-all flex items-center text-lg">
+                            Find Keywords
+                            <svg class="w-5 h-5 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ==================== STEP 2: KEYWORD DISCOVERY ==================== -->
+            <div id="step-2" class="step-content hidden">
+                <div class="p-8 border-b border-gray-100">
+                    <div class="max-w-4xl mx-auto">
+                        <div class="flex items-center gap-2 mb-2">
+                            <span class="bg-blue-600 text-white text-xs font-bold px-2 py-1 rounded">STEP 2 OF 4</span>
+                            <span class="text-gray-400 text-sm">Keyword Strategy</span>
+                        </div>
+                        <h2 class="text-2xl font-bold text-gray-800 mb-2">Choose Your Keywords</h2>
+                        <p class="text-gray-500">We analyzed the <span id="industry-label" class="font-medium text-gray-700">your industry</span> market in <span id="geo-label" class="font-medium text-gray-700">your location</span> and found these ranking opportunities.</p>
+                        
+                        <!-- What's happening callout -->
+                        <div class="mt-4 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-xl p-4">
+                            <div class="flex items-start gap-3">
+                                <div class="w-8 h-8 bg-green-500 rounded-lg flex items-center justify-center flex-shrink-0">
+                                    <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                    </svg>
+                                </div>
+                                <div>
+                                    <p class="text-sm text-gray-700"><strong>How this works:</strong> Select 3-5 <span class="text-blue-600 font-medium">primary keywords</span> (main services) and 5-10 <span class="text-green-600 font-medium">secondary keywords</span> (supporting topics). We'll build your entire content strategy around these.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Keyword Input Area -->
+                <div class="p-6 bg-gray-50 border-b border-gray-100">
+                    <div class="max-w-4xl mx-auto">
+                        <div class="flex flex-col md:flex-row gap-4">
+                            <div class="flex-1">
+                                <div class="relative">
+                                    <input type="text" id="keyword-input" placeholder="Add a keyword the client mentioned..." 
+                                           class="w-full pl-12 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                           onkeypress="if(event.key==='Enter')addCustomKeyword()">
+                                    <svg class="w-5 h-5 text-gray-400 absolute left-4 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                                    </svg>
+                                </div>
+                            </div>
+                            <button onclick="addCustomKeyword()" class="px-6 py-3 bg-gray-800 text-white font-medium rounded-xl hover:bg-gray-900 transition-all flex items-center justify-center">
+                                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                                </svg>
+                                Add & Research
+                            </button>
+                        </div>
+                        
+                        <!-- Competitor Input -->
+                        <div class="mt-4 flex items-center">
+                            <span class="text-sm text-gray-500 mr-3">Or find gaps vs competitor:</span>
+                            <input type="text" id="competitor-input" placeholder="competitor.com" 
+                                   class="px-3 py-2 border border-gray-200 rounded-lg text-sm w-48"
+                                   onkeypress="if(event.key==='Enter')analyzeCompetitor()">
+                            <button onclick="analyzeCompetitor()" class="ml-2 px-4 py-2 text-sm bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-all">
+                                Analyze
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Loading State -->
+                <div id="loading-keywords" class="hidden p-8">
+                    <div class="max-w-4xl mx-auto">
+                        <div class="flex items-center justify-center py-12">
+                            <div class="text-center">
+                                <svg class="animate-spin w-12 h-12 text-blue-600 mx-auto mb-4" fill="none" viewBox="0 0 24 24">
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                                <p class="text-gray-600 font-medium" id="loading-text">Researching keywords with SEMRush...</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Keywords Grid -->
+                <div id="keywords-container" class="p-6">
+                    <div class="max-w-4xl mx-auto">
+                        
+                        <!-- Legend -->
+                        <div class="flex flex-wrap items-center gap-4 mb-6 text-sm">
+                            <span class="text-gray-500">Opportunity Score:</span>
+                            <span class="flex items-center"><span class="w-3 h-3 rounded-full score-excellent mr-1"></span> Excellent (80+)</span>
+                            <span class="flex items-center"><span class="w-3 h-3 rounded-full score-good mr-1"></span> Good (60-79)</span>
+                            <span class="flex items-center"><span class="w-3 h-3 rounded-full score-moderate mr-1"></span> Moderate (40-59)</span>
+                            <span class="flex items-center"><span class="w-3 h-3 rounded-full score-difficult mr-1"></span> Difficult (&lt;40)</span>
+                        </div>
+                        
+                        <!-- Quick Actions -->
+                        <div class="flex flex-wrap gap-3 mb-6">
+                            <button onclick="autoSelectBest()" class="px-4 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-all font-medium text-sm flex items-center">
+                                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/>
+                                </svg>
+                                Auto-Select Best Keywords
+                            </button>
+                            <button onclick="clearSelections()" class="px-4 py-2 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition-all text-sm">
+                                Clear All
+                            </button>
+                        </div>
+                        
+                        <!-- Keywords List -->
+                        <div id="keywords-list" class="space-y-3">
+                            <!-- Populated by JS -->
+                        </div>
+                        
+                        <!-- Empty State -->
+                        <div id="empty-keywords" class="hidden text-center py-16">
+                            <svg class="w-16 h-16 mx-auto text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                            </svg>
+                            <p class="text-gray-500">Add keywords above to start researching</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Selection Summary Bar -->
+                <div class="sticky bottom-0 bg-white border-t border-gray-200 p-4 shadow-lg">
+                    <div class="max-w-4xl mx-auto flex items-center justify-between">
+                        <div class="flex items-center gap-6">
+                            <div>
+                                <span class="text-2xl font-bold text-blue-600" id="primary-count">0</span>
+                                <span class="text-gray-500 text-sm ml-1">Primary</span>
+                            </div>
+                            <div>
+                                <span class="text-2xl font-bold text-green-600" id="secondary-count">0</span>
+                                <span class="text-gray-500 text-sm ml-1">Secondary</span>
+                            </div>
+                            <div class="hidden md:block border-l border-gray-200 pl-6">
+                                <span class="text-lg font-semibold text-gray-800" id="total-volume">0</span>
+                                <span class="text-gray-500 text-sm ml-1">monthly searches</span>
+                            </div>
+                        </div>
+                        <div class="flex gap-3">
+                            <button onclick="goToStep(1)" class="px-4 py-2 text-gray-600 hover:text-gray-800">
+                                ← Back
+                            </button>
+                            <button onclick="goToStep(3)" id="btn-to-step-3" disabled
+                                    class="px-6 py-3 bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center">
+                                Review Selection
+                                <svg class="w-5 h-5 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ==================== STEP 3: REVIEW ==================== -->
+            <div id="step-3" class="step-content hidden">
+                <div class="p-8">
+                    <div class="max-w-4xl mx-auto">
+                        <div class="flex items-center gap-2 mb-2">
+                            <span class="bg-blue-600 text-white text-xs font-bold px-2 py-1 rounded">STEP 3 OF 4</span>
+                            <span class="text-gray-400 text-sm">Review & Launch</span>
+                        </div>
+                        <h2 class="text-2xl font-bold text-gray-800 mb-2">Review Your Strategy</h2>
+                        <p class="text-gray-500 mb-6">One last look before we generate your complete content package.</p>
+                        
+                        <!-- What happens next callout -->
+                        <div class="bg-gradient-to-r from-purple-50 to-indigo-50 border border-purple-200 rounded-xl p-5 mb-8">
+                            <div class="flex items-start gap-4">
+                                <div class="w-10 h-10 bg-purple-600 rounded-xl flex items-center justify-center flex-shrink-0">
+                                    <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                                    </svg>
+                                </div>
+                                <div>
+                                    <h4 class="font-bold text-gray-900 mb-2">When you click "Create Client", our AI will generate:</h4>
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2 text-sm text-gray-700">
+                                        <div class="flex items-center">
+                                            <svg class="w-4 h-4 text-purple-500 mr-2 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+                                            10-20 SEO-optimized blog posts
+                                        </div>
+                                        <div class="flex items-center">
+                                            <svg class="w-4 h-4 text-purple-500 mr-2 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+                                            Service pages for each offering
+                                        </div>
+                                        <div class="flex items-center">
+                                            <svg class="w-4 h-4 text-purple-500 mr-2 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+                                            30-60 social media posts
+                                        </div>
+                                        <div class="flex items-center">
+                                            <svg class="w-4 h-4 text-purple-500 mr-2 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+                                            90-day content calendar
+                                        </div>
+                                        <div class="flex items-center">
+                                            <svg class="w-4 h-4 text-purple-500 mr-2 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+                                            Competitor gap analysis
+                                        </div>
+                                        <div class="flex items-center">
+                                            <svg class="w-4 h-4 text-purple-500 mr-2 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+                                            Schema markup & technical SEO
+                                        </div>
+                                    </div>
+                                    <p class="text-xs text-purple-600 mt-3 font-medium">⏱️ Generation time: 2-5 minutes</p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                            <!-- Client Summary -->
+                            <div class="bg-gray-50 rounded-2xl p-6">
+                                <h3 class="font-semibold text-gray-800 mb-4 flex items-center">
+                                    <svg class="w-5 h-5 mr-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
+                                    </svg>
+                                    Client Details
+                                </h3>
+                                <dl class="space-y-3 text-sm">
+                                    <div class="flex justify-between">
+                                        <dt class="text-gray-500">Business</dt>
+                                        <dd class="font-medium text-gray-800" id="review-business">—</dd>
+                                    </div>
+                                    <div class="flex justify-between">
+                                        <dt class="text-gray-500">Industry</dt>
+                                        <dd class="font-medium text-gray-800" id="review-industry">—</dd>
+                                    </div>
+                                    <div class="flex justify-between">
+                                        <dt class="text-gray-500">Location</dt>
+                                        <dd class="font-medium text-gray-800" id="review-geo">—</dd>
+                                    </div>
+                                    <div class="flex justify-between">
+                                        <dt class="text-gray-500">Website</dt>
+                                        <dd class="font-medium text-gray-800" id="review-website">—</dd>
+                                    </div>
+                                </dl>
+                            </div>
+                            
+                            <!-- Stats -->
+                            <div class="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl p-6">
+                                <h3 class="font-semibold text-gray-800 mb-4 flex items-center">
+                                    <svg class="w-5 h-5 mr-2 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+                                    </svg>
+                                    Keyword Strategy
+                                </h3>
+                                <div class="grid grid-cols-2 gap-4">
+                                    <div class="bg-white rounded-xl p-4 text-center">
+                                        <div class="text-3xl font-bold text-blue-600" id="review-primary-count">0</div>
+                                        <div class="text-xs text-gray-500">Primary Keywords</div>
+                                    </div>
+                                    <div class="bg-white rounded-xl p-4 text-center">
+                                        <div class="text-3xl font-bold text-green-600" id="review-secondary-count">0</div>
+                                        <div class="text-xs text-gray-500">Secondary Keywords</div>
+                                    </div>
+                                    <div class="bg-white rounded-xl p-4 text-center">
+                                        <div class="text-3xl font-bold text-gray-800" id="review-volume">0</div>
+                                        <div class="text-xs text-gray-500">Monthly Searches</div>
+                                    </div>
+                                    <div class="bg-white rounded-xl p-4 text-center">
+                                        <div class="text-3xl font-bold text-gray-800" id="review-content">0</div>
+                                        <div class="text-xs text-gray-500">Content Pieces</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Keywords -->
+                        <div class="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            <div>
+                                <h4 class="font-medium text-blue-800 mb-3 flex items-center">
+                                    <span class="w-2 h-2 rounded-full bg-blue-600 mr-2"></span>
+                                    Primary Keywords (Service Pages)
+                                </h4>
+                                <div id="review-primary-list" class="space-y-2">
+                                    <!-- Populated by JS -->
+                                </div>
+                            </div>
+                            <div>
+                                <h4 class="font-medium text-green-800 mb-3 flex items-center">
+                                    <span class="w-2 h-2 rounded-full bg-green-600 mr-2"></span>
+                                    Secondary Keywords (Blog Posts)
+                                </h4>
+                                <div id="review-secondary-list" class="space-y-2">
+                                    <!-- Populated by JS -->
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Generation Options -->
+                        <div class="mt-8 bg-gray-50 rounded-2xl p-6">
+                            <div class="flex items-center justify-between mb-4">
+                                <h3 class="font-semibold text-gray-800">What should we create?</h3>
+                                <label class="flex items-center text-sm cursor-pointer">
+                                    <input type="checkbox" id="opt-quick" class="w-4 h-4 text-blue-600 rounded mr-2" onchange="toggleQuickSetup()" checked>
+                                    <span class="text-gray-600">Quick setup only (skip content)</span>
+                                </label>
+                            </div>
+                            <div id="generation-options" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <label class="flex items-start p-4 bg-white rounded-xl border-2 border-gray-200 cursor-pointer hover:border-blue-300 transition-all has-[:checked]:border-blue-500 has-[:checked]:bg-blue-50">
+                                    <input type="checkbox" id="opt-blogs" checked class="mt-1 w-5 h-5 text-blue-600 rounded">
+                                    <span class="ml-3">
+                                        <span class="font-medium text-gray-800 block">Blog Posts</span>
+                                        <span class="text-sm text-gray-500">1,500-word SEO articles with FAQs</span>
+                                    </span>
+                                </label>
+                                <label class="flex items-start p-4 bg-white rounded-xl border-2 border-gray-200 cursor-pointer hover:border-blue-300 transition-all has-[:checked]:border-blue-500 has-[:checked]:bg-blue-50">
+                                    <input type="checkbox" id="opt-social" checked class="mt-1 w-5 h-5 text-blue-600 rounded">
+                                    <span class="ml-3">
+                                        <span class="font-medium text-gray-800 block">Social Posts</span>
+                                        <span class="text-sm text-gray-500">GBP, Facebook, Instagram</span>
+                                    </span>
+                                </label>
+                                <label class="flex items-start p-4 bg-white rounded-xl border-2 border-gray-200 cursor-pointer hover:border-blue-300 transition-all has-[:checked]:border-blue-500 has-[:checked]:bg-blue-50">
+                                    <input type="checkbox" id="opt-monitor" checked class="mt-1 w-5 h-5 text-blue-600 rounded">
+                                    <span class="ml-3">
+                                        <span class="font-medium text-gray-800 block">Monitoring</span>
+                                        <span class="text-sm text-gray-500">Track competitors & rankings</span>
+                                    </span>
+                                </label>
+                            </div>
+                            <div class="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg" id="timeout-warning">
+                                <p class="text-sm text-green-700">
+                                    <span class="font-semibold">✓ Quick setup recommended</span> - For cloud hosting, save client first then generate content from the dashboard (avoids timeouts).
+                                </p>
+                            </div>
+                        </div>
+                        
+                        <div class="mt-10 flex justify-between">
+                            <button onclick="goToStep(2)" class="px-6 py-3 text-gray-600 hover:text-gray-800 font-medium">
+                                ← Back to Keywords
+                            </button>
+                            <button onclick="launchClient()" id="launch-btn"
+                                    class="px-8 py-4 bg-green-600 text-white font-bold rounded-xl hover:bg-green-700 transition-all flex items-center text-lg">
+                                <svg class="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                                </svg>
+                                Launch Client
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ==================== STEP 4: SUCCESS ==================== -->
+            <div id="step-4" class="step-content hidden">
+                <div class="p-8">
+                    <div class="max-w-3xl mx-auto">
+                        <!-- Success Header -->
+                        <div class="text-center mb-8">
+                            <div class="w-20 h-20 bg-gradient-to-br from-green-400 to-emerald-500 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg">
+                                <svg class="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                                </svg>
+                            </div>
+                            <h2 class="text-3xl font-bold text-gray-800 mb-2">Client Launched! 🚀</h2>
+                            <p class="text-gray-500" id="success-message">Content generation complete</p>
+                        </div>
+                        
+                        <!-- What Was Delivered - Value Highlight -->
+                        <div class="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl p-6 mb-8 text-white">
+                            <div class="flex items-center justify-between mb-4">
+                                <h4 class="font-bold text-lg">What We Just Built For This Client:</h4>
+                                <span class="bg-white/20 text-white text-xs font-bold px-3 py-1 rounded-full">DELIVERED</span>
+                            </div>
+                            <div class="grid grid-cols-2 md:grid-cols-4 gap-4" id="delivery-summary">
+                                <div class="bg-white/10 rounded-xl p-4 text-center">
+                                    <div class="text-3xl font-bold" id="delivered-blogs">0</div>
+                                    <div class="text-xs text-blue-100">Blog Posts</div>
+                                </div>
+                                <div class="bg-white/10 rounded-xl p-4 text-center">
+                                    <div class="text-3xl font-bold" id="delivered-social">0</div>
+                                    <div class="text-xs text-blue-100">Social Posts</div>
+                                </div>
+                                <div class="bg-white/10 rounded-xl p-4 text-center">
+                                    <div class="text-3xl font-bold" id="delivered-keywords">0</div>
+                                    <div class="text-xs text-blue-100">Keywords Targeted</div>
+                                </div>
+                                <div class="bg-white/10 rounded-xl p-4 text-center">
+                                    <div class="text-3xl font-bold" id="delivered-volume">0</div>
+                                    <div class="text-xs text-blue-100">Monthly Searches</div>
+                                </div>
+                            </div>
+                            <div class="mt-4 pt-4 border-t border-white/20 text-center">
+                                <p class="text-sm text-blue-100">💡 <strong class="text-white">Time saved:</strong> What takes agencies 2-3 weeks was done in minutes</p>
+                            </div>
+                        </div>
+                        
+                        <!-- Generation Progress -->
+                        <div id="generation-progress" class="bg-gradient-to-br from-green-50 to-emerald-50 rounded-2xl p-6 mb-8 border border-green-200">
+                            <h4 class="font-semibold text-green-800 mb-4 flex items-center">
+                                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                </svg>
+                                Content Generated
+                            </h4>
+                            <div class="grid grid-cols-2 md:grid-cols-4 gap-4" id="progress-items">
+                                <!-- Populated by JS -->
+                            </div>
+                        </div>
+                        
+                        <!-- What's Next -->
+                        <div class="mb-8">
+                            <div class="flex items-center gap-2 mb-4">
+                                <span class="bg-gray-800 text-white text-xs font-bold px-2 py-1 rounded">NEXT STEPS</span>
+                                <span class="text-gray-500 text-sm">Review and publish content</span>
+                            </div>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <!-- View Content - PRIMARY ACTION -->
+                                <a href="/client" id="link-view-content"
+                                    class="flex items-start p-4 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-xl border-2 border-transparent hover:from-blue-600 hover:to-indigo-600 transition-all text-left group col-span-2">
+                                    <div class="w-12 h-12 bg-white/20 rounded-lg flex items-center justify-center mr-4">
+                                        <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                                        </svg>
+                                    </div>
+                                    <div class="text-white">
+                                        <span class="font-bold text-lg block">Review Generated Content</span>
+                                        <span class="text-sm text-blue-100">View blog posts, social content, and publish to WordPress</span>
+                                    </div>
+                                    <svg class="w-6 h-6 text-white ml-auto self-center" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
+                                    </svg>
+                                </a>
+                                
+                                <!-- Generate Service Pages -->
+                                <button onclick="generateServicePages()" id="btn-service-pages"
+                                    class="flex items-start p-4 bg-white rounded-xl border-2 border-gray-200 hover:border-blue-400 hover:bg-blue-50 transition-all text-left group">
+                                    <div class="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center mr-4 group-hover:bg-blue-200 transition-all">
+                                        <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/>
+                                        </svg>
+                                    </div>
+                                    <div>
+                                        <span class="font-medium text-gray-800 block">Generate Service Pages</span>
+                                        <span class="text-sm text-gray-500">Create landing pages for each service</span>
+                                    </div>
+                                </button>
+                                
+                                <!-- WordPress Setup -->
+                                <button onclick="showWordPressSetup()" id="btn-wordpress"
+                                    class="flex items-start p-4 bg-white rounded-xl border-2 border-gray-200 hover:border-orange-400 hover:bg-orange-50 transition-all text-left group">
+                                    <div class="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center mr-4 group-hover:bg-orange-200 transition-all">
+                                        <svg class="w-5 h-5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/>
+                                        </svg>
+                                    </div>
+                                    <div>
+                                        <span class="font-medium text-gray-800 block">Connect WordPress</span>
+                                        <span class="text-sm text-gray-500">Auto-publish content to their site</span>
+                                    </div>
+                                </button>
+                                
+                                <!-- Lead Form Setup -->
+                                <button onclick="showLeadFormSetup()" id="btn-lead-forms"
+                                    class="flex items-start p-4 bg-white rounded-xl border-2 border-gray-200 hover:border-green-400 hover:bg-green-50 transition-all text-left group">
+                                    <div class="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center mr-4 group-hover:bg-green-200 transition-all">
+                                        <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                                        </svg>
+                                    </div>
+                                    <div>
+                                        <span class="font-medium text-gray-800 block">Setup Lead Capture</span>
+                                        <span class="text-sm text-gray-500">Get embeddable lead forms</span>
+                                    </div>
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- Quick Stats (populated after generation) -->
+                        <div id="quick-stats" class="bg-gray-50 rounded-xl p-4 mb-8 hidden">
+                            <div class="grid grid-cols-4 gap-4 text-center">
+                                <div>
+                                    <div class="text-2xl font-bold text-blue-600" id="stat-blogs">0</div>
+                                    <div class="text-xs text-gray-500">Blogs</div>
+                                </div>
+                                <div>
+                                    <div class="text-2xl font-bold text-purple-600" id="stat-social">0</div>
+                                    <div class="text-xs text-gray-500">Social Posts</div>
+                                </div>
+                                <div>
+                                    <div class="text-2xl font-bold text-green-600" id="stat-pages">0</div>
+                                    <div class="text-xs text-gray-500">Service Pages</div>
+                                </div>
+                                <div>
+                                    <div class="text-2xl font-bold text-orange-600" id="stat-keywords">0</div>
+                                    <div class="text-xs text-gray-500">Keywords</div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Action Buttons -->
+                        <div class="flex justify-center gap-4">
+                            <a href="/agency" class="px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold rounded-xl hover:opacity-90 transition-all shadow-lg">
+                                <svg class="w-5 h-5 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
+                                </svg>
+                                Agency Dashboard
+                            </a>
+                            <button onclick="resetAndStartOver()" class="px-6 py-3 border-2 border-gray-300 text-gray-700 font-semibold rounded-xl hover:bg-gray-50 transition-all">
+                                <svg class="w-5 h-5 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+                                </svg>
+                                Add Another Client
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- WordPress Setup Modal -->
+            <div id="wordpress-modal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 hidden">
+                <div class="bg-white rounded-2xl p-8 max-w-md w-full mx-4">
+                    <h3 class="text-xl font-bold text-gray-800 mb-4">Connect WordPress</h3>
+                    <p class="text-gray-500 mb-6">Enter the client's WordPress credentials to enable auto-publishing.</p>
+                    <div class="space-y-4">
+                        <input type="url" id="wp-url" placeholder="WordPress URL (https://site.com)" 
+                            class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        <input type="text" id="wp-username" placeholder="Username or Application Password Name"
+                            class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        <input type="password" id="wp-password" autocomplete="off" placeholder="Application Password"
+                            class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        <p class="text-xs text-gray-400">Use WordPress Application Passwords (Users → Profile → Application Passwords)</p>
+                    </div>
+                    <div class="flex gap-3 mt-6">
+                        <button onclick="saveWordPressConfig()" class="flex-1 py-3 bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700">
+                            Save & Test Connection
+                        </button>
+                        <button onclick="closeWordPressModal()" class="px-6 py-3 border border-gray-300 rounded-xl hover:bg-gray-50">
+                            Cancel
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Lead Form Modal -->
+            <div id="leadform-modal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 hidden">
+                <div class="bg-white rounded-2xl p-8 max-w-lg w-full mx-4">
+                    <h3 class="text-xl font-bold text-gray-800 mb-4">Lead Capture Form</h3>
+                    <p class="text-gray-500 mb-6">Copy this code and paste it into the client's website.</p>
+                    <div class="bg-gray-900 rounded-xl p-4 mb-4">
+                        <code id="lead-form-code" class="text-green-400 text-sm break-all"></code>
+                    </div>
+                    <button onclick="copyLeadFormCode()" class="w-full py-3 bg-green-600 text-white font-semibold rounded-xl hover:bg-green-700 mb-3">
+                        <svg class="w-5 h-5 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+                        </svg>
+                        Copy to Clipboard
+                    </button>
+                    <button onclick="closeLeadFormModal()" class="w-full py-3 border border-gray-300 rounded-xl hover:bg-gray-50">
+                        Close
+                    </button>
+                </div>
+            </div>
+            
+        </div>
+
+        <!-- Footer -->
+        <div class="mt-6 text-center text-gray-500 text-sm">
+            Karma Marketing + Media • Powered by AI
+        </div>
+    </div>
+
+    <script>
+        // Debug logging - disabled in production
+        const DEBUG = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+        if (!DEBUG) { console.log = () => {}; console.error = () => {}; }
+        
+        // Loading state utility
+        function setButtonLoading(btn, loading, loadingText = 'Processing...') {
+            if (loading) {
+                btn.dataset.originalHtml = btn.innerHTML;
+                btn.innerHTML = `<i class="fas fa-spinner fa-spin mr-2"></i>${loadingText}`;
+                btn.disabled = true;
+            } else {
+                btn.innerHTML = btn.dataset.originalHtml || btn.innerHTML;
+                btn.disabled = false;
+            }
+        }
+        
+        // ==================== STATE ====================
+        const API_URL = window.location.origin;
+        let currentStep = 1;
+        let clientData = {};
+        let keywords = []; // { keyword, volume, difficulty, cpc, score, type: null|'primary'|'secondary', source }
+        
+        let token = localStorage.getItem('mcp_token') || '';
+        let headers = { 'Content-Type': 'application/json' };
+        
+        // ==================== AUTH ====================
+        async function doLogin() {
+            const email = document.getElementById('loginEmail').value;
+            const password = document.getElementById('loginPassword').value;
+            const errorEl = document.getElementById('authError');
+            const btn = document.getElementById('loginBtn');
+            
+            if (!email || !password) {
+                errorEl.textContent = 'Please enter email and password';
+                errorEl.classList.remove('hidden');
+                return;
+            }
+            
+            btn.disabled = true;
+            btn.innerHTML = '<svg class="animate-spin h-5 w-5 mr-2 inline" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>Signing in...';
+            errorEl.classList.add('hidden');
+            
+            try {
+                const response = await fetch(`${API_URL}/api/auth/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok && data.token) {
+                    token = data.token;
+                    headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` };
+                    localStorage.setItem('mcp_token', token);
+                    
+                    document.getElementById('authModal').classList.add('hidden');
+                    document.getElementById('mainDashboard').classList.remove('hidden');
+                } else {
+                    errorEl.textContent = data.error || 'Login failed';
+                    errorEl.classList.remove('hidden');
+                    btn.innerHTML = 'Sign In';
+                    btn.disabled = false;
+                }
+            } catch (e) {
+                errorEl.textContent = 'Connection failed: ' + e.message;
+                errorEl.classList.remove('hidden');
+                btn.innerHTML = 'Sign In';
+                btn.disabled = false;
+            }
+        }
+        
+        async function checkExistingToken() {
+            if (!token) return false;
+            try {
+                const response = await fetch(`${API_URL}/api/auth/me`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (response.ok) {
+                    headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` };
+                    return true;
+                }
+                // Token invalid - clear it
+                localStorage.removeItem('mcp_token');
+                token = '';
+            } catch (e) {
+                localStorage.removeItem('mcp_token');
+                token = '';
+            }
+            return false;
+        }
+        
+        async function checkSystemHealth() {
+            try {
+                const response = await fetch(`${API_URL}/api/auth/health`);
+                const data = await response.json();
+                return data;
+            } catch (e) {
+                return { status: 'error', admin_exists: false };
+            }
+        }
+        
+        async function showBootstrapUI() {
+            // Show bootstrap form instead of login
+            const authContent = document.querySelector('#authModal .relative.glass');
+            if (authContent) {
+                authContent.innerHTML = `
+                    <div class="text-center mb-8">
+                        <div class="w-20 h-20 bg-gradient-to-br from-amber-500 to-orange-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-orange-500/20">
+                            <svg class="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"/>
+                            </svg>
+                        </div>
+                        <h1 class="text-2xl font-bold bg-gradient-to-r from-amber-400 to-orange-500 bg-clip-text text-transparent">System Setup</h1>
+                        <p class="text-gray-400 mt-2">Create your admin account to get started</p>
+                    </div>
+                    
+                    <div id="bootstrapError" class="hidden mb-4 p-3 bg-red-500/10 border border-red-500/30 rounded-lg text-red-400 text-sm"></div>
+                    
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-300 mb-2">Admin Email</label>
+                            <input type="email" id="bootstrapEmail" value="admin@karma.marketing"
+                                class="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white focus:outline-none focus:border-purple-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-300 mb-2">Password</label>
+                            <input type="password" id="bootstrapPassword" autocomplete="new-password" placeholder="Enter a strong password"
+                                class="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white focus:outline-none focus:border-purple-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-300 mb-2">Confirm Password</label>
+                            <input type="password" id="bootstrapConfirm" autocomplete="new-password" placeholder="Confirm password"
+                                class="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white focus:outline-none focus:border-purple-500">
+                        </div>
+                        
+                        <button onclick="doBootstrap()" id="bootstrapBtn" 
+                            class="w-full py-3 bg-gradient-to-r from-amber-500 to-orange-600 text-white rounded-xl font-semibold hover:opacity-90 transition shadow-lg shadow-orange-500/20">
+                            Create Admin Account
+                        </button>
+                        
+                        <p class="text-center text-xs text-gray-500">
+                            This will create the first admin user for your MCP installation.
+                        </p>
+                    </div>
+                `;
+            }
+        }
+        
+        async function doBootstrap() {
+            const email = document.getElementById('bootstrapEmail').value;
+            const password = document.getElementById('bootstrapPassword').value;
+            const confirm = document.getElementById('bootstrapConfirm').value;
+            const errorEl = document.getElementById('bootstrapError');
+            const btn = document.getElementById('bootstrapBtn');
+            
+            if (!email || !password) {
+                errorEl.textContent = 'Email and password are required';
+                errorEl.classList.remove('hidden');
+                return;
+            }
+            
+            if (password !== confirm) {
+                errorEl.textContent = 'Passwords do not match';
+                errorEl.classList.remove('hidden');
+                return;
+            }
+            
+            if (password.length < 8) {
+                errorEl.textContent = 'Password must be at least 8 characters';
+                errorEl.classList.remove('hidden');
+                return;
+            }
+            
+            btn.disabled = true;
+            btn.innerHTML = '<svg class="animate-spin h-5 w-5 mr-2 inline" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>Creating...';
+            errorEl.classList.add('hidden');
+            
+            try {
+                const response = await fetch(`${API_URL}/api/auth/bootstrap`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password, name: 'Admin' })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok && data.token) {
+                    token = data.token;
+                    headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` };
+                    localStorage.setItem('mcp_token', token);
+                    
+                    alert('✓ Admin account created successfully!\\n\\nEmail: ' + email + '\\n\\nYou are now logged in.');
+                    
+                    document.getElementById('authModal').classList.add('hidden');
+                    document.getElementById('mainDashboard').classList.remove('hidden');
+                } else {
+                    errorEl.textContent = data.error || 'Setup failed';
+                    errorEl.classList.remove('hidden');
+                    btn.innerHTML = 'Create Admin Account';
+                    btn.disabled = false;
+                }
+            } catch (e) {
+                errorEl.textContent = 'Connection failed: ' + e.message;
+                errorEl.classList.remove('hidden');
+                btn.innerHTML = 'Create Admin Account';
+                btn.disabled = false;
+            }
+        }
+        
+        // Check token on load
+        (async () => {
+            // First check system health
+            const health = await checkSystemHealth();
+            
+            if (!health.admin_exists) {
+                // No admin - show bootstrap UI
+                await showBootstrapUI();
+                return;
+            }
+            
+            // Admin exists - check token
+            if (await checkExistingToken()) {
+                document.getElementById('authModal').classList.add('hidden');
+                document.getElementById('mainDashboard').classList.remove('hidden');
+            }
+        })();
+
+        // Industry keyword suggestions (comprehensive)
+        const industryKeywords = {
+            'roofing': [
+                'roof repair', 'roof replacement', 'new roof', 'roofing contractor', 'roof inspection',
+                'storm damage roof', 'emergency roof repair', 'metal roofing', 'shingle roof', 'tile roof',
+                'flat roof repair', 'roof leak repair', 'commercial roofing', 'residential roofing', 'roof installation'
+            ],
+            'hvac': [
+                'AC repair', 'air conditioning installation', 'heating repair', 'HVAC contractor', 'furnace repair',
+                'AC replacement', 'HVAC maintenance', 'duct cleaning', 'thermostat installation', 'heat pump',
+                'central air conditioning', 'emergency AC repair', 'HVAC tune up', 'mini split installation', 'commercial HVAC'
+            ],
+            'plumbing': [
+                'plumber', 'plumbing repair', 'drain cleaning', 'water heater installation', 'leak repair',
+                'emergency plumber', 'sewer line repair', 'toilet repair', 'faucet installation', 'garbage disposal',
+                'water line repair', 'bathroom plumbing', 'kitchen plumbing', 'pipe repair', 'water heater repair'
+            ],
+            'electrical': [
+                'electrician', 'electrical repair', 'panel upgrade', 'wiring installation', 'outlet repair',
+                'emergency electrician', 'lighting installation', 'ceiling fan installation', 'electrical inspection',
+                'circuit breaker repair', 'generator installation', 'EV charger installation', 'home rewiring', 'commercial electrician'
+            ],
+            'windows': [
+                'window replacement', 'new windows', 'window installation', 'impact windows', 'energy efficient windows',
+                'vinyl windows', 'window repair', 'door installation', 'sliding glass door', 'french doors',
+                'entry door replacement', 'storm windows', 'bay window installation', 'window contractor'
+            ],
+            'landscaping': [
+                'landscaping', 'lawn care', 'garden design', 'tree trimming', 'irrigation installation',
+                'landscape maintenance', 'sod installation', 'hardscaping', 'outdoor lighting', 'patio installation',
+                'mulching service', 'landscape design', 'sprinkler repair', 'lawn mowing service', 'hedge trimming'
+            ],
+            'painting': [
+                'house painting', 'interior painting', 'exterior painting', 'cabinet painting', 'commercial painting',
+                'residential painting', 'deck staining', 'pressure washing', 'drywall repair', 'wallpaper removal',
+                'paint contractor', 'ceiling painting', 'trim painting', 'paint color consultation'
+            ],
+            'flooring': [
+                'flooring installation', 'hardwood floors', 'tile installation', 'laminate flooring', 'carpet installation',
+                'vinyl flooring', 'floor refinishing', 'flooring contractor', 'LVP flooring', 'bathroom tile',
+                'kitchen flooring', 'commercial flooring', 'floor repair', 'epoxy flooring', 'wood floor sanding'
+            ],
+            'pest_control': [
+                'pest control', 'termite treatment', 'bug exterminator', 'rodent control', 'ant removal',
+                'bed bug treatment', 'mosquito control', 'roach exterminator', 'wildlife removal', 'bee removal',
+                'flea treatment', 'tick control', 'spider removal', 'commercial pest control', 'pest inspection'
+            ],
+            'solar': [
+                'solar panel installation', 'solar energy', 'residential solar', 'solar battery', 'solar financing',
+                'solar contractor', 'solar roof', 'home solar system', 'solar power', 'commercial solar',
+                'solar panel cost', 'solar incentives', 'off grid solar', 'solar maintenance', 'solar consultation'
+            ],
+            'marketing': [
+                'digital marketing agency', 'SEO services', 'social media marketing', 'web design', 'content marketing',
+                'PPC management', 'local SEO', 'marketing consultant', 'branding agency', 'Google Ads management',
+                'Facebook advertising', 'email marketing', 'marketing automation', 'lead generation', 'online marketing'
+            ],
+            'marketing_agency': [
+                'digital marketing agency', 'SEO services', 'social media marketing', 'web design company', 'content marketing',
+                'PPC management', 'local SEO services', 'marketing consultant', 'branding agency', 'Google Ads management',
+                'Facebook advertising', 'email marketing', 'marketing automation', 'lead generation services', 'online marketing'
+            ],
+            'seo': [
+                'SEO services', 'search engine optimization', 'local SEO', 'SEO agency', 'SEO consultant',
+                'keyword research', 'link building', 'technical SEO', 'SEO audit', 'on-page SEO',
+                'off-page SEO', 'content optimization', 'Google ranking', 'organic traffic', 'SEO strategy'
+            ],
+            'web_design': [
+                'web design', 'website development', 'web designer', 'website redesign', 'responsive web design',
+                'ecommerce website', 'WordPress development', 'custom web development', 'landing page design', 'website maintenance',
+                'UI UX design', 'mobile app development', 'website hosting', 'web design agency', 'small business website'
+            ],
+            'real_estate': [
+                'real estate agent', 'homes for sale', 'realtor', 'luxury homes', 'waterfront property',
+                'new construction homes', 'condos for sale', 'investment property', 'home buying', 'listing agent',
+                'buyers agent', 'real estate market', 'property management', 'commercial real estate', 'relocation services'
+            ],
+            'dentist': [
+                'dentist', 'dental implants', 'teeth whitening', 'cosmetic dentistry', 'emergency dentist',
+                'dental cleaning', 'root canal', 'dental crowns', 'invisalign', 'family dentist',
+                'pediatric dentist', 'dentures', 'tooth extraction', 'dental veneers', 'oral surgery'
+            ],
+            'dental': [
+                'dentist', 'dental implants', 'teeth whitening', 'cosmetic dentistry', 'emergency dentist',
+                'dental cleaning', 'root canal', 'dental crowns', 'invisalign', 'family dentist',
+                'pediatric dentist', 'dentures', 'tooth extraction', 'dental veneers', 'oral surgery'
+            ],
+            'lawyer': [
+                'personal injury lawyer', 'car accident attorney', 'divorce lawyer', 'criminal defense attorney', 'estate planning',
+                'business attorney', 'immigration lawyer', 'DUI lawyer', 'family law attorney', 'workers compensation lawyer',
+                'bankruptcy attorney', 'medical malpractice lawyer', 'real estate attorney', 'employment lawyer', 'slip and fall attorney'
+            ],
+            'legal': [
+                'personal injury lawyer', 'car accident attorney', 'divorce lawyer', 'criminal defense attorney', 'estate planning',
+                'business attorney', 'immigration lawyer', 'DUI lawyer', 'family law attorney', 'workers compensation lawyer',
+                'bankruptcy attorney', 'medical malpractice lawyer', 'real estate attorney', 'employment lawyer', 'slip and fall attorney'
+            ],
+            'accountant': [
+                'accountant', 'CPA', 'tax preparation', 'bookkeeping services', 'small business accounting',
+                'tax planning', 'payroll services', 'financial statements', 'business tax', 'personal tax',
+                'audit services', 'QuickBooks setup', 'tax consultant', 'accounting firm', 'CFO services'
+            ],
+            'insurance': [
+                'insurance agent', 'auto insurance', 'home insurance', 'life insurance', 'health insurance',
+                'business insurance', 'flood insurance', 'umbrella insurance', 'insurance quotes', 'insurance broker',
+                'Medicare insurance', 'renters insurance', 'commercial insurance', 'workers comp insurance', 'insurance agency'
+            ],
+            'financial_advisor': [
+                'financial advisor', 'wealth management', 'retirement planning', 'investment advisor', 'financial planning',
+                '401k planning', 'estate planning', 'portfolio management', 'fiduciary advisor', 'certified financial planner',
+                'investment management', 'tax planning', 'college planning', 'financial consultant', 'asset management'
+            ],
+            'general': [
+                'local services', 'professional services', 'business services', 'consulting', 'contractor',
+                'small business', 'local business', 'service provider', 'expert services', 'quality services'
+            ]
+        };
+
+        // ==================== STEP NAVIGATION ====================
+        function goToStep(step) {
+            // Validate before advancing
+            if (step === 2 && currentStep === 1) {
+                if (!validateStep1()) return;
+                loadKeywordsForIndustry();
+            }
+            if (step === 3 && currentStep === 2) {
+                if (!validateStep2()) return;
+                populateReview();
+            }
+            
+            // Hide all
+            document.querySelectorAll('.step-content').forEach(el => el.classList.add('hidden'));
+            
+            // Show target
+            document.getElementById(`step-${step}`).classList.remove('hidden');
+            document.getElementById(`step-${step}`).classList.add('fade-up');
+            
+            // Update progress dots and labels
+            for (let i = 1; i <= 4; i++) {
+                const dot = document.getElementById(`dot-${i}`);
+                const line = document.getElementById(`line-${i}`);
+                const label = document.getElementById(`label-${i}`);
+                
+                // Reset classes
+                dot.classList.remove('bg-blue-600', 'bg-green-500', 'bg-gray-300', 'text-white', 'text-gray-500', 'shadow-lg');
+                if (label) label.classList.remove('text-gray-500', 'text-gray-400', 'text-green-600', 'text-blue-600');
+                if (line) line.classList.remove('bg-blue-600', 'bg-green-500', 'bg-gray-300');
+                
+                if (i < step) {
+                    // Completed steps
+                    dot.classList.add('bg-green-500', 'text-white');
+                    dot.innerHTML = '✓';
+                    if (line) line.classList.add('bg-green-500');
+                    if (label) label.classList.add('text-green-600');
+                } else if (i === step) {
+                    // Current step
+                    dot.classList.add('bg-blue-600', 'text-white', 'shadow-lg');
+                    dot.innerHTML = i;
+                    if (line) line.classList.add('bg-gray-300');
+                    if (label) label.classList.add('text-blue-600');
+                } else {
+                    // Future steps
+                    dot.classList.add('bg-gray-300', 'text-gray-500');
+                    dot.innerHTML = i;
+                    if (line) line.classList.add('bg-gray-300');
+                    if (label) label.classList.add('text-gray-400');
+                }
+            }
+            
+            currentStep = step;
+            saveState();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        // ==================== FORM VALIDATION & HELPERS ====================
+        
+        let serviceAreas = [];
+        let selectedUSPs = [];
+        let discoveredCompetitors = [];
+        
+        function validateField(input, fieldName) {
+            const value = input.value.trim();
+            const checkMark = document.getElementById(`check_${fieldName}`);
+            
+            if (value) {
+                input.classList.remove('border-red-300');
+                input.classList.add('border-green-300');
+                if (checkMark) checkMark.classList.remove('hidden');
+            } else {
+                input.classList.remove('border-green-300');
+                if (checkMark) checkMark.classList.add('hidden');
+            }
+            
+            updateFormProgress();
+        }
+        
+        function updateFormProgress() {
+            const fields = ['business_name', 'industry', 'geo'];
+            let filled = 0;
+            
+            fields.forEach(f => {
+                const el = document.getElementById(f);
+                if (el && el.value.trim()) filled++;
+            });
+            
+            // Bonus for optional fields
+            if (document.getElementById('website').value.trim()) filled += 0.5;
+            if (serviceAreas.length > 0) filled += 0.5;
+            if (selectedUSPs.length > 0) filled += 0.5;
+            
+            const percentage = Math.min(100, Math.round((filled / 4.5) * 100));
+            
+            document.getElementById('form_completion').textContent = percentage + '%';
+            document.getElementById('form_progress_bar').style.width = percentage + '%';
+            
+            // Color based on progress
+            const bar = document.getElementById('form_progress_bar');
+            if (percentage >= 75) {
+                bar.classList.remove('bg-blue-600', 'bg-yellow-500');
+                bar.classList.add('bg-green-500');
+            } else if (percentage >= 50) {
+                bar.classList.remove('bg-green-500', 'bg-yellow-500');
+                bar.classList.add('bg-blue-600');
+            } else {
+                bar.classList.remove('bg-green-500', 'bg-blue-600');
+                bar.classList.add('bg-yellow-500');
+            }
+        }
+        
+        function handleServiceAreaInput(event) {
+            if (event.key === 'Enter' || event.key === ',') {
+                event.preventDefault();
+                const input = document.getElementById('service_area_input');
+                const value = input.value.replace(',', '').trim();
+                
+                if (value && !serviceAreas.includes(value)) {
+                    serviceAreas.push(value);
+                    renderServiceAreaTags();
+                    updateFormProgress();
+                }
+                
+                input.value = '';
+            }
+        }
+        
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+        
+        function renderServiceAreaTags() {
+            const container = document.getElementById('service_area_tags');
+            container.innerHTML = serviceAreas.map((area, idx) => `
+                <span class="inline-flex items-center gap-1 px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm">
+                    ${escapeHtml(area)}
+                    <button type="button" onclick="removeServiceArea(${idx})" class="hover:text-blue-900">
+                        <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/>
+                        </svg>
+                    </button>
+                </span>
+            `).join('');
+            
+            // Update hidden field
+            document.getElementById('service_areas').value = serviceAreas.join(', ');
+        }
+        
+        function removeServiceArea(idx) {
+            serviceAreas.splice(idx, 1);
+            renderServiceAreaTags();
+            updateFormProgress();
+        }
+        
+        function updateIndustryUSPs() {
+            // Collect selected USPs from checkboxes
+            collectSelectedUSPs();
+        }
+        
+        function collectSelectedUSPs() {
+            selectedUSPs = [];
+            document.querySelectorAll('.usp-check:checked').forEach(cb => {
+                selectedUSPs.push(cb.value);
+            });
+            document.getElementById('usps').value = selectedUSPs.join(', ');
+            updateFormProgress();
+        }
+        
+        function addCustomUSP() {
+            const input = document.getElementById('custom_usp');
+            const value = input.value.trim();
+            
+            if (value && !selectedUSPs.includes(value)) {
+                // Add as a new checkbox
+                const container = document.getElementById('usp_checkboxes');
+                const label = document.createElement('label');
+                label.className = 'flex items-center gap-2 p-2 rounded-lg hover:bg-gray-50 cursor-pointer bg-green-50';
+                const escapedValue = escapeHtml(value);
+                label.innerHTML = `
+                    <input type="checkbox" class="usp-check w-4 h-4 text-blue-600 rounded" value="${escapedValue}" checked onchange="collectSelectedUSPs()">
+                    <span class="text-sm text-gray-700">${escapedValue}</span>
+                `;
+                container.appendChild(label);
+                
+                selectedUSPs.push(value);
+                document.getElementById('usps').value = selectedUSPs.join(', ');
+                input.value = '';
+                updateFormProgress();
+            }
+        }
+        
+        // Add event listeners to USP checkboxes
+        document.addEventListener('DOMContentLoaded', function() {
+            document.querySelectorAll('.usp-check').forEach(cb => {
+                cb.addEventListener('change', collectSelectedUSPs);
+            });
+        });
+        
+        async function checkWebsiteForCompetitors() {
+            const website = document.getElementById('website').value.trim();
+            if (!website) return;
+            
+            const geo = document.getElementById('geo').value.trim();
+            const industry = document.getElementById('industry').value;
+            
+            if (!geo || !industry) {
+                // Need geo and industry first
+                return;
+            }
+            
+            // Show loading
+            const discoveryDiv = document.getElementById('competitor_discovery');
+            const listDiv = document.getElementById('competitor_list');
+            
+            discoveryDiv.classList.remove('hidden');
+            listDiv.innerHTML = `
+                <div class="flex items-center gap-2 text-amber-600">
+                    <svg class="animate-spin w-5 h-5" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <span class="text-sm">Discovering competitors...</span>
+                </div>
+            `;
+            
+            try {
+                // Use the intake research endpoint to find competitors
+                const response = await fetch(`${API_URL}/api/intake/research`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        industry: industry,
+                        geo: geo,
+                        website: website,
+                        find_competitors: true
+                    })
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    
+                    if (data.competitors && data.competitors.length > 0) {
+                        discoveredCompetitors = data.competitors.slice(0, 5);
+                        
+                        listDiv.innerHTML = discoveredCompetitors.map((comp, idx) => {
+                            const domain = escapeHtml(comp.domain || comp);
+                            const name = escapeHtml(comp.name || comp.domain || comp);
+                            return `
+                            <label class="flex items-center gap-3 p-2 rounded-lg hover:bg-amber-100 cursor-pointer">
+                                <input type="checkbox" class="competitor-check w-4 h-4 text-amber-600 rounded" value="${domain}" checked>
+                                <span class="text-sm text-gray-700">${name}</span>
+                                ${comp.similarity ? `<span class="text-xs text-amber-500">${comp.similarity}% similar</span>` : ''}
+                            </label>
+                        `}).join('');
+                    } else {
+                        // Suggest based on industry
+                        listDiv.innerHTML = `
+                            <p class="text-sm text-amber-600">No direct competitors found. You can add them manually in Step 2.</p>
+                        `;
+                    }
+                } else {
+                    listDiv.innerHTML = `
+                        <p class="text-sm text-amber-600">Could not analyze website. You can add competitors manually in Step 2.</p>
+                    `;
+                }
+            } catch (error) {
+                console.error('Competitor discovery error:', error);
+                listDiv.innerHTML = `
+                    <p class="text-sm text-amber-600">Could not connect. You can add competitors manually in Step 2.</p>
+                `;
+            }
+        }
+        
+        function saveDraft() {
+            const draftData = {
+                business_name: document.getElementById('business_name').value,
+                industry: document.getElementById('industry').value,
+                geo: document.getElementById('geo').value,
+                website: document.getElementById('website').value,
+                phone: document.getElementById('phone').value || '',
+                email: document.getElementById('email').value || '',
+                address: document.getElementById('address')?.value || '',
+                years_in_business: document.getElementById('years_in_business')?.value || '',
+                gbp_url: document.getElementById('gbp_url')?.value || '',
+                service_areas: serviceAreas,
+                usps: selectedUSPs,
+                competitors: discoveredCompetitors,
+                savedAt: new Date().toISOString()
+            };
+            
+            localStorage.setItem('intake_draft', JSON.stringify(draftData));
+            
+            // Show confirmation
+            const toast = document.createElement('div');
+            toast.className = 'fixed bottom-4 right-4 bg-green-500 text-white px-6 py-3 rounded-xl shadow-lg z-50';
+            toast.innerHTML = '<i class="fas fa-check mr-2"></i>Draft saved!';
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 3000);
+        }
+        
+        function loadDraft() {
+            const draft = localStorage.getItem('intake_draft');
+            if (!draft) return false;
+            
+            try {
+                const data = JSON.parse(draft);
+                
+                document.getElementById('business_name').value = data.business_name || '';
+                document.getElementById('industry').value = data.industry || '';
+                document.getElementById('geo').value = data.geo || '';
+                document.getElementById('website').value = data.website || '';
+                document.getElementById('phone').value = data.phone || '';
+                document.getElementById('email').value = data.email || '';
+                
+                if (document.getElementById('address')) {
+                    document.getElementById('address').value = data.address || '';
+                }
+                if (document.getElementById('years_in_business')) {
+                    document.getElementById('years_in_business').value = data.years_in_business || '';
+                }
+                if (document.getElementById('gbp_url')) {
+                    document.getElementById('gbp_url').value = data.gbp_url || '';
+                }
+                
+                if (data.service_areas && data.service_areas.length > 0) {
+                    serviceAreas = data.service_areas;
+                    renderServiceAreaTags();
+                }
+                
+                if (data.usps && data.usps.length > 0) {
+                    selectedUSPs = data.usps;
+                    // Check the matching checkboxes
+                    document.querySelectorAll('.usp-check').forEach(cb => {
+                        if (selectedUSPs.includes(cb.value)) {
+                            cb.checked = true;
+                        }
+                    });
+                    document.getElementById('usps').value = selectedUSPs.join(', ');
+                }
+                
+                if (data.competitors) {
+                    discoveredCompetitors = data.competitors;
+                }
+                
+                // Validate fields to show checkmarks
+                ['business_name', 'industry', 'geo'].forEach(f => {
+                    const el = document.getElementById(f);
+                    if (el && el.value) validateField(el, f);
+                });
+                
+                updateFormProgress();
+                return true;
+            } catch (e) {
+                console.error('Error loading draft:', e);
+                return false;
+            }
+        }
+        
+        function validateStep1() {
+            const name = document.getElementById('business_name').value.trim();
+            const industry = document.getElementById('industry').value;
+            const geo = document.getElementById('geo').value.trim();
+            
+            // Visual validation
+            let isValid = true;
+            
+            if (!name) {
+                document.getElementById('business_name').classList.add('border-red-300');
+                document.getElementById('business_name').focus();
+                isValid = false;
+            }
+            if (!industry) {
+                document.getElementById('industry').classList.add('border-red-300');
+                if (isValid) document.getElementById('industry').focus();
+                isValid = false;
+            }
+            if (!geo) {
+                document.getElementById('geo').classList.add('border-red-300');
+                if (isValid) document.getElementById('geo').focus();
+                isValid = false;
+            }
+            
+            if (!isValid) {
+                // Show toast instead of alert
+                const toast = document.createElement('div');
+                toast.className = 'fixed bottom-4 right-4 bg-red-500 text-white px-6 py-3 rounded-xl shadow-lg z-50';
+                toast.innerHTML = '<i class="fas fa-exclamation-circle mr-2"></i>Please fill in all required fields';
+                document.body.appendChild(toast);
+                setTimeout(() => toast.remove(), 3000);
+                return false;
+            }
+            
+            // Collect selected competitors
+            const selectedCompetitors = [];
+            document.querySelectorAll('.competitor-check:checked').forEach(cb => {
+                selectedCompetitors.push(cb.value);
+            });
+            
+            // Store client data
+            clientData = {
+                business_name: name,
+                industry: industry,
+                geo: geo,
+                website: document.getElementById('website').value.trim(),
+                phone: document.getElementById('phone').value.trim(),
+                email: document.getElementById('email').value.trim(),
+                address: document.getElementById('address')?.value.trim() || '',
+                years_in_business: document.getElementById('years_in_business')?.value || '',
+                gbp_url: document.getElementById('gbp_url')?.value.trim() || '',
+                service_areas: serviceAreas.length > 0 ? serviceAreas : document.getElementById('service_areas').value.split(',').map(s => s.trim()).filter(s => s),
+                usps: selectedUSPs.length > 0 ? selectedUSPs : document.getElementById('usps').value.split(',').map(s => s.trim()).filter(s => s),
+                competitors: selectedCompetitors
+            };
+            
+            return true;
+        }
+        
+        function validateStep2() {
+            const primaryCount = keywords.filter(k => k.type === 'primary').length;
+            if (primaryCount === 0) {
+                alert('Please select at least one primary keyword');
+                return false;
+            }
+            return true;
+        }
+
+        // ==================== KEYWORD MANAGEMENT ====================
+        let seoResearchResults = null;  // Store full research results
+        
+        async function loadKeywordsForIndustry() {
+            const industry = clientData.industry;
+            const geo = clientData.geo;
+            const website = clientData.website || '';
+            const competitors = clientData.competitors || [];
+            
+            // Update labels
+            document.getElementById('industry-label').textContent = industry.replace(/_/g, ' ');
+            document.getElementById('geo-label').textContent = geo;
+            
+            // Show loading with better message
+            document.getElementById('loading-keywords').classList.remove('hidden');
+            document.getElementById('keywords-container').classList.add('hidden');
+            
+            // Update loading message based on what we're analyzing
+            const loadingText = document.querySelector('#loading-keywords p');
+            if (loadingText) {
+                if (website) {
+                    loadingText.textContent = `Analyzing ${website} and finding competitor keyword gaps...`;
+                } else {
+                    loadingText.textContent = `Researching ${industry.replace(/_/g, ' ')} keywords for ${geo}...`;
+                }
+            }
+            
+            try {
+                // Use comprehensive SEO research endpoint
+                const response = await fetch('/api/intake/seo-research', {
+                    method: 'POST',
+                    headers: headers,
+                    body: JSON.stringify({
+                        website: website,
+                        industry: industry,
+                        location: geo,
+                        competitors: competitors,
+                        business_name: clientData.business_name || ''
+                    })
+                });
+                
+                const data = await response.json();
+                seoResearchResults = data;  // Store for later use
+                
+                // Process results
+                keywords = [];
+                
+                // Process all keywords from comprehensive research
+                for (const kw of (data.all_keywords || [])) {
+                    keywords.push(processKeyword(kw));
+                }
+                
+                // If no keywords from SEMRush, fall back to industry seeds
+                if (keywords.length === 0) {
+                    const seeds = industryKeywords[industry] || industryKeywords['general'];
+                    const city = geo.split(',')[0].trim();
+                    keywords = seeds.map(s => ({
+                        keyword: `${s} ${city}`,
+                        volume: null,
+                        difficulty: null,
+                        cpc: null,
+                        score: 50,
+                        intent: 'commercial',
+                        source: 'suggested'
+                    }));
+                }
+                
+                // Deduplicate
+                const seen = new Set();
+                keywords = keywords.filter(k => {
+                    const key = k.keyword.toLowerCase();
+                    if (seen.has(key)) return false;
+                    seen.add(key);
+                    return true;
+                });
+                
+                // Sort by opportunity score
+                keywords.sort((a, b) => b.score - a.score);
+                
+                // Show research insights if available
+                showResearchInsights(data);
+                
+            } catch (error) {
+                console.error('SEO research error:', error);
+                
+                // Fallback: use industry seeds
+                const seeds = industryKeywords[industry] || industryKeywords['general'];
+                const city = geo.split(',')[0].trim();
+                keywords = seeds.map(s => ({
+                    keyword: `${s} ${city}`,
+                    volume: null,
+                    difficulty: null,
+                    cpc: null,
+                    score: 50,
+                    intent: 'commercial',
+                    source: 'suggested'
+                }));
+            }
+            
+            // Hide loading, show results
+            document.getElementById('loading-keywords').classList.add('hidden');
+            document.getElementById('keywords-container').classList.remove('hidden');
+            
+            renderKeywords();
+        }
+        
+        function showResearchInsights(data) {
+            // Create or update insights panel
+            let insightsPanel = document.getElementById('research-insights');
+            if (!insightsPanel) {
+                insightsPanel = document.createElement('div');
+                insightsPanel.id = 'research-insights';
+                insightsPanel.className = 'mb-6 p-4 bg-blue-50 border border-blue-200 rounded-xl';
+                const container = document.getElementById('keywords-container');
+                if (container) {
+                    container.parentNode.insertBefore(insightsPanel, container);
+                }
+            }
+            
+            let insightsHTML = '';
+            
+            // Domain analysis
+            if (data.domain_analysis) {
+                insightsHTML += `
+                    <div class="mb-3">
+                        <span class="inline-flex items-center px-2 py-1 bg-green-100 text-green-800 rounded text-sm font-medium">
+                            <i class="fas fa-globe mr-1"></i> Domain Analyzed
+                        </span>
+                        <span class="text-sm text-gray-600 ml-2">
+                            Found ${data.domain_analysis.keyword_count} keywords you currently rank for
+                        </span>
+                    </div>
+                `;
+            }
+            
+            // Competitors found
+            if (data.competitors && data.competitors.length > 0) {
+                const compNames = data.competitors.slice(0, 3).map(c => c.domain).join(', ');
+                insightsHTML += `
+                    <div class="mb-3">
+                        <span class="inline-flex items-center px-2 py-1 bg-purple-100 text-purple-800 rounded text-sm font-medium">
+                            <i class="fas fa-users mr-1"></i> ${data.competitors.length} Competitors Found
+                        </span>
+                        <span class="text-sm text-gray-600 ml-2">${compNames}</span>
+                    </div>
+                `;
+            }
+            
+            // Keyword gaps
+            if (data.keyword_gaps && data.keyword_gaps.length > 0) {
+                insightsHTML += `
+                    <div class="mb-3">
+                        <span class="inline-flex items-center px-2 py-1 bg-orange-100 text-orange-800 rounded text-sm font-medium">
+                            <i class="fas fa-search-plus mr-1"></i> ${data.keyword_gaps.length} Keyword Gaps
+                        </span>
+                        <span class="text-sm text-gray-600 ml-2">
+                            Keywords your competitors rank for that you don't
+                        </span>
+                    </div>
+                `;
+            }
+            
+            // Quick wins
+            if (data.quick_wins && data.quick_wins.length > 0) {
+                insightsHTML += `
+                    <div class="mb-3">
+                        <span class="inline-flex items-center px-2 py-1 bg-emerald-100 text-emerald-800 rounded text-sm font-medium">
+                            <i class="fas fa-bolt mr-1"></i> ${data.quick_wins.length} Quick Wins
+                        </span>
+                        <span class="text-sm text-gray-600 ml-2">
+                            Low competition keywords with good search volume
+                        </span>
+                    </div>
+                `;
+            }
+            
+            // Warning if no SEMRush
+            if (data.warning) {
+                insightsHTML += `
+                    <div class="p-2 bg-yellow-50 border border-yellow-200 rounded text-sm text-yellow-800">
+                        <i class="fas fa-exclamation-triangle mr-1"></i> ${data.warning}
+                    </div>
+                `;
+            }
+            
+            if (insightsHTML) {
+                insightsPanel.innerHTML = `
+                    <h4 class="font-semibold text-gray-800 mb-3">
+                        <i class="fas fa-chart-line mr-2 text-blue-500"></i>SEO Research Insights
+                    </h4>
+                    ${insightsHTML}
+                `;
+                insightsPanel.classList.remove('hidden');
+            } else {
+                insightsPanel.classList.add('hidden');
+            }
+        }
+        
+        function processKeyword(kw) {
+            const volume = kw.volume || 0;
+            const difficulty = kw.difficulty || 50;
+            const cpc = kw.cpc || 0;
+            const intent = kw.intent || 'unknown';
+            const source = kw.source || 'unknown';
+            
+            // Use pre-calculated opportunity score if available, otherwise calculate
+            let score = kw.opportunity_score;
+            if (score === undefined || score === null) {
+                // Calculate opportunity score (0-100)
+                const volumeScore = Math.min(volume / 10, 40);
+                const difficultyScore = (100 - difficulty) * 0.5;
+                const cpcScore = Math.min(cpc * 2, 10);
+                score = Math.round(volumeScore + difficultyScore + cpcScore);
+            }
+            
+            return {
+                keyword: kw.keyword,
+                volume: volume,
+                difficulty: difficulty,
+                cpc: cpc,
+                score: score,
+                intent: intent,
+                source: source,
+                selected: false,
+                type: null  // primary or secondary
+            };
+        }
+        
+        function renderKeywords() {
+            const container = document.getElementById('keywords-list');
+            
+            if (keywords.length === 0) {
+                document.getElementById('empty-keywords').classList.remove('hidden');
+                container.innerHTML = '';
+                return;
+            }
+            
+            document.getElementById('empty-keywords').classList.add('hidden');
+            
+            container.innerHTML = keywords.map((kw, i) => {
+                const scoreClass = kw.score >= 80 ? 'score-excellent' : 
+                                   kw.score >= 60 ? 'score-good' :
+                                   kw.score >= 40 ? 'score-moderate' : 'score-difficult';
+                
+                const selectedClass = kw.type === 'primary' ? 'selected-primary' :
+                                      kw.type === 'secondary' ? 'selected-secondary' : '';
+                
+                const volumeDisplay = kw.volume ? kw.volume.toLocaleString() : '—';
+                const diffDisplay = kw.difficulty || '—';
+                const cpcDisplay = kw.cpc ? `$${kw.cpc.toFixed(2)}` : '—';
+                
+                const explanation = getKeywordExplanation(kw);
+                
+                // Intent badge
+                const intentBadge = getIntentBadge(kw.intent);
+                
+                // Source badge
+                const sourceBadge = getSourceBadge(kw.source);
+                
+                return `
+                    <div class="keyword-card ${selectedClass} bg-white rounded-xl p-4 shadow-sm border border-gray-100" data-index="${i}">
+                        <div class="flex items-center justify-between">
+                            <!-- Score Badge -->
+                            <div class="flex items-center gap-4">
+                                <div class="${scoreClass} w-12 h-12 rounded-xl flex items-center justify-center text-white font-bold text-lg tooltip">
+                                    ${kw.score}
+                                    <span class="tooltip-text">${explanation}</span>
+                                </div>
+                                
+                                <div>
+                                    <div class="flex items-center gap-2">
+                                        <span class="font-medium text-gray-800">${kw.keyword}</span>
+                                        ${intentBadge}
+                                        ${sourceBadge}
+                                    </div>
+                                    <div class="flex items-center gap-3 text-sm text-gray-500 mt-1">
+                                        <span class="tooltip">
+                                            📊 ${volumeDisplay}/mo
+                                            <span class="tooltip-text">Monthly search volume</span>
+                                        </span>
+                                        <span class="tooltip">
+                                            🎯 ${diffDisplay}
+                                            <span class="tooltip-text">Ranking difficulty (0-100)</span>
+                                        </span>
+                                        <span class="tooltip">
+                                            💰 ${cpcDisplay}
+                                            <span class="tooltip-text">Cost per click (ad value)</span>
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Action Buttons -->
+                            <div class="flex items-center gap-2">
+                                ${kw.type === 'primary' ? `
+                                    <button onclick="setKeywordType(${i}, null)" class="px-3 py-2 bg-blue-600 text-white text-sm rounded-lg font-medium">
+                                        ✓ Primary
+                                    </button>
+                                ` : kw.type === 'secondary' ? `
+                                    <button onclick="setKeywordType(${i}, null)" class="px-3 py-2 bg-green-600 text-white text-sm rounded-lg font-medium">
+                                        ✓ Secondary
+                                    </button>
+                                ` : `
+                                    <button onclick="setKeywordType(${i}, 'primary')" class="px-3 py-2 bg-blue-100 text-blue-700 text-sm rounded-lg hover:bg-blue-200 font-medium">
+                                        + Primary
+                                    </button>
+                                    <button onclick="setKeywordType(${i}, 'secondary')" class="px-3 py-2 bg-green-100 text-green-700 text-sm rounded-lg hover:bg-green-200 font-medium">
+                                        + Secondary
+                                    </button>
+                                `}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            
+            updateCounts();
+        }
+        
+        function getIntentBadge(intent) {
+            const badges = {
+                'transactional': '<span class="ml-2 px-2 py-0.5 bg-red-100 text-red-700 rounded text-xs font-medium" title="Ready to buy/hire">🛒 Buy</span>',
+                'commercial': '<span class="ml-2 px-2 py-0.5 bg-orange-100 text-orange-700 rounded text-xs font-medium" title="Comparing/researching services">🔍 Compare</span>',
+                'informational': '<span class="ml-2 px-2 py-0.5 bg-blue-100 text-blue-700 rounded text-xs font-medium" title="Learning/researching topic">📚 Learn</span>'
+            };
+            return badges[intent] || '';
+        }
+        
+        function getSourceBadge(source) {
+            if (!source || source === 'unknown' || source === 'suggested' || source === 'template') return '';
+            
+            const badges = {
+                'competitor_gap': '<span class="ml-1 px-2 py-0.5 bg-purple-100 text-purple-700 rounded text-xs" title="Competitor ranks for this, you don\'t">Gap</span>',
+                'opportunity': '<span class="ml-1 px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded text-xs" title="Low competition opportunity">⚡ Win</span>',
+                'current_ranking': '<span class="ml-1 px-2 py-0.5 bg-gray-100 text-gray-600 rounded text-xs" title="You already rank for this">Ranking</span>',
+                'question': '<span class="ml-1 px-2 py-0.5 bg-cyan-100 text-cyan-700 rounded text-xs" title="Question keyword - good for FAQ/blog">FAQ</span>'
+            };
+            
+            if (source.startsWith('competitor:')) {
+                const domain = source.split(':')[1];
+                return `<span class="ml-1 px-2 py-0.5 bg-purple-100 text-purple-700 rounded text-xs" title="From competitor: ${domain}">🏢</span>`;
+            }
+            
+            return badges[source] || '';
+        }
+        
+        function getKeywordExplanation(kw) {
+            if (kw.score >= 80) return 'Excellent opportunity! High volume, low competition.';
+            if (kw.score >= 60) return 'Good target. Solid volume with manageable difficulty.';
+            if (kw.score >= 40) return 'Moderate opportunity. Consider as secondary target.';
+            return 'Difficult to rank. High competition or low volume.';
+        }
+        
+        function setKeywordType(index, type) {
+            // Check limits
+            if (type === 'primary') {
+                const currentPrimary = keywords.filter(k => k.type === 'primary').length;
+                if (currentPrimary >= 5) {
+                    alert('Maximum 5 primary keywords. Remove one first.');
+                    return;
+                }
+            }
+            if (type === 'secondary') {
+                const currentSecondary = keywords.filter(k => k.type === 'secondary').length;
+                if (currentSecondary >= 15) {
+                    alert('Maximum 15 secondary keywords. Remove one first.');
+                    return;
+                }
+            }
+            
+            keywords[index].type = type;
+            renderKeywords();
+            saveState();
+        }
+        
+        function autoSelectBest() {
+            // Clear existing
+            keywords.forEach(k => k.type = null);
+            
+            // Sort by score
+            const sorted = [...keywords].sort((a, b) => b.score - a.score);
+            
+            // Top 5 as primary
+            for (let i = 0; i < Math.min(5, sorted.length); i++) {
+                const idx = keywords.findIndex(k => k.keyword === sorted[i].keyword);
+                if (idx !== -1) keywords[idx].type = 'primary';
+            }
+            
+            // Next 10 as secondary
+            for (let i = 5; i < Math.min(15, sorted.length); i++) {
+                const idx = keywords.findIndex(k => k.keyword === sorted[i].keyword);
+                if (idx !== -1) keywords[idx].type = 'secondary';
+            }
+            
+            renderKeywords();
+            saveState();
+        }
+        
+        function clearSelections() {
+            keywords.forEach(k => k.type = null);
+            renderKeywords();
+            saveState();
+        }
+        
+        function updateCounts() {
+            const primary = keywords.filter(k => k.type === 'primary');
+            const secondary = keywords.filter(k => k.type === 'secondary');
+            const all = [...primary, ...secondary];
+            
+            document.getElementById('primary-count').textContent = primary.length;
+            document.getElementById('secondary-count').textContent = secondary.length;
+            document.getElementById('total-volume').textContent = all.reduce((sum, k) => sum + (k.volume || 0), 0).toLocaleString();
+            
+            // Enable/disable next button
+            document.getElementById('btn-to-step-3').disabled = primary.length === 0;
+        }
+        
+        async function addCustomKeyword() {
+            const input = document.getElementById('keyword-input');
+            const keyword = input.value.trim();
+            if (!keyword) return;
+            
+            input.value = '';
+            
+            // Add with loading state
+            keywords.unshift({
+                keyword: keyword,
+                volume: null,
+                difficulty: null,
+                cpc: null,
+                score: 50,
+                type: null,
+                source: 'custom'
+            });
+            
+            renderKeywords();
+            
+            // Research in background
+            try {
+                const response = await fetch('/api/intake/keyword-research', {
+                    method: 'POST',
+                    headers: headers,
+                    body: JSON.stringify({
+                        keywords: [keyword],
+                        location: clientData.geo,
+                        include_variations: false,
+                        include_questions: false
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.keywords && data.keywords[0]) {
+                    const kw = data.keywords[0];
+                    const idx = keywords.findIndex(k => k.keyword === keyword);
+                    if (idx !== -1) {
+                        keywords[idx] = processKeyword(kw);
+                        renderKeywords();
+                    }
+                }
+            } catch (e) {
+                console.error('Research error:', e);
+            }
+        }
+        
+        async function analyzeCompetitor() {
+            const input = document.getElementById('competitor-input');
+            const domain = input.value.trim();
+            if (!domain) return;
+            
+            document.getElementById('loading-keywords').classList.remove('hidden');
+            document.getElementById('loading-text').textContent = `Analyzing ${domain}...`;
+            document.getElementById('keywords-container').classList.add('hidden');
+            
+            try {
+                const response = await fetch('/api/intake/competitor-gaps', {
+                    method: 'POST',
+                    headers: headers,
+                    body: JSON.stringify({
+                        competitor_domain: domain,
+                        client_domain: clientData.website || '',
+                        location: clientData.geo
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.gaps && data.gaps.length > 0) {
+                    for (const gap of data.gaps) {
+                        const exists = keywords.some(k => k.keyword.toLowerCase() === gap.keyword.toLowerCase());
+                        if (!exists) {
+                            keywords.push({
+                                ...processKeyword(gap),
+                                source: `Gap vs ${domain}`
+                            });
+                        }
+                    }
+                    
+                    keywords.sort((a, b) => b.score - a.score);
+                }
+                
+            } catch (e) {
+                console.error('Competitor analysis error:', e);
+            }
+            
+            document.getElementById('loading-keywords').classList.add('hidden');
+            document.getElementById('keywords-container').classList.remove('hidden');
+            document.getElementById('loading-text').textContent = 'Researching keywords with SEMRush...';
+            
+            renderKeywords();
+        }
+
+        // ==================== REVIEW & LAUNCH ====================
+        function populateReview() {
+            const primary = keywords.filter(k => k.type === 'primary');
+            const secondary = keywords.filter(k => k.type === 'secondary');
+            
+            document.getElementById('review-business').textContent = clientData.business_name;
+            document.getElementById('review-industry').textContent = clientData.industry.replace('_', ' ');
+            document.getElementById('review-geo').textContent = clientData.geo;
+            document.getElementById('review-website').textContent = clientData.website || '—';
+            
+            document.getElementById('review-primary-count').textContent = primary.length;
+            document.getElementById('review-secondary-count').textContent = secondary.length;
+            document.getElementById('review-volume').textContent = [...primary, ...secondary].reduce((s, k) => s + (k.volume || 0), 0).toLocaleString();
+            document.getElementById('review-content').textContent = primary.length + secondary.length;
+            
+            document.getElementById('review-primary-list').innerHTML = primary.map(k => `
+                <div class="bg-blue-50 rounded-lg px-3 py-2 text-sm text-blue-800">${k.keyword}</div>
+            `).join('');
+            
+            document.getElementById('review-secondary-list').innerHTML = secondary.map(k => `
+                <div class="bg-green-50 rounded-lg px-3 py-2 text-sm text-green-800">${k.keyword}</div>
+            `).join('');
+        }
+        
+        function toggleQuickSetup() {
+            const quickMode = document.getElementById('opt-quick').checked;
+            const options = document.getElementById('generation-options');
+            const warning = document.getElementById('timeout-warning');
+            
+            if (quickMode) {
+                document.getElementById('opt-blogs').checked = false;
+                document.getElementById('opt-social').checked = false;
+                document.getElementById('opt-monitor').checked = false;
+                options.style.opacity = '0.5';
+                options.style.pointerEvents = 'none';
+                warning.innerHTML = `<p class="text-sm text-green-700">
+                    <span class="font-semibold">✓ Quick setup selected</span> - Client will be saved without content. Generate content from the dashboard later.
+                </p>`;
+                warning.className = 'mt-4 p-3 bg-green-50 border border-green-200 rounded-lg';
+            } else {
+                document.getElementById('opt-blogs').checked = true;
+                document.getElementById('opt-social').checked = true;
+                options.style.opacity = '1';
+                options.style.pointerEvents = 'auto';
+                warning.innerHTML = `<p class="text-sm text-amber-700">
+                    <span class="font-semibold">⏱️ Note:</span> Full content generation takes 2-5 minutes per post. If you experience timeouts, use <strong>"Quick setup"</strong> and generate content from the dashboard.
+                </p>`;
+                warning.className = 'mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg';
+            }
+        }
+        
+        let createdClientId = null; // Store the created client ID
+        
+        async function launchClient() {
+            const btn = document.getElementById('launch-btn');
+            btn.disabled = true;
+            btn.innerHTML = `
+                <svg class="animate-spin w-6 h-6 mr-2" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                </svg>
+                Creating...
+            `;
+            
+            const primary = keywords.filter(k => k.type === 'primary');
+            const secondary = keywords.filter(k => k.type === 'secondary');
+            
+            try {
+                const quickSetup = document.getElementById('opt-quick').checked;
+                const payload = {
+                    ...clientData,
+                    primary_keywords: primary.map(k => k.keyword),
+                    secondary_keywords: secondary.map(k => k.keyword),
+                    generate_content: document.getElementById('opt-blogs').checked,
+                    generate_social: document.getElementById('opt-social').checked,
+                    setup_monitoring: document.getElementById('opt-monitor').checked,
+                    run_semrush_research: !quickSetup,  // Skip SEMRush for quick setup
+                    blog_count: primary.length,
+                    social_count: primary.length
+                };
+                
+                console.log('Launching client with payload:', payload);
+                
+                const response = await fetch('/api/intake/pipeline', {
+                    method: 'POST',
+                    headers: headers,
+                    body: JSON.stringify(payload)
+                });
+                
+                // Check if response is OK before parsing JSON
+                if (!response.ok) {
+                    const text = await response.text();
+                    console.error('Server error:', response.status, text);
+                    throw new Error(`Server error ${response.status}: ${text.substring(0, 100)}`);
+                }
+                
+                const data = await response.json();
+                
+                if (data.error) throw new Error(data.error);
+                
+                // Store client ID for later use
+                createdClientId = data.client?.id;
+                
+                // Show success
+                document.getElementById('success-message').textContent = 
+                    `${clientData.business_name} is ready for marketing success!`;
+                
+                // Count items
+                const blogCount = data.content?.blogs?.filter(b => !b.error).length || 0;
+                const socialCount = data.content?.social?.length || 0;
+                const keywordCount = primary.length + secondary.length;
+                const totalVolume = keywords.reduce((sum, k) => sum + (k.volume || 0), 0);
+                
+                // Update delivery summary (the blue gradient box)
+                document.getElementById('delivered-blogs').textContent = blogCount;
+                document.getElementById('delivered-social').textContent = socialCount;
+                document.getElementById('delivered-keywords').textContent = keywordCount;
+                document.getElementById('delivered-volume').textContent = totalVolume.toLocaleString();
+                
+                // Show progress cards
+                document.getElementById('progress-items').innerHTML = `
+                    <div class="bg-white rounded-xl p-4 text-center">
+                        <svg class="w-8 h-8 text-green-500 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                        <div class="font-semibold text-gray-800">Client</div>
+                        <div class="text-xs text-green-600">Created</div>
+                    </div>
+                    <div class="bg-white rounded-xl p-4 text-center">
+                        <div class="text-2xl font-bold text-blue-600">${blogCount}</div>
+                        <div class="text-xs text-gray-500">Blog Posts</div>
+                    </div>
+                    <div class="bg-white rounded-xl p-4 text-center">
+                        <div class="text-2xl font-bold text-purple-600">${socialCount}</div>
+                        <div class="text-xs text-gray-500">Social Posts</div>
+                    </div>
+                    <div class="bg-white rounded-xl p-4 text-center">
+                        <div class="text-2xl font-bold text-orange-600">${keywordCount}</div>
+                        <div class="text-xs text-gray-500">Keywords</div>
+                    </div>
+                `;
+                
+                // Update view content link with client ID
+                if (createdClientId) {
+                    document.getElementById('link-view-content').href = `/client?client_id=${createdClientId}`;
+                }
+                
+                goToStep(4);
+                clearSavedState();
+                
+            } catch (error) {
+                console.error('Launch error:', error);
+                
+                // Check if it's a timeout or 500 error
+                let errorMsg = error.message;
+                let isTimeout = errorMsg.includes('500') || errorMsg.includes('timeout') || errorMsg.includes('html>') || errorMsg.includes('504');
+                
+                if (isTimeout) {
+                    // Check if we're already in quick setup mode
+                    const alreadyQuickSetup = document.getElementById('opt-quick').checked;
+                    
+                    if (alreadyQuickSetup) {
+                        // Already in quick setup and still timing out - server issue
+                        errorMsg = 'Server is still timing out. Please try again in a moment, or check server logs.';
+                    } else {
+                        // Show retry dialog with quick setup option
+                        const retry = confirm('⏱️ Server timeout - content generation took too long.\n\nWould you like to retry with "Quick Setup" mode?\n\n(This will save your client without generating content. You can generate content from the dashboard later.)');
+                        
+                        if (retry) {
+                            // Enable quick setup - user must click button again manually
+                            document.getElementById('opt-quick').checked = true;
+                            toggleQuickSetup();
+                            btn.disabled = false;
+                            btn.innerHTML = `<svg class="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                            </svg>Launch Client`;
+                            // Don't auto-retry - let user click the button
+                            return;
+                        } else {
+                            errorMsg = 'Timeout cancelled. Check "Quick setup" to save without content, then generate from the dashboard.';
+                        }
+                    }
+                }
+                
+                alert('Error: ' + errorMsg);
+                btn.disabled = false;
+                btn.innerHTML = `
+                    <svg class="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                    </svg>
+                    Launch Client
+                `;
+            }
+        }
+        
+        // ==================== POST-INTAKE ACTIONS ====================
+        
+        async function generateServicePages() {
+            if (!createdClientId) {
+                alert('No client found. Please create client first.');
+                return;
+            }
+            
+            const btn = document.getElementById('btn-service-pages');
+            btn.disabled = true;
+            btn.innerHTML = `
+                <div class="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center mr-4">
+                    <svg class="animate-spin w-5 h-5 text-blue-600" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                    </svg>
+                </div>
+                <div>
+                    <span class="font-medium text-gray-800 block">Generating...</span>
+                    <span class="text-sm text-gray-500">Creating service landing pages</span>
+                </div>
+            `;
+            
+            try {
+                const primary = keywords.filter(k => k.type === 'primary');
+                const services = primary.map(k => k.keyword.split(' ')[0]).filter((v, i, a) => a.indexOf(v) === i).slice(0, 5);
+                const locations = clientData.service_areas ? clientData.service_areas.split(',').map(s => s.trim()).slice(0, 5) : [clientData.geo];
+                
+                const response = await fetch('/api/pages/generate/bulk', {
+                    method: 'POST',
+                    headers: headers,
+                    body: JSON.stringify({
+                        client_id: createdClientId,
+                        services: services,
+                        locations: locations
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.error) throw new Error(data.error);
+                
+                const pageCount = data.pages?.length || 0;
+                btn.innerHTML = `
+                    <div class="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center mr-4">
+                        <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <span class="font-medium text-green-700 block">${pageCount} Pages Created!</span>
+                        <span class="text-sm text-gray-500">Service landing pages ready</span>
+                    </div>
+                `;
+                
+            } catch (error) {
+                console.error('Service page error:', error);
+                btn.disabled = false;
+                btn.innerHTML = `
+                    <div class="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center mr-4">
+                        <svg class="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <span class="font-medium text-red-700 block">Error</span>
+                        <span class="text-sm text-gray-500">${error.message}</span>
+                    </div>
+                `;
+            }
+        }
+        
+        function showWordPressSetup() {
+            document.getElementById('wordpress-modal').classList.remove('hidden');
+        }
+        
+        function closeWordPressModal() {
+            document.getElementById('wordpress-modal').classList.add('hidden');
+        }
+        
+        async function saveWordPressConfig() {
+            if (!createdClientId) {
+                alert('No client found');
+                return;
+            }
+            
+            const wpUrl = document.getElementById('wp-url').value.trim();
+            const wpUser = document.getElementById('wp-username').value.trim();
+            const wpPass = document.getElementById('wp-password').value;
+            
+            if (!wpUrl || !wpUser || !wpPass) {
+                alert('Please fill in all fields');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/clients/${createdClientId}/integrations`, {
+                    method: 'PUT',
+                    headers: headers,
+                    body: JSON.stringify({
+                        wordpress_url: wpUrl,
+                        wordpress_api_key: btoa(`${wpUser}:${wpPass}`)
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.error) throw new Error(data.error);
+                
+                alert('WordPress connected successfully!');
+                closeWordPressModal();
+                
+                // Update button state
+                document.getElementById('btn-wordpress').innerHTML = `
+                    <div class="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center mr-4">
+                        <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <span class="font-medium text-green-700 block">WordPress Connected</span>
+                        <span class="text-sm text-gray-500">${wpUrl}</span>
+                    </div>
+                `;
+                
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        }
+        
+        async function showLeadFormSetup() {
+            if (!createdClientId) {
+                alert('No client found');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/leads/form-embed', {
+                    method: 'POST',
+                    headers: headers,
+                    body: JSON.stringify({
+                        client_id: createdClientId,
+                        form_title: `Contact ${clientData.business_name}`,
+                        button_text: 'Get Free Quote',
+                        include_phone: true,
+                        include_service: true,
+                        primary_color: '#3b82f6'
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.error) throw new Error(data.error);
+                
+                document.getElementById('lead-form-code').textContent = data.embed_code || data.html || '<!-- Lead form code -->';
+                document.getElementById('leadform-modal').classList.remove('hidden');
+                
+            } catch (error) {
+                alert('Error generating form: ' + error.message);
+            }
+        }
+        
+        function closeLeadFormModal() {
+            document.getElementById('leadform-modal').classList.add('hidden');
+        }
+        
+        function copyLeadFormCode() {
+            const code = document.getElementById('lead-form-code').textContent;
+            navigator.clipboard.writeText(code).then(() => {
+                alert('Code copied to clipboard!');
+            }).catch(err => {
+                console.error('Copy failed:', err);
+            });
+        }
+        
+        function resetAndStartOver() {
+            clientData = {};
+            keywords = [];
+            currentStep = 1;
+            createdClientId = null;
+            
+            document.getElementById('business_name').value = '';
+            document.getElementById('industry').value = '';
+            document.getElementById('geo').value = '';
+            document.getElementById('website').value = '';
+            document.getElementById('phone').value = '';
+            document.getElementById('email').value = '';
+            document.getElementById('service_areas').value = '';
+            document.getElementById('usps').value = '';
+            
+            clearSavedState();
+            goToStep(1);
+        }
+
+        // ==================== STATE PERSISTENCE ====================
+        function saveState() {
+            const state = {
+                step: currentStep,
+                clientData: clientData,
+                keywords: keywords,
+                timestamp: Date.now()
+            };
+            localStorage.setItem('mcp_intake_state', JSON.stringify(state));
+            document.getElementById('last-saved').textContent = 'Just now';
+        }
+        
+        function loadState() {
+            try {
+                const saved = localStorage.getItem('mcp_intake_state');
+                if (!saved) return false;
+                
+                const state = JSON.parse(saved);
+                
+                // Check if less than 24 hours old
+                if (Date.now() - state.timestamp > 86400000) {
+                    clearSavedState();
+                    return false;
+                }
+                
+                clientData = state.clientData || {};
+                keywords = state.keywords || [];
+                
+                // Restore form fields
+                if (clientData.business_name) document.getElementById('business_name').value = clientData.business_name;
+                if (clientData.industry) document.getElementById('industry').value = clientData.industry;
+                if (clientData.geo) document.getElementById('geo').value = clientData.geo;
+                if (clientData.website) document.getElementById('website').value = clientData.website;
+                if (clientData.phone) document.getElementById('phone').value = clientData.phone;
+                if (clientData.email) document.getElementById('email').value = clientData.email;
+                if (clientData.service_areas) document.getElementById('service_areas').value = clientData.service_areas.join(', ');
+                if (clientData.usps) document.getElementById('usps').value = clientData.usps.join(', ');
+                
+                const minutes = Math.round((Date.now() - state.timestamp) / 60000);
+                document.getElementById('last-saved').textContent = minutes < 1 ? 'Just now' : `${minutes}m ago`;
+                
+                return state.step || 1;
+                
+            } catch (e) {
+                return false;
+            }
+        }
+        
+        function clearSavedState() {
+            localStorage.removeItem('mcp_intake_state');
+            // Also clear in-memory state
+            clientData = {};
+            keywords = [];
+        }
+        
+        function startFresh() {
+            clearSavedState();
+            // Reset form fields
+            document.getElementById('business_name').value = '';
+            document.getElementById('industry').value = '';
+            document.getElementById('geo').value = '';
+            document.getElementById('website').value = '';
+            document.getElementById('phone').value = '';
+            document.getElementById('email').value = '';
+            document.getElementById('service_areas').value = '';
+            document.getElementById('usps').value = '';
+            // Hide resume banner
+            document.getElementById('resume-banner').classList.add('hidden');
+            // Reset to step 1
+            goToStep(1);
+            // Clear last saved indicator
+            document.getElementById('last-saved').textContent = '—';
+        }
+        
+        function resumeSavedSession() {
+            document.getElementById('resume-banner').classList.add('hidden');
+            const savedStep = loadState();
+            if (savedStep && savedStep > 1) {
+                if (savedStep >= 2) {
+                    document.getElementById('industry-label').textContent = clientData.industry?.replace('_', ' ') || '';
+                    document.getElementById('geo-label').textContent = clientData.geo || '';
+                    renderKeywords();
+                }
+                goToStep(savedStep);
+            }
+        }
+        
+        function checkForSavedState() {
+            try {
+                const saved = localStorage.getItem('mcp_intake_state');
+                if (!saved) return null;
+                
+                const state = JSON.parse(saved);
+                
+                // Check if less than 24 hours old
+                if (Date.now() - state.timestamp > 86400000) {
+                    clearSavedState();
+                    return null;
+                }
+                
+                return state;
+            } catch (e) {
+                return null;
+            }
+        }
+
+        // ==================== INIT ====================
+        document.addEventListener('DOMContentLoaded', function() {
+            const savedState = checkForSavedState();
+            
+            if (savedState && savedState.step > 1 && savedState.clientData && Object.keys(savedState.clientData).length > 0) {
+                // Show resume banner instead of auto-resuming
+                document.getElementById('resume-banner').classList.remove('hidden');
+                document.getElementById('resume-info').textContent = 
+                    `Client: ${savedState.clientData.business_name || 'Unknown'} | Step ${savedState.step} of 4 | ${savedState.keywords?.length || 0} keywords`;
+                // Stay on step 1 until user chooses
+                goToStep(1);
+            } else {
+                // Check for draft in localStorage
+                const draft = localStorage.getItem('intake_draft');
+                if (draft) {
+                    try {
+                        const draftData = JSON.parse(draft);
+                        // Only show if draft is less than 24 hours old
+                        const savedAt = new Date(draftData.savedAt);
+                        const now = new Date();
+                        const hoursSinceSave = (now - savedAt) / (1000 * 60 * 60);
+                        
+                        if (hoursSinceSave < 24 && draftData.business_name) {
+                            document.getElementById('resume-banner').classList.remove('hidden');
+                            document.getElementById('resume-info').textContent = 
+                                `Draft: ${draftData.business_name} | ${draftData.geo || 'No location'} | Saved ${Math.round(hoursSinceSave)} hours ago`;
+                            // Load draft data into form
+                            if (typeof loadDraft === 'function') {
+                                loadDraft();
+                            }
+                        }
+                    } catch(e) {
+                        console.log('No valid draft found');
+                    }
+                }
+                goToStep(1);
+            }
+            
+            // Initialize Quick Setup state (default checked for Render hosting)
+            toggleQuickSetup();
+            
+            // Initialize form progress
+            if (typeof updateFormProgress === 'function') {
+                updateFormProgress();
+            }
+        });
+    </script>
+    </div><!-- end mainDashboard -->
+</body>
+</html>

@@ -75,7 +75,7 @@ def initiate_oauth(current_user, platform):
     
     Returns URL to redirect user to for authorization
     """
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     client_id = data.get('client_id')
     
     if not client_id:
@@ -205,7 +205,7 @@ def get_available_accounts(current_user, platform):
     
     Returns list of pages/accounts user can connect
     """
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     state = data.get('state')
     
     if not state:
@@ -334,7 +334,7 @@ def finalize_connection(current_user):
         "account_name": "Page/Account Name"
     }
     """
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     state = data.get('state')
     account_type = data.get('account_type')
     account_id = data.get('account_id')

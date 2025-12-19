@@ -5,7 +5,6 @@ Handles content approval, feedback, and revision requests
 from flask import Blueprint, request, jsonify
 from datetime import datetime
 import logging
-import uuid
 
 from app.routes.auth import token_required
 from app.database import db
@@ -20,18 +19,14 @@ approval_bp = Blueprint('approval', __name__)
 # ==========================================
 
 @approval_bp.route('/pending', methods=['GET'])
-@approval_bp.route('/pending/<client_id>', methods=['GET'])  # Alias for /api/approval/pending/{id}
 @token_required
-def get_pending_approvals(current_user, client_id=None):
+def get_pending_approvals(current_user):
     """
     Get all content pending approval for a client
     
     GET /api/approval/pending?client_id=xxx
-    GET /api/approval/pending/{client_id}
     """
-    # Support both query param and path param
-    if not client_id:
-        client_id = request.args.get('client_id')
+    client_id = request.args.get('client_id')
     
     if not client_id:
         return jsonify({'error': 'client_id is required'}), 400
@@ -111,11 +106,7 @@ def approve_content(current_user, content_type, content_id):
         "schedule_for": "2024-12-20T10:00:00Z"  // Optional, auto-schedule after approval
     }
     """
-    # Handle requests with or without JSON body
-    try:
-        data = request.get_json(silent=True) or {}
-    except Exception:
-        data = {}
+    data = request.get_json() or {}
     
     if content_type == 'blog':
         content = DBBlogPost.query.get(content_id)
@@ -164,7 +155,7 @@ def approve_content(current_user, content_type, content_id):
                 user_id=admin.id,
                 client_name=client.business_name if client else 'Unknown',
                 content_title=content.title if hasattr(content, 'title') else 'Social Post',
-                approved_by=current_user.name or current_user.email,
+                content_type=content_type,
                 content_id=content_id,
                 client_id=content.client_id
             )
@@ -218,10 +209,7 @@ def request_changes(current_user, content_type, content_id):
         "priority": "normal|high|low"
     }
     """
-    try:
-        data = request.get_json(silent=True) or {}
-    except Exception:
-        data = {}
+    data = request.get_json() or {}
     
     feedback = data.get('feedback', '').strip()
     if not feedback:
@@ -273,8 +261,8 @@ def request_changes(current_user, content_type, content_id):
                 user_id=admin.id,
                 client_name=client.business_name if client else 'Unknown',
                 content_title=content.title if hasattr(content, 'title') else 'Social Post',
-                feedback_text=feedback[:100],
-                feedback_type='change_request',
+                feedback_preview=feedback[:100],
+                content_type=content_type,
                 content_id=content_id,
                 client_id=content.client_id
             )
@@ -322,10 +310,7 @@ def add_feedback(current_user, content_type, content_id):
         "type": "comment|approval|change_request"
     }
     """
-    try:
-        data = request.get_json(silent=True) or {}
-    except Exception:
-        data = {}
+    data = request.get_json() or {}
     
     message = data.get('message', '').strip()
     if not message:
@@ -456,10 +441,7 @@ def submit_for_approval(current_user, content_type, content_id):
     if not current_user.can_generate_content:
         return jsonify({'error': 'Permission denied'}), 403
     
-    try:
-        data = request.get_json(silent=True) or {}
-    except Exception:
-        data = {}
+    data = request.get_json() or {}
     
     if content_type == 'blog':
         content = DBBlogPost.query.get(content_id)
@@ -475,26 +457,23 @@ def submit_for_approval(current_user, content_type, content_id):
     content.status = 'pending_approval'
     db.session.commit()
     
-    # Send notification to admins for review
+    # Send notification to client if requested
     if data.get('notify_client', True):
         try:
             from app.services.notification_service import get_notification_service
             notification_service = get_notification_service()
             
             client = DBClient.query.get(content.client_id)
-            client_name = client.business_name if client else 'Unknown'
+            # In a full implementation, you'd get the client's user account
+            # For now, notify admins (who can forward to client)
             
-            # Notify all admins
-            admins = DBUser.query.filter_by(role='admin', is_active=True).all()
-            for admin in admins:
-                notification_service.notify_content_approval_needed(
-                    user_id=admin.id,
-                    client_name=client_name,
-                    content_title=content.title if hasattr(content, 'title') else 'Social Post',
-                    content_type=content_type,
-                    content_id=content_id,
-                    client_id=content.client_id
-                )
+            notification_service.notify_content_approval_needed(
+                client_id=content.client_id,
+                content_title=content.title if hasattr(content, 'title') else 'Social Post',
+                content_type=content_type,
+                content_id=content_id,
+                message=data.get('message', '')
+            )
         except Exception as e:
             logger.warning(f"Failed to send approval request notification: {e}")
     
@@ -523,10 +502,7 @@ def bulk_approve(current_user):
         ]
     }
     """
-    try:
-        data = request.get_json(silent=True) or {}
-    except Exception:
-        data = {}
+    data = request.get_json() or {}
     items = data.get('items', [])
     
     if not items:

@@ -33,7 +33,7 @@ def generate_service_page(current_user):
     if not current_user.can_generate_content:
         return jsonify({'error': 'Permission denied'}), 403
     
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     client_id = data.get('client_id')
     service = data.get('service')
     
@@ -77,7 +77,7 @@ def generate_location_page(current_user):
     if not current_user.can_generate_content:
         return jsonify({'error': 'Permission denied'}), 403
     
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     client_id = data.get('client_id')
     location = data.get('location')
     
@@ -120,7 +120,7 @@ def generate_bulk_pages(current_user):
     if not current_user.can_generate_content:
         return jsonify({'error': 'Permission denied'}), 403
     
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     client_id = data.get('client_id')
     
     if not client_id:
@@ -217,7 +217,7 @@ def update_page(current_user, page_id):
     if not current_user.has_access_to_client(page.client_id):
         return jsonify({'error': 'Access denied'}), 403
     
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     
     # Update allowed fields
     updatable = [

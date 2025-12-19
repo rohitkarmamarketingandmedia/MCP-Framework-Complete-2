@@ -1,0 +1,113 @@
+# MCP Framework .gitignore
+
+# Environment files (CRITICAL - never commit these!)
+.env
+.env.local
+.env.production
+*.env
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+venv/
+ENV/
+env/
+.venv/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.project
+.pydevproject
+.settings/
+
+# SQLite databases (local dev only)
+*.db
+*.sqlite
+*.sqlite3
+instance/
+
+# Logs
+*.log
+logs/
+
+# Coverage
+htmlcov/
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+
+# pytest
+.pytest_cache/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# OS files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Data directories (may contain sensitive client data)
+data/clients/*.json
+data/content/*.json
+data/users/*.json
+
+# Don't ignore the data directory structure
+!data/.gitkeep
+!data/*/.gitkeep
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.temp
+
+# Build artifacts
+*.pyc
+*.pyo
+
+# Secrets and credentials
+secrets/
+credentials/
+*.pem
+*.key
+*.crt
+service-account*.json
+*credentials*.json
+
+# Node (if any frontend build)
+node_modules/
+npm-debug.log
+yarn-error.log

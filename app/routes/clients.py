@@ -8,9 +8,6 @@ from app.services.db_service import DataService
 from app.models.db_models import DBClient, UserRole
 from datetime import datetime
 import json
-import logging
-
-logger = logging.getLogger(__name__)
 
 clients_bp = Blueprint('clients', __name__)
 data_service = DataService()
@@ -36,7 +33,6 @@ def list_clients(current_user):
 
 
 @clients_bp.route('/', methods=['POST'])
-@token_required
 @admin_required
 def create_new_client(current_user):
     """
@@ -165,7 +161,6 @@ def update_client(current_user, client_id):
 
 
 @clients_bp.route('/<client_id>', methods=['DELETE'])
-@token_required
 @admin_required
 def delete_client(current_user, client_id):
     """Delete a client (hard or soft delete based on query param)"""
@@ -652,9 +647,8 @@ def get_health_score(current_user, client_id):
         factors.append({'name': 'WordPress Not Connected', 'points': 0, 'max': 20})
     
     # Check keywords defined (+15)
-    primary_kws = client.get_primary_keywords()
-    secondary_kws = client.get_secondary_keywords()
-    if primary_kws or secondary_kws:
+    keywords = client.get_keywords()
+    if keywords.get('primary') or keywords.get('secondary'):
         score += 15
         factors.append({'name': 'Keywords Defined', 'points': 15})
     else:

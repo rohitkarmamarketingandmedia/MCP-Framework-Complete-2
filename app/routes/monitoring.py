@@ -5,7 +5,6 @@ Competitor tracking, rank checking, content queue management
 from flask import Blueprint, request, jsonify, current_app
 from datetime import datetime, timedelta
 import json
-import logging
 
 from app.routes.auth import token_required, admin_required
 from app.utils import safe_int
@@ -18,8 +17,6 @@ from app.services.competitor_monitoring_service import competitor_monitoring_ser
 from app.services.seo_scoring_engine import seo_scoring_engine
 from app.services.rank_tracking_service import rank_tracking_service
 from app.services.ai_service import AIService
-
-logger = logging.getLogger(__name__)
 
 monitoring_bp = Blueprint('monitoring', __name__)
 ai_service = AIService()
@@ -1245,7 +1242,7 @@ def get_rank_history(current_user, client_id):
             {
                 'date': h.checked_at.isoformat() if h.checked_at else None,
                 'position': h.position,
-                'url': h.url
+                'url': h.ranking_url
             }
             for h in history
         ]
@@ -1300,7 +1297,7 @@ def get_competitor_dashboard(current_user, client_id):
         if rank.keyword not in client_rankings:
             client_rankings[rank.keyword] = {
                 'position': rank.position,
-                'url': rank.url,
+                'url': rank.ranking_url,
                 'change': rank.change
             }
     
@@ -1504,7 +1501,7 @@ def compare_with_competitor(current_user, client_id, competitor_id):
             'domain': competitor.domain,
             'total_pages': len(comp_pages),
             'blog_posts': len(blog_pages),
-            'last_crawled': competitor.last_crawl_at.isoformat() if competitor.last_crawl_at else None
+            'last_crawled': competitor.last_crawled.isoformat() if competitor.last_crawled else None
         },
         'rankings_summary': {
             'total_keywords': len(all_keywords),
@@ -1518,7 +1515,7 @@ def compare_with_competitor(current_user, client_id, competitor_id):
             {
                 'title': p.title,
                 'url': p.url,
-                'last_modified': p.last_checked_at.isoformat() if p.last_checked_at else None
+                'last_modified': p.last_modified.isoformat() if p.last_modified else None
             }
             for p in blog_pages[:20]
         ]
@@ -1630,8 +1627,8 @@ def _crawl_single_competitor(competitor):
                     db.session.add(page)
                     new_pages += 1
         
-        # Update competitor last_crawl_at
-        competitor.last_crawl_at = datetime.utcnow()
+        # Update competitor last_crawled
+        competitor.last_crawled = datetime.utcnow()
         competitor.next_crawl_at = datetime.utcnow() + timedelta(days=1)
         
         db.session.commit()

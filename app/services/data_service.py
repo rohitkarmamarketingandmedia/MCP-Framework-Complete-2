@@ -378,3 +378,6 @@ class DataService:
             'schemas': len(list((self.data_dir / 'schemas').glob('*.json'))),
             'campaigns': len(list((self.data_dir / 'campaigns').glob('*.json')))
         }
+
+# Module-level singleton
+data_service = DataService()

@@ -1,0 +1,772 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agency Command Center | Karma Marketing + Media</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+        * { font-family: 'Inter', sans-serif; }
+        
+        body {
+            background: linear-gradient(135deg, #0f0f1a 0%, #1a1a2e 50%, #0f0f1a 100%);
+            min-height: 100vh;
+        }
+        
+        .glass { 
+            background: rgba(255,255,255,0.03); 
+            backdrop-filter: blur(20px); 
+            border: 1px solid rgba(255,255,255,0.08); 
+        }
+        
+        .glass-card {
+            background: linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        
+        .health-green { background: rgba(16, 185, 129, 0.2); color: #10b981; }
+        .health-yellow { background: rgba(245, 158, 11, 0.2); color: #f59e0b; }
+        .health-red { background: rgba(239, 68, 68, 0.2); color: #ef4444; }
+        
+        .stat-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+        }
+        
+        .client-row:hover {
+            background: rgba(255,255,255,0.05);
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        .animate-pulse { animation: pulse 2s infinite; }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        .animate-spin { animation: spin 1s linear infinite; }
+        
+        .fade-in {
+            animation: fadeIn 0.5s ease-out;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .scrollbar-thin::-webkit-scrollbar { width: 6px; }
+        .scrollbar-thin::-webkit-scrollbar-track { background: rgba(255,255,255,0.05); }
+        .scrollbar-thin::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 3px; }
+    </style>
+</head>
+<body class="text-white">
+    <!-- Auth Modal -->
+    <div id="authModal" class="fixed inset-0 bg-black/90 flex items-center justify-center z-50">
+        <div class="glass-card rounded-2xl p-8 w-full max-w-md mx-4 fade-in">
+            <div class="text-center mb-8">
+                <div class="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-emerald-500 to-blue-600 flex items-center justify-center">
+                    <i class="fas fa-crown text-3xl"></i>
+                </div>
+                <h1 class="text-3xl font-bold bg-gradient-to-r from-emerald-400 to-blue-400 bg-clip-text text-transparent mb-2">
+                    Agency Command Center
+                </h1>
+                <p class="text-gray-400">Karma Marketing + Media</p>
+            </div>
+            <div class="space-y-4">
+                <input type="hidden" id="apiUrl" value="">
+                <input type="email" id="loginEmail" 
+                    class="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-emerald-500" 
+                    placeholder="Email">
+                <input type="password" id="loginPassword" autocomplete="current-password" 
+                    class="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-emerald-500" 
+                    placeholder="Password">
+                <button onclick="doLogin()" id="loginBtn" class="w-full py-4 bg-gradient-to-r from-emerald-500 to-blue-600 rounded-xl text-white font-bold text-lg hover:opacity-90 transition">
+                    Access Command Center
+                </button>
+                <p id="authError" class="text-red-400 text-sm text-center hidden"></p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Dashboard -->
+    <div id="dashboard" class="hidden">
+        <!-- Navigation Bar -->
+        <nav class="bg-slate-900 border-b border-white/10">
+            <div class="max-w-7xl mx-auto px-4">
+                <div class="flex items-center justify-between h-12">
+                    <!-- Mobile menu button -->
+                    <button onclick="document.getElementById('agencyMobileNav').classList.toggle('hidden')" class="md:hidden p-2 text-gray-400 hover:text-white">
+                        <i class="fas fa-bars"></i>
+                    </button>
+                    
+                    <!-- Desktop nav -->
+                    <div class="hidden md:flex items-center gap-6 text-sm">
+                        <a href="/intake" class="text-gray-400 hover:text-white transition flex items-center gap-2">
+                            <i class="fas fa-plus-circle"></i> New Client
+                        </a>
+                        <a href="/agency" class="text-white font-medium flex items-center gap-2">
+                            <i class="fas fa-building"></i> Agency
+                        </a>
+                        <a href="/client" class="text-gray-400 hover:text-white transition flex items-center gap-2">
+                            <i class="fas fa-file-alt"></i> Content
+                        </a>
+                        <a href="/elite" class="text-gray-400 hover:text-white transition flex items-center gap-2">
+                            <i class="fas fa-chart-line"></i> SEO Elite
+                        </a>
+                        <a href="/admin" class="text-gray-400 hover:text-white transition flex items-center gap-2">
+                            <i class="fas fa-cog"></i> Admin
+                        </a>
+                    </div>
+                    <div class="text-xs text-gray-500">
+                        <span class="text-emerald-400">MCP</span> Framework
+                    </div>
+                </div>
+                
+                <!-- Mobile nav dropdown -->
+                <div id="agencyMobileNav" class="hidden md:hidden pb-4">
+                    <div class="flex flex-col gap-2 text-sm">
+                        <a href="/intake" class="text-gray-400 hover:text-white transition flex items-center gap-2 py-2">
+                            <i class="fas fa-plus-circle w-5"></i> New Client
+                        </a>
+                        <a href="/agency" class="text-white font-medium flex items-center gap-2 py-2">
+                            <i class="fas fa-building w-5"></i> Agency
+                        </a>
+                        <a href="/client" class="text-gray-400 hover:text-white transition flex items-center gap-2 py-2">
+                            <i class="fas fa-file-alt w-5"></i> Content
+                        </a>
+                        <a href="/elite" class="text-gray-400 hover:text-white transition flex items-center gap-2 py-2">
+                            <i class="fas fa-chart-line w-5"></i> SEO Elite
+                        </a>
+                        <a href="/admin" class="text-gray-400 hover:text-white transition flex items-center gap-2 py-2">
+                            <i class="fas fa-cog w-5"></i> Admin
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Header -->
+        <header class="glass border-b border-white/10 sticky top-0 z-40">
+            <div class="max-w-7xl mx-auto px-4 py-4">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-4">
+                        <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-500 to-blue-600 flex items-center justify-center">
+                            <i class="fas fa-crown text-xl"></i>
+                        </div>
+                        <div>
+                            <h1 class="text-xl font-bold">Karma Marketing + Media</h1>
+                            <p class="text-sm text-gray-400">Agency Command Center</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-4">
+                        <div class="flex items-center gap-2 px-4 py-2 glass rounded-full">
+                            <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                            <span class="text-sm text-emerald-400">All Systems Active</span>
+                        </div>
+                        <a href="/intake" class="px-4 py-2 bg-emerald-500/20 text-emerald-400 rounded-lg hover:bg-emerald-500/30 transition">
+                            <i class="fas fa-plus mr-2"></i>New Client
+                        </a>
+                        <a href="/admin" class="p-3 glass rounded-lg hover:bg-white/10 transition" title="Admin Panel">
+                            <i class="fas fa-cog"></i>
+                        </a>
+                        <button onclick="refreshAll()" class="p-3 glass rounded-lg hover:bg-white/10 transition" title="Refresh">
+                            <i class="fas fa-sync-alt"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Stats Row -->
+        <div class="max-w-7xl mx-auto px-4 py-6">
+            <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                <div class="glass-card rounded-xl p-4 stat-card transition cursor-pointer" onclick="scrollToClients()">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-3xl font-bold text-white" id="statClients">-</p>
+                            <p class="text-sm text-gray-400">Active Clients</p>
+                        </div>
+                        <div class="w-12 h-12 rounded-xl bg-blue-500/20 flex items-center justify-center">
+                            <i class="fas fa-users text-blue-400"></i>
+                        </div>
+                    </div>
+                </div>
+                <div class="glass-card rounded-xl p-4 stat-card transition">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-3xl font-bold text-emerald-400" id="statMRR">-</p>
+                            <p class="text-sm text-gray-400">Monthly Revenue</p>
+                        </div>
+                        <div class="w-12 h-12 rounded-xl bg-emerald-500/20 flex items-center justify-center">
+                            <i class="fas fa-dollar-sign text-emerald-400"></i>
+                        </div>
+                    </div>
+                </div>
+                <div class="glass-card rounded-xl p-4 stat-card transition cursor-pointer" onclick="scrollToContent()">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-3xl font-bold text-purple-400" id="statPending">-</p>
+                            <p class="text-sm text-gray-400">Content Pending</p>
+                        </div>
+                        <div class="w-12 h-12 rounded-xl bg-purple-500/20 flex items-center justify-center">
+                            <i class="fas fa-file-alt text-purple-400"></i>
+                        </div>
+                    </div>
+                </div>
+                <div class="glass-card rounded-xl p-4 stat-card transition cursor-pointer" onclick="scrollToAttention()">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-3xl font-bold text-red-400" id="statAlerts">-</p>
+                            <p class="text-sm text-gray-400">Urgent Alerts</p>
+                        </div>
+                        <div class="w-12 h-12 rounded-xl bg-red-500/20 flex items-center justify-center">
+                            <i class="fas fa-exclamation-triangle text-red-400"></i>
+                        </div>
+                    </div>
+                </div>
+                <div class="glass-card rounded-xl p-4 stat-card transition">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-3xl font-bold text-cyan-400" id="statKeywords">-</p>
+                            <p class="text-sm text-gray-400">Keywords Tracked</p>
+                        </div>
+                        <div class="w-12 h-12 rounded-xl bg-cyan-500/20 flex items-center justify-center">
+                            <i class="fas fa-key text-cyan-400"></i>
+                        </div>
+                    </div>
+                </div>
+                <div class="glass-card rounded-xl p-4 stat-card transition cursor-pointer" onclick="scrollToWins()">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-3xl font-bold text-orange-400" id="statWins">-</p>
+                            <p class="text-sm text-gray-400">Ranking Wins</p>
+                        </div>
+                        <div class="w-12 h-12 rounded-xl bg-orange-500/20 flex items-center justify-center">
+                            <i class="fas fa-trophy text-orange-400"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="max-w-7xl mx-auto px-4 pb-12">
+            <!-- Needs Attention Section -->
+            <div id="attentionSection" class="mb-8">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-xl font-bold flex items-center gap-2">
+                        <i class="fas fa-exclamation-circle text-red-400"></i>
+                        Needs Attention
+                    </h2>
+                    <span class="text-sm text-gray-400" id="attentionCount">0 items</span>
+                </div>
+                <div id="attentionList" class="grid gap-3">
+                    <div class="glass-card rounded-xl p-6 text-center">
+                        <div class="w-8 h-8 border-2 border-emerald-500/30 border-t-emerald-500 rounded-full animate-spin mx-auto mb-3"></div>
+                        <p class="text-gray-400">Loading...</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Two Column Layout -->
+            <div class="grid lg:grid-cols-3 gap-6 mb-8">
+                <!-- All Clients Table -->
+                <div id="clientsSection" class="lg:col-span-2">
+                    <div class="flex items-center justify-between mb-4">
+                        <h2 class="text-xl font-bold flex items-center gap-2">
+                            <i class="fas fa-building text-blue-400"></i>
+                            All Clients
+                        </h2>
+                        <div class="flex gap-2">
+                            <select id="clientFilter" onchange="filterClients()" class="px-3 py-1.5 bg-white/5 border border-white/10 rounded-lg text-sm focus:outline-none">
+                                <option value="all">All Status</option>
+                                <option value="red">Needs Action</option>
+                                <option value="yellow">Warning</option>
+                                <option value="green">Healthy</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="glass-card rounded-xl overflow-hidden">
+                        <div class="overflow-x-auto">
+                            <table class="w-full">
+                                <thead class="bg-white/5">
+                                    <tr class="text-left text-sm text-gray-400">
+                                        <th class="px-4 py-3 font-medium">Client</th>
+                                        <th class="px-4 py-3 font-medium">Status</th>
+                                        <th class="px-4 py-3 font-medium text-center">Content</th>
+                                        <th class="px-4 py-3 font-medium text-center">Rankings</th>
+                                        <th class="px-4 py-3 font-medium text-center">Alerts</th>
+                                        <th class="px-4 py-3 font-medium text-right">Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="clientsTable">
+                                    <tr>
+                                        <td colspan="6" class="px-4 py-8 text-center text-gray-400">
+                                            <div class="w-8 h-8 border-2 border-blue-500/30 border-t-blue-500 rounded-full animate-spin mx-auto mb-3"></div>
+                                            Loading clients...
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right Column - Wins & Activity -->
+                <div class="space-y-6">
+                    <!-- Wins This Week -->
+                    <div id="winsSection">
+                        <div class="flex items-center justify-between mb-4">
+                            <h2 class="text-lg font-bold flex items-center gap-2">
+                                <i class="fas fa-trophy text-orange-400"></i>
+                                Wins This Week
+                            </h2>
+                        </div>
+                        <div class="glass-card rounded-xl p-4 max-h-64 overflow-y-auto scrollbar-thin">
+                            <div id="winsList" class="space-y-3">
+                                <div class="text-center py-4 text-gray-400">
+                                    <div class="w-6 h-6 border-2 border-orange-500/30 border-t-orange-500 rounded-full animate-spin mx-auto mb-2"></div>
+                                    Loading...
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Recent Activity -->
+                    <div>
+                        <div class="flex items-center justify-between mb-4">
+                            <h2 class="text-lg font-bold flex items-center gap-2">
+                                <i class="fas fa-stream text-cyan-400"></i>
+                                Recent Activity
+                            </h2>
+                        </div>
+                        <div class="glass-card rounded-xl p-4 max-h-80 overflow-y-auto scrollbar-thin">
+                            <div id="activityList" class="space-y-3">
+                                <div class="text-center py-4 text-gray-400">
+                                    <div class="w-6 h-6 border-2 border-cyan-500/30 border-t-cyan-500 rounded-full animate-spin mx-auto mb-2"></div>
+                                    Loading...
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Pending Content Section -->
+            <div id="contentSection">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-xl font-bold flex items-center gap-2">
+                        <i class="fas fa-file-alt text-purple-400"></i>
+                        Pending Content (All Clients)
+                    </h2>
+                    <span class="text-sm text-gray-400" id="pendingCount">0 items</span>
+                </div>
+                <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-4" id="contentList">
+                    <div class="glass-card rounded-xl p-6 text-center">
+                        <div class="w-8 h-8 border-2 border-purple-500/30 border-t-purple-500 rounded-full animate-spin mx-auto mb-3"></div>
+                        <p class="text-gray-400">Loading...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Debug logging - disabled in production
+        const DEBUG = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+        if (!DEBUG) { console.log = () => {}; console.error = () => {}; }
+        
+        let API_URL = window.location.origin;
+        let AUTH_TOKEN = '';
+        let allClients = [];
+
+        // ==========================================
+        // AUTH
+        // ==========================================
+        async function doLogin() {
+            const email = document.getElementById('loginEmail').value;
+            const password = document.getElementById('loginPassword').value;
+            const btn = document.getElementById('loginBtn');
+            const errorEl = document.getElementById('authError');
+
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Logging in...';
+            btn.disabled = true;
+
+            try {
+                const res = await fetch(`${API_URL}/api/auth/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+                const data = await res.json();
+
+                if (data.token) {
+                    AUTH_TOKEN = data.token;
+                    document.getElementById('authModal').classList.add('hidden');
+                    document.getElementById('dashboard').classList.remove('hidden');
+                    loadAllData();
+                } else {
+                    errorEl.textContent = data.error || 'Login failed';
+                    errorEl.classList.remove('hidden');
+                    btn.innerHTML = 'Access Command Center';
+                    btn.disabled = false;
+                }
+            } catch (e) {
+                errorEl.textContent = 'Connection failed: ' + e.message;
+                errorEl.classList.remove('hidden');
+                btn.innerHTML = 'Access Command Center';
+                btn.disabled = false;
+            }
+        }
+
+        // ==========================================
+        // DATA LOADING
+        // ==========================================
+        async function loadAllData() {
+            await Promise.all([
+                loadOverview(),
+                loadClients(),
+                loadNeedsAttention(),
+                loadWins(),
+                loadActivity(),
+                loadPendingContent()
+            ]);
+        }
+
+        async function loadOverview() {
+            try {
+                const res = await fetch(`${API_URL}/api/agency/overview`, {
+                    headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
+                });
+                const data = await res.json();
+
+                document.getElementById('statClients').textContent = data.total_clients || 0;
+                document.getElementById('statMRR').textContent = '$' + (data.estimated_mrr || 0).toLocaleString();
+                document.getElementById('statPending').textContent = data.total_content_pending || 0;
+                document.getElementById('statAlerts').textContent = data.total_urgent_alerts || 0;
+                document.getElementById('statKeywords').textContent = data.total_keywords_tracked || 0;
+                document.getElementById('statWins').textContent = data.total_ranking_improvements || 0;
+            } catch (e) {
+                console.error('Failed to load overview:', e);
+            }
+        }
+
+        async function loadClients() {
+            try {
+                const res = await fetch(`${API_URL}/api/agency/clients`, {
+                    headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
+                });
+                const data = await res.json();
+                allClients = data.clients || [];
+                renderClients(allClients);
+            } catch (e) {
+                console.error('Failed to load clients:', e);
+                document.getElementById('clientsTable').innerHTML = `
+                    <tr><td colspan="6" class="px-4 py-8 text-center text-red-400">Failed to load clients</td></tr>
+                `;
+            }
+        }
+
+        function renderClients(clients) {
+            const tbody = document.getElementById('clientsTable');
+            
+            if (clients.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="6" class="px-4 py-8 text-center">
+                            <i class="fas fa-building text-4xl text-gray-600 mb-3"></i>
+                            <p class="text-gray-400">No clients yet</p>
+                            <a href="/intake" class="inline-block mt-3 px-4 py-2 bg-emerald-500/20 text-emerald-400 rounded-lg text-sm">
+                                Add Your First Client
+                            </a>
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            tbody.innerHTML = clients.map(client => {
+                const healthClass = client.health === 'red' ? 'health-red' : 
+                                   client.health === 'yellow' ? 'health-yellow' : 'health-green';
+                const healthIcon = client.health === 'red' ? 'fa-exclamation-circle' :
+                                  client.health === 'yellow' ? 'fa-exclamation-triangle' : 'fa-check-circle';
+                
+                const trendIcon = client.stats.ranking_trend > 0 ? 
+                    `<span class="text-emerald-400"><i class="fas fa-arrow-up"></i> ${client.stats.ranking_trend}</span>` :
+                    client.stats.ranking_trend < 0 ?
+                    `<span class="text-red-400"><i class="fas fa-arrow-down"></i> ${Math.abs(client.stats.ranking_trend)}</span>` :
+                    `<span class="text-gray-500">—</span>`;
+                
+                return `
+                    <tr class="client-row border-t border-white/5 transition" data-health="${client.health}">
+                        <td class="px-4 py-3">
+                            <div>
+                                <p class="font-medium">${client.business_name}</p>
+                                <p class="text-sm text-gray-500">${client.industry || ''} • ${client.geo || ''}</p>
+                            </div>
+                        </td>
+                        <td class="px-4 py-3">
+                            <span class="inline-flex items-center gap-1.5 px-2 py-1 ${healthClass} rounded-full text-xs">
+                                <i class="fas ${healthIcon}"></i>
+                                ${client.health === 'green' ? 'Healthy' : client.health === 'yellow' ? 'Warning' : 'Action Needed'}
+                            </span>
+                        </td>
+                        <td class="px-4 py-3 text-center">
+                            ${client.stats.pending_content > 0 ? 
+                                `<span class="inline-flex items-center justify-center w-6 h-6 bg-purple-500/20 text-purple-400 rounded-full text-xs font-bold">${client.stats.pending_content}</span>` :
+                                `<span class="text-gray-500">0</span>`
+                            }
+                        </td>
+                        <td class="px-4 py-3 text-center">
+                            ${trendIcon}
+                            <span class="text-xs text-gray-500 ml-1">(${client.stats.top_10_keywords} in top 10)</span>
+                        </td>
+                        <td class="px-4 py-3 text-center">
+                            ${client.stats.urgent_alerts > 0 ?
+                                `<span class="inline-flex items-center justify-center w-6 h-6 bg-red-500/20 text-red-400 rounded-full text-xs font-bold">${client.stats.urgent_alerts}</span>` :
+                                `<span class="text-gray-500">0</span>`
+                            }
+                        </td>
+                        <td class="px-4 py-3 text-right">
+                            <a href="/elite?client=${client.id}" class="px-3 py-1.5 bg-blue-500/20 text-blue-400 rounded-lg text-sm hover:bg-blue-500/30 transition">
+                                View <i class="fas fa-arrow-right ml-1"></i>
+                            </a>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function filterClients() {
+            const filter = document.getElementById('clientFilter').value;
+            if (filter === 'all') {
+                renderClients(allClients);
+            } else {
+                renderClients(allClients.filter(c => c.health === filter));
+            }
+        }
+
+        async function loadNeedsAttention() {
+            try {
+                const res = await fetch(`${API_URL}/api/agency/needs-attention`, {
+                    headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
+                });
+                const data = await res.json();
+                const items = data.items || [];
+                
+                document.getElementById('attentionCount').textContent = `${items.length} items`;
+                
+                const container = document.getElementById('attentionList');
+                
+                if (items.length === 0) {
+                    container.innerHTML = `
+                        <div class="glass-card rounded-xl p-6 text-center">
+                            <i class="fas fa-check-circle text-4xl text-emerald-500 mb-3"></i>
+                            <p class="text-emerald-400 font-medium">All Clear!</p>
+                            <p class="text-gray-500 text-sm">No urgent items need attention</p>
+                        </div>
+                    `;
+                    return;
+                }
+
+                container.innerHTML = items.slice(0, 5).map(item => {
+                    const bgColor = item.priority === 'high' ? 'border-l-red-500 bg-red-500/5' : 'border-l-yellow-500 bg-yellow-500/5';
+                    const icon = item.type === 'pending_content' ? 'fa-file-alt text-purple-400' :
+                                item.type === 'urgent_alert' ? 'fa-exclamation-triangle text-red-400' :
+                                'fa-crosshairs text-orange-400';
+                    
+                    return `
+                        <div class="glass-card rounded-xl p-4 border-l-4 ${bgColor}">
+                            <div class="flex items-start gap-3">
+                                <i class="fas ${icon} mt-1"></i>
+                                <div class="flex-1">
+                                    <p class="font-medium">${item.client_name}</p>
+                                    <p class="text-sm text-gray-400">${item.message}</p>
+                                </div>
+                                <a href="${item.link}" class="px-3 py-1 bg-white/10 rounded-lg text-sm hover:bg-white/20 transition whitespace-nowrap">
+                                    ${item.action} <i class="fas fa-arrow-right ml-1"></i>
+                                </a>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            } catch (e) {
+                console.error('Failed to load attention items:', e);
+            }
+        }
+
+        async function loadWins() {
+            try {
+                const res = await fetch(`${API_URL}/api/agency/wins`, {
+                    headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
+                });
+                const data = await res.json();
+                const wins = data.wins || [];
+                
+                const container = document.getElementById('winsList');
+                
+                if (wins.length === 0) {
+                    container.innerHTML = `
+                        <div class="text-center py-4">
+                            <i class="fas fa-trophy text-2xl text-gray-600 mb-2"></i>
+                            <p class="text-gray-500 text-sm">No ranking wins this week yet</p>
+                        </div>
+                    `;
+                    return;
+                }
+
+                container.innerHTML = `
+                    <div class="text-center mb-3 pb-3 border-b border-white/10">
+                        <p class="text-2xl font-bold text-emerald-400">+${data.total_positions_gained}</p>
+                        <p class="text-xs text-gray-500">Total positions gained</p>
+                    </div>
+                    ${wins.slice(0, 6).map(win => `
+                        <div class="flex items-center gap-3 py-2">
+                            <div class="w-8 h-8 rounded-lg bg-emerald-500/20 flex items-center justify-center">
+                                <i class="fas fa-arrow-up text-emerald-400 text-xs"></i>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <p class="text-sm font-medium truncate">${win.keyword}</p>
+                                <p class="text-xs text-gray-500">${win.client_name}</p>
+                            </div>
+                            <div class="text-right">
+                                <p class="text-sm text-emerald-400 font-bold">#${win.previous_position} → #${win.current_position}</p>
+                            </div>
+                        </div>
+                    `).join('')}
+                `;
+            } catch (e) {
+                console.error('Failed to load wins:', e);
+            }
+        }
+
+        async function loadActivity() {
+            try {
+                const res = await fetch(`${API_URL}/api/agency/activity`, {
+                    headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
+                });
+                const data = await res.json();
+                const activity = data.activity || [];
+                
+                const container = document.getElementById('activityList');
+                
+                if (activity.length === 0) {
+                    container.innerHTML = `
+                        <div class="text-center py-4">
+                            <i class="fas fa-stream text-2xl text-gray-600 mb-2"></i>
+                            <p class="text-gray-500 text-sm">No recent activity</p>
+                        </div>
+                    `;
+                    return;
+                }
+
+                container.innerHTML = activity.slice(0, 10).map(item => {
+                    const time = item.timestamp ? timeAgo(new Date(item.timestamp)) : '';
+                    return `
+                        <div class="flex items-start gap-3 py-2 ${item.is_read ? 'opacity-60' : ''}">
+                            <span class="text-lg">${item.icon}</span>
+                            <div class="flex-1 min-w-0">
+                                <p class="text-sm">${item.title}</p>
+                                <p class="text-xs text-gray-500">${item.client_name} • ${time}</p>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            } catch (e) {
+                console.error('Failed to load activity:', e);
+            }
+        }
+
+        async function loadPendingContent() {
+            try {
+                const res = await fetch(`${API_URL}/api/agency/content-queue`, {
+                    headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
+                });
+                const data = await res.json();
+                const content = data.content || [];
+                
+                document.getElementById('pendingCount').textContent = `${content.length} items`;
+                
+                const container = document.getElementById('contentList');
+                
+                if (content.length === 0) {
+                    container.innerHTML = `
+                        <div class="glass-card rounded-xl p-6 text-center col-span-full">
+                            <i class="fas fa-inbox text-4xl text-gray-600 mb-3"></i>
+                            <p class="text-gray-400">No content pending approval</p>
+                        </div>
+                    `;
+                    return;
+                }
+
+                container.innerHTML = content.slice(0, 6).map(item => `
+                    <div class="glass-card rounded-xl p-4">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="px-2 py-0.5 bg-purple-500/20 text-purple-400 rounded text-xs">${item.trigger_type}</span>
+                            <div class="flex items-center gap-1 text-sm">
+                                <span class="text-emerald-400 font-bold">${item.our_seo_score}</span>
+                                <span class="text-gray-500">vs</span>
+                                <span class="text-orange-400">${item.competitor_seo_score}</span>
+                            </div>
+                        </div>
+                        <h3 class="font-medium text-sm mb-2 line-clamp-2">${item.title}</h3>
+                        <div class="flex items-center justify-between text-xs text-gray-500 mb-3">
+                            <span>${item.client_name}</span>
+                            <span>${item.word_count} words</span>
+                        </div>
+                        <a href="/elite?client=${item.client_id}" class="block text-center px-3 py-2 bg-blue-500/20 text-blue-400 rounded-lg text-sm hover:bg-blue-500/30 transition">
+                            Review Content
+                        </a>
+                    </div>
+                `).join('');
+            } catch (e) {
+                console.error('Failed to load pending content:', e);
+            }
+        }
+
+        // ==========================================
+        // HELPERS
+        // ==========================================
+        function timeAgo(date) {
+            const seconds = Math.floor((new Date() - date) / 1000);
+            if (seconds < 60) return 'Just now';
+            if (seconds < 3600) return `${Math.floor(seconds / 60)} min ago`;
+            if (seconds < 86400) return `${Math.floor(seconds / 3600)} hours ago`;
+            return `${Math.floor(seconds / 86400)} days ago`;
+        }
+
+        function refreshAll() {
+            loadAllData();
+        }
+
+        function scrollToClients() {
+            document.getElementById('clientsSection').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function scrollToContent() {
+            document.getElementById('contentSection').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function scrollToAttention() {
+            document.getElementById('attentionSection').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function scrollToWins() {
+            document.getElementById('winsSection').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        // Close modals on escape
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                // Handle escape
+            }
+        });
+    </script>
+</body>
+</html>

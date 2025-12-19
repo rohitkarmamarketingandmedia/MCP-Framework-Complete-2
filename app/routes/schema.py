@@ -38,7 +38,7 @@ def generate_schema(current_user):
     if not current_user.can_generate_content:
         return jsonify({'error': 'Permission denied'}), 403
     
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     
     if not data.get('client_id') or not data.get('schema_type'):
         return jsonify({'error': 'client_id and schema_type required'}), 400
@@ -99,7 +99,7 @@ def validate_schema(current_user):
         "schema": { ... JSON-LD object ... }
     }
     """
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     schema = data.get('schema', {})
     
     errors = []

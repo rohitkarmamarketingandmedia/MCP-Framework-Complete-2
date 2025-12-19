@@ -21,47 +21,6 @@ webhooks_bp = Blueprint('webhooks', __name__)
 
 
 # ==========================================
-# WEBHOOK STATUS & LIST
-# ==========================================
-
-@webhooks_bp.route('/', methods=['GET'])
-@webhooks_bp.route('', methods=['GET'])
-@token_required
-def list_webhooks(current_user):
-    """
-    List all webhooks for the current user
-    
-    GET /api/webhooks/
-    """
-    # Get webhook endpoints
-    if current_user.role == 'admin':
-        endpoints = DBWebhookEndpoint.query.filter_by(is_active=True).all()
-    else:
-        # Non-admins see limited info
-        endpoints = DBWebhookEndpoint.query.filter_by(is_active=True).limit(10).all()
-    
-    # Get recent webhook logs
-    recent_logs = DBWebhookLog.query.order_by(
-        DBWebhookLog.created_at.desc()
-    ).limit(20).all()
-    
-    return jsonify({
-        'endpoints': [e.to_dict() for e in endpoints],
-        'recent_activity': [
-            {
-                'id': log.id,
-                'event_type': log.event_type,
-                'direction': log.direction,
-                'status': log.status,
-                'created_at': log.created_at.isoformat() if log.created_at else None
-            }
-            for log in recent_logs
-        ],
-        'total_endpoints': len(endpoints)
-    })
-
-
-# ==========================================
 # WEBHOOK ENDPOINT MANAGEMENT
 # ==========================================
 
@@ -98,7 +57,7 @@ def create_webhook_endpoint(current_user):
         "secret": "optional-secret"
     }
     """
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     
     name = data.get('name')
     url = data.get('url')
@@ -137,7 +96,7 @@ def update_webhook_endpoint(current_user, endpoint_id):
     if not endpoint:
         return jsonify({'error': 'Endpoint not found'}), 404
     
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     
     if 'name' in data:
         endpoint.name = data['name']
@@ -246,11 +205,9 @@ def test_webhook_endpoint(current_user, endpoint_id):
 # ==========================================
 
 @webhooks_bp.route('/logs', methods=['GET'])
-@webhooks_bp.route('/status', methods=['GET'])  # Alias for /api/webhooks/status
-@webhooks_bp.route('/status/<client_id>', methods=['GET'])  # Alias for /api/webhooks/status/{id}
 @token_required
 @admin_required
-def list_webhook_logs(current_user, client_id=None):
+def list_webhook_logs(current_user):
     """
     List webhook logs
     
@@ -314,7 +271,7 @@ def receive_callrail_webhook():
     - Voicemail received
     - Text received
     """
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     
     # Log the inbound webhook
     import uuid
@@ -425,7 +382,7 @@ def receive_form_webhook():
     
     POST /api/webhooks/inbound/form
     """
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     
     import uuid
     event_id = f"in_{uuid.uuid4().hex[:16]}"
@@ -508,7 +465,7 @@ def receive_chatbot_webhook():
     
     POST /api/webhooks/inbound/chatbot
     """
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     
     import uuid
     event_id = f"in_{uuid.uuid4().hex[:16]}"
@@ -565,7 +522,7 @@ def fire_manual_webhook(current_user):
         "client_id": "optional"
     }
     """
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     
     event_type = data.get('event_type')
     payload = data.get('payload', {})

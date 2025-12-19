@@ -1,0 +1,668 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MCP Framework Demo | Karma Marketing</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+        
+        .gradient-bg {
+            background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #0f172a 100%);
+        }
+        
+        .glow {
+            box-shadow: 0 0 60px rgba(99, 102, 241, 0.3);
+        }
+        
+        .glow-green {
+            box-shadow: 0 0 40px rgba(16, 185, 129, 0.4);
+        }
+        
+        .glow-orange {
+            box-shadow: 0 0 40px rgba(249, 115, 22, 0.4);
+        }
+        
+        .pulse-ring {
+            animation: pulse-ring 2s ease-out infinite;
+        }
+        
+        @keyframes pulse-ring {
+            0% { transform: scale(1); opacity: 1; }
+            100% { transform: scale(1.5); opacity: 0; }
+        }
+        
+        .typing::after {
+            content: '|';
+            animation: blink 1s infinite;
+        }
+        
+        @keyframes blink {
+            0%, 50% { opacity: 1; }
+            51%, 100% { opacity: 0; }
+        }
+        
+        .slide-up {
+            animation: slideUp 0.5s ease-out forwards;
+        }
+        
+        @keyframes slideUp {
+            from { transform: translateY(20px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        
+        .progress-fill {
+            animation: fillProgress 2s ease-out forwards;
+        }
+        
+        @keyframes fillProgress {
+            from { width: 0%; }
+        }
+        
+        .fade-in {
+            animation: fadeIn 0.5s ease-out forwards;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        .health-circle {
+            stroke-dasharray: 283;
+            stroke-dashoffset: 283;
+            animation: drawCircle 2s ease-out forwards;
+        }
+        
+        @keyframes drawCircle {
+            to { stroke-dashoffset: 57; }
+        }
+        
+        .float {
+            animation: float 3s ease-in-out infinite;
+        }
+        
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+    </style>
+</head>
+<body class="gradient-bg min-h-screen text-white">
+    
+    <!-- Navigation -->
+    <nav class="fixed top-0 left-0 right-0 z-50 bg-slate-900/80 backdrop-blur-lg border-b border-slate-700/50">
+        <div class="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center font-bold text-lg">K</div>
+                <span class="font-semibold text-lg">Karma Marketing</span>
+            </div>
+            <div class="flex items-center gap-2 text-sm text-slate-400">
+                <span class="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span>
+                Live Demo
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="pt-24 pb-12">
+        
+        <!-- Hero -->
+        <section id="hero" class="max-w-5xl mx-auto px-6 py-16 text-center">
+            <div class="inline-flex items-center gap-2 bg-indigo-500/10 border border-indigo-500/30 rounded-full px-4 py-2 text-indigo-400 text-sm mb-8">
+                <span class="w-2 h-2 bg-indigo-500 rounded-full"></span>
+                AI-Powered Marketing Automation
+            </div>
+            <h1 class="text-5xl md:text-6xl font-bold mb-6 leading-tight">
+                Turn Customer Calls Into<br>
+                <span class="bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">Google Rankings</span>
+            </h1>
+            <p class="text-xl text-slate-400 mb-12 max-w-2xl mx-auto">
+                Every phone call contains SEO gold. We extract it automatically.
+            </p>
+            <button onclick="startDemo()" class="bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 px-8 py-4 rounded-xl font-semibold text-lg transition-all hover:scale-105 glow">
+                ▶️ Watch The Demo
+            </button>
+        </section>
+
+        <!-- Demo Sections (Hidden Initially) -->
+        <div id="demo-container" class="hidden">
+            
+            <!-- Step 1: The Call -->
+            <section id="step1" class="max-w-5xl mx-auto px-6 py-16 hidden">
+                <div class="text-center mb-12">
+                    <div class="inline-flex items-center gap-2 text-emerald-400 text-sm mb-4">
+                        <span class="w-6 h-6 bg-emerald-500/20 rounded-full flex items-center justify-center text-xs">1</span>
+                        STEP ONE
+                    </div>
+                    <h2 class="text-3xl font-bold">Customer Calls Your Client</h2>
+                </div>
+                
+                <div class="bg-slate-800/50 rounded-2xl border border-slate-700/50 p-8 max-w-2xl mx-auto glow-green">
+                    <div class="flex items-center gap-4 mb-6">
+                        <div class="w-16 h-16 bg-emerald-500/20 rounded-full flex items-center justify-center relative">
+                            <span class="text-3xl">📞</span>
+                            <div class="absolute inset-0 bg-emerald-500/30 rounded-full pulse-ring"></div>
+                        </div>
+                        <div>
+                            <div class="text-lg font-semibold">Incoming Call</div>
+                            <div class="text-slate-400">Cliff's AC & Heating</div>
+                        </div>
+                        <div class="ml-auto text-right">
+                            <div class="text-emerald-400 font-mono" id="call-duration">00:00</div>
+                            <div class="text-xs text-slate-500">Recording...</div>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-slate-900/50 rounded-xl p-4 mb-4">
+                        <div class="text-xs text-slate-500 mb-2">LIVE TRANSCRIPT</div>
+                        <div class="text-slate-300 leading-relaxed" id="transcript-text">
+                            <span class="text-indigo-400">[Customer]:</span> "Hi, I'm calling because my AC isn't cooling properly. <span id="transcript-cursor" class="typing"></span>"
+                        </div>
+                    </div>
+                    
+                    <div class="flex items-center gap-4 text-sm">
+                        <div class="flex items-center gap-2">
+                            <span class="w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
+                            <span class="text-slate-400">CallRail Recording</span>
+                        </div>
+                        <div class="text-slate-500">|</div>
+                        <div class="text-slate-400">Duration: 3:24</div>
+                        <div class="text-slate-500">|</div>
+                        <div class="text-emerald-400">Hot Lead 🔥</div>
+                    </div>
+                </div>
+            </section>
+            
+            <!-- Step 2: AI Analysis -->
+            <section id="step2" class="max-w-5xl mx-auto px-6 py-16 hidden">
+                <div class="text-center mb-12">
+                    <div class="inline-flex items-center gap-2 text-purple-400 text-sm mb-4">
+                        <span class="w-6 h-6 bg-purple-500/20 rounded-full flex items-center justify-center text-xs">2</span>
+                        STEP TWO
+                    </div>
+                    <h2 class="text-3xl font-bold">AI Extracts The Gold</h2>
+                </div>
+                
+                <div class="grid md:grid-cols-2 gap-6 max-w-4xl mx-auto">
+                    <!-- Questions Extracted -->
+                    <div class="bg-slate-800/50 rounded-2xl border border-slate-700/50 p-6 slide-up" style="animation-delay: 0.1s">
+                        <div class="flex items-center gap-3 mb-4">
+                            <span class="text-2xl">❓</span>
+                            <h3 class="font-semibold">Questions Extracted</h3>
+                        </div>
+                        <div class="space-y-3" id="questions-list">
+                            <!-- Filled by JS -->
+                        </div>
+                    </div>
+                    
+                    <!-- Keywords Found -->
+                    <div class="bg-slate-800/50 rounded-2xl border border-slate-700/50 p-6 slide-up" style="animation-delay: 0.2s">
+                        <div class="flex items-center gap-3 mb-4">
+                            <span class="text-2xl">🔑</span>
+                            <h3 class="font-semibold">Keywords Identified</h3>
+                        </div>
+                        <div class="flex flex-wrap gap-2" id="keywords-list">
+                            <!-- Filled by JS -->
+                        </div>
+                    </div>
+                    
+                    <!-- Pain Points -->
+                    <div class="bg-slate-800/50 rounded-2xl border border-slate-700/50 p-6 slide-up" style="animation-delay: 0.3s">
+                        <div class="flex items-center gap-3 mb-4">
+                            <span class="text-2xl">😰</span>
+                            <h3 class="font-semibold">Pain Points</h3>
+                        </div>
+                        <div class="space-y-2" id="painpoints-list">
+                            <!-- Filled by JS -->
+                        </div>
+                    </div>
+                    
+                    <!-- Content Opportunities -->
+                    <div class="bg-slate-800/50 rounded-2xl border border-slate-700/50 p-6 slide-up" style="animation-delay: 0.4s">
+                        <div class="flex items-center gap-3 mb-4">
+                            <span class="text-2xl">💡</span>
+                            <h3 class="font-semibold">Content Opportunities</h3>
+                        </div>
+                        <div class="space-y-2" id="opportunities-list">
+                            <!-- Filled by JS -->
+                        </div>
+                    </div>
+                </div>
+            </section>
+            
+            <!-- Step 3: Content Generated -->
+            <section id="step3" class="max-w-5xl mx-auto px-6 py-16 hidden">
+                <div class="text-center mb-12">
+                    <div class="inline-flex items-center gap-2 text-orange-400 text-sm mb-4">
+                        <span class="w-6 h-6 bg-orange-500/20 rounded-full flex items-center justify-center text-xs">3</span>
+                        STEP THREE
+                    </div>
+                    <h2 class="text-3xl font-bold">Content Auto-Generated</h2>
+                </div>
+                
+                <div class="max-w-3xl mx-auto space-y-4">
+                    <!-- Blog Post -->
+                    <div class="bg-slate-800/50 rounded-2xl border border-slate-700/50 p-6 glow-orange slide-up">
+                        <div class="flex items-center justify-between mb-4">
+                            <div class="flex items-center gap-3">
+                                <span class="text-2xl">📝</span>
+                                <div>
+                                    <div class="font-semibold">Blog Post Generated</div>
+                                    <div class="text-sm text-slate-400">From customer questions</div>
+                                </div>
+                            </div>
+                            <div class="bg-emerald-500/20 text-emerald-400 px-3 py-1 rounded-full text-sm">
+                                SEO Score: 94
+                            </div>
+                        </div>
+                        <div class="bg-slate-900/50 rounded-xl p-4">
+                            <h4 class="text-lg font-semibold text-white mb-2">Why Is My AC Not Cooling? Port Charlotte HVAC Expert Explains</h4>
+                            <p class="text-slate-400 text-sm mb-3">If your AC is running but not cooling your Port Charlotte home, you're not alone. Here are the most common causes and what you can do...</p>
+                            <div class="flex items-center gap-4 text-xs text-slate-500">
+                                <span>1,847 words</span>
+                                <span>•</span>
+                                <span>8 internal links</span>
+                                <span>•</span>
+                                <span>FAQ schema included</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- FAQ Section -->
+                    <div class="bg-slate-800/50 rounded-2xl border border-slate-700/50 p-6 slide-up" style="animation-delay: 0.2s">
+                        <div class="flex items-center gap-3 mb-4">
+                            <span class="text-2xl">❓</span>
+                            <div>
+                                <div class="font-semibold">FAQ Page Updated</div>
+                                <div class="text-sm text-slate-400">Real questions, real answers</div>
+                            </div>
+                        </div>
+                        <div class="space-y-2">
+                            <div class="bg-slate-900/30 rounded-lg p-3 flex items-center justify-between">
+                                <span class="text-sm">How much does AC repair cost in Port Charlotte?</span>
+                                <span class="text-emerald-400 text-xs">NEW</span>
+                            </div>
+                            <div class="bg-slate-900/30 rounded-lg p-3 flex items-center justify-between">
+                                <span class="text-sm">Why is my AC running but not cooling?</span>
+                                <span class="text-emerald-400 text-xs">NEW</span>
+                            </div>
+                            <div class="bg-slate-900/30 rounded-lg p-3 flex items-center justify-between">
+                                <span class="text-sm">How long does AC repair take?</span>
+                                <span class="text-emerald-400 text-xs">NEW</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Social Posts -->
+                    <div class="bg-slate-800/50 rounded-2xl border border-slate-700/50 p-6 slide-up" style="animation-delay: 0.3s">
+                        <div class="flex items-center gap-3 mb-4">
+                            <span class="text-2xl">📱</span>
+                            <div>
+                                <div class="font-semibold">Social Posts Scheduled</div>
+                                <div class="text-sm text-slate-400">Facebook, Instagram, Google</div>
+                            </div>
+                        </div>
+                        <div class="flex gap-3">
+                            <div class="flex-1 bg-blue-500/10 border border-blue-500/30 rounded-lg p-3 text-center">
+                                <div class="text-blue-400 text-xl mb-1">f</div>
+                                <div class="text-xs text-slate-400">3 posts</div>
+                            </div>
+                            <div class="flex-1 bg-pink-500/10 border border-pink-500/30 rounded-lg p-3 text-center">
+                                <div class="text-pink-400 text-xl mb-1">📷</div>
+                                <div class="text-xs text-slate-400">3 posts</div>
+                            </div>
+                            <div class="flex-1 bg-emerald-500/10 border border-emerald-500/30 rounded-lg p-3 text-center">
+                                <div class="text-emerald-400 text-xl mb-1">G</div>
+                                <div class="text-xs text-slate-400">1 post</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+            
+            <!-- Step 4: Client Dashboard -->
+            <section id="step4" class="max-w-5xl mx-auto px-6 py-16 hidden">
+                <div class="text-center mb-12">
+                    <div class="inline-flex items-center gap-2 text-indigo-400 text-sm mb-4">
+                        <span class="w-6 h-6 bg-indigo-500/20 rounded-full flex items-center justify-center text-xs">4</span>
+                        STEP FOUR
+                    </div>
+                    <h2 class="text-3xl font-bold">Client Sees This</h2>
+                    <p class="text-slate-400 mt-2">Simple. Clear. Valuable.</p>
+                </div>
+                
+                <div class="bg-slate-800/50 rounded-2xl border border-slate-700/50 overflow-hidden max-w-4xl mx-auto glow">
+                    <!-- Dashboard Header -->
+                    <div class="bg-slate-900/50 border-b border-slate-700/50 p-4 flex items-center justify-between">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 bg-gradient-to-br from-orange-500 to-red-500 rounded-lg flex items-center justify-center font-bold">C</div>
+                            <div>
+                                <div class="font-semibold">Cliff's AC & Heating</div>
+                                <div class="text-xs text-slate-400">Port Charlotte, FL</div>
+                            </div>
+                        </div>
+                        <div class="text-sm text-slate-400">Welcome, Cliff! 👋</div>
+                    </div>
+                    
+                    <!-- Dashboard Content -->
+                    <div class="p-6">
+                        <div class="grid md:grid-cols-3 gap-6">
+                            <!-- Health Score -->
+                            <div class="bg-slate-900/30 rounded-xl p-6 text-center">
+                                <div class="relative w-32 h-32 mx-auto mb-4">
+                                    <svg class="w-full h-full transform -rotate-90">
+                                        <circle cx="64" cy="64" r="56" stroke="#1e293b" stroke-width="8" fill="none"/>
+                                        <circle cx="64" cy="64" r="56" stroke="#10b981" stroke-width="8" fill="none" class="health-circle" stroke-linecap="round"/>
+                                    </svg>
+                                    <div class="absolute inset-0 flex items-center justify-center">
+                                        <div>
+                                            <div class="text-3xl font-bold" id="health-score">0</div>
+                                            <div class="text-xs text-slate-400">/ 100</div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="text-emerald-400 font-semibold text-lg">A Grade</div>
+                                <div class="text-sm text-slate-400">Health Score</div>
+                            </div>
+                            
+                            <!-- Wins -->
+                            <div class="bg-slate-900/30 rounded-xl p-6">
+                                <div class="flex items-center gap-2 mb-4">
+                                    <span class="text-xl">🏆</span>
+                                    <span class="font-semibold">This Week's Wins</span>
+                                </div>
+                                <div class="space-y-3">
+                                    <div class="flex items-center gap-3 text-sm">
+                                        <span class="text-emerald-400">✓</span>
+                                        <span class="text-slate-300">"AC repair" → Page 1</span>
+                                    </div>
+                                    <div class="flex items-center gap-3 text-sm">
+                                        <span class="text-emerald-400">✓</span>
+                                        <span class="text-slate-300">12 new leads (+34%)</span>
+                                    </div>
+                                    <div class="flex items-center gap-3 text-sm">
+                                        <span class="text-emerald-400">✓</span>
+                                        <span class="text-slate-300">Blog published</span>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Calls -->
+                            <div class="bg-slate-900/30 rounded-xl p-6">
+                                <div class="flex items-center gap-2 mb-4">
+                                    <span class="text-xl">📞</span>
+                                    <span class="font-semibold">Phone Leads</span>
+                                </div>
+                                <div class="text-4xl font-bold text-white mb-1">23</div>
+                                <div class="text-sm text-slate-400 mb-4">calls this month</div>
+                                <div class="flex items-center gap-2">
+                                    <div class="flex-1 bg-slate-700 rounded-full h-2">
+                                        <div class="bg-emerald-500 h-2 rounded-full" style="width: 87%"></div>
+                                    </div>
+                                    <span class="text-sm text-emerald-400">87%</span>
+                                </div>
+                                <div class="text-xs text-slate-500 mt-1">Answer rate</div>
+                            </div>
+                        </div>
+                        
+                        <!-- Pending Approval -->
+                        <div class="mt-6 bg-indigo-500/10 border border-indigo-500/30 rounded-xl p-6">
+                            <div class="flex items-center justify-between mb-4">
+                                <div class="flex items-center gap-3">
+                                    <span class="text-2xl">📋</span>
+                                    <div>
+                                        <div class="font-semibold">Ready for Your Approval</div>
+                                        <div class="text-sm text-slate-400">1 blog post waiting</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="bg-slate-900/50 rounded-lg p-4 mb-4">
+                                <div class="font-medium mb-1">Why Is My AC Not Cooling? Port Charlotte HVAC Expert Explains</div>
+                                <div class="text-sm text-slate-400">1,847 words • SEO Score: 94</div>
+                            </div>
+                            <div class="flex gap-3">
+                                <button onclick="approveContent()" class="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white py-3 rounded-lg font-semibold transition-all" id="approve-btn">
+                                    ✓ Approve & Publish
+                                </button>
+                                <button class="px-6 bg-slate-700 hover:bg-slate-600 text-white py-3 rounded-lg font-semibold transition-all">
+                                    Request Changes
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+            
+            <!-- Step 5: The Result -->
+            <section id="step5" class="max-w-5xl mx-auto px-6 py-16 hidden">
+                <div class="text-center mb-12">
+                    <div class="inline-flex items-center gap-2 text-emerald-400 text-sm mb-4">
+                        <span class="w-6 h-6 bg-emerald-500/20 rounded-full flex items-center justify-center text-xs">5</span>
+                        THE RESULT
+                    </div>
+                    <h2 class="text-3xl font-bold">The Flywheel Spins</h2>
+                </div>
+                
+                <div class="max-w-3xl mx-auto">
+                    <div class="relative">
+                        <!-- Flywheel Visual -->
+                        <div class="bg-slate-800/50 rounded-2xl border border-slate-700/50 p-8 text-center glow-green">
+                            <div class="text-6xl mb-6 float">🔄</div>
+                            <div class="grid grid-cols-4 gap-4 mb-8">
+                                <div class="text-center">
+                                    <div class="text-3xl font-bold text-white">47</div>
+                                    <div class="text-sm text-slate-400">Calls Analyzed</div>
+                                </div>
+                                <div class="text-center">
+                                    <div class="text-3xl font-bold text-white">156</div>
+                                    <div class="text-sm text-slate-400">Questions Found</div>
+                                </div>
+                                <div class="text-center">
+                                    <div class="text-3xl font-bold text-white">12</div>
+                                    <div class="text-sm text-slate-400">Blogs Created</div>
+                                </div>
+                                <div class="text-center">
+                                    <div class="text-3xl font-bold text-emerald-400">+340%</div>
+                                    <div class="text-sm text-slate-400">Organic Traffic</div>
+                                </div>
+                            </div>
+                            
+                            <div class="text-xl font-semibold text-white mb-2">More Calls → More Content → More Rankings → More Calls</div>
+                            <div class="text-slate-400">The system feeds itself.</div>
+                        </div>
+                    </div>
+                    
+                    <!-- Final CTA -->
+                    <div class="text-center mt-12">
+                        <div class="text-2xl font-bold mb-4">This is what $2,500/month gets you.</div>
+                        <div class="text-slate-400 mb-8">No setup fee. We guarantee 3x leads or work free.</div>
+                        <button onclick="location.reload()" class="bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 px-8 py-4 rounded-xl font-semibold text-lg transition-all hover:scale-105">
+                            🔄 Watch Again
+                        </button>
+                    </div>
+                </div>
+            </section>
+            
+        </div>
+    </main>
+
+    <script>
+        // Demo data
+        const questions = [
+            "How much does AC repair cost?",
+            "Why is my AC not cooling?",
+            "How long does repair take?",
+            "Do you offer emergency service?",
+            "What brands do you service?"
+        ];
+        
+        const keywords = [
+            "AC repair", "not cooling", "Port Charlotte", "emergency", 
+            "cost", "HVAC", "air conditioning", "same day"
+        ];
+        
+        const painPoints = [
+            "AC running but not cooling",
+            "High electricity bills",
+            "Worried about cost"
+        ];
+        
+        const opportunities = [
+            { type: "Blog", title: "Why AC Not Cooling" },
+            { type: "FAQ", title: "5 New Questions" },
+            { type: "Service Page", title: "Emergency Repair" }
+        ];
+        
+        let currentStep = 0;
+        
+        function startDemo() {
+            document.getElementById('hero').classList.add('hidden');
+            document.getElementById('demo-container').classList.remove('hidden');
+            showStep(1);
+        }
+        
+        function showStep(step) {
+            currentStep = step;
+            
+            // Hide all steps
+            for (let i = 1; i <= 5; i++) {
+                document.getElementById('step' + i).classList.add('hidden');
+            }
+            
+            // Show current step
+            document.getElementById('step' + step).classList.remove('hidden');
+            
+            // Run step-specific animations
+            if (step === 1) runStep1();
+            if (step === 2) runStep2();
+            if (step === 4) runStep4();
+            
+            // Auto-advance (except last step)
+            if (step < 5) {
+                const delays = [5000, 4000, 4000, 6000];
+                setTimeout(() => showStep(step + 1), delays[step - 1]);
+            }
+        }
+        
+        function runStep1() {
+            // Animate call duration
+            let seconds = 0;
+            const durationEl = document.getElementById('call-duration');
+            const interval = setInterval(() => {
+                seconds++;
+                const mins = Math.floor(seconds / 60);
+                const secs = seconds % 60;
+                durationEl.textContent = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+                if (seconds >= 15) clearInterval(interval);
+            }, 300);
+            
+            // Animate transcript
+            const transcriptParts = [
+                "How much would it cost to fix it?",
+                " I've had another company out but they wanted to charge me $800.",
+                " Do you guys do same-day service?"
+            ];
+            
+            const cursor = document.getElementById('transcript-cursor');
+            const textEl = document.getElementById('transcript-text');
+            let partIndex = 0;
+            
+            setTimeout(() => {
+                const addPart = () => {
+                    if (partIndex < transcriptParts.length) {
+                        cursor.insertAdjacentText('beforebegin', transcriptParts[partIndex]);
+                        partIndex++;
+                        setTimeout(addPart, 1200);
+                    }
+                };
+                addPart();
+            }, 1000);
+        }
+        
+        function runStep2() {
+            // Populate questions
+            const questionsList = document.getElementById('questions-list');
+            questionsList.innerHTML = '';
+            questions.forEach((q, i) => {
+                setTimeout(() => {
+                    const div = document.createElement('div');
+                    div.className = 'bg-slate-900/30 rounded-lg p-3 text-sm text-slate-300 fade-in';
+                    div.textContent = q;
+                    questionsList.appendChild(div);
+                }, i * 200);
+            });
+            
+            // Populate keywords
+            const keywordsList = document.getElementById('keywords-list');
+            keywordsList.innerHTML = '';
+            keywords.forEach((k, i) => {
+                setTimeout(() => {
+                    const span = document.createElement('span');
+                    span.className = 'bg-purple-500/20 text-purple-300 px-3 py-1 rounded-full text-sm fade-in';
+                    span.textContent = k;
+                    keywordsList.appendChild(span);
+                }, i * 150);
+            });
+            
+            // Populate pain points
+            const painList = document.getElementById('painpoints-list');
+            painList.innerHTML = '';
+            painPoints.forEach((p, i) => {
+                setTimeout(() => {
+                    const div = document.createElement('div');
+                    div.className = 'flex items-center gap-2 text-sm text-orange-300 fade-in';
+                    div.innerHTML = `<span>⚠️</span> ${p}`;
+                    painList.appendChild(div);
+                }, i * 250);
+            });
+            
+            // Populate opportunities
+            const oppList = document.getElementById('opportunities-list');
+            oppList.innerHTML = '';
+            opportunities.forEach((o, i) => {
+                setTimeout(() => {
+                    const div = document.createElement('div');
+                    div.className = 'flex items-center justify-between bg-emerald-500/10 rounded-lg p-3 text-sm fade-in';
+                    div.innerHTML = `
+                        <span class="text-emerald-300">${o.title}</span>
+                        <span class="text-xs bg-emerald-500/30 text-emerald-400 px-2 py-1 rounded">${o.type}</span>
+                    `;
+                    oppList.appendChild(div);
+                }, i * 300);
+            });
+        }
+        
+        function runStep4() {
+            // Animate health score
+            let score = 0;
+            const scoreEl = document.getElementById('health-score');
+            const interval = setInterval(() => {
+                score += 2;
+                scoreEl.textContent = score;
+                if (score >= 82) {
+                    clearInterval(interval);
+                    scoreEl.textContent = '82';
+                }
+            }, 40);
+        }
+        
+        function approveContent() {
+            const btn = document.getElementById('approve-btn');
+            btn.innerHTML = '✓ Published!';
+            btn.classList.remove('bg-emerald-500', 'hover:bg-emerald-600');
+            btn.classList.add('bg-slate-600');
+            btn.disabled = true;
+            
+            // Show confetti effect (simple version)
+            const confetti = document.createElement('div');
+            confetti.className = 'fixed inset-0 pointer-events-none z-50';
+            confetti.innerHTML = '<div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-6xl animate-ping">🎉</div>';
+            document.body.appendChild(confetti);
+            setTimeout(() => confetti.remove(), 1000);
+        }
+    </script>
+</body>
+</html>
