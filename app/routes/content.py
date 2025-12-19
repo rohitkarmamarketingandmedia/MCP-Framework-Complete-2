@@ -203,7 +203,7 @@ def generate_blog_async(current_user):
     if not current_user.can_generate_content:
         return jsonify({'error': 'Permission denied'}), 403
     
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     
     if not data.get('client_id') or not data.get('keyword'):
         return jsonify({'error': 'client_id and keyword required'}), 400
@@ -287,7 +287,7 @@ def generate_content(current_user):
     if not current_user.can_generate_content:
         return jsonify({'error': 'Permission denied'}), 403
     
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     
     # Validate required fields
     required = ['client_id', 'keyword', 'geo', 'industry']
@@ -449,7 +449,7 @@ def bulk_generate(current_user):
     if not current_user.can_generate_content:
         return jsonify({'error': 'Permission denied'}), 403
     
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     
     client_id = data.get('client_id')
     topics = data.get('topics', [])
@@ -631,7 +631,7 @@ def update_content(current_user, content_id):
     if not current_user.has_access_to_client(content.client_id):
         return jsonify({'error': 'Access denied'}), 403
     
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     
     # Update allowed fields
     if 'title' in data:
@@ -723,7 +723,7 @@ def seo_check(current_user):
         "target_keyword": "..."
     }
     """
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     
     title = data.get('title', '')
     body = data.get('body', '')
@@ -801,7 +801,7 @@ def update_blog_post(current_user, blog_id):
     if not current_user.has_access_to_client(blog.client_id):
         return jsonify({'error': 'Access denied'}), 403
     
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     
     # Update allowed fields
     updatable_fields = [
@@ -861,7 +861,7 @@ def generate_social_simple(current_user):
     if not current_user.can_generate_content:
         return jsonify({'error': 'Permission denied'}), 403
     
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     
     if not data.get('client_id') or not data.get('topic') or not data.get('platform'):
         return jsonify({'error': 'client_id, topic, and platform required'}), 400
@@ -940,7 +940,7 @@ def test_wordpress_connection(current_user):
         "wordpress_app_password": "xxxx xxxx xxxx xxxx"
     }
     """
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     
     wp_url = data.get('wordpress_url', '').strip()
     wp_user = data.get('wordpress_user', '').strip()
@@ -1025,7 +1025,7 @@ def publish_to_wordpress(current_user, content_id):
             return jsonify(test), 400
         
         # Determine WordPress status
-        data = request.get_json() or {}
+        data = request.get_json(silent=True) or {}
         wp_status = data.get('status')
         
         if not wp_status:
@@ -1167,7 +1167,7 @@ def bulk_delete_content(current_user):
     if not current_user.can_generate_content:
         return jsonify({'error': 'Permission denied'}), 403
     
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     ids = data.get('ids', [])
     
     if not ids:
@@ -1208,7 +1208,7 @@ def bulk_approve_content(current_user):
     if not current_user.can_generate_content:
         return jsonify({'error': 'Permission denied'}), 403
     
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     ids = data.get('ids', [])
     
     if not ids:
@@ -1252,7 +1252,7 @@ def submit_content_feedback(current_user, content_id):
     if not current_user.has_access_to_client(content.client_id):
         return jsonify({'error': 'Access denied'}), 403
     
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     feedback_text = data.get('feedback', '')
     feedback_type = data.get('type', 'comment')
     

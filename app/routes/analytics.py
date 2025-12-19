@@ -444,7 +444,7 @@ def ai_seo_analysis(current_user, client_id):
     if not current_user.has_access_to_client(client_id):
         return jsonify({'error': 'Access denied'}), 403
     
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     if not data:
         return jsonify({'error': 'Request body required'}), 400
     
@@ -509,7 +509,7 @@ def ai_competitor_analysis(current_user, client_id):
     if not current_user.has_access_to_client(client_id):
         return jsonify({'error': 'Access denied'}), 403
     
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     if not data:
         return jsonify({'error': 'Request body required'}), 400
     

@@ -28,7 +28,7 @@ def analyze_single_call(current_user):
         "client_id": "..."
     }
     """
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     transcript = data.get('transcript')
     client_id = data.get('client_id')
     
@@ -60,7 +60,7 @@ def analyze_multiple_calls(current_user, client_id):
     if not current_user.has_access_to_client(client_id):
         return jsonify({'error': 'Access denied'}), 403
     
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     transcripts = data.get('transcripts', [])
     
     if not transcripts:
@@ -98,7 +98,7 @@ def fetch_and_analyze_callrail(current_user, client_id):
     if not CallRailConfig.is_configured():
         return jsonify({'error': 'CallRail not configured'}), 400
     
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     days = data.get('days', 30)
     limit = data.get('limit', 50)
     
@@ -248,7 +248,7 @@ def generate_faq_page(current_user, client_id):
     if not current_user.has_access_to_client(client_id):
         return jsonify({'error': 'Access denied'}), 403
     
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     questions = data.get('questions')
     max_questions = data.get('max_questions', 15)
     
@@ -276,7 +276,7 @@ def generate_blog_from_questions(current_user, client_id):
     if not current_user.has_access_to_client(client_id):
         return jsonify({'error': 'Access denied'}), 403
     
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     questions = data.get('questions', [])
     topic = data.get('topic')
     save_draft = data.get('save_draft', True)
@@ -306,7 +306,7 @@ def generate_service_qa(current_user, client_id):
     if not current_user.has_access_to_client(client_id):
         return jsonify({'error': 'Access denied'}), 403
     
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     service = data.get('service')
     
     if not service:
@@ -335,7 +335,7 @@ def generate_content_calendar(current_user, client_id):
     if not current_user.has_access_to_client(client_id):
         return jsonify({'error': 'Access denied'}), 403
     
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     weeks = data.get('weeks', 4)
     posts_per_week = data.get('posts_per_week', 2)
     

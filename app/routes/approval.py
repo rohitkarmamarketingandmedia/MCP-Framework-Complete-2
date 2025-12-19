@@ -106,7 +106,7 @@ def approve_content(current_user, content_type, content_id):
         "schedule_for": "2024-12-20T10:00:00Z"  // Optional, auto-schedule after approval
     }
     """
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     
     if content_type == 'blog':
         content = DBBlogPost.query.get(content_id)
@@ -209,7 +209,7 @@ def request_changes(current_user, content_type, content_id):
         "priority": "normal|high|low"
     }
     """
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     
     feedback = data.get('feedback', '').strip()
     if not feedback:
@@ -310,7 +310,7 @@ def add_feedback(current_user, content_type, content_id):
         "type": "comment|approval|change_request"
     }
     """
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     
     message = data.get('message', '').strip()
     if not message:
@@ -441,7 +441,7 @@ def submit_for_approval(current_user, content_type, content_id):
     if not current_user.can_generate_content:
         return jsonify({'error': 'Permission denied'}), 403
     
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     
     if content_type == 'blog':
         content = DBBlogPost.query.get(content_id)
@@ -502,7 +502,7 @@ def bulk_approve(current_user):
         ]
     }
     """
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     items = data.get('items', [])
     
     if not items:

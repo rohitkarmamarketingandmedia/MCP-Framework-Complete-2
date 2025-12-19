@@ -37,7 +37,7 @@ def generate_social(current_user):
     if not current_user.can_generate_content:
         return jsonify({'error': 'Permission denied'}), 403
     
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     
     required = ['client_id', 'topic']
     for field in required:
@@ -124,7 +124,7 @@ def generate_social_kit(current_user):
     if not current_user.can_generate_content:
         return jsonify({'error': 'Permission denied'}), 403
     
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     
     if not data.get('client_id'):
         return jsonify({'error': 'client_id required'}), 400
@@ -216,7 +216,7 @@ def update_social_post(current_user, post_id):
     if not current_user.has_access_to_client(post.client_id):
         return jsonify({'error': 'Access denied'}), 403
     
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     
     if 'content' in data:
         post.content = data['content']
@@ -295,7 +295,7 @@ def schedule_posts(current_user):
         "scheduled_at": "2024-03-15T10:00:00Z"
     }
     """
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     
     if not data.get('post_ids') or not data.get('scheduled_at'):
         return jsonify({'error': 'post_ids and scheduled_at required'}), 400
@@ -336,7 +336,7 @@ def bulk_delete_social(current_user):
     if not current_user.can_generate_content:
         return jsonify({'error': 'Permission denied'}), 403
     
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     ids = data.get('ids', [])
     
     if not ids:
@@ -449,7 +449,7 @@ def connect_platform(current_user, client_id, platform):
     if not client:
         return jsonify({'error': 'Client not found'}), 404
     
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     access_token = data.get('access_token')
     
     if not access_token:
@@ -701,7 +701,7 @@ def publish_now(current_user, client_id):
     if not current_user.has_access_to_client(client_id):
         return jsonify({'error': 'Access denied'}), 403
     
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     platforms = data.get('platforms', [])
     content = data.get('content', '')
     image_url = data.get('image_url')

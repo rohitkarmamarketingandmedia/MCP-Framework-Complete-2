@@ -1,19 +1,18 @@
 # Changelog
 
-## v5.5.77 (2025-12-19)
+## v5.5.78 (2025-12-19)
 
 ### Fixed
-- Fix competitor dashboard crash when DBRankHistory has no ranking_url attribute (monitoring.py lines 1245, 1300)
+- **Repo-wide get_json fix**: Replaced all 118 occurrences of `request.get_json()` with `request.get_json(silent=True)` to prevent 415 Unsupported Media Type errors
+- **Render port binding**: Changed default port from 5000 to 10000 in run.py to match Render defaults
 
-## v5.5.76 (2025-12-19)
+### Previously Fixed (v5.5.75-77)
+- Dataclass crash: reordered fields in HealthScoreBreakdown (content_score ordering)
+- ImportError: added data_service singleton to data_service.py  
+- Competitor dashboard crash: safe getattr fallback for ranking_url in monitoring.py
+- Scheduler guarded by ENABLE_SCHEDULER env var (must be "1" to enable)
+- Procfile for Render port binding via $PORT
 
-### Fixed
-- Fixed dataclass crash: TypeError "non-default argument 'content_score' follows default argument" in client_health_service.py
-- Added Procfile for Render port binding via $PORT env var
-
-## v5.5.75 (2025-12-19)
-
-### Fixed
-- Fixed ImportError in featured image route (added data_service singleton)
-- Scheduler guarded by ENABLE_SCHEDULER env var (must be "1" to enable, default OFF)
-- request.get_json(silent=True) in: pages.py, publish.py, webhooks.py, oauth.py, schema.py
+### Deployment Notes
+- Render port binding: Uses `$PORT` env var (Render sets this automatically)
+- To enable scheduler: Set `ENABLE_SCHEDULER=1` on ONE Render instance only

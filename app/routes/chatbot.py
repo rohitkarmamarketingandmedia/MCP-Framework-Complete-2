@@ -56,7 +56,7 @@ def update_chatbot_config(current_user, client_id):
         config = DBChatbotConfig(client_id=client_id)
         db.session.add(config)
     
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     
     # Update allowed fields
     allowed_fields = [
@@ -147,7 +147,7 @@ def start_conversation(chatbot_id):
     if not config or not config.is_active:
         return jsonify({'error': 'Chatbot not found or inactive'}), 404
     
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     
     # Get visitor info
     visitor_id = data.get('visitor_id', f"anon_{datetime.utcnow().timestamp()}")
@@ -210,7 +210,7 @@ def send_message(chatbot_id):
     if not config or not config.is_active:
         return jsonify({'error': 'Chatbot not found or inactive'}), 404
     
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     conversation_id = data.get('conversation_id')
     message_content = data.get('message', '').strip()
     
@@ -313,7 +313,7 @@ def capture_lead(chatbot_id):
     if not config or not config.is_active:
         return jsonify({'error': 'Chatbot not found or inactive'}), 404
     
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     conversation_id = data.get('conversation_id')
     
     if not conversation_id:
@@ -376,7 +376,7 @@ def capture_lead(chatbot_id):
 @chatbot_bp.route('/widget/<chatbot_id>/end', methods=['POST'])
 def end_conversation(chatbot_id):
     """Public endpoint - End a conversation"""
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     conversation_id = data.get('conversation_id')
     
     if not conversation_id:
@@ -408,7 +408,7 @@ def end_conversation(chatbot_id):
 @optional_token
 def mcp_support_message(current_user):
     """Internal MCP support chatbot endpoint"""
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     message = data.get('message', '').strip()
     history = data.get('history', [])
     
@@ -495,7 +495,7 @@ def reply_to_conversation(current_user, conversation_id):
     if not current_user.has_access_to_client(conversation.client_id):
         return jsonify({'error': 'Access denied'}), 403
     
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     message_content = data.get('message', '').strip()
     
     if not message_content:
@@ -544,7 +544,7 @@ def add_faq(current_user, client_id):
     if not current_user.has_access_to_client(client_id):
         return jsonify({'error': 'Access denied'}), 403
     
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     
     faq = DBChatbotFAQ(
         client_id=client_id,
@@ -577,7 +577,7 @@ def update_faq(current_user, client_id, faq_id):
     if not faq:
         return jsonify({'error': 'FAQ not found'}), 404
     
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     
     if 'question' in data:
         faq.question = data['question']

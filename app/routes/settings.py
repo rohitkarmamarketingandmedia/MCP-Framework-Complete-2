@@ -65,7 +65,7 @@ def create_setting(current_user):
         "is_secret": false
     }
     """
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     
     required = ['category', 'key', 'value']
     for field in required:
@@ -149,7 +149,7 @@ def bulk_update_settings(current_user):
         ]
     }
     """
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     settings = data.get('settings', [])
     
     results = []
@@ -389,7 +389,7 @@ def create_webhook(current_user):
         "client_id": "client_xxx"
     }
     """
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     
     required = ['name', 'url', 'events']
     for field in required:
@@ -440,7 +440,7 @@ def update_webhook(current_user, webhook_id):
         if not current_user.has_access_to_client(webhook.client_id):
             return jsonify({'error': 'Access denied'}), 403
     
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     
     result = webhook_service.update_webhook(
         webhook_id=webhook_id,

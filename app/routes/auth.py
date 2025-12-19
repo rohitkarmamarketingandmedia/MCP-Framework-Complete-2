@@ -79,7 +79,7 @@ def bootstrap_admin():
             'hint': 'If you forgot your password, contact support or reset the database.'
         }), 400
     
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     
     # Get or generate credentials
     email = data.get('email') or os.environ.get('ADMIN_EMAIL') or 'admin@karma.marketing'
@@ -250,7 +250,7 @@ def login():
         "password": "password123"
     }
     """
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     
     if not data or not data.get('email') or not data.get('password'):
         return jsonify({'error': 'Email and password required'}), 400
@@ -300,7 +300,7 @@ def register(current_user):
         "client_ids": ["client_abc123"]
     }
     """
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     
     
     # Validate password
@@ -357,7 +357,7 @@ def change_password(current_user):
         "new_password": "new456"
     }
     """
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     
     if not data.get('current_password') or not data.get('new_password'):
         return jsonify({'error': 'Current and new password required'}), 400
@@ -411,7 +411,7 @@ def update_user(current_user, user_id):
     if not user:
         return jsonify({'error': 'User not found'}), 404
     
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     
     if 'name' in data:
         user.name = data['name']
@@ -464,7 +464,7 @@ def reset_user_password(current_user, user_id):
     if not user:
         return jsonify({'error': 'User not found'}), 404
     
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     if not data.get('new_password'):
         return jsonify({'error': 'new_password is required'}), 400
     
@@ -550,7 +550,7 @@ def force_fix_admin():
     """
     from app.database import db
     
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     email = data.get('email', '').lower().strip()
     admin_email = os.environ.get('ADMIN_EMAIL', 'admin@karma.marketing').lower()
     

@@ -51,7 +51,7 @@ def create_new_client(current_user):
         "tone": "professional"
     }
     """
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     
     required = ['business_name', 'industry', 'geo']
     for field in required:
@@ -113,7 +113,7 @@ def update_client(current_user, client_id):
     if not is_admin_or_manager and not has_client_access:
         return jsonify({'error': 'Permission denied'}), 403
     
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     
     # Update allowed fields
     if 'business_name' in data:
@@ -229,7 +229,7 @@ def update_keywords(current_user, client_id):
     if not client:
         return jsonify({'error': 'Client not found'}), 404
     
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     
     if 'primary' in data:
         client.primary_keywords = json.dumps(data['primary'])
@@ -272,7 +272,7 @@ def update_integrations(current_user, client_id):
     if not client:
         return jsonify({'error': 'Client not found'}), 404
     
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     
     # Store integrations as JSON
     integrations = client.get_integrations()
@@ -405,7 +405,7 @@ def add_service_page(current_user, client_id):
     if not client:
         return jsonify({'error': 'Client not found'}), 404
     
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     keyword = data.get('keyword', '').strip()
     url = data.get('url', '').strip()
     title = data.get('title', keyword).strip()
@@ -458,7 +458,7 @@ def update_service_pages(current_user, client_id):
     if not client:
         return jsonify({'error': 'Client not found'}), 404
     
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     pages = data.get('service_pages', [])
     
     # Validate structure
@@ -533,7 +533,7 @@ def auto_generate_service_pages(current_user, client_id):
     if not client:
         return jsonify({'error': 'Client not found'}), 404
     
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     base_url = data.get('base_url', client.website_url or '').strip().rstrip('/')
     
     if not base_url:

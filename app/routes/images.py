@@ -41,7 +41,7 @@ def generate_image(current_user):
     if not current_user.can_generate_content:
         return jsonify({'error': 'Permission denied'}), 403
     
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     
     prompt = data.get('prompt')
     if not prompt:
@@ -97,7 +97,7 @@ def generate_social_images(current_user):
     if not current_user.can_generate_content:
         return jsonify({'error': 'Permission denied'}), 403
     
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     
     topic = data.get('topic')
     if not topic:
@@ -155,7 +155,7 @@ def generate_image_prompt(current_user):
         "style": "professional"
     }
     """
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     
     topic = data.get('topic')
     if not topic:
@@ -517,7 +517,7 @@ def update_library_image(current_user, client_id, image_id):
     if not image:
         return jsonify({'error': 'Image not found'}), 404
     
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     
     if 'title' in data:
         image.title = data['title']
@@ -587,7 +587,7 @@ def create_featured_image(current_user, client_id):
             'error': 'Featured image generation not available. Install Pillow: pip install Pillow'
         }), 500
     
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     
     title = data.get('title')
     if not title:

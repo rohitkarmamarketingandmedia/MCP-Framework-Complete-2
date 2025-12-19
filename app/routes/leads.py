@@ -37,7 +37,7 @@ def capture_lead():
         "landing_page": "https://example.com/roof-repair"
     }
     """
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     
     client_id = data.get('client_id')
     if not client_id:
@@ -56,7 +56,7 @@ def capture_lead_for_client(client_id):
     """
     Alternative endpoint with client_id in URL
     """
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     data['client_id'] = client_id
     
     result = lead_service.capture_lead(client_id, data)
@@ -142,7 +142,7 @@ def update_lead_status(current_user, lead_id):
     if not current_user.has_access_to_client(lead.client_id):
         return jsonify({'error': 'Access denied'}), 403
     
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     status = data.get('status')
     notes = data.get('notes')
     auto_review = data.get('auto_review_request', True)  # Default to true
@@ -212,7 +212,7 @@ def update_lead_value(current_user, lead_id):
     if not current_user.has_access_to_client(lead.client_id):
         return jsonify({'error': 'Access denied'}), 403
     
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     
     result = lead_service.set_lead_value(
         lead_id,
@@ -314,7 +314,7 @@ def generate_form_embed(current_user):
         "success_message": "Thanks! We'll call you shortly."
     }
     """
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     client_id = data.get('client_id')
     
     if not client_id:
@@ -349,7 +349,7 @@ def update_notification_settings(current_user):
         "enabled": true
     }
     """
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     client_id = data.get('client_id')
     
     if not client_id:

@@ -82,7 +82,7 @@ def add_review(current_user):
         "review_date": "2024-01-15T10:30:00Z"
     }
     """
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     client_id = data.get('client_id')
     
     if not client_id:
@@ -131,7 +131,7 @@ def update_response(current_user, review_id):
     if not current_user.has_access_to_client(review.client_id):
         return jsonify({'error': 'Access denied'}), 403
     
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     
     result = review_service.update_review_response(
         review_id=review_id,
@@ -238,7 +238,7 @@ def generate_all_responses(current_user):
         "client_id": "xxx"
     }
     """
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     client_id = data.get('client_id')
     
     if not client_id:
@@ -281,7 +281,7 @@ def send_review_request(current_user):
         "method": "both"  // email, sms, both
     }
     """
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     client_id = data.get('client_id')
     
     if not client_id:
@@ -345,7 +345,7 @@ def send_review_request_to_lead(current_user, lead_id):
     if not current_user.has_access_to_client(lead.client_id):
         return jsonify({'error': 'Access denied'}), 403
     
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     review_url = data.get('review_url')
     
     if not review_url:
@@ -374,7 +374,7 @@ def send_bulk_review_requests(current_user):
         "method": "email"
     }
     """
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     client_id = data.get('client_id')
     
     if not client_id:

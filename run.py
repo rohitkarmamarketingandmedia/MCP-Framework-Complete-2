@@ -37,7 +37,7 @@ def find_available_port(preferred_port=5000):
 if __name__ == '__main__':
     # Get configuration from environment
     host = os.environ.get('HOST', '0.0.0.0')
-    preferred_port = int(os.environ.get('PORT', 5000))
+    preferred_port = int(os.environ.get('PORT', 10000))
     debug = os.environ.get('FLASK_ENV', 'development') == 'development'
     
     # Find available port

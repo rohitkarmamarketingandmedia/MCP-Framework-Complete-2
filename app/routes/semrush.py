@@ -104,7 +104,7 @@ def bulk_keyword_overview(current_user):
         "database": "us"
     }
     """
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     keywords = data.get('keywords', [])
     database = data.get('database', 'us')
     
@@ -230,7 +230,7 @@ def keyword_gap(current_user):
         "database": "us"
     }
     """
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     domain = data.get('domain')
     competitors = data.get('competitors', [])
     limit = data.get('limit', 50)
@@ -330,7 +330,7 @@ def client_research(current_user, client_id):
     if not current_user.has_access_to_client(client_id):
         return jsonify({'error': 'Access denied'}), 403
     
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     research_type = data.get('research_type', 'full')
     update_client = data.get('update_client', True)
     

@@ -55,7 +55,7 @@ def update_preferences(current_user):
         ...
     }
     """
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     client_id = data.pop('client_id', None)
     
     try:
@@ -86,7 +86,7 @@ def reset_preferences(current_user):
         "client_id": "optional"
     }
     """
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     client_id = data.get('client_id')
     
     try:
@@ -238,7 +238,7 @@ def process_digest(current_user):
         "frequency": "daily|weekly"
     }
     """
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     user_id = data.get('user_id', current_user.id)
     frequency = data.get('frequency', 'daily')
     

@@ -354,7 +354,7 @@ def send_report(current_user, client_id):
     if not current_user.can_generate_content:
         return jsonify({'error': 'Permission denied'}), 403
     
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     recipient_email = data.get('email')
     
     from app.services.client_report_service import get_client_report_service

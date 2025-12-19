@@ -52,7 +52,7 @@ def test_email(current_user):
     """
     from app.services.email_service import get_email_service
     
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     to_email = data.get('to', current_user.email)
     
     if not to_email:

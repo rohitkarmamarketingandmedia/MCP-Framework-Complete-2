@@ -62,7 +62,7 @@ def add_competitor(current_user):
         "name": "Main Competitor"
     }
     """
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     
     client_id = data.get('client_id')
     domain = data.get('domain', '').strip()
@@ -139,7 +139,7 @@ def update_competitor_schedule(current_user, competitor_id):
     if not current_user.has_access_to_client(competitor.client_id):
         return jsonify({'error': 'Access denied'}), 403
     
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     frequency = data.get('crawl_frequency', 'daily')
     
     if frequency not in ['daily', 'weekly', 'manual']:
@@ -261,7 +261,7 @@ def discover_competitors(current_user):
         "keywords": ["ac repair", "hvac service"]
     }
     """
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     
     industry = data.get('industry', '')
     geo = data.get('geo', '')
@@ -348,7 +348,7 @@ def generate_counter_content(current_user):
         "target_keyword": "roof repair sarasota"  // Optional override
     }
     """
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     
     page_id = data.get('competitor_page_id')
     
@@ -556,7 +556,7 @@ def approve_queue_item(current_user, item_id):
     if item.status != 'pending':
         return jsonify({'error': f'Item is already {item.status}'}), 400
     
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     
     # Create blog post
     blog_post = DBBlogPost(
@@ -606,7 +606,7 @@ def reject_queue_item(current_user, item_id):
     if not current_user.has_access_to_client(item.client_id):
         return jsonify({'error': 'Access denied'}), 403
     
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     
     item.status = 'rejected'
     item.client_notes = data.get('notes', '')
@@ -681,7 +681,7 @@ def regenerate_queue_item(current_user, item_id):
     if item.regenerate_count >= 3:
         return jsonify({'error': 'Maximum regeneration limit reached'}), 400
     
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     notes = data.get('notes', '')
     
     # Get client
@@ -943,7 +943,7 @@ def score_content(current_user):
         "location": "Sarasota, FL"
     }
     """
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     
     content = data.get('content', {})
     keyword = data.get('target_keyword', '')
@@ -971,7 +971,7 @@ def compare_content(current_user):
         "location": "..."
     }
     """
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     
     our_content = data.get('our_content', {})
     competitor_url = data.get('competitor_url', '')
@@ -1016,7 +1016,7 @@ def analyze_url(current_user):
         "url": "https://competitor.com/blog-post"
     }
     """
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     url = data.get('url', '').strip()
     
     if not url:
@@ -1537,7 +1537,7 @@ def crawl_all_competitors(current_user):
         "client_id": "client_abc123"
     }
     """
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     client_id = data.get('client_id')
     
     if not client_id:
@@ -1655,7 +1655,7 @@ def save_crawl_settings(current_user):
         "crawl_frequency": "daily|weekly|manual"
     }
     """
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     client_id = data.get('client_id')
     frequency = data.get('crawl_frequency', 'daily')
     
