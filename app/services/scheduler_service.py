@@ -24,6 +24,31 @@ def init_scheduler(app):
         logger.info("Scheduler already initialized")
         return scheduler
     
+    # Only run scheduler on one worker to prevent duplicate jobs
+    # Check for Gunicorn worker - only run on first worker (worker 0)
+    import os
+    worker_id = os.environ.get('GUNICORN_WORKER_ID', '0')
+    
+    # Also check if we're in Gunicorn at all - check for SERVER_SOFTWARE
+    server_software = os.environ.get('SERVER_SOFTWARE', '')
+    
+    # In development (not Gunicorn), always run scheduler
+    # In Gunicorn, check if this is the main process or worker 0
+    if 'gunicorn' in server_software.lower():
+        # Try to detect if we're the first worker using a file lock
+        import tempfile
+        import fcntl
+        lock_file = os.path.join(tempfile.gettempdir(), 'mcp_scheduler.lock')
+        try:
+            lock_fd = open(lock_file, 'w')
+            fcntl.flock(lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            # Got lock - we're the first worker
+            logger.info(f"Scheduler will run on this worker (got lock)")
+        except (IOError, OSError):
+            # Another worker has the lock
+            logger.info("Scheduler skipped - another worker has the lock")
+            return None
+    
     scheduler = BackgroundScheduler(
         job_defaults={
             'coalesce': True,  # Combine missed runs into one

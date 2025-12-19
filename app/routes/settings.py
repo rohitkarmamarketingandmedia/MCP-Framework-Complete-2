@@ -49,6 +49,7 @@ def get_settings(current_user):
 
 
 @settings_bp.route('/', methods=['POST'])
+@token_required
 @admin_required
 def create_setting(current_user):
     """
@@ -136,6 +137,7 @@ def create_setting(current_user):
 
 
 @settings_bp.route('/bulk', methods=['POST'])
+@token_required
 @admin_required
 def bulk_update_settings(current_user):
     """
@@ -200,6 +202,7 @@ def bulk_update_settings(current_user):
 
 
 @settings_bp.route('/<int:setting_id>', methods=['DELETE'])
+@token_required
 @admin_required
 def delete_setting(current_user, setting_id):
     """Delete a setting"""
@@ -227,6 +230,7 @@ def delete_setting(current_user, setting_id):
 # ==========================================
 
 @settings_bp.route('/audit', methods=['GET'])
+@token_required
 @admin_required
 def get_audit_logs(current_user):
     """
@@ -267,6 +271,7 @@ def get_audit_logs(current_user):
 
 
 @settings_bp.route('/audit/stats', methods=['GET'])
+@token_required
 @admin_required
 def get_audit_stats(current_user):
     """Get audit log statistics"""
@@ -276,6 +281,7 @@ def get_audit_stats(current_user):
 
 
 @settings_bp.route('/audit/user/<user_id>', methods=['GET'])
+@token_required
 @admin_required
 def get_user_audit(current_user, user_id):
     """Get audit logs for a specific user"""
@@ -292,6 +298,7 @@ def get_user_audit(current_user, user_id):
 
 
 @settings_bp.route('/audit/client/<client_id>', methods=['GET'])
+@token_required
 @admin_required
 def get_client_audit(current_user, client_id):
     """Get audit logs for a specific client"""
@@ -308,6 +315,7 @@ def get_client_audit(current_user, client_id):
 
 
 @settings_bp.route('/audit/resource/<resource_type>/<resource_id>', methods=['GET'])
+@token_required
 @admin_required
 def get_resource_audit(current_user, resource_type, resource_id):
     """Get audit history for a specific resource"""
@@ -324,6 +332,7 @@ def get_resource_audit(current_user, resource_type, resource_id):
 
 
 @settings_bp.route('/audit/export', methods=['GET'])
+@token_required
 @admin_required
 def export_audit_logs(current_user):
     """Export audit logs as JSON"""
@@ -516,6 +525,7 @@ def test_webhook(current_user, webhook_id):
 
 
 @settings_bp.route('/webhooks/stats', methods=['GET'])
+@token_required
 @admin_required
 def get_webhook_stats(current_user):
     """Get webhook statistics"""

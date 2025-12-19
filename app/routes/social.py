@@ -261,6 +261,7 @@ def delete_social_post(current_user, post_id):
 
 
 @social_bp.route('/client/<client_id>', methods=['GET'])
+@social_bp.route('/posts/<client_id>', methods=['GET'])  # Alias for /api/social/posts/{id}
 @token_required
 def list_client_posts(current_user, client_id):
     """List all social posts for a client"""
@@ -280,6 +281,34 @@ def list_client_posts(current_user, client_id):
         'client_id': client_id,
         'total': len(posts),
         'posts': [p.to_dict() for p in posts]
+    })
+
+
+@social_bp.route('/calendar/<client_id>', methods=['GET'])
+@token_required
+def get_social_calendar(current_user, client_id):
+    """
+    Get social posts organized as a calendar
+    
+    GET /api/social/calendar/{client_id}
+    """
+    if not current_user.has_access_to_client(client_id):
+        return jsonify({'error': 'Access denied'}), 403
+    
+    posts = data_service.get_client_social_posts(client_id)
+    
+    # Organize by date
+    calendar = {}
+    for post in posts:
+        date_key = post.scheduled_for.strftime('%Y-%m-%d') if post.scheduled_for else 'unscheduled'
+        if date_key not in calendar:
+            calendar[date_key] = []
+        calendar[date_key].append(post.to_dict())
+    
+    return jsonify({
+        'client_id': client_id,
+        'calendar': calendar,
+        'total_posts': len(posts)
     })
 
 

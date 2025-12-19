@@ -47,6 +47,7 @@ def get_agent(current_user, agent_id):
 
 
 @agents_bp.route('/<agent_id>', methods=['PUT'])
+@token_required
 @admin_required
 def update_agent(current_user, agent_id):
     """
@@ -151,6 +152,7 @@ def get_agent_versions(current_user, agent_id):
 
 
 @agents_bp.route('/<agent_id>/versions/<int:version_id>/rollback', methods=['POST'])
+@token_required
 @admin_required
 def rollback_agent(current_user, agent_id, version_id):
     """
@@ -181,6 +183,7 @@ def rollback_agent(current_user, agent_id, version_id):
 
 
 @agents_bp.route('/<agent_id>/duplicate', methods=['POST'])
+@token_required
 @admin_required
 def duplicate_agent(current_user, agent_id):
     """
@@ -218,6 +221,7 @@ def duplicate_agent(current_user, agent_id):
 
 
 @agents_bp.route('/initialize', methods=['POST'])
+@token_required
 @admin_required
 def initialize_agents(current_user):
     """

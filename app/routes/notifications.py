@@ -227,6 +227,7 @@ def send_test_notification(current_user):
 
 
 @notifications_bp.route('/process-digest', methods=['POST'])
+@token_required
 @admin_required
 def process_digest(current_user):
     """
@@ -371,6 +372,7 @@ def get_notification_types(current_user):
 # ==========================================
 
 @notifications_bp.route('/admin/logs', methods=['GET'])
+@token_required
 @admin_required
 def admin_get_logs(current_user):
     """
@@ -418,6 +420,7 @@ def admin_get_logs(current_user):
 
 
 @notifications_bp.route('/admin/retry-failed', methods=['POST'])
+@token_required
 @admin_required
 def admin_retry_failed(current_user):
     """
@@ -434,6 +437,7 @@ def admin_retry_failed(current_user):
 
 
 @notifications_bp.route('/admin/stats', methods=['GET'])
+@token_required
 @admin_required
 def admin_get_stats(current_user):
     """

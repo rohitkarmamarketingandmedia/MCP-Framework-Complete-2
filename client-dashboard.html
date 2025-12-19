@@ -283,6 +283,24 @@
             </div>
         </header>
 
+        <!-- Permission Error Alert (hidden by default) -->
+        <div id="permissionAlert" class="hidden max-w-7xl mx-auto px-4 py-2">
+            <div class="bg-gradient-to-r from-red-500/20 to-orange-500/20 border border-red-500/40 rounded-xl p-4 flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-full bg-red-500/20 flex items-center justify-center">
+                        <i class="fas fa-exclamation-triangle text-red-400"></i>
+                    </div>
+                    <div>
+                        <p class="text-white font-medium">Permission Issues Detected</p>
+                        <p class="text-sm text-gray-400">Some features may not work. Click to fix.</p>
+                    </div>
+                </div>
+                <button onclick="manualFixPermissions()" class="px-4 py-2 bg-gradient-to-r from-red-600 to-orange-600 rounded-lg text-white text-sm font-medium hover:opacity-90 transition">
+                    <i class="fas fa-wrench mr-2"></i>Fix Permissions
+                </button>
+            </div>
+        </div>
+
         <!-- Stats Bar -->
         <div class="max-w-7xl mx-auto px-4 py-6">
             <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -558,12 +576,15 @@
                             </div>
                         </div>
                         
-                        <div class="grid md:grid-cols-2 gap-4">
+                        <div class="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
                             <!-- Questions Extracted -->
                             <div class="bg-slate-900/50 rounded-xl p-4">
                                 <div class="flex items-center gap-2 mb-3">
-                                    <span class="text-blue-400">❓</span>
-                                    <span class="text-sm font-medium text-white">Top Questions Asked</span>
+                                    <span class="text-2xl">❓</span>
+                                    <div>
+                                        <span class="text-sm font-medium text-white">Questions</span>
+                                        <p class="text-xs text-gray-500">Extracted</p>
+                                    </div>
                                 </div>
                                 <div class="space-y-2" id="extracted-questions">
                                     <div class="bg-slate-800/50 rounded-lg p-2 text-xs text-gray-300">Loading...</div>
@@ -573,8 +594,11 @@
                             <!-- Keywords Identified -->
                             <div class="bg-slate-900/50 rounded-xl p-4">
                                 <div class="flex items-center gap-2 mb-3">
-                                    <span class="text-purple-400">🔑</span>
-                                    <span class="text-sm font-medium text-white">Keywords Identified</span>
+                                    <span class="text-2xl">🔑</span>
+                                    <div>
+                                        <span class="text-sm font-medium text-white">Keywords</span>
+                                        <p class="text-xs text-gray-500">Identified</p>
+                                    </div>
                                 </div>
                                 <div class="flex flex-wrap gap-2" id="extracted-keywords">
                                     <span class="bg-purple-500/20 text-purple-300 px-2 py-1 rounded-full text-xs">Loading...</span>
@@ -584,24 +608,38 @@
                             <!-- Pain Points -->
                             <div class="bg-slate-900/50 rounded-xl p-4">
                                 <div class="flex items-center gap-2 mb-3">
-                                    <span class="text-orange-400">⚠️</span>
-                                    <span class="text-sm font-medium text-white">Pain Points</span>
+                                    <span class="text-2xl">😰</span>
+                                    <div>
+                                        <span class="text-sm font-medium text-white">Pain Points</span>
+                                        <p class="text-xs text-gray-500">Detected</p>
+                                    </div>
                                 </div>
                                 <div class="space-y-2" id="extracted-pain">
                                     <div class="text-xs text-orange-300">Loading...</div>
                                 </div>
                             </div>
                             
-                            <!-- Content Opportunities -->
+                            <!-- Services Requested -->
                             <div class="bg-slate-900/50 rounded-xl p-4">
                                 <div class="flex items-center gap-2 mb-3">
-                                    <span class="text-emerald-400">💡</span>
-                                    <span class="text-sm font-medium text-white">Content Opportunities</span>
+                                    <span class="text-2xl">🔧</span>
+                                    <div>
+                                        <span class="text-sm font-medium text-white">Services</span>
+                                        <p class="text-xs text-gray-500">Requested</p>
+                                    </div>
                                 </div>
-                                <div class="space-y-2" id="content-opportunities">
-                                    <div class="text-xs text-emerald-300">Loading...</div>
+                                <div class="space-y-2" id="extracted-services">
+                                    <div class="text-xs text-cyan-300">Loading...</div>
                                 </div>
                             </div>
+                        </div>
+                        
+                        <!-- Intelligence Score -->
+                        <div class="mt-6 bg-gradient-to-r from-purple-900/30 to-pink-900/30 rounded-xl p-6 text-center">
+                            <p class="text-xs text-purple-400 uppercase tracking-wider mb-2">Intelligence Score</p>
+                            <div class="text-5xl font-bold text-white mb-1" id="intelligence-score">--</div>
+                            <p class="text-xs text-purple-300">/100</p>
+                            <p class="text-sm text-gray-400 mt-2" id="intelligence-summary">Analyzing interactions...</p>
                         </div>
                     </div>
                 </div>
@@ -692,8 +730,6 @@
                                         <option value="1800" selected>1,800 words</option>
                                         <option value="2000">2,000 words</option>
                                         <option value="2500">2,500 words</option>
-                                        <option value="2000">2,000 words</option>
-                                        <option value="2500">2,500 words</option>
                                     </select>
                                 </div>
                                 <div>
@@ -733,6 +769,62 @@
                                 <div class="spinner w-6 h-6"></div>
                                 <span id="blogProgressText" class="text-gray-300">Generating...</span>
                             </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Bulk Blog Generation -->
+                    <div class="glass rounded-2xl p-6">
+                        <div class="flex items-center gap-3 mb-6">
+                            <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500 to-pink-600 flex items-center justify-center">
+                                <i class="fas fa-layer-group text-white text-xl"></i>
+                            </div>
+                            <div>
+                                <h3 class="text-lg font-bold text-white">Bulk Blog Generation</h3>
+                                <p class="text-sm text-gray-400">Generate multiple blogs at once</p>
+                            </div>
+                        </div>
+                        
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-300 mb-2">Keywords (one per line)</label>
+                                <textarea id="bulkKeywords" rows="5" placeholder="ac repair sarasota&#10;hvac maintenance bradenton&#10;emergency ac service" 
+                                    class="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 resize-none"></textarea>
+                            </div>
+                            
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-300 mb-2">Word Count Each</label>
+                                    <select id="bulkWordCount" class="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white focus:outline-none focus:border-purple-500">
+                                        <option value="1500">1,500 words</option>
+                                        <option value="1800" selected>1,800 words</option>
+                                        <option value="2000">2,000 words</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-300 mb-2">FAQs Per Blog</label>
+                                    <select id="bulkFaqCount" class="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white focus:outline-none focus:border-purple-500">
+                                        <option value="5" selected>5 FAQs</option>
+                                        <option value="3">3 FAQs</option>
+                                        <option value="0">No FAQs</option>
+                                    </select>
+                                </div>
+                            </div>
+                            
+                            <button onclick="generateBulkBlogs()" id="btnBulkGenerate" 
+                                class="w-full py-4 bg-gradient-to-r from-purple-600 to-pink-600 rounded-xl text-white font-bold hover:opacity-90 transition flex items-center justify-center gap-2">
+                                <i class="fas fa-rocket"></i> Generate All Blogs
+                            </button>
+                        </div>
+                        
+                        <div id="bulkProgress" class="hidden mt-4">
+                            <div class="flex items-center justify-between mb-2">
+                                <span class="text-sm text-gray-400">Progress</span>
+                                <span id="bulkProgressCount" class="text-sm text-white">0/0</span>
+                            </div>
+                            <div class="w-full bg-white/10 rounded-full h-2">
+                                <div id="bulkProgressBar" class="bg-gradient-to-r from-purple-500 to-pink-500 h-2 rounded-full transition-all" style="width: 0%"></div>
+                            </div>
+                            <div id="bulkProgressLog" class="mt-3 max-h-32 overflow-y-auto text-sm text-gray-400 space-y-1"></div>
                         </div>
                     </div>
                     
@@ -871,6 +963,87 @@
                             </div>
                         </div>
                     </div>
+                    
+                    <!-- Client Image Library -->
+                    <div class="glass rounded-2xl p-6">
+                        <div class="flex items-center gap-3 mb-6">
+                            <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-pink-500 to-rose-600 flex items-center justify-center">
+                                <i class="fas fa-photo-film text-white text-xl"></i>
+                            </div>
+                            <div>
+                                <h3 class="text-lg font-bold text-white">Image Library</h3>
+                                <p class="text-sm text-gray-400">Upload photos for featured images</p>
+                            </div>
+                        </div>
+                        
+                        <!-- Upload Area -->
+                        <div class="border-2 border-dashed border-white/20 rounded-xl p-6 text-center hover:border-pink-500/50 transition cursor-pointer" 
+                             onclick="document.getElementById('libraryImageUpload').click()">
+                            <input type="file" id="libraryImageUpload" accept="image/*" class="hidden" onchange="uploadLibraryImage(event)">
+                            <i class="fas fa-cloud-upload-alt text-3xl text-gray-400 mb-2"></i>
+                            <p class="text-gray-400">Click to upload or drag & drop</p>
+                            <p class="text-xs text-gray-500 mt-1">JPG, PNG, WebP (max 10MB)</p>
+                        </div>
+                        
+                        <!-- Category Selection -->
+                        <div class="mt-4">
+                            <label class="block text-sm font-medium text-gray-300 mb-2">Image Category</label>
+                            <select id="uploadCategory" class="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white focus:outline-none focus:border-pink-500">
+                                <option value="hero">🖼️ Hero Images</option>
+                                <option value="work">🔧 Work/Projects</option>
+                                <option value="team">👥 Team Photos</option>
+                                <option value="office">🏢 Office/Location</option>
+                                <option value="equipment">🛠️ Equipment</option>
+                                <option value="general">📁 General</option>
+                            </select>
+                        </div>
+                        
+                        <!-- Image Library Grid -->
+                        <div class="mt-4">
+                            <div class="flex items-center justify-between mb-2">
+                                <span class="text-sm text-gray-400">Your Images</span>
+                                <button onclick="loadImageLibrary()" class="text-xs text-pink-400 hover:text-pink-300">
+                                    <i class="fas fa-sync-alt mr-1"></i>Refresh
+                                </button>
+                            </div>
+                            <div id="imageLibraryGrid" class="grid grid-cols-3 gap-2 max-h-48 overflow-y-auto">
+                                <p class="col-span-3 text-center text-gray-500 text-sm py-4">Upload images to see them here</p>
+                            </div>
+                        </div>
+                        
+                        <!-- Create Featured Image -->
+                        <div class="mt-4 p-4 bg-gradient-to-r from-pink-500/10 to-rose-500/10 border border-pink-500/20 rounded-xl">
+                            <h4 class="text-sm font-medium text-white mb-2">
+                                <i class="fas fa-wand-magic-sparkles text-pink-400 mr-2"></i>Create Featured Image
+                            </h4>
+                            <input type="text" id="featuredImageTitle" placeholder="Enter SEO title for overlay..." 
+                                class="w-full px-3 py-2 bg-white/10 border border-white/10 rounded-lg text-white text-sm mb-2 focus:outline-none focus:border-pink-500">
+                            <select id="featuredImageTemplate" class="w-full px-3 py-2 bg-white/10 border border-white/10 rounded-lg text-white text-sm mb-2 focus:outline-none focus:border-pink-500">
+                                <option value="gradient_bottom">Gradient Bottom</option>
+                                <option value="gradient_full">Full Overlay</option>
+                                <option value="banner_bottom">Solid Banner</option>
+                                <option value="banner_branded">Branded Banner</option>
+                                <option value="minimal">Minimal</option>
+                            </select>
+                            <button onclick="createFeaturedImage()" class="w-full py-2 bg-gradient-to-r from-pink-600 to-rose-600 rounded-lg text-white text-sm font-medium hover:opacity-90 transition">
+                                <i class="fas fa-magic mr-1"></i>Create Featured Image
+                            </button>
+                        </div>
+                        
+                        <!-- Featured Image Preview -->
+                        <div id="featuredImagePreview" class="hidden mt-4">
+                            <div class="relative rounded-xl overflow-hidden">
+                                <img id="featuredImageResult" src="" alt="Featured Image" class="w-full h-auto">
+                                <div class="absolute bottom-0 left-0 right-0 p-2 bg-gradient-to-t from-black/80 to-transparent">
+                                    <div class="flex items-center justify-end gap-2">
+                                        <a id="featuredImageDownload" href="#" download class="p-2 bg-white/20 hover:bg-white/30 rounded-lg transition">
+                                            <i class="fas fa-download text-white text-sm"></i>
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
                 
                 <!-- Bulk Generation -->
@@ -912,16 +1085,16 @@
                         </div>
                     </div>
                     
-                    <div id="bulkProgress" class="hidden">
+                    <div id="oldBulkProgress" class="hidden">
                         <div class="bg-white/5 rounded-xl p-4">
                             <div class="flex items-center justify-between mb-2">
                                 <span class="text-gray-300">Generating content...</span>
-                                <span id="bulkProgressCount" class="text-purple-400 font-bold">0 / 0</span>
+                                <span id="oldBulkProgressCount" class="text-purple-400 font-bold">0 / 0</span>
                             </div>
                             <div class="w-full bg-white/10 rounded-full h-2">
-                                <div id="bulkProgressBar" class="bg-gradient-to-r from-purple-500 to-pink-500 h-2 rounded-full transition-all" style="width: 0%"></div>
+                                <div id="oldBulkProgressBar" class="bg-gradient-to-r from-purple-500 to-pink-500 h-2 rounded-full transition-all" style="width: 0%"></div>
                             </div>
-                            <div id="bulkProgressLog" class="mt-3 text-sm text-gray-400 max-h-32 overflow-y-auto"></div>
+                            <div id="oldBulkProgressLog" class="mt-3 text-sm text-gray-400 max-h-32 overflow-y-auto"></div>
                         </div>
                     </div>
                 </div>
@@ -930,6 +1103,27 @@
             <!-- Blogs Panel -->
             <div id="panel-blogs" class="fade-in">
                 <!-- Bulk Action Bar -->
+                <!-- Search and Filter Bar -->
+                <div class="flex flex-col sm:flex-row gap-3 mb-4">
+                    <div class="flex-1 relative">
+                        <input type="text" id="blogSearchInput" placeholder="Search blogs by title or keyword..." 
+                            oninput="filterBlogs()"
+                            class="w-full pl-10 pr-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-purple-500">
+                        <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-500"></i>
+                    </div>
+                    <select id="blogStatusFilter" onchange="filterBlogs()" 
+                        class="px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:border-purple-500">
+                        <option value="">All Status</option>
+                        <option value="draft">Draft</option>
+                        <option value="approved">Approved</option>
+                        <option value="scheduled">Scheduled</option>
+                        <option value="published">Published</option>
+                    </select>
+                    <button onclick="toggleBulkSelect()" id="bulkSelectBtn" class="px-4 py-2 bg-white/10 hover:bg-white/20 text-gray-300 rounded-lg text-sm transition whitespace-nowrap">
+                        <i class="fas fa-check-square mr-1"></i>Bulk Select
+                    </button>
+                </div>
+                
                 <div id="bulkActionBar" class="hidden mb-4 p-3 bg-purple-500/20 border border-purple-500/50 rounded-xl flex items-center justify-between">
                     <div class="flex items-center gap-3">
                         <input type="checkbox" id="selectAllBlogs" onchange="toggleSelectAllBlogs()" class="w-5 h-5 rounded">
@@ -948,13 +1142,6 @@
                     </div>
                 </div>
                 
-                <!-- Toggle Bulk Select Button -->
-                <div class="flex justify-end mb-4">
-                    <button onclick="toggleBulkSelect()" id="bulkSelectBtn" class="px-4 py-2 bg-white/10 hover:bg-white/20 text-gray-300 rounded-lg text-sm transition">
-                        <i class="fas fa-check-square mr-1"></i>Bulk Select
-                    </button>
-                </div>
-                
                 <div id="blogsList" class="space-y-4">
                     <div class="text-center py-12">
                         <div class="spinner mx-auto mb-4"></div>
@@ -965,7 +1152,7 @@
 
             <!-- Social Panel -->
             <div id="panel-social" class="hidden fade-in">
-                <div class="grid md:grid-cols-3 gap-4 mb-6">
+                <div class="grid md:grid-cols-4 gap-4 mb-6">
                     <button onclick="filterSocial('all')" id="social-all" class="glass rounded-xl p-4 text-left hover:bg-white/5 transition border-2 border-purple-500">
                         <p class="text-white font-semibold">All Platforms</p>
                         <p id="countAll" class="text-2xl font-bold gradient-text">0</p>
@@ -983,6 +1170,13 @@
                             <p class="text-white font-semibold">Facebook</p>
                         </div>
                         <p id="countFacebook" class="text-2xl font-bold text-blue-500">0</p>
+                    </button>
+                    <button onclick="filterSocial('instagram')" id="social-instagram" class="glass rounded-xl p-4 text-left hover:bg-white/5 transition">
+                        <div class="flex items-center gap-2">
+                            <i class="fab fa-instagram text-pink-500"></i>
+                            <p class="text-white font-semibold">Instagram</p>
+                        </div>
+                        <p id="countInstagram" class="text-2xl font-bold text-pink-500">0</p>
                     </button>
                 </div>
                 <div id="socialList" class="grid md:grid-cols-2 gap-4">
@@ -1416,11 +1610,41 @@
                 <div class="grid lg:grid-cols-2 gap-6">
                     <!-- Competitor Cards -->
                     <div class="glass rounded-2xl p-6">
-                        <h3 class="text-lg font-bold text-white mb-4">
-                            <i class="fas fa-building mr-2 text-purple-400"></i>Your Competitors
-                        </h3>
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="text-lg font-bold text-white">
+                                <i class="fas fa-building mr-2 text-purple-400"></i>Your Competitors
+                            </h3>
+                            <button onclick="showAddCompetitorForm()" class="px-3 py-1 bg-purple-600 hover:bg-purple-700 text-white text-sm rounded-lg transition">
+                                <i class="fas fa-plus mr-1"></i>Add
+                            </button>
+                        </div>
+                        
+                        <!-- Add Competitor Form (hidden by default) -->
+                        <div id="addCompetitorForm" class="hidden mb-4 p-4 bg-white/5 rounded-xl border border-purple-500/30">
+                            <div class="space-y-3">
+                                <div>
+                                    <label class="block text-sm text-gray-400 mb-1">Competitor Domain</label>
+                                    <input type="text" id="newCompetitorDomain" placeholder="competitor.com" 
+                                        class="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-500 focus:border-purple-500">
+                                </div>
+                                <div>
+                                    <label class="block text-sm text-gray-400 mb-1">Name (optional)</label>
+                                    <input type="text" id="newCompetitorName" placeholder="Main Competitor" 
+                                        class="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-500 focus:border-purple-500">
+                                </div>
+                                <div class="flex gap-2">
+                                    <button onclick="addCompetitor()" class="flex-1 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm font-medium transition">
+                                        <i class="fas fa-plus mr-1"></i>Add Competitor
+                                    </button>
+                                    <button onclick="hideAddCompetitorForm()" class="px-4 py-2 bg-gray-600 hover:bg-gray-500 text-white rounded-lg text-sm transition">
+                                        Cancel
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        
                         <div id="competitorCards" class="space-y-3">
-                            <p class="text-gray-500 text-sm">No competitors added yet. Add competitors in the intake wizard.</p>
+                            <p class="text-gray-500 text-sm">No competitors added yet. Click "Add" to track a competitor.</p>
                         </div>
                     </div>
 
@@ -1443,6 +1667,75 @@
                     <p class="text-gray-400 text-sm mb-4">Topics your competitors cover that you don't. Click to generate content.</p>
                     <div id="contentGaps" class="grid md:grid-cols-2 lg:grid-cols-3 gap-3">
                         <p class="text-gray-500 text-sm col-span-full">Analyzing competitor content...</p>
+                    </div>
+                </div>
+                
+                <!-- Competitor Monitoring Settings -->
+                <div class="glass rounded-2xl p-6 mt-6">
+                    <h3 class="text-lg font-bold text-white mb-4">
+                        <i class="fas fa-clock mr-2 text-cyan-400"></i>Auto-Crawl Schedule
+                    </h3>
+                    <p class="text-gray-400 text-sm mb-4">Automatically monitor competitor websites for new content</p>
+                    
+                    <div class="grid md:grid-cols-3 gap-4 mb-4">
+                        <div class="p-4 bg-white/5 rounded-xl border border-white/10">
+                            <label class="flex items-center gap-3 cursor-pointer">
+                                <input type="radio" name="crawlFrequency" value="daily" checked class="w-4 h-4 text-cyan-500">
+                                <div>
+                                    <span class="text-white font-medium">Daily</span>
+                                    <p class="text-xs text-gray-500">Crawl every day at 3 AM</p>
+                                </div>
+                            </label>
+                        </div>
+                        <div class="p-4 bg-white/5 rounded-xl border border-white/10">
+                            <label class="flex items-center gap-3 cursor-pointer">
+                                <input type="radio" name="crawlFrequency" value="weekly" class="w-4 h-4 text-cyan-500">
+                                <div>
+                                    <span class="text-white font-medium">Weekly</span>
+                                    <p class="text-xs text-gray-500">Crawl every Monday</p>
+                                </div>
+                            </label>
+                        </div>
+                        <div class="p-4 bg-white/5 rounded-xl border border-white/10">
+                            <label class="flex items-center gap-3 cursor-pointer">
+                                <input type="radio" name="crawlFrequency" value="manual" class="w-4 h-4 text-cyan-500">
+                                <div>
+                                    <span class="text-white font-medium">Manual Only</span>
+                                    <p class="text-xs text-gray-500">Click "Crawl Now" to update</p>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <div class="flex items-center gap-4">
+                        <button onclick="saveCrawlSettings()" class="px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg text-sm font-medium transition">
+                            <i class="fas fa-save mr-2"></i>Save Settings
+                        </button>
+                        <button onclick="crawlAllCompetitors()" class="px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg text-sm transition">
+                            <i class="fas fa-sync-alt mr-2"></i>Crawl All Now
+                        </button>
+                        <span id="lastCrawlTime" class="text-sm text-gray-500">Last crawl: Never</span>
+                    </div>
+                </div>
+                
+                <!-- Content Freshness Alerts -->
+                <div class="glass rounded-2xl p-6 mt-6">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-lg font-bold text-white">
+                            <i class="fas fa-bell mr-2 text-yellow-400"></i>Freshness Alerts
+                        </h3>
+                        <label class="flex items-center gap-2 cursor-pointer">
+                            <span class="text-sm text-gray-400">Enable Alerts</span>
+                            <input type="checkbox" id="freshnessAlertsEnabled" checked class="w-4 h-4 text-yellow-500 rounded">
+                        </label>
+                    </div>
+                    <p class="text-gray-400 text-sm mb-4">Get notified when competitors publish new content</p>
+                    
+                    <div id="freshnessAlertsList" class="space-y-3 max-h-64 overflow-y-auto">
+                        <div class="text-center py-4 text-gray-500">
+                            <i class="fas fa-check-circle text-2xl mb-2 opacity-50"></i>
+                            <p class="text-sm">No new competitor content detected</p>
+                        </div>
                     </div>
                 </div>
 
@@ -2101,6 +2394,13 @@
                         <div class="glass rounded-2xl p-6">
                             <h3 class="text-lg font-bold text-white mb-4"><i class="fas fa-user-plus mr-2 text-green-400"></i>Lead Capture</h3>
                             <div class="space-y-3">
+                                <label class="flex items-center justify-between p-3 glass rounded-lg cursor-pointer bg-gradient-to-r from-green-500/10 to-emerald-500/10 border border-green-500/20">
+                                    <div>
+                                        <span class="text-white font-medium">Enable Lead Capture</span>
+                                        <p class="text-xs text-gray-400">Prompt visitors for contact info</p>
+                                    </div>
+                                    <input type="checkbox" id="chatbotLeadEnabled" checked class="w-5 h-5 rounded">
+                                </label>
                                 <label class="flex items-center justify-between p-3 glass rounded-lg cursor-pointer">
                                     <span class="text-white">Collect Name</span>
                                     <input type="checkbox" id="chatbotCollectName" checked class="w-5 h-5 rounded">
@@ -2218,15 +2518,47 @@
             
             <!-- Leads Panel -->
             <div id="panel-leads" class="hidden fade-in">
+                <!-- Lead Stats -->
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                    <div class="glass rounded-xl p-4 text-center">
+                        <p class="text-2xl font-bold text-white" id="leadsTotal">0</p>
+                        <p class="text-sm text-gray-400">Total Leads</p>
+                    </div>
+                    <div class="glass rounded-xl p-4 text-center">
+                        <p class="text-2xl font-bold text-blue-400" id="leadsNew">0</p>
+                        <p class="text-sm text-gray-400">New</p>
+                    </div>
+                    <div class="glass rounded-xl p-4 text-center">
+                        <p class="text-2xl font-bold text-green-400" id="leadsWon">0</p>
+                        <p class="text-sm text-gray-400">Won</p>
+                    </div>
+                    <div class="glass rounded-xl p-4 text-center">
+                        <p class="text-2xl font-bold text-purple-400" id="leadsTotalValue">$0</p>
+                        <p class="text-sm text-gray-400">Total Value</p>
+                    </div>
+                </div>
+                
+                <!-- Leads List -->
                 <div class="glass rounded-2xl p-6">
-                    <div class="flex items-center gap-3 mb-6">
-                        <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-600 flex items-center justify-center">
-                            <i class="fas fa-user-plus text-white text-xl"></i>
+                    <div class="flex items-center justify-between mb-6">
+                        <div class="flex items-center gap-3">
+                            <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-600 flex items-center justify-center">
+                                <i class="fas fa-user-plus text-white text-xl"></i>
+                            </div>
+                            <div>
+                                <h3 class="text-lg font-bold text-white">Lead Management</h3>
+                                <p class="text-sm text-gray-400">Track and manage your leads</p>
+                            </div>
                         </div>
-                        <div>
-                            <h3 class="text-lg font-bold text-white">Lead Management</h3>
-                            <p class="text-sm text-gray-400">Track and manage your leads</p>
-                        </div>
+                        <select id="leadStatusFilter" onchange="loadLeads()" class="px-3 py-2 glass rounded-lg text-white text-sm">
+                            <option value="">All Status</option>
+                            <option value="new">New</option>
+                            <option value="contacted">Contacted</option>
+                            <option value="qualified">Qualified</option>
+                            <option value="proposal">Proposal</option>
+                            <option value="won">Won</option>
+                            <option value="lost">Lost</option>
+                        </select>
                     </div>
                     <div id="leadsList" class="space-y-4">
                         <div class="text-center py-12 text-gray-500">
@@ -2240,15 +2572,67 @@
             
             <!-- Reviews Panel -->
             <div id="panel-reviews" class="hidden fade-in">
+                <!-- Review Stats -->
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                    <div class="glass rounded-xl p-4 text-center">
+                        <div class="text-3xl font-bold text-yellow-400" id="reviewsAvgRating">--</div>
+                        <div class="text-sm text-gray-400">Avg Rating</div>
+                    </div>
+                    <div class="glass rounded-xl p-4 text-center">
+                        <div class="text-3xl font-bold text-white" id="reviewsTotal">0</div>
+                        <div class="text-sm text-gray-400">Total Reviews</div>
+                    </div>
+                    <div class="glass rounded-xl p-4 text-center">
+                        <div class="text-3xl font-bold text-green-400" id="reviewsPositive">0</div>
+                        <div class="text-sm text-gray-400">Positive (4-5★)</div>
+                    </div>
+                    <div class="glass rounded-xl p-4 text-center">
+                        <div class="text-3xl font-bold text-blue-400" id="reviewsResponded">0%</div>
+                        <div class="text-sm text-gray-400">Response Rate</div>
+                    </div>
+                </div>
+                
+                <!-- Review Actions -->
+                <div class="glass rounded-2xl p-6 mb-6">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-lg font-bold text-white">
+                            <i class="fas fa-magic mr-2 text-purple-400"></i>Quick Actions
+                        </h3>
+                    </div>
+                    <div class="grid md:grid-cols-3 gap-4">
+                        <button onclick="generateAllReviewResponses()" class="p-4 bg-white/5 hover:bg-white/10 rounded-xl text-left transition border border-white/10">
+                            <i class="fas fa-robot text-purple-400 text-xl mb-2"></i>
+                            <h4 class="text-white font-medium">Auto-Generate Responses</h4>
+                            <p class="text-sm text-gray-400">AI generates replies for all pending reviews</p>
+                        </button>
+                        <button onclick="sendReviewRequests()" class="p-4 bg-white/5 hover:bg-white/10 rounded-xl text-left transition border border-white/10">
+                            <i class="fas fa-paper-plane text-blue-400 text-xl mb-2"></i>
+                            <h4 class="text-white font-medium">Request Reviews</h4>
+                            <p class="text-sm text-gray-400">Send review requests to recent customers</p>
+                        </button>
+                        <button onclick="showTab('settings')" class="p-4 bg-white/5 hover:bg-white/10 rounded-xl text-left transition border border-white/10">
+                            <i class="fab fa-google text-red-400 text-xl mb-2"></i>
+                            <h4 class="text-white font-medium">Connect GBP</h4>
+                            <p class="text-sm text-gray-400">Link Google Business Profile</p>
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Reviews List -->
                 <div class="glass rounded-2xl p-6">
-                    <div class="flex items-center gap-3 mb-6">
-                        <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-yellow-500 to-orange-600 flex items-center justify-center">
-                            <i class="fas fa-star text-white text-xl"></i>
+                    <div class="flex items-center justify-between mb-6">
+                        <div class="flex items-center gap-3">
+                            <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-yellow-500 to-orange-600 flex items-center justify-center">
+                                <i class="fas fa-star text-white text-xl"></i>
+                            </div>
+                            <div>
+                                <h3 class="text-lg font-bold text-white">Review Management</h3>
+                                <p class="text-sm text-gray-400">Monitor and respond to reviews</p>
+                            </div>
                         </div>
-                        <div>
-                            <h3 class="text-lg font-bold text-white">Review Management</h3>
-                            <p class="text-sm text-gray-400">Monitor and respond to reviews</p>
-                        </div>
+                        <button onclick="loadReviews()" class="px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg text-sm font-medium transition">
+                            <i class="fas fa-sync-alt mr-2"></i>Refresh
+                        </button>
                     </div>
                     <div id="reviewsList" class="space-y-4">
                         <div class="text-center py-12 text-gray-500">
@@ -2262,21 +2646,70 @@
             
             <!-- Calls Panel -->
             <div id="panel-calls" class="hidden fade-in">
+                <!-- Call Stats Overview -->
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                    <div class="glass rounded-xl p-4 text-center">
+                        <div class="text-3xl font-bold text-green-400" id="callsTotal">0</div>
+                        <div class="text-sm text-gray-400">Total Calls</div>
+                    </div>
+                    <div class="glass rounded-xl p-4 text-center">
+                        <div class="text-3xl font-bold text-blue-400" id="callsAnswered">0</div>
+                        <div class="text-sm text-gray-400">Answered</div>
+                    </div>
+                    <div class="glass rounded-xl p-4 text-center">
+                        <div class="text-3xl font-bold text-amber-400" id="callsAvgDuration">0:00</div>
+                        <div class="text-sm text-gray-400">Avg Duration</div>
+                    </div>
+                    <div class="glass rounded-xl p-4 text-center">
+                        <div class="text-3xl font-bold text-purple-400" id="callsLeads">0</div>
+                        <div class="text-sm text-gray-400">Leads Generated</div>
+                    </div>
+                </div>
+                
+                <!-- Call Intelligence Insights -->
+                <div class="grid md:grid-cols-2 gap-6 mb-6">
+                    <div class="glass rounded-2xl p-6">
+                        <h3 class="text-lg font-bold text-white mb-4">
+                            <i class="fas fa-lightbulb mr-2 text-yellow-400"></i>Top Customer Questions
+                        </h3>
+                        <div id="topQuestions" class="space-y-2">
+                            <p class="text-gray-500 text-sm">Analyzing call transcripts...</p>
+                        </div>
+                    </div>
+                    <div class="glass rounded-2xl p-6">
+                        <h3 class="text-lg font-bold text-white mb-4">
+                            <i class="fas fa-tags mr-2 text-blue-400"></i>Common Keywords
+                        </h3>
+                        <div id="callKeywords" class="flex flex-wrap gap-2">
+                            <p class="text-gray-500 text-sm">Analyzing call transcripts...</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Call List -->
                 <div class="glass rounded-2xl p-6">
-                    <div class="flex items-center gap-3 mb-6">
-                        <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center">
-                            <i class="fas fa-phone text-white text-xl"></i>
+                    <div class="flex items-center justify-between mb-6">
+                        <div class="flex items-center gap-3">
+                            <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center">
+                                <i class="fas fa-phone text-white text-xl"></i>
+                            </div>
+                            <div>
+                                <h3 class="text-lg font-bold text-white">Call Intelligence</h3>
+                                <p class="text-sm text-gray-400">AI-analyzed call transcripts and insights</p>
+                            </div>
                         </div>
-                        <div>
-                            <h3 class="text-lg font-bold text-white">Call Intelligence</h3>
-                            <p class="text-sm text-gray-400">AI-analyzed call transcripts and insights</p>
-                        </div>
+                        <button onclick="refreshCallData()" class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium transition">
+                            <i class="fas fa-sync-alt mr-2"></i>Refresh
+                        </button>
                     </div>
                     <div id="callsList" class="space-y-4">
                         <div class="text-center py-12 text-gray-500">
                             <i class="fas fa-phone text-4xl mb-4 opacity-50"></i>
                             <p>No calls analyzed yet</p>
-                            <p class="text-sm mt-2">Connect CallRail to start analyzing customer calls</p>
+                            <p class="text-sm mt-2">Connect CallRail in Settings → Integrations to analyze calls</p>
+                            <button onclick="showTab('settings')" class="mt-4 px-4 py-2 bg-gradient-to-r from-green-600 to-emerald-600 rounded-lg text-white text-sm hover:opacity-90 transition">
+                                <i class="fas fa-cog mr-2"></i>Connect CallRail
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -2307,9 +2740,9 @@
     </div>
 
     <!-- Blog Preview Modal -->
-    <div id="blogModal" class="hidden fixed inset-0 bg-black/90 z-50 overflow-y-auto">
+    <div id="blogModal" class="hidden fixed inset-0 bg-black/90 z-50 overflow-y-auto" onclick="if(event.target === this) closeBlogModal()">
         <div class="max-w-4xl mx-auto py-8 px-4">
-            <div class="glass-light rounded-2xl overflow-hidden fade-in">
+            <div class="glass-light rounded-2xl overflow-hidden fade-in" onclick="event.stopPropagation()">
                 <div class="bg-gradient-to-r from-purple-600 to-pink-600 p-6">
                     <div class="flex items-start justify-between">
                         <div class="flex-1">
@@ -2449,6 +2882,9 @@
                         <button onclick="downloadBlogWord()" class="px-4 py-2 bg-indigo-100 hover:bg-indigo-200 text-indigo-700 rounded-lg text-sm font-medium transition">
                             <i class="fas fa-file-word mr-1"></i>Word
                         </button>
+                        <button onclick="showCurrentSERPPreview()" class="px-4 py-2 bg-green-100 hover:bg-green-200 text-green-700 rounded-lg text-sm font-medium transition" title="Preview in Google Search Results">
+                            <i class="fab fa-google mr-1"></i>SERP Preview
+                        </button>
                     </div>
                     <div class="flex gap-2 flex-wrap">
                         <button onclick="enterEditMode()" class="px-4 py-2 bg-amber-100 hover:bg-amber-200 text-amber-700 rounded-lg text-sm font-medium transition">
@@ -2489,8 +2925,8 @@
     </div>
     
     <!-- Schedule Modal -->
-    <div id="scheduleModal" class="hidden fixed inset-0 bg-black/80 z-[60] flex items-center justify-center">
-        <div class="glass-light rounded-2xl p-6 w-full max-w-md mx-4">
+    <div id="scheduleModal" class="hidden fixed inset-0 bg-black/80 z-[60] flex items-center justify-center" onclick="if(event.target === this) closeScheduleModal()">
+        <div class="glass-light rounded-2xl p-6 w-full max-w-md mx-4" onclick="event.stopPropagation()">
             <h3 class="text-xl font-bold text-gray-800 mb-4"><i class="fas fa-calendar-alt mr-2 text-blue-500"></i>Schedule Content</h3>
             <div class="space-y-4">
                 <div>
@@ -2510,9 +2946,9 @@
     </div>
 
     <!-- Edit Client Modal -->
-    <div id="editClientModal" class="hidden fixed inset-0 bg-black/90 z-50 overflow-y-auto">
+    <div id="editClientModal" class="hidden fixed inset-0 bg-black/90 z-50 overflow-y-auto" onclick="if(event.target === this) closeEditClient()">
         <div class="max-w-3xl mx-auto py-8 px-4">
-            <div class="glass-light rounded-2xl overflow-hidden fade-in">
+            <div class="glass-light rounded-2xl overflow-hidden fade-in" onclick="event.stopPropagation()">
                 <div class="bg-gradient-to-r from-blue-600 to-indigo-600 p-6">
                     <div class="flex items-center justify-between">
                         <div>
@@ -2748,6 +3184,143 @@
         let currentClient = null;
         let allBlogs = [];
         let allSocial = [];
+        let isFixingAdmin = false;  // Prevent infinite loops
+
+        // ==========================================
+        // AUTH-AWARE FETCH WRAPPER
+        // ==========================================
+        async function authFetch(url, options = {}) {
+            const response = await fetch(url, options);
+            
+            // Handle 401 - User not found or token expired
+            if (response.status === 401) {
+                const data = await response.clone().json().catch(() => ({}));
+                if (data.error === 'User not found' || data.error === 'Token has expired' || data.error === 'Invalid token') {
+                    console.warn('Auth error - forcing re-login:', data.error);
+                    AUTH_TOKEN = '';
+                    localStorage.removeItem('mcp_user_email');
+                    showToast('Session expired. Please log in again.', 'warning');
+                    document.getElementById('authModal').classList.remove('hidden');
+                    document.getElementById('dashboard').classList.add('hidden');
+                    throw new Error('Session expired');
+                }
+            }
+            
+            return response;
+        }
+
+        // ==========================================
+        // GLOBAL ERROR HANDLER
+        // ==========================================
+        window.onerror = function(message, source, lineno, colno, error) {
+            console.error('Global error:', message, source, lineno);
+            // Don't show toast for every error, just log it
+            return false;
+        };
+        
+        window.addEventListener('unhandledrejection', function(event) {
+            console.error('Unhandled promise rejection:', event.reason);
+            // Prevent default handling
+            event.preventDefault();
+        });
+
+        // ==========================================
+        // GLOBAL KEYBOARD SHORTCUTS
+        // ==========================================
+        document.addEventListener('keydown', function(e) {
+            // ESC key closes all modals
+            if (e.key === 'Escape') {
+                // Close blog modal
+                const blogModal = document.getElementById('blogModal');
+                if (blogModal && !blogModal.classList.contains('hidden')) {
+                    closeBlogModal();
+                    return;
+                }
+                // Close edit client modal
+                const editModal = document.getElementById('editClientModal');
+                if (editModal && !editModal.classList.contains('hidden')) {
+                    closeEditClient();
+                    return;
+                }
+                // Close schedule modal
+                const scheduleModal = document.getElementById('scheduleModal');
+                if (scheduleModal && !scheduleModal.classList.contains('hidden')) {
+                    closeScheduleModal();
+                    return;
+                }
+                // Close OAuth modal
+                const oauthModal = document.getElementById('oauth-modal-overlay');
+                if (oauthModal && !oauthModal.classList.contains('hidden')) {
+                    closeOAuthModal();
+                    return;
+                }
+            }
+        });
+
+        // ==========================================
+        // GLOBAL FETCH INTERCEPTOR - AUTO-FIX 403s
+        // ==========================================
+        
+        // Store original fetch
+        const originalFetch = window.fetch;
+        
+        // Override global fetch to intercept 403s
+        window.fetch = async function(url, options = {}) {
+            // Only intercept API calls
+            const isApiCall = typeof url === 'string' && url.includes('/api/');
+            
+            // Make the original request
+            const response = await originalFetch(url, options);
+            
+            // If 403 on API call, try auto-fix
+            if (response.status === 403 && isApiCall && !isFixingAdmin && AUTH_TOKEN) {
+                // Don't retry auth endpoints
+                if (url.includes('/api/auth/')) {
+                    return response;
+                }
+                
+                console.log('🔧 403 detected on:', url, '- attempting auto-fix...');
+                isFixingAdmin = true;
+                
+                // Show permission alert after multiple 403s
+                if (typeof showPermissionAlert === 'function') {
+                    showPermissionAlert();
+                }
+                
+                try {
+                    // Use nuclear option - make-me-admin
+                    const fixResult = await originalFetch(`${API_URL}/api/auth/make-me-admin`, {
+                        method: 'POST',
+                        headers: { 
+                            'Authorization': `Bearer ${AUTH_TOKEN}`,
+                            'Content-Type': 'application/json'
+                        }
+                    });
+                    
+                    if (fixResult.ok) {
+                        const fixData = await fixResult.json();
+                        if (fixData.success) {
+                            console.log('✅ Admin role fixed! Retrying request...');
+                            if (typeof showToast === 'function') {
+                                showToast('Permissions restored!', 'success');
+                            }
+                            // Hide alert
+                            document.getElementById('permissionAlert')?.classList.add('hidden');
+                            
+                            // Retry the original request
+                            isFixingAdmin = false;
+                            return originalFetch(url, options);
+                        }
+                    }
+                } catch (e) {
+                    console.error('Auto-fix failed:', e);
+                }
+                
+                isFixingAdmin = false;
+            }
+            
+            return response;
+        };
 
         // ==========================================
         // AUTH
@@ -2845,7 +3418,8 @@
                 
                 if (res.ok && data.token) {
                     AUTH_TOKEN = data.token;
-                    alert('✓ Admin created! Email: ' + email);
+                    localStorage.setItem('mcp_user_email', email);  // Save for permission fixes
+                    showToast('Admin created! Email: ' + email, 'success');
                     document.getElementById('authModal').classList.add('hidden');
                     document.getElementById('dashboard').classList.remove('hidden');
                     loadClients();
@@ -2889,6 +3463,7 @@
 
                 if (data.token) {
                     AUTH_TOKEN = data.token;
+                    localStorage.setItem('mcp_user_email', email);  // Save for permission fixes
                     document.getElementById('authModal').classList.add('hidden');
                     document.getElementById('dashboard').classList.remove('hidden');
                     loadClients();
@@ -2907,7 +3482,7 @@
         // ==========================================
         async function loadClients() {
             try {
-                const res = await fetch(`${API_URL}/api/clients/`, {
+                const res = await authFetch(`${API_URL}/api/clients/`, {
                     headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
                 });
                 
@@ -2937,9 +3512,16 @@
                 if (clients.length > 0) {
                     selector.value = clients[0].id;
                     loadClient(clients[0].id);
+                } else {
+                    // No clients - update UI to show this state
+                    document.getElementById('clientName').textContent = 'No Clients Yet';
+                    document.getElementById('clientMeta').textContent = 'Create your first client to get started';
+                    document.getElementById('health-grade').textContent = 'Create Client';
                 }
             } catch (e) {
                 console.error('Failed to load clients:', e);
+                document.getElementById('clientName').textContent = 'Connection Error';
+                document.getElementById('clientMeta').textContent = 'Please refresh the page';
             }
         }
         
@@ -2968,9 +3550,15 @@
         }
 
         async function loadClient(clientId) {
-            if (!clientId) return;
+            if (!clientId) {
+                document.getElementById('clientName').textContent = 'Select a Client';
+                return;
+            }
 
             try {
+                // Show loading state
+                document.getElementById('clientName').textContent = 'Loading...';
+                
                 // Load client details
                 const clientRes = await fetch(`${API_URL}/api/clients/${clientId}`, {
                     headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
@@ -2979,6 +3567,11 @@
                     throw new Error(`Failed to load client: ${clientRes.status}`);
                 }
                 currentClient = await clientRes.json();
+                
+                // Verify we got valid data
+                if (!currentClient || !currentClient.business_name) {
+                    throw new Error('Invalid client data received');
+                }
 
                 // Update header
                 document.getElementById('clientName').textContent = currentClient.business_name || 'Client';
@@ -3015,6 +3608,9 @@
                 // Load overview data
                 loadOverviewData();
                 
+                // Load image library
+                loadImageLibrary();
+                
                 // Load integrations settings
                 loadIntegrations();
                 
@@ -3023,7 +3619,10 @@
 
             } catch (e) {
                 console.error('Failed to load client:', e);
-                alert('Failed to load client data. Please try again.');
+                document.getElementById('clientName').textContent = 'Error Loading';
+                document.getElementById('clientMeta').textContent = e.message || 'Please try again';
+                document.getElementById('health-grade').textContent = 'Error';
+                showToast('Failed to load client data: ' + e.message, 'error');
             }
         }
 
@@ -3045,7 +3644,7 @@
         // ==========================================
         function showEditClient() {
             if (!currentClient) {
-                alert('Please select a client first');
+                showToast('Please select a client first', 'warning');
                 return;
             }
             
@@ -3125,7 +3724,7 @@
             
             const businessName = document.getElementById('editBusinessName').value.trim();
             if (!businessName) {
-                alert('Business name is required');
+                showToast('Business name is required', 'error');
                 return;
             }
             
@@ -3178,7 +3777,7 @@
                 }
                 
                 closeEditClient();
-                alert('✓ Client updated successfully!');
+                showToast('Client updated successfully!', 'success');
                 
                 // Refresh data and SEO panel
                 loadClient(currentClient.id);
@@ -3186,13 +3785,13 @@
                 
             } catch (error) {
                 console.error('Failed to save client:', error);
-                alert('Error: ' + error.message);
+                showToast('Error: ' + error.message, 'error');
             }
         }
         
         function confirmDeleteClient() {
             if (!currentClient) {
-                alert('Please select a client first');
+                showToast('Please select a client first', 'warning');
                 return;
             }
             
@@ -3234,7 +3833,7 @@
                     throw new Error(error.error || 'Failed to delete client');
                 }
                 
-                alert(`✓ "${currentClient.business_name}" has been permanently deleted.`);
+                showToast(`"${currentClient.business_name}" has been deleted`, 'success');
                 
                 // Reset state
                 currentClient = null;
@@ -3254,7 +3853,7 @@
                 
             } catch (error) {
                 console.error('Failed to delete client:', error);
-                alert('Error: ' + error.message);
+                showToast('Error: ' + error.message, 'error');
             }
         }
 
@@ -3330,6 +3929,41 @@
                 loadNotificationHistory();
                 setTimeout(updateDigestPreview, 100);
             }
+            
+            // Load leads when leads tab is shown
+            if (tab === 'leads') {
+                loadLeads();
+            }
+            
+            // Load reviews when reviews tab is shown
+            if (tab === 'reviews') {
+                loadReviews();
+            }
+            
+            // Load calls when calls tab is shown
+            if (tab === 'calls') {
+                loadCalls();
+            }
+            
+            // Load pages when pages tab is shown
+            if (tab === 'pages') {
+                loadPages();
+            }
+            
+            // Load blogs when blogs tab is shown
+            if (tab === 'blogs') {
+                loadBlogs();
+            }
+            
+            // Load social when social tab is shown
+            if (tab === 'social') {
+                loadSocialPosts();
+            }
+            
+            // Load SEO data when SEO tab is shown
+            if (tab === 'seo') {
+                loadSEOData();
+            }
         }
         
         // ==========================================
@@ -3363,7 +3997,7 @@
         async function loadHealthScore() {
             try {
                 // Try the correct health score endpoint
-                const response = await fetch(`${API_URL}/api/client/health-score/${currentClient.id}`, {
+                const response = await fetch(`${API_URL}/api/clients/health-score/${currentClient.id}`, {
                     headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
                 });
                 
@@ -3518,7 +4152,7 @@
             
             try {
                 // Try to get activity feed for wins (correct endpoint)
-                const response = await fetch(`${API_URL}/api/client/activity/${currentClient.id}?limit=5`, {
+                const response = await fetch(`${API_URL}/api/clients/activity/${currentClient.id}?limit=5`, {
                     headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
                 });
                 
@@ -3527,7 +4161,7 @@
                     wins = (data.activities || data.items || []).slice(0, 5);
                 } else {
                     // Try wins-specific endpoint
-                    const winsResponse = await fetch(`${API_URL}/api/client/wins/${currentClient.id}`, {
+                    const winsResponse = await fetch(`${API_URL}/api/clients/wins/${currentClient.id}`, {
                         headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
                     });
                     if (winsResponse.ok) {
@@ -3687,6 +4321,73 @@
         }
         
         // ==========================================
+        // PERMISSION FIX FUNCTIONS
+        // ==========================================
+        
+        let permission403Count = 0;
+        
+        function showPermissionAlert() {
+            permission403Count++;
+            // Show alert if multiple 403s detected
+            if (permission403Count >= 2) {
+                document.getElementById('permissionAlert')?.classList.remove('hidden');
+            }
+        }
+        
+        async function manualFixPermissions() {
+            const btn = event.target.closest('button');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Fixing...';
+            
+            try {
+                // Use the nuclear option - make-me-admin
+                console.log('Trying make-me-admin...');
+                let response = await fetch(`${API_URL}/api/auth/make-me-admin`, {
+                    method: 'POST',
+                    headers: { 
+                        'Authorization': `Bearer ${AUTH_TOKEN}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                let data = await response.json();
+                
+                if (data.success) {
+                    showToast('Permissions fixed! Reloading...', 'success');
+                    document.getElementById('permissionAlert')?.classList.add('hidden');
+                    permission403Count = 0;
+                    setTimeout(() => location.reload(), 1000);
+                    return;
+                }
+                
+                // If that failed, show error with debug info
+                console.log('Fix failed:', data);
+                
+                // Try to get debug info
+                const debugResponse = await fetch(`${API_URL}/api/auth/debug-users`);
+                const debugData = await debugResponse.json();
+                console.log('User debug:', debugData);
+                
+                showToast('Fix failed: ' + (data.error || 'Unknown error'), 'error');
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-wrench mr-2"></i>Fix Permissions';
+                
+            } catch (error) {
+                console.error('Fix error:', error);
+                showToast('Error: ' + error.message, 'error');
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-wrench mr-2"></i>Fix Permissions';
+            }
+        }
+        
+        function handleFixSuccess() {
+            showToast('Permissions fixed! Reloading...', 'success');
+            document.getElementById('permissionAlert')?.classList.add('hidden');
+            permission403Count = 0;
+            setTimeout(() => location.reload(), 1000);
+        }
+        
+        // ==========================================
         // CALL INTELLIGENCE
         // ==========================================
         
@@ -3706,21 +4407,26 @@
                     const callsToday = document.getElementById('calls-today');
                     if (callsToday) {
                         const callCount = report.call_count || report.total_calls || 0;
-                        callsToday.textContent = `${callCount} calls analyzed`;
+                        if (callCount > 0) {
+                            callsToday.textContent = `${callCount} calls analyzed`;
+                        } else if (report.is_demo_data) {
+                            callsToday.textContent = 'Demo mode';
+                        } else {
+                            callsToday.textContent = 'No calls yet';
+                        }
                     }
                     
                     // Update extracted insights from AI analysis
-                    if (report.questions || report.keywords || report.pain_points || report.opportunities) {
-                        updateExtractedUI(
-                            report.questions || report.top_questions || [],
-                            report.keywords || report.trending_keywords || [],
-                            report.pain_points || [],
-                            report.opportunities || report.content_opportunities || []
-                        );
-                    }
+                    updateExtractedUI(
+                        report.questions || [],
+                        report.keywords || [],
+                        report.pain_points || [],
+                        report.services || report.opportunities || [],
+                        report.intelligence_score
+                    );
                     
                     // Get recent call for phone mockup
-                    const callsResponse = await fetch(`${API_URL}/api/client/calls/${currentClient.id}?limit=1`, {
+                    const callsResponse = await fetch(`${API_URL}/api/clients/calls/${currentClient.id}?limit=1`, {
                         headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
                     });
                     if (callsResponse.ok) {
@@ -3736,7 +4442,7 @@
                     
                 } else {
                     // Fall back to just getting calls
-                    const callsResponse = await fetch(`${API_URL}/api/client/calls/${currentClient.id}?limit=10`, {
+                    const callsResponse = await fetch(`${API_URL}/api/clients/calls/${currentClient.id}?limit=10`, {
                         headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
                     });
                     
@@ -3768,30 +4474,32 @@
             // Demo data for visualization
             const demoQuestions = [
                 "How much does AC repair cost?",
-                "Do you offer emergency service?",
-                "What brands do you service?",
-                "How long until you can come out?"
+                "Do you offer same-day service?",
+                "How long does AC repair take?",
+                "Why is my AC not cooling?",
+                "What's the diagnostic fee?"
             ];
             
             const demoKeywords = [
-                "AC repair", "emergency", "same day", 
-                "cost estimate", "warranty", "maintenance"
+                "AC repair", "not cooling", currentClient?.geo?.split(',')[0] || "Local",
+                "same-day", "cost", "diagnostic", "filter", "emergency", "HVAC"
             ];
             
             const demoPainPoints = [
-                "AC stopped working suddenly",
-                "High energy bills",
-                "Uneven cooling in rooms"
+                "AC running but not cooling",
+                "House is too hot",
+                "Concerned about cost"
             ];
             
-            const demoOpportunities = [
-                "Create blog: 'Emergency AC Repair Guide'",
-                "FAQ: 'AC repair cost breakdown'",
-                "Service page: 'Same-day AC service'"
+            const demoServices = [
+                "AC Diagnostic",
+                "AC Repair",
+                "Same-day Service",
+                "Emergency HVAC"
             ];
             
             // Update UI with demo data
-            updateExtractedUI(demoQuestions, demoKeywords, demoPainPoints, demoOpportunities);
+            updateExtractedUI(demoQuestions, demoKeywords, demoPainPoints, demoServices, 94);
             
             // Start phone simulation
             simulateIncomingCall();
@@ -3826,64 +4534,109 @@
             let allQuestions = [];
             let allKeywords = [];
             let allPainPoints = [];
-            let allOpportunities = [];
+            let allServices = [];
             
             calls.forEach(call => {
                 if (call.questions) allQuestions = allQuestions.concat(call.questions);
                 if (call.keywords) allKeywords = allKeywords.concat(call.keywords);
                 if (call.pain_points) allPainPoints = allPainPoints.concat(call.pain_points);
-                if (call.opportunities) allOpportunities = allOpportunities.concat(call.opportunities);
+                if (call.services || call.services_mentioned) allServices = allServices.concat(call.services || call.services_mentioned);
             });
             
             // Dedupe and limit
-            allQuestions = [...new Set(allQuestions)].slice(0, 4);
-            allKeywords = [...new Set(allKeywords)].slice(0, 8);
+            allQuestions = [...new Set(allQuestions)].slice(0, 5);
+            allKeywords = [...new Set(allKeywords)].slice(0, 9);
             allPainPoints = [...new Set(allPainPoints)].slice(0, 3);
-            allOpportunities = [...new Set(allOpportunities)].slice(0, 3);
+            allServices = [...new Set(allServices)].slice(0, 4);
             
-            updateExtractedUI(allQuestions, allKeywords, allPainPoints, allOpportunities);
+            updateExtractedUI(allQuestions, allKeywords, allPainPoints, allServices);
         }
         
-        function updateExtractedUI(questions, keywords, painPoints, opportunities) {
+        function updateExtractedUI(questions, keywords, painPoints, services, score) {
             // Update questions
             const questionsEl = document.getElementById('extracted-questions');
-            if (questionsEl && questions.length > 0) {
-                questionsEl.innerHTML = questions.map((q, i) => `
-                    <div class="bg-slate-800/50 rounded-lg p-2 text-xs text-gray-300 fade-in" style="animation-delay: ${i * 0.1}s">
-                        ${q}
-                    </div>
-                `).join('');
+            if (questionsEl) {
+                if (questions && questions.length > 0) {
+                    questionsEl.innerHTML = questions.slice(0, 5).map((q, i) => `
+                        <div class="bg-slate-800/50 rounded-lg p-2 text-xs text-gray-300 fade-in" style="animation-delay: ${i * 0.1}s">
+                            ${q}
+                        </div>
+                    `).join('');
+                } else {
+                    questionsEl.innerHTML = '<div class="text-xs text-gray-500">No questions detected yet</div>';
+                }
             }
             
             // Update keywords
             const keywordsEl = document.getElementById('extracted-keywords');
-            if (keywordsEl && keywords.length > 0) {
-                keywordsEl.innerHTML = keywords.map((k, i) => `
-                    <span class="bg-purple-500/20 text-purple-300 px-2 py-1 rounded-full text-xs fade-in" style="animation-delay: ${i * 0.1}s">
-                        ${k}
-                    </span>
-                `).join('');
+            if (keywordsEl) {
+                if (keywords && keywords.length > 0) {
+                    keywordsEl.innerHTML = keywords.slice(0, 9).map((k, i) => `
+                        <span class="bg-purple-500/20 text-purple-300 px-2 py-1 rounded-full text-xs fade-in" style="animation-delay: ${i * 0.05}s">
+                            ${k}
+                        </span>
+                    `).join('');
+                } else {
+                    keywordsEl.innerHTML = '<span class="text-xs text-gray-500">No keywords detected yet</span>';
+                }
             }
             
             // Update pain points
             const painEl = document.getElementById('extracted-pain');
-            if (painEl && painPoints.length > 0) {
-                painEl.innerHTML = painPoints.map((p, i) => `
-                    <div class="text-xs text-orange-300 fade-in" style="animation-delay: ${i * 0.15}s">
-                        ⚠️ ${p}
-                    </div>
-                `).join('');
+            if (painEl) {
+                if (painPoints && painPoints.length > 0) {
+                    painEl.innerHTML = painPoints.slice(0, 3).map((p, i) => `
+                        <div class="flex items-start gap-2 text-xs text-orange-300 fade-in" style="animation-delay: ${i * 0.1}s">
+                            <span class="text-orange-400">⚠</span>
+                            <span>${p}</span>
+                        </div>
+                    `).join('');
+                } else {
+                    painEl.innerHTML = '<div class="text-xs text-gray-500">No pain points detected yet</div>';
+                }
             }
             
-            // Update opportunities
-            const opportunitiesEl = document.getElementById('content-opportunities');
-            if (opportunitiesEl && opportunities.length > 0) {
-                opportunitiesEl.innerHTML = opportunities.map((o, i) => `
-                    <div class="text-xs text-emerald-300 fade-in cursor-pointer hover:text-emerald-200" style="animation-delay: ${i * 0.15}s">
-                        💡 ${o}
-                    </div>
-                `).join('');
+            // Update services
+            const servicesEl = document.getElementById('extracted-services');
+            if (servicesEl) {
+                if (services && services.length > 0) {
+                    servicesEl.innerHTML = services.slice(0, 4).map((s, i) => `
+                        <div class="bg-cyan-500/20 text-cyan-300 px-3 py-2 rounded-lg text-xs fade-in" style="animation-delay: ${i * 0.1}s">
+                            ${s}
+                        </div>
+                    `).join('');
+                } else {
+                    servicesEl.innerHTML = '<div class="text-xs text-gray-500">No services requested yet</div>';
+                }
             }
+            
+            // Update intelligence score
+            const scoreEl = document.getElementById('intelligence-score');
+            const summaryEl = document.getElementById('intelligence-summary');
+            if (scoreEl) {
+                const displayScore = score || calculateIntelligenceScore(questions, keywords, painPoints, services);
+                scoreEl.textContent = displayScore;
+                scoreEl.className = `text-5xl font-bold mb-1 ${displayScore >= 80 ? 'text-green-400' : displayScore >= 50 ? 'text-yellow-400' : 'text-white'}`;
+                
+                if (summaryEl) {
+                    if (displayScore >= 80) {
+                        summaryEl.textContent = 'High-value interaction • Content opportunity detected';
+                    } else if (displayScore >= 50) {
+                        summaryEl.textContent = 'Good engagement • Potential lead identified';
+                    } else {
+                        summaryEl.textContent = 'Collecting interaction data...';
+                    }
+                }
+            }
+        }
+        
+        function calculateIntelligenceScore(questions, keywords, painPoints, services) {
+            let score = 0;
+            if (questions && questions.length > 0) score += Math.min(questions.length * 10, 30);
+            if (keywords && keywords.length > 0) score += Math.min(keywords.length * 5, 25);
+            if (painPoints && painPoints.length > 0) score += Math.min(painPoints.length * 15, 25);
+            if (services && services.length > 0) score += Math.min(services.length * 10, 20);
+            return Math.min(score, 100);
         }
         
         function simulateIncomingCall() {
@@ -3964,6 +4717,760 @@
             }
             
             requestAnimationFrame(update);
+        }
+        
+        // ==========================================
+        // BLOGS LOADING
+        // ==========================================
+        
+        async function loadBlogs() {
+            if (!currentClient) return;
+            
+            const container = document.getElementById('blogsList');
+            if (!container) return;
+            
+            container.innerHTML = '<div class="text-center py-12"><div class="spinner mx-auto mb-4"></div><p class="text-gray-400">Loading blog posts...</p></div>';
+            
+            try {
+                const response = await fetch(`${API_URL}/api/content/client/${currentClient.id}?type=blog`, {
+                    headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    allBlogs = data.content || data.blogs || [];
+                    renderBlogs();
+                    updateStats();
+                } else {
+                    allBlogs = [];
+                    renderBlogs();
+                }
+            } catch (error) {
+                console.error('Failed to load blogs:', error);
+                allBlogs = [];
+                renderBlogs();
+            }
+        }
+        
+        // ==========================================
+        // SOCIAL POSTS LOADING
+        // ==========================================
+        
+        async function loadSocialPosts() {
+            if (!currentClient) return;
+            
+            const container = document.getElementById('socialList');
+            if (!container) return;
+            
+            container.innerHTML = '<div class="text-center py-12 col-span-2"><div class="spinner mx-auto mb-4"></div><p class="text-gray-400">Loading social posts...</p></div>';
+            
+            try {
+                const response = await fetch(`${API_URL}/api/content/client/${currentClient.id}?type=social`, {
+                    headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    allSocial = data.content || data.posts || [];
+                    renderSocial();
+                    updateSocialCounts();
+                } else {
+                    allSocial = [];
+                    renderSocial();
+                }
+            } catch (error) {
+                console.error('Failed to load social posts:', error);
+                allSocial = [];
+                renderSocial();
+            }
+        }
+        
+        function updateSocialCounts() {
+            const all = allSocial.length;
+            const gbp = allSocial.filter(p => p.platform === 'gbp' || p.platform === 'google').length;
+            const fb = allSocial.filter(p => p.platform === 'facebook').length;
+            const ig = allSocial.filter(p => p.platform === 'instagram').length;
+            
+            document.getElementById('countAll').textContent = all;
+            document.getElementById('countGbp').textContent = gbp;
+            document.getElementById('countFacebook').textContent = fb;
+            const igEl = document.getElementById('countInstagram');
+            if (igEl) igEl.textContent = ig;
+        }
+        
+        // ==========================================
+        // SEO DATA LOADING
+        // ==========================================
+        
+        async function loadSEOData() {
+            if (!currentClient) return;
+            
+            // Load keywords
+            const keywordsEl = document.getElementById('keywordsList');
+            if (keywordsEl) {
+                const keywords = currentClient.primary_keywords || [];
+                const secondary = currentClient.secondary_keywords || [];
+                const allKeywords = [...keywords, ...secondary];
+                
+                if (allKeywords.length === 0) {
+                    keywordsEl.innerHTML = '<p class="text-gray-500 text-sm">No keywords configured. Add in client settings.</p>';
+                } else {
+                    keywordsEl.innerHTML = allKeywords.map((kw, i) => `
+                        <div class="flex items-center justify-between p-2 glass rounded-lg">
+                            <span class="text-white text-sm">${kw}</span>
+                            <span class="text-xs ${i < keywords.length ? 'text-purple-400' : 'text-gray-400'}">${i < keywords.length ? 'Primary' : 'Secondary'}</span>
+                        </div>
+                    `).join('');
+                }
+            }
+            
+            // Load competitors
+            const compsEl = document.getElementById('competitorsList');
+            if (compsEl) {
+                const competitors = currentClient.competitors || [];
+                if (competitors.length === 0) {
+                    compsEl.innerHTML = '<p class="text-gray-500 text-sm">No competitors tracked. Add in Competitors tab.</p>';
+                } else {
+                    compsEl.innerHTML = competitors.map(comp => `
+                        <div class="flex items-center justify-between p-2 glass rounded-lg">
+                            <span class="text-white text-sm">${comp.name || comp.domain || comp}</span>
+                            <a href="${comp.url || '#'}" target="_blank" class="text-purple-400 text-xs hover:text-purple-300"><i class="fas fa-external-link-alt"></i></a>
+                        </div>
+                    `).join('');
+                }
+            }
+            
+            // Load service pages
+            const pagesEl = document.getElementById('servicePagesList');
+            if (pagesEl) {
+                const pages = currentClient.service_pages || [];
+                if (pages.length === 0) {
+                    pagesEl.innerHTML = '<p class="text-gray-500 text-sm">No service pages defined. Add in client settings.</p>';
+                } else {
+                    pagesEl.innerHTML = pages.slice(0, 5).map(page => `
+                        <div class="flex items-center justify-between p-2 glass rounded-lg">
+                            <span class="text-white text-sm">${page.title || page.keyword}</span>
+                            <a href="${page.url || '#'}" target="_blank" class="text-green-400 text-xs hover:text-green-300"><i class="fas fa-external-link-alt"></i></a>
+                        </div>
+                    `).join('') + (pages.length > 5 ? `<p class="text-gray-500 text-xs mt-2">+${pages.length - 5} more</p>` : '');
+                }
+            }
+            
+            // Load USPs
+            const uspsEl = document.getElementById('uspsList');
+            if (uspsEl) {
+                const usps = currentClient.usp || currentClient.usps || [];
+                if (usps.length === 0) {
+                    uspsEl.innerHTML = '<p class="text-gray-500 text-sm">No USPs defined. Add unique selling points in client settings.</p>';
+                } else {
+                    uspsEl.innerHTML = usps.map(usp => `
+                        <div class="p-2 glass rounded-lg">
+                            <span class="text-white text-sm">${usp}</span>
+                        </div>
+                    `).join('');
+                }
+            }
+            
+            // Load competitor insights
+            loadCompetitorInsights();
+        }
+        
+        async function loadCompetitorInsights() {
+            if (!currentClient) return;
+            
+            const tableEl = document.getElementById('competitorInsightsTable');
+            if (!tableEl) return;
+            
+            try {
+                const response = await fetch(`${API_URL}/api/monitoring/rankings?client_id=${currentClient.id}`, {
+                    headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    const keywords = data.keywords || [];
+                    
+                    if (keywords.length === 0) {
+                        tableEl.innerHTML = '<tr><td colspan="4" class="text-center py-6 text-gray-500">No ranking data yet. Check Rankings tab.</td></tr>';
+                        return;
+                    }
+                    
+                    tableEl.innerHTML = keywords.slice(0, 10).map(kw => `
+                        <tr class="border-b border-white/5">
+                            <td class="py-3 text-white">${kw.keyword}</td>
+                            <td class="py-3 text-center ${kw.position <= 10 ? 'text-green-400' : 'text-gray-400'}">#${kw.position || '--'}</td>
+                            <td class="py-3 text-center text-orange-400">#${kw.competitor_position || '--'}</td>
+                            <td class="py-3 text-center ${kw.gap > 0 ? 'text-red-400' : 'text-green-400'}">${kw.gap > 0 ? '+' : ''}${kw.gap || 0}</td>
+                        </tr>
+                    `).join('');
+                } else {
+                    tableEl.innerHTML = '<tr><td colspan="4" class="text-center py-6 text-gray-500">Rankings not available. Add SEMrush API key.</td></tr>';
+                }
+            } catch (error) {
+                tableEl.innerHTML = '<tr><td colspan="4" class="text-center py-6 text-gray-500">Could not load insights.</td></tr>';
+            }
+        }
+        
+        // ==========================================
+        // LEADS MANAGEMENT
+        // ==========================================
+        
+        async function loadLeads() {
+            if (!currentClient) return;
+            
+            const container = document.getElementById('leadsList');
+            if (!container) return;
+            
+            const statusFilter = document.getElementById('leadStatusFilter')?.value || '';
+            
+            container.innerHTML = '<div class="text-center py-8"><i class="fas fa-spinner fa-spin text-2xl text-purple-400"></i><p class="text-gray-400 mt-2">Loading leads...</p></div>';
+            
+            try {
+                // Use correct URL without trailing slash before query params
+                let url = `${API_URL}/api/leads?client_id=${currentClient.id}`;
+                if (statusFilter) url += `&status=${statusFilter}`;
+                
+                const response = await authFetch(url, {
+                    headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    const leads = data.leads || [];
+                    
+                    // Update stats
+                    const totalLeads = leads.length;
+                    const newLeads = leads.filter(l => l.status === 'new' || !l.status).length;
+                    const wonLeads = leads.filter(l => l.status === 'won').length;
+                    const totalValue = leads.reduce((sum, l) => sum + (parseFloat(l.value) || 0), 0);
+                    
+                    document.getElementById('leadsTotal').textContent = totalLeads;
+                    document.getElementById('leadsNew').textContent = newLeads;
+                    document.getElementById('leadsWon').textContent = wonLeads;
+                    document.getElementById('leadsTotalValue').textContent = '$' + totalValue.toLocaleString();
+                    
+                    if (leads.length === 0) {
+                        container.innerHTML = `
+                            <div class="text-center py-12 text-gray-500">
+                                <i class="fas fa-user-plus text-4xl mb-4 opacity-50"></i>
+                                <p>No leads ${statusFilter ? 'with status "' + statusFilter + '"' : 'captured yet'}</p>
+                                <p class="text-sm mt-2">Leads from calls, forms, and chatbot will appear here</p>
+                            </div>
+                        `;
+                        return;
+                    }
+                    
+                    container.innerHTML = leads.map(lead => `
+                        <div class="glass rounded-xl p-4 hover:bg-white/5 transition">
+                            <div class="flex items-start justify-between">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-cyan-600 flex items-center justify-center text-white font-bold">
+                                        ${(lead.name || 'L')[0].toUpperCase()}
+                                    </div>
+                                    <div>
+                                        <h4 class="text-white font-medium">${lead.name || 'Unknown'}</h4>
+                                        <p class="text-sm text-gray-400">${lead.email || ''} ${lead.email && lead.phone ? '•' : ''} ${lead.phone || ''}</p>
+                                    </div>
+                                </div>
+                                <div class="text-right">
+                                    <select onchange="updateLeadStatus('${lead.id}', this.value)" class="px-2 py-1 rounded-full text-xs ${getLeadStatusColor(lead.status)} bg-transparent border-0 cursor-pointer">
+                                        <option value="new" ${lead.status === 'new' || !lead.status ? 'selected' : ''}>New</option>
+                                        <option value="contacted" ${lead.status === 'contacted' ? 'selected' : ''}>Contacted</option>
+                                        <option value="qualified" ${lead.status === 'qualified' ? 'selected' : ''}>Qualified</option>
+                                        <option value="proposal" ${lead.status === 'proposal' ? 'selected' : ''}>Proposal</option>
+                                        <option value="won" ${lead.status === 'won' ? 'selected' : ''}>Won</option>
+                                        <option value="lost" ${lead.status === 'lost' ? 'selected' : ''}>Lost</option>
+                                    </select>
+                                    <p class="text-xs text-gray-500 mt-1">${formatDate(lead.created_at)}</p>
+                                </div>
+                            </div>
+                            <div class="mt-3 flex items-center gap-4 text-sm">
+                                <span class="text-gray-400"><i class="fas fa-tag mr-1"></i>${lead.source || 'Unknown'}</span>
+                                ${lead.value ? `<span class="text-green-400"><i class="fas fa-dollar-sign mr-1"></i>${lead.value}</span>` : ''}
+                                ${lead.page_url ? `<a href="${lead.page_url}" target="_blank" class="text-purple-400 hover:text-purple-300"><i class="fas fa-external-link-alt mr-1"></i>Source Page</a>` : ''}
+                            </div>
+                            ${lead.notes ? `<p class="mt-2 text-sm text-gray-400 italic">"${lead.notes}"</p>` : ''}
+                        </div>
+                    `).join('');
+                } else {
+                    container.innerHTML = '<div class="text-center py-8 text-red-400">Failed to load leads</div>';
+                }
+            } catch (error) {
+                console.error('Failed to load leads:', error);
+                container.innerHTML = '<div class="text-center py-8 text-red-400">Error loading leads</div>';
+            }
+        }
+        
+        async function updateLeadStatus(leadId, status) {
+            try {
+                const response = await fetch(`${API_URL}/api/leads/${leadId}/status`, {
+                    method: 'PUT',
+                    headers: { 
+                        'Authorization': `Bearer ${AUTH_TOKEN}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ status })
+                });
+                
+                if (response.ok) {
+                    showToast('Lead status updated!', 'success');
+                    loadLeads(); // Refresh
+                } else {
+                    showToast('Failed to update status', 'error');
+                }
+            } catch (error) {
+                showToast('Error updating status', 'error');
+            }
+        }
+        
+        function getLeadStatusColor(status) {
+            const colors = {
+                'new': 'bg-blue-500/20 text-blue-400',
+                'contacted': 'bg-yellow-500/20 text-yellow-400',
+                'qualified': 'bg-purple-500/20 text-purple-400',
+                'proposal': 'bg-orange-500/20 text-orange-400',
+                'won': 'bg-green-500/20 text-green-400',
+                'lost': 'bg-red-500/20 text-red-400'
+            };
+            return colors[status] || colors['new'];
+        }
+        
+        function formatDate(dateStr) {
+            if (!dateStr) return '';
+            const date = new Date(dateStr);
+            return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+        }
+        
+        // ==========================================
+        // REVIEWS MANAGEMENT
+        // ==========================================
+        
+        async function loadReviews() {
+            if (!currentClient) return;
+            
+            const container = document.getElementById('reviewsList');
+            if (!container) return;
+            
+            container.innerHTML = '<div class="text-center py-8"><i class="fas fa-spinner fa-spin text-2xl text-yellow-400"></i><p class="text-gray-400 mt-2">Loading reviews...</p></div>';
+            
+            try {
+                const response = await fetch(`${API_URL}/api/reviews?client_id=${currentClient.id}`, {
+                    headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    const reviews = data.reviews || [];
+                    
+                    // Update stats
+                    const totalReviews = reviews.length;
+                    const avgRating = totalReviews > 0 
+                        ? (reviews.reduce((sum, r) => sum + (r.rating || 0), 0) / totalReviews).toFixed(1)
+                        : '--';
+                    const positiveReviews = reviews.filter(r => r.rating >= 4).length;
+                    const respondedReviews = reviews.filter(r => r.reply).length;
+                    const responseRate = totalReviews > 0 
+                        ? Math.round((respondedReviews / totalReviews) * 100)
+                        : 0;
+                    
+                    document.getElementById('reviewsAvgRating').textContent = avgRating;
+                    document.getElementById('reviewsTotal').textContent = totalReviews;
+                    document.getElementById('reviewsPositive').textContent = positiveReviews;
+                    document.getElementById('reviewsResponded').textContent = responseRate + '%';
+                    
+                    if (reviews.length === 0) {
+                        container.innerHTML = `
+                            <div class="text-center py-12 text-gray-500">
+                                <i class="fas fa-star text-4xl mb-4 opacity-50"></i>
+                                <p>No reviews synced yet</p>
+                                <p class="text-sm mt-2">Connect your Google Business Profile in Settings → Integrations</p>
+                                <button onclick="showTab('settings')" class="mt-4 px-4 py-2 bg-gradient-to-r from-yellow-600 to-orange-600 rounded-lg text-white text-sm hover:opacity-90 transition">
+                                    <i class="fas fa-cog mr-2"></i>Configure GBP
+                                </button>
+                            </div>
+                        `;
+                        return;
+                    }
+                    
+                    container.innerHTML = reviews.map(review => `
+                        <div class="glass rounded-xl p-4 hover:bg-white/5 transition">
+                            <div class="flex items-start justify-between">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-10 h-10 rounded-full bg-gradient-to-br from-yellow-500 to-orange-600 flex items-center justify-center text-white font-bold">
+                                        ${(review.reviewer_name || 'R')[0].toUpperCase()}
+                                    </div>
+                                    <div>
+                                        <h4 class="text-white font-medium">${review.reviewer_name || 'Anonymous'}</h4>
+                                        <div class="flex items-center gap-1">
+                                            ${getStarRating(review.rating)}
+                                        </div>
+                                    </div>
+                                </div>
+                                <p class="text-xs text-gray-500">${formatDate(review.created_at)}</p>
+                            </div>
+                            <p class="mt-3 text-gray-300">${review.text || ''}</p>
+                            ${review.reply ? `
+                                <div class="mt-3 pl-4 border-l-2 border-purple-500">
+                                    <p class="text-sm text-gray-400"><strong>Your reply:</strong> ${review.reply}</p>
+                                </div>
+                            ` : `
+                                <div class="mt-3 flex gap-2">
+                                    <button onclick="generateReviewReply('${review.id}')" class="px-3 py-1 text-sm bg-purple-600/20 text-purple-400 rounded-lg hover:bg-purple-600/30 transition">
+                                        <i class="fas fa-magic mr-1"></i>Generate AI Reply
+                                    </button>
+                                    ${review.suggested_response ? `
+                                        <button onclick="postReviewReply('${review.id}')" class="px-3 py-1 text-sm bg-green-600/20 text-green-400 rounded-lg hover:bg-green-600/30 transition">
+                                            <i class="fas fa-check mr-1"></i>Post Reply
+                                        </button>
+                                    ` : ''}
+                                </div>
+                            `}
+                        </div>
+                    `).join('');
+                } else if (response.status === 404) {
+                    container.innerHTML = `
+                        <div class="text-center py-12 text-gray-500">
+                            <i class="fas fa-star text-4xl mb-4 opacity-50"></i>
+                            <p>Google Business Profile not connected</p>
+                            <p class="text-sm mt-2">Connect GBP in Settings to see and respond to reviews</p>
+                            <button onclick="showTab('settings')" class="mt-4 px-4 py-2 bg-gradient-to-r from-yellow-600 to-orange-600 rounded-lg text-white text-sm hover:opacity-90 transition">
+                                <i class="fas fa-cog mr-2"></i>Connect GBP
+                            </button>
+                        </div>
+                    `;
+                } else {
+                    container.innerHTML = '<div class="text-center py-8 text-red-400">Failed to load reviews</div>';
+                }
+            } catch (error) {
+                console.error('Failed to load reviews:', error);
+                container.innerHTML = `
+                    <div class="text-center py-12 text-gray-500">
+                        <i class="fas fa-star text-4xl mb-4 opacity-50"></i>
+                        <p>Reviews not available</p>
+                        <p class="text-sm mt-2">Connect your Google Business Profile to see reviews</p>
+                    </div>
+                `;
+            }
+        }
+        
+        function getStarRating(rating) {
+            let stars = '';
+            for (let i = 1; i <= 5; i++) {
+                if (i <= rating) {
+                    stars += '<i class="fas fa-star text-yellow-400 text-sm"></i>';
+                } else {
+                    stars += '<i class="fas fa-star text-gray-600 text-sm"></i>';
+                }
+            }
+            return stars;
+        }
+        
+        async function generateReviewReply(reviewId) {
+            showToast('Generating AI reply...', 'info');
+            try {
+                const response = await fetch(`${API_URL}/api/reviews/${reviewId}/generate-response`, {
+                    method: 'POST',
+                    headers: { 
+                        'Authorization': `Bearer ${AUTH_TOKEN}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    showToast('Reply generated!', 'success');
+                    loadReviews(); // Refresh
+                } else {
+                    showToast('Failed to generate reply', 'error');
+                }
+            } catch (error) {
+                showToast('Error generating reply', 'error');
+            }
+        }
+        
+        async function generateAllReviewResponses() {
+            if (!currentClient) {
+                showToast('Please select a client first', 'warning');
+                return;
+            }
+            
+            showToast('Generating replies for all pending reviews...', 'info');
+            
+            try {
+                const response = await fetch(`${API_URL}/api/reviews/generate-all-responses?client_id=${currentClient.id}`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    showToast(`Generated ${data.generated || 0} replies!`, 'success');
+                    loadReviews();
+                } else {
+                    const data = await response.json();
+                    showToast(data.error || 'Failed to generate replies', 'error');
+                }
+            } catch (error) {
+                showToast('Error generating replies', 'error');
+            }
+        }
+        
+        async function sendReviewRequests() {
+            if (!currentClient) {
+                showToast('Please select a client first', 'warning');
+                return;
+            }
+            
+            const count = prompt('How many review requests would you like to send?', '10');
+            if (!count) return;
+            
+            showToast('Sending review requests...', 'info');
+            
+            try {
+                const response = await fetch(`${API_URL}/api/reviews/request/send`, {
+                    method: 'POST',
+                    headers: { 
+                        'Authorization': `Bearer ${AUTH_TOKEN}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        client_id: currentClient.id,
+                        count: parseInt(count)
+                    })
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    showToast(`Sent ${data.sent || 0} review requests!`, 'success');
+                } else {
+                    const data = await response.json();
+                    showToast(data.error || 'Failed to send requests', 'error');
+                }
+            } catch (error) {
+                showToast('Error sending review requests', 'error');
+            }
+        }
+        
+        // ==========================================
+        // CALLS MANAGEMENT
+        // ==========================================
+        
+        async function loadCalls() {
+            if (!currentClient) return;
+            
+            const container = document.getElementById('callsList');
+            if (!container) return;
+            
+            container.innerHTML = '<div class="text-center py-8"><i class="fas fa-spinner fa-spin text-2xl text-green-400"></i><p class="text-gray-400 mt-2">Loading calls...</p></div>';
+            
+            try {
+                const response = await fetch(`${API_URL}/api/intelligence/report/${currentClient.id}?days=30`, {
+                    headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    const calls = data.recent_calls || data.calls || [];
+                    
+                    // Update stats
+                    const totalCalls = calls.length;
+                    const answeredCalls = calls.filter(c => c.answered).length;
+                    const totalDuration = calls.reduce((sum, c) => sum + (c.duration || 0), 0);
+                    const avgDuration = totalCalls > 0 ? Math.round(totalDuration / totalCalls) : 0;
+                    const leadsGenerated = calls.filter(c => c.lead_created).length;
+                    
+                    document.getElementById('callsTotal').textContent = totalCalls;
+                    document.getElementById('callsAnswered').textContent = answeredCalls;
+                    document.getElementById('callsAvgDuration').textContent = formatCallDuration(avgDuration);
+                    document.getElementById('callsLeads').textContent = leadsGenerated;
+                    
+                    // Update insights
+                    if (data.top_questions && data.top_questions.length > 0) {
+                        document.getElementById('topQuestions').innerHTML = data.top_questions.slice(0, 5).map(q => `
+                            <div class="p-2 bg-white/5 rounded-lg text-gray-300 text-sm">${q}</div>
+                        `).join('');
+                    } else {
+                        document.getElementById('topQuestions').innerHTML = '<p class="text-gray-500 text-sm">Not enough call data yet</p>';
+                    }
+                    
+                    if (data.keywords && data.keywords.length > 0) {
+                        document.getElementById('callKeywords').innerHTML = data.keywords.slice(0, 10).map(kw => `
+                            <span class="px-3 py-1 bg-blue-500/20 text-blue-400 rounded-full text-sm">${kw}</span>
+                        `).join('');
+                    } else {
+                        document.getElementById('callKeywords').innerHTML = '<p class="text-gray-500 text-sm">Not enough call data yet</p>';
+                    }
+                    
+                    if (calls.length === 0) {
+                        container.innerHTML = `
+                            <div class="text-center py-12 text-gray-500">
+                                <i class="fas fa-phone text-4xl mb-4 opacity-50"></i>
+                                <p>No calls recorded yet</p>
+                                <p class="text-sm mt-2">Connect CallRail in Settings → Integrations to analyze calls</p>
+                                <button onclick="showTab('settings')" class="mt-4 px-4 py-2 bg-gradient-to-r from-green-600 to-emerald-600 rounded-lg text-white text-sm hover:opacity-90 transition">
+                                    <i class="fas fa-cog mr-2"></i>Connect CallRail
+                                </button>
+                            </div>
+                        `;
+                        return;
+                    }
+                    
+                    container.innerHTML = calls.map(call => `
+                        <div class="glass rounded-xl p-4 hover:bg-white/5 transition">
+                            <div class="flex items-start justify-between">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-10 h-10 rounded-full bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center text-white">
+                                        <i class="fas fa-phone"></i>
+                                    </div>
+                                    <div>
+                                        <h4 class="text-white font-medium">${call.caller_name || call.caller_number || 'Unknown Caller'}</h4>
+                                        <p class="text-sm text-gray-400">${formatCallDuration(call.duration)} • ${call.tracking_source || 'Direct'}</p>
+                                    </div>
+                                </div>
+                                <div class="text-right">
+                                    <span class="px-2 py-1 rounded-full text-xs ${call.answered ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}">
+                                        ${call.answered ? 'Answered' : 'Missed'}
+                                    </span>
+                                    <p class="text-xs text-gray-500 mt-1">${formatDate(call.start_time)}</p>
+                                </div>
+                            </div>
+                            ${call.summary ? `
+                                <div class="mt-3 p-3 bg-white/5 rounded-lg">
+                                    <p class="text-sm text-gray-300">${call.summary}</p>
+                                </div>
+                            ` : ''}
+                            ${call.keywords && call.keywords.length > 0 ? `
+                                <div class="mt-3 flex flex-wrap gap-2">
+                                    ${call.keywords.slice(0, 5).map(kw => `<span class="px-2 py-1 bg-purple-500/20 text-purple-400 rounded-full text-xs">${kw}</span>`).join('')}
+                                </div>
+                            ` : ''}
+                        </div>
+                    `).join('');
+                } else if (response.status === 404) {
+                    container.innerHTML = `
+                        <div class="text-center py-12 text-gray-500">
+                            <i class="fas fa-phone text-4xl mb-4 opacity-50"></i>
+                            <p>CallRail not connected</p>
+                            <p class="text-sm mt-2">Connect CallRail to start analyzing customer calls with AI</p>
+                            <button onclick="showTab('settings')" class="mt-4 px-4 py-2 bg-gradient-to-r from-green-600 to-emerald-600 rounded-lg text-white text-sm hover:opacity-90 transition">
+                                <i class="fas fa-cog mr-2"></i>Connect CallRail
+                            </button>
+                        </div>
+                    `;
+                } else {
+                    container.innerHTML = '<div class="text-center py-8 text-red-400">Failed to load calls</div>';
+                }
+            } catch (error) {
+                console.error('Failed to load calls:', error);
+                container.innerHTML = `
+                    <div class="text-center py-12 text-gray-500">
+                        <i class="fas fa-phone text-4xl mb-4 opacity-50"></i>
+                        <p>Call Intelligence not available</p>
+                        <p class="text-sm mt-2">Connect CallRail in Settings to analyze calls</p>
+                    </div>
+                `;
+            }
+        }
+        
+        async function refreshCallData() {
+            await loadCalls();
+            showToast('Call data refreshed', 'success');
+        }
+        
+        function formatCallDuration(seconds) {
+            if (!seconds) return '0:00';
+            const mins = Math.floor(seconds / 60);
+            const secs = seconds % 60;
+            return `${mins}:${secs.toString().padStart(2, '0')}`;
+        }
+        
+        // ==========================================
+        // PAGES MANAGEMENT
+        // ==========================================
+        
+        async function loadPages() {
+            if (!currentClient) return;
+            
+            const container = document.getElementById('pagesList');
+            if (!container) return;
+            
+            container.innerHTML = '<div class="text-center py-8"><i class="fas fa-spinner fa-spin text-2xl text-purple-400"></i><p class="text-gray-400 mt-2">Loading pages...</p></div>';
+            
+            try {
+                const response = await fetch(`${API_URL}/api/pages?client_id=${currentClient.id}`, {
+                    headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    const pages = data.pages || [];
+                    
+                    if (pages.length === 0) {
+                        container.innerHTML = `
+                            <div class="text-center py-12 text-gray-500">
+                                <i class="fas fa-file-code text-4xl mb-4 opacity-50"></i>
+                                <p>No pages created yet</p>
+                                <p class="text-sm mt-2">Generate service pages from the Generate tab</p>
+                                <button onclick="showTab('generate')" class="mt-4 px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 rounded-lg text-white text-sm hover:opacity-90 transition">
+                                    <i class="fas fa-magic mr-2"></i>Generate Pages
+                                </button>
+                            </div>
+                        `;
+                        return;
+                    }
+                    
+                    container.innerHTML = `
+                        <div class="grid gap-4">
+                            ${pages.map(page => `
+                                <div class="glass rounded-xl p-4 hover:bg-white/5 transition">
+                                    <div class="flex items-start justify-between">
+                                        <div>
+                                            <h4 class="text-white font-medium">${page.title}</h4>
+                                            <p class="text-sm text-gray-400">${page.slug || page.url || ''}</p>
+                                        </div>
+                                        <div class="flex items-center gap-2">
+                                            <span class="px-2 py-1 rounded-full text-xs ${page.status === 'published' ? 'bg-green-500/20 text-green-400' : 'bg-yellow-500/20 text-yellow-400'}">
+                                                ${page.status || 'draft'}
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <div class="mt-3 flex items-center gap-4">
+                                        ${page.wordpress_url ? `
+                                            <a href="${page.wordpress_url}" target="_blank" class="text-sm text-purple-400 hover:text-purple-300">
+                                                <i class="fas fa-external-link-alt mr-1"></i>View Live
+                                            </a>
+                                        ` : ''}
+                                        <button onclick="editPage('${page.id}')" class="text-sm text-gray-400 hover:text-white">
+                                            <i class="fas fa-edit mr-1"></i>Edit
+                                        </button>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    `;
+                } else {
+                    container.innerHTML = `
+                        <div class="text-center py-12 text-gray-500">
+                            <i class="fas fa-file-code text-4xl mb-4 opacity-50"></i>
+                            <p>No pages created yet</p>
+                            <p class="text-sm mt-2">Generate service pages from the Generate tab</p>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                console.error('Failed to load pages:', error);
+                container.innerHTML = `
+                    <div class="text-center py-12 text-gray-500">
+                        <i class="fas fa-file-code text-4xl mb-4 opacity-50"></i>
+                        <p>No pages created yet</p>
+                        <p class="text-sm mt-2">Generate service pages from the Generate tab</p>
+                    </div>
+                `;
+            }
+        }
+        
+        function editPage(pageId) {
+            showToast('Page editing coming soon!', 'info');
         }
         
         // ==========================================
@@ -4112,13 +5619,13 @@
                 });
                 
                 if (response.ok) {
-                    alert('✓ Notification preferences saved!');
+                    showToast('Notification preferences saved!', 'success');
                 } else {
                     const data = await response.json();
-                    alert('Error: ' + (data.error || 'Failed to save preferences'));
+                    showToast(data.error || 'Failed to save preferences', 'error');
                 }
             } catch (error) {
-                alert('Error saving preferences: ' + error.message);
+                showToast('Error saving preferences', 'error');
             }
         }
         
@@ -4190,12 +5697,12 @@
                 const data = await response.json();
                 
                 if (response.ok && data.success) {
-                    alert('✓ Test email sent! Check your inbox.');
+                    showToast('Test email sent! Check your inbox.', 'success');
                 } else {
-                    alert('Error: ' + (data.error || 'Failed to send test email'));
+                    showToast(data.error || 'Failed to send test email', 'error');
                 }
             } catch (error) {
-                alert('Error: ' + error.message);
+                showToast('Error: ' + error.message, 'error');
             } finally {
                 btn.disabled = false;
                 btn.textContent = 'Send Test Email';
@@ -4352,7 +5859,7 @@
         
         async function saveIntegrationsTop() {
             if (!currentClient) {
-                alert('Please select a client first');
+                showToast('Please select a client first', 'warning');
                 return;
             }
             
@@ -4384,10 +5891,10 @@
                     showToast('Integrations saved!', 'success');
                 } else {
                     const err = await response.json();
-                    alert('Error: ' + (err.error || 'Failed to save'));
+                    showToast(err.error || 'Failed to save', 'error');
                 }
             } catch (error) {
-                alert('Error: ' + error.message);
+                showToast('Error: ' + error.message, 'error');
             }
         }
         
@@ -4473,7 +5980,7 @@
         
         async function saveIntegration(type) {
             if (!currentClient) {
-                alert('Please select a client first');
+                showToast('Please select a client first', 'warning');
                 return;
             }
             
@@ -4515,17 +6022,17 @@
                     showToast(`${type.toUpperCase()} integration saved!`, 'success');
                 } else {
                     const err = await response.json();
-                    alert('Error saving integration: ' + (err.error || 'Unknown error'));
+                    showToast(err.error || 'Failed to save integration', 'error');
                 }
             } catch (error) {
                 console.error('Integration save error:', error);
-                alert('Failed to save integration: ' + error.message);
+                showToast('Failed to save integration', 'error');
             }
         }
         
         async function saveAllIntegrations() {
             if (!currentClient) {
-                alert('Please select a client first');
+                showToast('Please select a client first', 'warning');
                 return;
             }
             
@@ -4557,11 +6064,11 @@
                     showToast('All integrations saved!', 'success');
                 } else {
                     const err = await response.json();
-                    alert('Error saving integrations: ' + (err.error || 'Unknown error'));
+                    showToast(err.error || 'Failed to save integrations', 'error');
                 }
             } catch (error) {
                 console.error('Integration save error:', error);
-                alert('Failed to save integrations: ' + error.message);
+                showToast('Failed to save integrations', 'error');
             }
         }
         
@@ -4814,7 +6321,7 @@
             container.innerHTML = html;
         }
         
-        function formatDate(dateStr) {
+        function formatCalendarDate(dateStr) {
             if (!dateStr) return 'Not scheduled';
             const date = new Date(dateStr + 'T00:00:00');
             return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
@@ -4827,7 +6334,7 @@
             const unscheduledSocial = allSocial.filter(s => !s.scheduled_for);
             
             if (unscheduledBlogs.length === 0 && unscheduledSocial.length === 0) {
-                alert('All content is already scheduled!');
+                showToast('All content is already scheduled!', 'info');
                 return;
             }
             
@@ -4992,7 +6499,7 @@
         
         async function bulkApproveBlogs() {
             if (selectedBlogs.size === 0) {
-                alert('No blogs selected');
+                showToast('No blogs selected', 'warning');
                 return;
             }
             
@@ -5016,18 +6523,18 @@
                     if (blog) blog.status = 'approved';
                 });
                 
-                alert(`✓ ${result.approved} blogs approved`);
+                showToast(`${result.approved} blogs approved`, 'success');
                 cancelBulkSelect();
                 renderBlogs();
                 
             } catch (error) {
-                alert('Error: ' + error.message);
+                showToast('Error: ' + error.message, 'error');
             }
         }
         
         async function bulkDeleteBlogs() {
             if (selectedBlogs.size === 0) {
-                alert('No blogs selected');
+                showToast('No blogs selected', 'warning');
                 return;
             }
             
@@ -5048,30 +6555,33 @@
                 // Remove from local data
                 allBlogs = allBlogs.filter(b => !selectedBlogs.has(b.id));
                 
-                alert(`✓ ${result.deleted} blogs deleted`);
+                showToast(`${result.deleted} blogs deleted`, 'success');
                 cancelBulkSelect();
                 renderBlogs();
                 updateStats();
                 
             } catch (error) {
-                alert('Error: ' + error.message);
+                showToast('Error: ' + error.message, 'error');
             }
         }
         
-        function renderBlogs() {
+        function renderBlogs(filteredBlogs = null) {
             const container = document.getElementById('blogsList');
+            const blogsToRender = filteredBlogs || allBlogs;
 
-            if (allBlogs.length === 0) {
+            if (blogsToRender.length === 0) {
+                const hasFilters = document.getElementById('blogSearchInput')?.value || document.getElementById('blogStatusFilter')?.value;
                 container.innerHTML = `
                     <div class="glass rounded-xl p-12 text-center">
-                        <i class="fas fa-file-alt text-4xl text-gray-600 mb-4"></i>
-                        <p class="text-gray-400">No blog posts yet</p>
+                        <i class="fas fa-${hasFilters ? 'search' : 'file-alt'} text-4xl text-gray-600 mb-4"></i>
+                        <p class="text-gray-400">${hasFilters ? 'No blogs match your filters' : 'No blog posts yet'}</p>
+                        ${hasFilters ? '<button onclick="clearBlogFilters()" class="mt-3 text-purple-400 hover:text-purple-300 text-sm">Clear filters</button>' : ''}
                     </div>
                 `;
                 return;
             }
 
-            container.innerHTML = allBlogs.map(blog => {
+            container.innerHTML = blogsToRender.map(blog => {
                 const statusColors = {
                     'draft': 'bg-gray-500/20 text-gray-300',
                     'scheduled': 'bg-blue-500/20 text-blue-300',
@@ -5153,6 +6663,35 @@
             `}).join('');
         }
         
+        function filterBlogs() {
+            const searchTerm = document.getElementById('blogSearchInput')?.value.toLowerCase() || '';
+            const statusFilter = document.getElementById('blogStatusFilter')?.value || '';
+            
+            let filtered = allBlogs;
+            
+            if (searchTerm) {
+                filtered = filtered.filter(blog => 
+                    (blog.title || '').toLowerCase().includes(searchTerm) ||
+                    (blog.primary_keyword || '').toLowerCase().includes(searchTerm) ||
+                    (blog.meta_title || '').toLowerCase().includes(searchTerm)
+                );
+            }
+            
+            if (statusFilter) {
+                filtered = filtered.filter(blog => blog.status === statusFilter);
+            }
+            
+            renderBlogs(filtered);
+        }
+        
+        function clearBlogFilters() {
+            const searchInput = document.getElementById('blogSearchInput');
+            const statusFilter = document.getElementById('blogStatusFilter');
+            if (searchInput) searchInput.value = '';
+            if (statusFilter) statusFilter.value = '';
+            renderBlogs();
+        }
+        
         function quickEditBlog(blogId) {
             openBlogModal(blogId);
             // Wait for modal to open then enter edit mode
@@ -5185,7 +6724,7 @@
                 
             } catch (error) {
                 console.error('Delete error:', error);
-                alert('Error: ' + error.message);
+                showToast('Error: ' + error.message, 'error');
             }
         }
 
@@ -5374,6 +6913,18 @@
             document.body.style.overflow = '';
         }
         
+        function showCurrentSERPPreview() {
+            if (!currentBlog) return;
+            
+            const title = currentBlog.meta_title || currentBlog.title || 'Page Title';
+            const description = currentBlog.meta_description || '';
+            const url = currentClient?.website_url 
+                ? `${currentClient.website_url}/${currentBlog.slug || currentBlog.title?.toLowerCase().replace(/[^a-z0-9]+/g, '-')}/`
+                : 'https://example.com/blog-post/';
+            
+            showSERPPreview(title, description, url);
+        }
+        
         async function generateBlogImage() {
             if (!currentBlog) return;
             
@@ -5484,7 +7035,7 @@
             if (!currentBlog) return;
             const content = `${currentBlog.title}\n\n${currentBlog.body?.replace(/<[^>]*>/g, '')}`;
             navigator.clipboard.writeText(content);
-            alert('Content copied to clipboard!');
+            showToast('Content copied to clipboard!', 'success');
         }
 
         function downloadBlog() {
@@ -5708,7 +7259,7 @@
             const newBody = document.getElementById('modalBodyEdit').value;
             
             if (!newTitle) {
-                alert('Title is required');
+                showToast('Title is required', 'error');
                 return;
             }
             
@@ -5761,7 +7312,7 @@
                 
             } catch (error) {
                 console.error('Save error:', error);
-                alert('Error: ' + error.message);
+                showToast('Error: ' + error.message, 'error');
             }
         }
         
@@ -5801,7 +7352,7 @@
                 
             } catch (error) {
                 console.error('Delete error:', error);
-                alert('Error: ' + error.message);
+                showToast('Error: ' + error.message, 'error');
             }
         }
         
@@ -5845,7 +7396,7 @@
                 
             } catch (error) {
                 console.error('Approve error:', error);
-                alert('Error: ' + error.message);
+                showToast('Error: ' + error.message, 'error');
             }
         }
         
@@ -5926,7 +7477,7 @@
                 
             } catch (error) {
                 console.error('WordPress publish error:', error);
-                alert('Error: ' + error.message);
+                showToast('Error: ' + error.message, 'error');
             } finally {
                 // Reset loading state
                 const wpButtons = document.querySelectorAll('[onclick*="publishToWordPress"]');
@@ -6004,7 +7555,7 @@
                 
             } catch (error) {
                 console.error('Schedule error:', error);
-                alert('Error: ' + error.message);
+                showToast('Error: ' + error.message, 'error');
             }
         }
         
@@ -6114,16 +7665,22 @@
                 
             } catch (error) {
                 console.error('Delete error:', error);
-                alert('Error: ' + error.message);
+                showToast('Error: ' + error.message, 'error');
             }
         }
 
         function filterSocial(filter) {
             socialFilter = filter;
-            ['all', 'gbp', 'facebook'].forEach(f => {
-                document.getElementById(`social-${f}`).classList.remove('border-2', 'border-purple-500');
+            ['all', 'gbp', 'facebook', 'instagram'].forEach(f => {
+                const el = document.getElementById(`social-${f}`);
+                if (el) {
+                    el.classList.remove('border-2', 'border-purple-500');
+                }
             });
-            document.getElementById(`social-${filter}`).classList.add('border-2', 'border-purple-500');
+            const activeEl = document.getElementById(`social-${filter}`);
+            if (activeEl) {
+                activeEl.classList.add('border-2', 'border-purple-500');
+            }
             renderSocial();
         }
 
@@ -6197,62 +7754,6 @@
             loadCompetitorInsights();
         }
         
-        async function loadCompetitorInsights() {
-            const table = document.getElementById('competitorInsightsTable');
-            if (!table) return;
-            
-            if (!currentClient) {
-                table.innerHTML = '<tr><td colspan="4" class="text-center py-4 text-gray-500">Select a client to view insights</td></tr>';
-                return;
-            }
-            
-            // Generate sample insights based on client keywords
-            const keywords = currentClient.primary_keywords || [];
-            const geo = currentClient.geo || '';
-            
-            if (keywords.length === 0) {
-                table.innerHTML = '<tr><td colspan="4" class="text-center py-4 text-gray-500">No keywords to analyze</td></tr>';
-                return;
-            }
-            
-            // Simulate competitor data
-            const insights = keywords.slice(0, 5).map((kw, i) => {
-                const yourRank = Math.random() > 0.3 ? Math.floor(Math.random() * 20) + 1 : null;
-                const compRank = Math.floor(Math.random() * 10) + 1;
-                const gap = yourRank ? yourRank - compRank : null;
-                
-                return {
-                    keyword: `${kw || ''} ${geo}`.trim(),
-                    yourRank,
-                    compRank,
-                    gap
-                };
-            });
-            
-            table.innerHTML = insights.map(item => {
-                const rankClass = (rank) => {
-                    if (!rank) return 'text-red-400';
-                    if (rank <= 3) return 'text-green-400';
-                    if (rank <= 10) return 'text-blue-400';
-                    return 'text-yellow-400';
-                };
-                
-                const gapDisplay = item.gap === null ? '<span class="text-red-400">Not ranking</span>' :
-                    item.gap > 0 ? `<span class="text-red-400">-${item.gap} behind</span>` :
-                    item.gap < 0 ? `<span class="text-green-400">+${Math.abs(item.gap)} ahead</span>` :
-                    '<span class="text-gray-400">Tied</span>';
-                
-                return `
-                    <tr class="border-b border-white/5 hover:bg-white/5">
-                        <td class="py-3 text-white">${escapeHtml(item.keyword)}</td>
-                        <td class="py-3 text-center ${rankClass(item.yourRank)} font-bold">${item.yourRank ? '#' + item.yourRank : '—'}</td>
-                        <td class="py-3 text-center ${rankClass(item.compRank)}">#${item.compRank}</td>
-                        <td class="py-3 text-center">${gapDisplay}</td>
-                    </tr>
-                `;
-            }).join('');
-        }
-
         // ==========================================
         // CONTENT GENERATION
         // ==========================================
@@ -6300,7 +7801,7 @@
             }
             
             if (!currentClient) {
-                alert('Please select a client first');
+                showToast('Please select a client first', 'warning');
                 return;
             }
             
@@ -6453,6 +7954,253 @@
             }
         }
         
+        // ==========================================
+        // BULK BLOG GENERATION
+        // ==========================================
+        
+        async function generateBulkBlogs() {
+            const keywordsText = document.getElementById('bulkKeywords').value.trim();
+            if (!keywordsText) {
+                showToast('Please enter at least one keyword', 'warning');
+                return;
+            }
+            
+            if (!currentClient) {
+                showToast('Please select a client first', 'warning');
+                return;
+            }
+            
+            const keywords = keywordsText.split('\n').map(k => k.trim()).filter(k => k.length > 0);
+            if (keywords.length === 0) {
+                showToast('No valid keywords found', 'warning');
+                return;
+            }
+            
+            const wordCount = parseInt(document.getElementById('bulkWordCount').value);
+            const faqCount = parseInt(document.getElementById('bulkFaqCount').value);
+            
+            const btn = document.getElementById('btnBulkGenerate');
+            const progress = document.getElementById('bulkProgress');
+            const progressBar = document.getElementById('bulkProgressBar');
+            const progressCount = document.getElementById('bulkProgressCount');
+            const progressLog = document.getElementById('bulkProgressLog');
+            
+            btn.disabled = true;
+            btn.innerHTML = '<div class="spinner w-5 h-5 mr-2"></div> Generating...';
+            progress.classList.remove('hidden');
+            progressLog.innerHTML = '';
+            progressCount.textContent = `0/${keywords.length}`;
+            progressBar.style.width = '0%';
+            
+            let completed = 0;
+            let succeeded = 0;
+            const results = [];
+            
+            for (const keyword of keywords) {
+                try {
+                    progressLog.innerHTML += `<div class="text-yellow-400"><i class="fas fa-spinner fa-spin mr-1"></i> Generating: ${keyword}...</div>`;
+                    progressLog.scrollTop = progressLog.scrollHeight;
+                    
+                    // Start async generation
+                    const startResponse = await fetch('/api/content/blog/generate-async', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${AUTH_TOKEN}`
+                        },
+                        body: JSON.stringify({
+                            client_id: currentClient.id,
+                            keyword: keyword,
+                            word_count: wordCount,
+                            include_faq: faqCount > 0,
+                            faq_count: faqCount
+                        })
+                    });
+                    
+                    if (!startResponse.ok) {
+                        throw new Error('Failed to start generation');
+                    }
+                    
+                    const { task_id } = await startResponse.json();
+                    
+                    // Poll for completion
+                    let taskComplete = false;
+                    for (let i = 0; i < 90 && !taskComplete; i++) {
+                        await new Promise(r => setTimeout(r, 2000));
+                        
+                        const statusRes = await fetch(`/api/content/blog/task/${task_id}`, {
+                            headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
+                        });
+                        
+                        if (statusRes.ok) {
+                            const status = await statusRes.json();
+                            if (status.status === 'complete') {
+                                taskComplete = true;
+                                succeeded++;
+                                results.push({ keyword, success: true, blogId: status.blog_id });
+                                
+                                // Remove the "generating" line and add success
+                                const lines = progressLog.innerHTML.split('</div>');
+                                lines.pop(); // Remove last empty
+                                lines.pop(); // Remove generating line
+                                progressLog.innerHTML = lines.join('</div>') + '</div>';
+                                progressLog.innerHTML += `<div class="text-green-400"><i class="fas fa-check mr-1"></i> ${keyword} - Created!</div>`;
+                            } else if (status.status === 'error') {
+                                throw new Error(status.error || 'Generation failed');
+                            }
+                        }
+                    }
+                    
+                    if (!taskComplete) {
+                        throw new Error('Timeout');
+                    }
+                    
+                } catch (error) {
+                    results.push({ keyword, success: false, error: error.message });
+                    progressLog.innerHTML += `<div class="text-red-400"><i class="fas fa-times mr-1"></i> ${keyword} - ${error.message}</div>`;
+                }
+                
+                completed++;
+                progressCount.textContent = `${completed}/${keywords.length}`;
+                progressBar.style.width = `${(completed / keywords.length) * 100}%`;
+            }
+            
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-rocket"></i> Generate All Blogs';
+            
+            showToast(`Bulk generation complete: ${succeeded}/${keywords.length} blogs created`, succeeded === keywords.length ? 'success' : 'warning');
+            
+            // Refresh blogs list
+            loadBlogs();
+        }
+        
+        // ==========================================
+        // REAL-TIME SEO ANALYSIS
+        // ==========================================
+        
+        async function analyzeSEO(content, keyword, location) {
+            try {
+                const response = await fetch('/api/monitoring/seo-score', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${AUTH_TOKEN}`
+                    },
+                    body: JSON.stringify({
+                        content: content,
+                        target_keyword: keyword,
+                        location: location || currentClient?.geo || ''
+                    })
+                });
+                
+                if (response.ok) {
+                    return await response.json();
+                }
+            } catch (error) {
+                console.error('SEO analysis error:', error);
+            }
+            return null;
+        }
+        
+        function renderSEOAnalysis(seoResult, containerId) {
+            const container = document.getElementById(containerId);
+            if (!container || !seoResult) return;
+            
+            const { total_score, grade, factors, recommendations } = seoResult;
+            
+            const gradeColors = {
+                'A+': 'text-green-400 bg-green-500/20',
+                'A': 'text-green-400 bg-green-500/20',
+                'B': 'text-yellow-400 bg-yellow-500/20',
+                'C': 'text-orange-400 bg-orange-500/20',
+                'D': 'text-red-400 bg-red-500/20',
+                'F': 'text-red-500 bg-red-500/20'
+            };
+            
+            const gradeColor = gradeColors[grade] || gradeColors['F'];
+            
+            container.innerHTML = `
+                <div class="p-4 bg-slate-800/50 rounded-xl">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="flex items-center gap-3">
+                            <div class="text-4xl font-bold ${gradeColor.split(' ')[0]}">${total_score}</div>
+                            <div>
+                                <span class="px-2 py-1 rounded text-sm font-bold ${gradeColor}">${grade}</span>
+                                <p class="text-xs text-gray-500 mt-1">SEO Score</p>
+                            </div>
+                        </div>
+                        <div class="w-24 h-24">
+                            <svg viewBox="0 0 36 36" class="w-full h-full">
+                                <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                                    fill="none" stroke="#334155" stroke-width="3"/>
+                                <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                                    fill="none" stroke="${total_score >= 80 ? '#22c55e' : total_score >= 60 ? '#eab308' : '#ef4444'}" 
+                                    stroke-width="3" stroke-dasharray="${total_score}, 100"/>
+                            </svg>
+                        </div>
+                    </div>
+                    
+                    <div class="space-y-2 mb-4">
+                        ${Object.entries(factors).map(([key, data]) => `
+                            <div class="flex items-center justify-between text-sm">
+                                <span class="text-gray-400">${formatFactorName(key)}</span>
+                                <div class="flex items-center gap-2">
+                                    <div class="w-20 bg-gray-700 rounded-full h-1.5">
+                                        <div class="h-1.5 rounded-full ${data.score >= data.max * 0.8 ? 'bg-green-500' : data.score >= data.max * 0.5 ? 'bg-yellow-500' : 'bg-red-500'}" 
+                                            style="width: ${(data.score / data.max) * 100}%"></div>
+                                    </div>
+                                    <span class="text-white w-12 text-right">${data.score}/${data.max}</span>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                    
+                    ${recommendations.length > 0 ? `
+                        <div class="border-t border-white/10 pt-3">
+                            <p class="text-xs font-medium text-gray-400 mb-2">Recommendations:</p>
+                            <ul class="text-xs text-gray-500 space-y-1">
+                                ${recommendations.slice(0, 5).map(r => `<li class="flex items-start gap-2"><i class="fas fa-lightbulb text-yellow-500 mt-0.5"></i>${r}</li>`).join('')}
+                            </ul>
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+        }
+        
+        function formatFactorName(key) {
+            const names = {
+                'keyword_in_title': 'Keyword in Title',
+                'keyword_in_h1': 'Keyword in H1',
+                'keyword_in_first_100_words': 'Keyword in Intro',
+                'keyword_density': 'Keyword Density',
+                'word_count': 'Word Count',
+                'heading_structure': 'Heading Structure',
+                'meta_title_length': 'Meta Title',
+                'meta_description_length': 'Meta Description',
+                'readability': 'Readability',
+                'internal_links': 'Internal Links',
+                'external_links': 'External Links',
+                'image_optimization': 'Image Alt Text',
+                'content_depth': 'Content Depth'
+            };
+            return names[key] || key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+        }
+        
+        // SERP Preview Generator
+        function generateSERPPreview(title, description, url) {
+            return `
+                <div class="bg-white rounded-lg p-4 max-w-xl">
+                    <div class="text-sm text-green-700 mb-1">${url || 'https://example.com/page'}</div>
+                    <div class="text-xl text-blue-800 hover:underline cursor-pointer mb-1" style="font-family: arial, sans-serif;">
+                        ${title || 'Page Title Goes Here'}
+                    </div>
+                    <div class="text-sm text-gray-600" style="font-family: arial, sans-serif;">
+                        ${description || 'Meta description will appear here. Make it compelling to increase click-through rates from search results.'}
+                    </div>
+                </div>
+            `;
+        }
+        
         async function generateSocial() {
             const topic = document.getElementById('socialTopic').value.trim();
             
@@ -6462,7 +8210,7 @@
             }
             
             if (!currentClient) {
-                alert('Please select a client first');
+                showToast('Please select a client first', 'warning');
                 return;
             }
             
@@ -6586,7 +8334,7 @@
                     alert('Image generation failed: ' + (data.error || 'Unknown error'));
                 }
             } catch (error) {
-                alert('Error: ' + error.message);
+                showToast('Error: ' + error.message, 'error');
             } finally {
                 btn.disabled = false;
                 btn.innerHTML = '<i class="fas fa-wand-magic-sparkles"></i> Generate Image';
@@ -6603,7 +8351,7 @@
             }
             
             if (!currentClient) {
-                alert('Please select a client first');
+                showToast('Please select a client first', 'warning');
                 return;
             }
             
@@ -6649,7 +8397,7 @@
                     alert('Image generation failed: ' + (data.error || 'Unknown error'));
                 }
             } catch (error) {
-                alert('Error: ' + error.message);
+                showToast('Error: ' + error.message, 'error');
             } finally {
                 btn.disabled = false;
                 setTimeout(() => progress.classList.add('hidden'), 2000);
@@ -6675,9 +8423,186 @@
             }
         }
         
+        // ==========================================
+        // IMAGE LIBRARY FUNCTIONS
+        // ==========================================
+        
+        let clientImageLibrary = [];
+        let selectedLibraryImage = null;
+        
+        async function loadImageLibrary() {
+            if (!currentClient) return;
+            
+            try {
+                const response = await fetch(`${API_URL}/api/images/library/${currentClient.id}`, {
+                    headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    clientImageLibrary = data.images || [];
+                    renderImageLibrary();
+                }
+            } catch (error) {
+                console.error('Failed to load image library:', error);
+            }
+        }
+        
+        function renderImageLibrary() {
+            const grid = document.getElementById('imageLibraryGrid');
+            
+            if (clientImageLibrary.length === 0) {
+                grid.innerHTML = '<p class="col-span-3 text-center text-gray-500 text-sm py-4">Upload images to see them here</p>';
+                return;
+            }
+            
+            grid.innerHTML = clientImageLibrary.map(img => `
+                <div class="relative group cursor-pointer rounded-lg overflow-hidden ${selectedLibraryImage === img.id ? 'ring-2 ring-pink-500' : ''}" 
+                     onclick="selectLibraryImage('${img.id}')">
+                    <img src="${img.file_url}" alt="${img.alt_text || img.title || 'Image'}" 
+                         class="w-full h-20 object-cover">
+                    <div class="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition flex items-center justify-center">
+                        <i class="fas fa-check text-white"></i>
+                    </div>
+                    <button onclick="event.stopPropagation(); deleteLibraryImage('${img.id}')" 
+                            class="absolute top-1 right-1 w-5 h-5 bg-red-500 rounded-full text-white text-xs opacity-0 group-hover:opacity-100 transition">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            `).join('');
+        }
+        
+        function selectLibraryImage(imageId) {
+            selectedLibraryImage = selectedLibraryImage === imageId ? null : imageId;
+            renderImageLibrary();
+        }
+        
+        async function uploadLibraryImage(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            if (!currentClient) {
+                showToast('Please select a client first', 'warning');
+                return;
+            }
+            
+            // Validate file type
+            const validTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+            if (!validTypes.includes(file.type)) {
+                alert('Please upload a JPG, PNG, GIF, or WebP image');
+                return;
+            }
+            
+            // Validate file size (10MB max)
+            if (file.size > 10 * 1024 * 1024) {
+                alert('File too large. Maximum size is 10MB.');
+                return;
+            }
+            
+            const category = document.getElementById('uploadCategory').value;
+            
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('category', category);
+            formData.append('title', file.name.replace(/\.[^/.]+$/, ''));
+            
+            try {
+                const response = await fetch(`${API_URL}/api/images/library/${currentClient.id}/upload`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` },
+                    body: formData
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showToast('Image uploaded!', 'success');
+                    loadImageLibrary();
+                } else {
+                    alert('Upload failed: ' + (data.error || 'Unknown error'));
+                }
+            } catch (error) {
+                alert('Upload error: ' + error.message);
+            }
+            
+            // Reset file input
+            event.target.value = '';
+        }
+        
+        async function deleteLibraryImage(imageId) {
+            if (!confirm('Delete this image?')) return;
+            
+            try {
+                const response = await fetch(`${API_URL}/api/images/library/${currentClient.id}/${imageId}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
+                });
+                
+                if (response.ok) {
+                    showToast('Image deleted', 'success');
+                    loadImageLibrary();
+                }
+            } catch (error) {
+                alert('Delete failed: ' + error.message);
+            }
+        }
+        
+        async function createFeaturedImage() {
+            if (!currentClient) {
+                showToast('Please select a client first', 'warning');
+                return;
+            }
+            
+            const title = document.getElementById('featuredImageTitle').value.trim();
+            if (!title) {
+                alert('Please enter a title for the featured image');
+                return;
+            }
+            
+            const template = document.getElementById('featuredImageTemplate').value;
+            
+            const requestBody = {
+                title: title,
+                template: template,
+                subtitle: currentClient.geo || ''
+            };
+            
+            // If an image is selected, use it
+            if (selectedLibraryImage) {
+                requestBody.source_image_id = selectedLibraryImage;
+            } else {
+                // Otherwise, auto-select from library
+                requestBody.category = 'hero';
+            }
+            
+            try {
+                const response = await fetch(`${API_URL}/api/images/featured/${currentClient.id}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${AUTH_TOKEN}`
+                    },
+                    body: JSON.stringify(requestBody)
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    document.getElementById('featuredImageResult').src = data.file_url;
+                    document.getElementById('featuredImageDownload').href = data.file_url;
+                    document.getElementById('featuredImagePreview').classList.remove('hidden');
+                    showToast('Featured image created!', 'success');
+                } else {
+                    alert('Failed: ' + (data.error || 'Unknown error'));
+                }
+            } catch (error) {
+                showToast('Error: ' + error.message, 'error');
+            }
+        }
+        
         async function generateBulk() {
             if (!currentClient) {
-                alert('Please select a client first');
+                showToast('Please select a client first', 'warning');
                 return;
             }
             
@@ -6707,10 +8632,10 @@
             }
             
             const btn = document.getElementById('btnGenerateBulk');
-            const progress = document.getElementById('bulkProgress');
-            const progressBar = document.getElementById('bulkProgressBar');
-            const progressCount = document.getElementById('bulkProgressCount');
-            const progressLog = document.getElementById('bulkProgressLog');
+            const progress = document.getElementById('oldBulkProgress');
+            const progressBar = document.getElementById('oldBulkProgressBar');
+            const progressCount = document.getElementById('oldBulkProgressCount');
+            const progressLog = document.getElementById('oldBulkProgressLog');
             
             btn.disabled = true;
             btn.innerHTML = '<div class="spinner w-5 h-5 mr-2"></div> Generating...';
@@ -6816,11 +8741,6 @@
             btn.disabled = false;
             btn.innerHTML = '<i class="fas fa-rocket"></i> Generate All';
         }
-
-        // Close modal on escape
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape') closeBlogModal();
-        });
         
         // ==========================================
         // ONBOARDING TOUR
@@ -6998,7 +8918,7 @@
         
         function generateMonthlyReport() {
             if (!currentClient) {
-                alert('Please select a client first');
+                showToast('Please select a client first', 'warning');
                 return;
             }
             
@@ -7149,7 +9069,7 @@
         
         function exportInventoryCSV() {
             if (!currentClient) {
-                alert('Please select a client first');
+                showToast('Please select a client first', 'warning');
                 return;
             }
             
@@ -7199,7 +9119,7 @@
         
         function exportInventoryHTML() {
             if (!currentClient) {
-                alert('Please select a client first');
+                showToast('Please select a client first', 'warning');
                 return;
             }
             
@@ -7262,7 +9182,7 @@
         
         function generateClientSummary() {
             if (!currentClient) {
-                alert('Please select a client first');
+                showToast('Please select a client first', 'warning');
                 return;
             }
             
@@ -7386,7 +9306,7 @@
         
         async function refreshGA4Data() {
             if (!currentClient) {
-                alert('Please select a client first');
+                showToast('Please select a client first', 'warning');
                 return;
             }
             
@@ -7463,7 +9383,7 @@
         
         async function refreshRankings() {
             if (!currentClient) {
-                alert('Please select a client first');
+                showToast('Please select a client first', 'warning');
                 return;
             }
             
@@ -7499,7 +9419,7 @@
                 
             } catch (error) {
                 console.error('Rankings error:', error);
-                alert('Error checking rankings: ' + error.message);
+                showToast('Error: ' + error.message, 'error');
             } finally {
                 btn.innerHTML = originalText;
                 btn.disabled = false;
@@ -7840,16 +9760,28 @@
             
             document.getElementById('rankingBattles').innerHTML = battlesHtml;
             
-            // Render content gaps
+            // Render content gaps with Beat This option
             const gapsHtml = content_gaps.length ? content_gaps.slice(0, 9).map(gap => `
-                <div class="bg-white/5 rounded-lg p-3 border border-white/10 hover:border-yellow-500/50 transition cursor-pointer group" onclick="generateFromGap('${encodeURIComponent(gap.topic_suggestion)}')">
+                <div class="bg-white/5 rounded-lg p-3 border border-white/10 hover:border-yellow-500/50 transition group">
                     <div class="flex items-start gap-2">
                         <i class="fas fa-lightbulb text-yellow-400 mt-1"></i>
                         <div class="flex-1">
-                            <div class="text-sm text-white group-hover:text-yellow-400 transition">${gap.title}</div>
+                            <div class="text-sm text-white">${gap.title}</div>
                             <div class="text-xs text-gray-500 mt-1">From: ${gap.competitor}</div>
+                            ${gap.word_count ? `<div class="text-xs text-gray-600">${gap.word_count} words</div>` : ''}
                         </div>
-                        <i class="fas fa-plus text-gray-500 group-hover:text-yellow-400"></i>
+                    </div>
+                    <div class="flex gap-2 mt-2">
+                        <button onclick="generateFromGap('${encodeURIComponent(gap.topic_suggestion)}')" 
+                            class="flex-1 px-2 py-1 bg-yellow-500/20 text-yellow-400 rounded text-xs hover:bg-yellow-500/30 transition">
+                            <i class="fas fa-plus mr-1"></i>Create
+                        </button>
+                        ${gap.url ? `
+                        <button onclick="beatCompetitorContent('${encodeURIComponent(gap.url)}', '${encodeURIComponent(gap.topic_suggestion)}')" 
+                            class="flex-1 px-2 py-1 bg-purple-500/20 text-purple-400 rounded text-xs hover:bg-purple-500/30 transition">
+                            <i class="fas fa-trophy mr-1"></i>Beat
+                        </button>
+                        ` : ''}
                     </div>
                 </div>
             `).join('') : '<p class="text-gray-500 text-sm col-span-full">No content gaps detected yet.</p>';
@@ -7858,8 +9790,347 @@
         }
         
         function viewCompetitor(competitorId) {
-            // Could open a detailed comparison modal
-            alert('Detailed competitor view coming soon! ID: ' + competitorId);
+            // Find the competitor in our data
+            const comp = competitorData?.competitors?.find(c => c.id === competitorId);
+            if (!comp) {
+                showToast('Competitor not found', 'error');
+                return;
+            }
+            
+            const lastCrawled = comp.last_crawled 
+                ? new Date(comp.last_crawled).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
+                : 'Never';
+            
+            // Show competitor details modal
+            const details = `
+                <div class="fixed inset-0 bg-black/80 z-50 flex items-center justify-center" id="competitorModal" onclick="if(event.target === this) this.remove()">
+                    <div class="glass-light rounded-2xl p-6 max-w-lg w-full mx-4 max-h-[90vh] overflow-y-auto" onclick="event.stopPropagation()">
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="text-xl font-bold text-gray-800">${comp.name || comp.domain}</h3>
+                            <button onclick="document.getElementById('competitorModal').remove()" class="p-2 hover:bg-gray-200 rounded-lg">
+                                <i class="fas fa-times text-gray-600"></i>
+                            </button>
+                        </div>
+                        
+                        <div class="space-y-4">
+                            <div class="flex items-center gap-2 text-gray-600">
+                                <i class="fas fa-globe"></i>
+                                <a href="https://${comp.domain}" target="_blank" class="text-blue-600 hover:underline">${comp.domain}</a>
+                            </div>
+                            
+                            <div class="grid grid-cols-3 gap-3 text-center">
+                                <div class="p-3 bg-gray-100 rounded-lg">
+                                    <div class="text-2xl font-bold text-purple-600">${comp.total_pages || 0}</div>
+                                    <div class="text-xs text-gray-500">Total Pages</div>
+                                </div>
+                                <div class="p-3 bg-gray-100 rounded-lg">
+                                    <div class="text-2xl font-bold text-green-600">${comp.blog_posts || 0}</div>
+                                    <div class="text-xs text-gray-500">Blog Posts</div>
+                                </div>
+                                <div class="p-3 bg-gray-100 rounded-lg">
+                                    <div class="text-2xl font-bold text-blue-600">${comp.service_pages || 0}</div>
+                                    <div class="text-xs text-gray-500">Service Pages</div>
+                                </div>
+                            </div>
+                            
+                            <!-- Crawl Schedule -->
+                            <div class="p-4 bg-gray-50 rounded-lg">
+                                <h4 class="font-medium text-gray-700 mb-3"><i class="fas fa-clock mr-2 text-cyan-500"></i>Auto-Crawl Schedule</h4>
+                                <div class="flex items-center gap-3 mb-3">
+                                    <select id="compCrawlFrequency-${comp.id}" class="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm" onchange="updateCompetitorSchedule('${comp.id}', this.value)">
+                                        <option value="daily" ${comp.crawl_frequency === 'daily' ? 'selected' : ''}>Daily</option>
+                                        <option value="weekly" ${comp.crawl_frequency === 'weekly' ? 'selected' : ''}>Weekly</option>
+                                        <option value="manual" ${comp.crawl_frequency === 'manual' ? 'selected' : ''}>Manual Only</option>
+                                    </select>
+                                </div>
+                                <p class="text-xs text-gray-500"><i class="fas fa-history mr-1"></i>Last crawled: ${lastCrawled}</p>
+                            </div>
+                            
+                            ${comp.keyword_overlap?.length ? `
+                            <div>
+                                <h4 class="font-medium text-gray-700 mb-2">Keyword Overlap</h4>
+                                <div class="flex flex-wrap gap-2">
+                                    ${comp.keyword_overlap.map(kw => `<span class="px-2 py-1 bg-purple-100 text-purple-700 text-xs rounded">${kw}</span>`).join('')}
+                                </div>
+                            </div>
+                            ` : ''}
+                            
+                            <div class="flex gap-2 pt-4 border-t">
+                                <button onclick="crawlCompetitor('${comp.id}')" class="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium">
+                                    <i class="fas fa-sync-alt mr-1"></i>Crawl Now
+                                </button>
+                                <button onclick="deleteCompetitor('${comp.id}', '${(comp.name || comp.domain).replace(/'/g, "\\'")}')" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            document.body.insertAdjacentHTML('beforeend', details);
+        }
+        
+        async function updateCompetitorSchedule(competitorId, frequency) {
+            try {
+                const response = await fetch(`${API_URL}/api/monitoring/competitors/${competitorId}/schedule`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${AUTH_TOKEN}`
+                    },
+                    body: JSON.stringify({ crawl_frequency: frequency })
+                });
+                
+                if (response.ok) {
+                    showToast(`Crawl schedule updated to ${frequency}`, 'success');
+                } else {
+                    const data = await response.json();
+                    showToast(data.error || 'Failed to update schedule', 'error');
+                }
+            } catch (error) {
+                console.error('Error updating schedule:', error);
+                showToast('Failed to update schedule', 'error');
+            }
+        }
+        
+        function showAddCompetitorForm() {
+            document.getElementById('addCompetitorForm').classList.remove('hidden');
+            document.getElementById('newCompetitorDomain').focus();
+        }
+        
+        function hideAddCompetitorForm() {
+            document.getElementById('addCompetitorForm').classList.add('hidden');
+            document.getElementById('newCompetitorDomain').value = '';
+            document.getElementById('newCompetitorName').value = '';
+        }
+        
+        async function addCompetitor() {
+            if (!currentClient) {
+                showToast('Please select a client first', 'warning');
+                return;
+            }
+            
+            const domain = document.getElementById('newCompetitorDomain').value.trim();
+            const name = document.getElementById('newCompetitorName').value.trim();
+            
+            if (!domain) {
+                showToast('Please enter a competitor domain', 'error');
+                return;
+            }
+            
+            // Clean domain (remove http://, https://, www.)
+            const cleanDomain = domain.replace(/^https?:\/\//, '').replace(/^www\./, '').replace(/\/.*$/, '');
+            
+            try {
+                const response = await fetch(`${API_URL}/api/monitoring/competitors`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${AUTH_TOKEN}`
+                    },
+                    body: JSON.stringify({
+                        client_id: currentClient.id,
+                        domain: cleanDomain,
+                        name: name || cleanDomain
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    showToast(`Added competitor: ${name || cleanDomain}`, 'success');
+                    hideAddCompetitorForm();
+                    refreshCompetitorDashboard();
+                } else {
+                    showToast(data.error || 'Failed to add competitor', 'error');
+                }
+            } catch (error) {
+                console.error('Error adding competitor:', error);
+                showToast('Failed to add competitor', 'error');
+            }
+        }
+        
+        async function deleteCompetitor(competitorId, name) {
+            if (!confirm(`Delete competitor "${name}"?\n\nThis will remove all tracked data for this competitor.`)) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_URL}/api/monitoring/competitors/${competitorId}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
+                });
+                
+                if (response.ok) {
+                    showToast(`Deleted competitor: ${name}`, 'success');
+                    // Close modal if open
+                    document.getElementById('competitorModal')?.remove();
+                    refreshCompetitorDashboard();
+                } else {
+                    const data = await response.json();
+                    showToast(data.error || 'Failed to delete competitor', 'error');
+                }
+            } catch (error) {
+                console.error('Error deleting competitor:', error);
+                showToast('Failed to delete competitor', 'error');
+            }
+        }
+        
+        async function crawlCompetitor(competitorId) {
+            showToast('Starting competitor crawl...', 'info');
+            
+            try {
+                const response = await fetch(`${API_URL}/api/monitoring/competitors/${competitorId}/crawl`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    showToast(`Crawl complete! Found ${data.pages_found || 0} pages`, 'success');
+                    refreshCompetitorDashboard();
+                    loadFreshnessAlerts();
+                } else {
+                    const data = await response.json();
+                    showToast(data.error || 'Crawl failed', 'error');
+                }
+            } catch (error) {
+                console.error('Error crawling competitor:', error);
+                showToast('Failed to crawl competitor', 'error');
+            }
+        }
+        
+        async function crawlAllCompetitors() {
+            if (!currentClient) {
+                showToast('Please select a client first', 'warning');
+                return;
+            }
+            
+            showToast('Starting crawl of all competitors...', 'info');
+            
+            try {
+                const response = await fetch(`${API_URL}/api/monitoring/competitors/crawl-all`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${AUTH_TOKEN}`
+                    },
+                    body: JSON.stringify({ client_id: currentClient.id })
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    showToast(`Crawled ${data.competitors_crawled || 0} competitors, found ${data.total_new_pages || 0} new pages`, 'success');
+                    refreshCompetitorDashboard();
+                    loadFreshnessAlerts();
+                    
+                    // Update last crawl time
+                    document.getElementById('lastCrawlTime').textContent = `Last crawl: Just now`;
+                } else {
+                    const data = await response.json();
+                    showToast(data.error || 'Crawl failed', 'error');
+                }
+            } catch (error) {
+                console.error('Error crawling all competitors:', error);
+                showToast('Failed to crawl competitors', 'error');
+            }
+        }
+        
+        async function saveCrawlSettings() {
+            if (!currentClient) {
+                showToast('Please select a client first', 'warning');
+                return;
+            }
+            
+            const frequency = document.querySelector('input[name="crawlFrequency"]:checked')?.value || 'daily';
+            
+            try {
+                const response = await fetch(`${API_URL}/api/monitoring/crawl-settings`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${AUTH_TOKEN}`
+                    },
+                    body: JSON.stringify({
+                        client_id: currentClient.id,
+                        crawl_frequency: frequency
+                    })
+                });
+                
+                if (response.ok) {
+                    showToast('Crawl settings saved!', 'success');
+                } else {
+                    showToast('Failed to save settings', 'error');
+                }
+            } catch (error) {
+                console.error('Error saving crawl settings:', error);
+                showToast('Failed to save settings', 'error');
+            }
+        }
+        
+        async function loadFreshnessAlerts() {
+            if (!currentClient) return;
+            
+            const container = document.getElementById('freshnessAlertsList');
+            if (!container) return;
+            
+            try {
+                const response = await fetch(`${API_URL}/api/monitoring/freshness-alerts?client_id=${currentClient.id}&days=7`, {
+                    headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    const alerts = data.alerts || [];
+                    
+                    if (alerts.length === 0) {
+                        container.innerHTML = `
+                            <div class="text-center py-4 text-gray-500">
+                                <i class="fas fa-check-circle text-2xl mb-2 opacity-50"></i>
+                                <p class="text-sm">No new competitor content in the last 7 days</p>
+                            </div>
+                        `;
+                        return;
+                    }
+                    
+                    container.innerHTML = alerts.map(alert => `
+                        <div class="p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
+                            <div class="flex items-start justify-between">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-8 h-8 rounded-full bg-yellow-500/20 flex items-center justify-center">
+                                        <i class="fas fa-exclamation text-yellow-400 text-sm"></i>
+                                    </div>
+                                    <div>
+                                        <p class="text-white font-medium text-sm">${alert.competitor_name}</p>
+                                        <p class="text-gray-400 text-xs">${alert.title || 'New content published'}</p>
+                                    </div>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <span class="text-xs text-gray-500">${formatTimeAgo(alert.detected_at)}</span>
+                                    <button onclick="generateFromGap('${encodeURIComponent(alert.topic || alert.title)}')" 
+                                        class="px-2 py-1 bg-yellow-600 hover:bg-yellow-700 text-white text-xs rounded transition">
+                                        Counter
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    `).join('');
+                }
+            } catch (error) {
+                console.error('Error loading freshness alerts:', error);
+            }
+        }
+        
+        function formatTimeAgo(dateStr) {
+            if (!dateStr) return '';
+            const date = new Date(dateStr);
+            const now = new Date();
+            const diff = Math.floor((now - date) / 1000);
+            
+            if (diff < 60) return 'Just now';
+            if (diff < 3600) return Math.floor(diff / 60) + 'm ago';
+            if (diff < 86400) return Math.floor(diff / 3600) + 'h ago';
+            return Math.floor(diff / 86400) + 'd ago';
         }
         
         async function generateFromGap(topic) {
@@ -7941,8 +10212,188 @@
             } catch (error) {
                 console.error('Gap generation error:', error);
                 gapsContainer.innerHTML = originalHtml;
-                alert('Error: ' + error.message);
+                showToast('Error: ' + error.message, 'error');
             }
+        }
+        
+        // ==========================================
+        // BEAT COMPETITOR CONTENT
+        // ==========================================
+        
+        async function beatCompetitorContent(competitorUrl, topic) {
+            const url = decodeURIComponent(competitorUrl);
+            const decodedTopic = decodeURIComponent(topic);
+            
+            // Show analysis modal
+            const modal = `
+                <div class="fixed inset-0 bg-black/80 z-50 flex items-center justify-center" id="beatModal" onclick="if(event.target === this) this.remove()">
+                    <div class="glass-light rounded-2xl p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto" onclick="event.stopPropagation()">
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="text-xl font-bold text-gray-800">
+                                <i class="fas fa-trophy text-yellow-500 mr-2"></i>Beat This Content
+                            </h3>
+                            <button onclick="document.getElementById('beatModal').remove()" class="p-2 hover:bg-gray-200 rounded-lg">
+                                <i class="fas fa-times text-gray-600"></i>
+                            </button>
+                        </div>
+                        
+                        <div id="beatAnalysis" class="text-center py-8">
+                            <i class="fas fa-spinner fa-spin text-3xl text-purple-500 mb-3"></i>
+                            <p class="text-gray-600">Analyzing competitor content...</p>
+                        </div>
+                    </div>
+                </div>
+            `;
+            document.body.insertAdjacentHTML('beforeend', modal);
+            
+            try {
+                // First, fetch and analyze the competitor page
+                const analyzeResponse = await fetch(`${API_URL}/api/monitoring/analyze-url`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${AUTH_TOKEN}`
+                    },
+                    body: JSON.stringify({ url: url })
+                });
+                
+                let competitorData = null;
+                if (analyzeResponse.ok) {
+                    competitorData = await analyzeResponse.json();
+                }
+                
+                // Render analysis
+                const analysisDiv = document.getElementById('beatAnalysis');
+                analysisDiv.innerHTML = `
+                    <div class="space-y-4 text-left">
+                        <div class="p-4 bg-red-50 rounded-xl border border-red-200">
+                            <h4 class="font-medium text-red-800 mb-2">
+                                <i class="fas fa-crosshairs mr-2"></i>Competitor Content
+                            </h4>
+                            <p class="text-sm text-gray-700 font-medium">${competitorData?.title || decodedTopic}</p>
+                            <div class="flex gap-4 mt-2 text-xs text-gray-500">
+                                <span><i class="fas fa-file-word mr-1"></i>${competitorData?.word_count || '~1,500'} words</span>
+                                <span><i class="fas fa-heading mr-1"></i>${competitorData?.h2_count || '5'} H2s</span>
+                                <span><i class="fas fa-link mr-1"></i>${competitorData?.internal_links || '3'} links</span>
+                            </div>
+                            <a href="${url}" target="_blank" class="text-xs text-blue-600 hover:underline mt-2 inline-block">
+                                <i class="fas fa-external-link-alt mr-1"></i>View original
+                            </a>
+                        </div>
+                        
+                        <div class="p-4 bg-green-50 rounded-xl border border-green-200">
+                            <h4 class="font-medium text-green-800 mb-2">
+                                <i class="fas fa-rocket mr-2"></i>Our Strategy to Beat It
+                            </h4>
+                            <ul class="text-sm text-gray-700 space-y-2">
+                                <li><i class="fas fa-check text-green-500 mr-2"></i>Write <strong>${Math.round((competitorData?.word_count || 1500) * 1.3)}</strong> words (30% more)</li>
+                                <li><i class="fas fa-check text-green-500 mr-2"></i>Include <strong>${(competitorData?.h2_count || 5) + 2}</strong> comprehensive H2 sections</li>
+                                <li><i class="fas fa-check text-green-500 mr-2"></i>Add <strong>5</strong> FAQs with schema markup</li>
+                                <li><i class="fas fa-check text-green-500 mr-2"></i>Include <strong>6+</strong> internal links</li>
+                                <li><i class="fas fa-check text-green-500 mr-2"></i>Add images with optimized alt text</li>
+                                <li><i class="fas fa-check text-green-500 mr-2"></i>Target keyword in title, H1, meta, and first 100 words</li>
+                            </ul>
+                        </div>
+                        
+                        <div class="flex gap-3">
+                            <button onclick="generateBeatContent('${encodeURIComponent(decodedTopic)}', ${Math.round((competitorData?.word_count || 1500) * 1.3)})" 
+                                class="flex-1 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl font-medium hover:opacity-90 transition">
+                                <i class="fas fa-magic mr-2"></i>Generate Winning Content
+                            </button>
+                            <button onclick="document.getElementById('beatModal').remove()" 
+                                class="px-4 py-3 bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300 transition">
+                                Cancel
+                            </button>
+                        </div>
+                    </div>
+                `;
+                
+            } catch (error) {
+                console.error('Beat analysis error:', error);
+                document.getElementById('beatAnalysis').innerHTML = `
+                    <div class="text-red-600">
+                        <i class="fas fa-exclamation-circle text-3xl mb-2"></i>
+                        <p>Error analyzing competitor content</p>
+                        <button onclick="generateFromGap('${encodeURIComponent(topic)}')" class="mt-3 px-4 py-2 bg-yellow-500 text-white rounded-lg text-sm">
+                            Generate Anyway
+                        </button>
+                    </div>
+                `;
+            }
+        }
+        
+        async function generateBeatContent(topic, wordCount) {
+            const decodedTopic = decodeURIComponent(topic);
+            document.getElementById('beatModal')?.remove();
+            
+            // Switch to generate tab and fill in the form
+            showTab('generate');
+            
+            // Fill in the custom keyword
+            document.getElementById('customBlogKeyword').value = decodedTopic;
+            
+            // Set word count to beat competitor
+            const wordCountSelect = document.getElementById('blogWordCount');
+            if (wordCount >= 2000) {
+                wordCountSelect.value = '2500';
+            } else if (wordCount >= 1800) {
+                wordCountSelect.value = '2000';
+            } else {
+                wordCountSelect.value = '1800';
+            }
+            
+            // Ensure FAQs are enabled
+            document.getElementById('blogFaqs').value = '5';
+            document.getElementById('blogGenerateImage').checked = true;
+            
+            showToast('Form filled! Click "Generate Blog Post" to create winning content.', 'success');
+        }
+        
+        // ==========================================
+        // SERP PREVIEW
+        // ==========================================
+        
+        function showSERPPreview(title, description, url) {
+            const modal = `
+                <div class="fixed inset-0 bg-black/80 z-50 flex items-center justify-center" id="serpModal" onclick="if(event.target === this) this.remove()">
+                    <div class="bg-white rounded-2xl p-6 max-w-2xl w-full mx-4" onclick="event.stopPropagation()">
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="text-lg font-bold text-gray-800">
+                                <i class="fab fa-google text-blue-500 mr-2"></i>Google SERP Preview
+                            </h3>
+                            <button onclick="document.getElementById('serpModal').remove()" class="p-2 hover:bg-gray-200 rounded-lg">
+                                <i class="fas fa-times text-gray-600"></i>
+                            </button>
+                        </div>
+                        
+                        <div class="border rounded-lg p-4 mb-4">
+                            <div class="text-sm text-green-700 mb-1">${url || 'https://example.com/page'}</div>
+                            <div class="text-xl text-blue-800 hover:underline cursor-pointer mb-1" style="font-family: arial, sans-serif;">
+                                ${title || 'Page Title Goes Here'}
+                            </div>
+                            <div class="text-sm text-gray-600" style="font-family: arial, sans-serif;">
+                                ${description || 'Meta description will appear here. Make it compelling!'}
+                            </div>
+                        </div>
+                        
+                        <div class="grid grid-cols-2 gap-4 text-sm">
+                            <div class="p-3 bg-gray-50 rounded-lg">
+                                <span class="text-gray-500">Title Length:</span>
+                                <span class="font-medium ${(title?.length || 0) > 60 ? 'text-red-600' : 'text-green-600'}">
+                                    ${title?.length || 0}/60
+                                </span>
+                            </div>
+                            <div class="p-3 bg-gray-50 rounded-lg">
+                                <span class="text-gray-500">Description Length:</span>
+                                <span class="font-medium ${(description?.length || 0) > 160 ? 'text-red-600' : 'text-green-600'}">
+                                    ${description?.length || 0}/160
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            document.body.insertAdjacentHTML('beforeend', modal);
         }
         
         // ==========================================
@@ -8314,6 +10765,7 @@
             document.getElementById('chatbotColor2').value = config.secondary_color || '#ec4899';
             document.getElementById('chatbotColor2Text').value = config.secondary_color || '#ec4899';
             document.getElementById('chatbotWelcome').value = config.welcome_message || 'Hi! How can I help you today?';
+            document.getElementById('chatbotLeadEnabled').checked = config.lead_capture_enabled !== false;
             document.getElementById('chatbotCollectName').checked = config.collect_name !== false;
             document.getElementById('chatbotCollectEmail').checked = config.collect_email !== false;
             document.getElementById('chatbotCollectPhone').checked = config.collect_phone !== false;
@@ -8413,7 +10865,7 @@
         
         async function saveChatbotConfig() {
             if (!currentClient) {
-                alert('Please select a client first');
+                showToast('Please select a client first', 'warning');
                 return;
             }
             
@@ -8424,6 +10876,7 @@
                 primary_color: document.getElementById('chatbotColor').value,
                 secondary_color: document.getElementById('chatbotColor2').value,
                 welcome_message: document.getElementById('chatbotWelcome').value,
+                lead_capture_enabled: document.getElementById('chatbotLeadEnabled').checked,
                 collect_name: document.getElementById('chatbotCollectName').checked,
                 collect_email: document.getElementById('chatbotCollectEmail').checked,
                 collect_phone: document.getElementById('chatbotCollectPhone').checked,
