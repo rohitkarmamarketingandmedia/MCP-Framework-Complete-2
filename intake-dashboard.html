@@ -288,306 +288,155 @@
                     <p class="text-gray-500 mb-8">This information helps our AI understand the business and find the best ranking opportunities in their market.</p>
                     
                     <div class="space-y-6">
-                        <!-- Business Name with validation -->
-                        <div class="relative">
-                            <label class="block text-sm font-semibold text-gray-700 mb-2">
-                                Business Name <span class="text-red-500">*</span>
-                            </label>
-                            <div class="relative">
-                                <input type="text" id="business_name" placeholder="e.g., ABC Roofing" 
-                                       class="w-full px-4 py-3 text-lg border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all pr-10"
-                                       oninput="validateField(this, 'business_name')">
-                                <span id="check_business_name" class="absolute right-3 top-1/2 -translate-y-1/2 text-green-500 hidden">
-                                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
-                                </span>
-                            </div>
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">Business Name</label>
+                            <input type="text" id="business_name" placeholder="e.g., ABC Roofing" 
+                                   class="w-full px-4 py-3 text-lg border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all">
                         </div>
                         
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <!-- Industry -->
-                            <div class="relative">
-                                <label class="block text-sm font-semibold text-gray-700 mb-2">
-                                    Industry <span class="text-red-500">*</span>
-                                </label>
-                                <div class="relative">
-                                    <select id="industry" class="w-full px-4 py-3 text-lg border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all appearance-none pr-10"
-                                            onchange="validateField(this, 'industry'); updateIndustryUSPs()">
-                                        <option value="">Select industry...</option>
-                                        
-                                        <optgroup label="🏥 Medical & Healthcare">
-                                            <option value="dentist">🦷 Dentist / Dental Practice</option>
-                                            <option value="doctor">👨‍⚕️ Doctor / Physician</option>
-                                            <option value="chiropractor">🦴 Chiropractor</option>
-                                            <option value="optometrist">👁️ Optometrist / Eye Care</option>
-                                            <option value="dermatologist">🧴 Dermatologist</option>
-                                            <option value="plastic_surgeon">💉 Plastic Surgeon / Med Spa</option>
-                                            <option value="veterinarian">🐾 Veterinarian</option>
-                                            <option value="physical_therapy">🏃 Physical Therapy</option>
-                                            <option value="mental_health">🧠 Mental Health / Therapist</option>
-                                            <option value="urgent_care">🏨 Urgent Care / Clinic</option>
-                                            <option value="home_health">🏠 Home Health Care</option>
-                                        </optgroup>
-                                        
-                                        <optgroup label="💼 Professional Services">
-                                            <option value="web_design">🌐 Web Design / Development</option>
-                                            <option value="seo">📈 SEO / Digital Marketing</option>
-                                            <option value="marketing_agency">📣 Marketing Agency</option>
-                                            <option value="lawyer">⚖️ Lawyer / Attorney</option>
-                                            <option value="accountant">📊 Accountant / CPA</option>
-                                            <option value="financial_advisor">💰 Financial Advisor</option>
-                                            <option value="insurance">🛡️ Insurance Agency</option>
-                                            <option value="real_estate">🏡 Real Estate Agent</option>
-                                            <option value="mortgage">🏦 Mortgage / Lending</option>
-                                            <option value="consultant">💡 Business Consultant</option>
-                                            <option value="it_services">💻 IT Services / Tech Support</option>
-                                        </optgroup>
-                                        
-                                        <optgroup label="🔧 Home Services & Trades">
-                                            <option value="hvac">❄️ HVAC / Air Conditioning</option>
-                                            <option value="plumbing">🔧 Plumbing</option>
-                                            <option value="electrical">⚡ Electrical</option>
-                                            <option value="roofing">🏠 Roofing</option>
-                                            <option value="windows">🪟 Windows & Doors</option>
-                                            <option value="remodeling">🔨 Remodeling / General Contractor</option>
-                                            <option value="painting">🎨 Painting</option>
-                                            <option value="flooring">🪵 Flooring</option>
-                                            <option value="landscaping">🌳 Landscaping</option>
-                                            <option value="lawn_care">🌿 Lawn Care / Maintenance</option>
-                                            <option value="pool">🏊 Pool Services</option>
-                                            <option value="pest_control">🐜 Pest Control</option>
-                                            <option value="cleaning">🧹 Cleaning Services</option>
-                                            <option value="garage_doors">🚗 Garage Doors</option>
-                                            <option value="solar">☀️ Solar</option>
-                                            <option value="fencing">🏗️ Fencing</option>
-                                            <option value="concrete">🧱 Concrete / Masonry</option>
-                                            <option value="tree_service">🌲 Tree Service</option>
-                                            <option value="locksmith">🔐 Locksmith</option>
-                                            <option value="appliance_repair">🔌 Appliance Repair</option>
-                                            <option value="snow_removal">❄️ Snow Removal</option>
-                                        </optgroup>
-                                        
-                                        <optgroup label="🚗 Automotive">
-                                            <option value="auto_repair">🔧 Auto Repair / Mechanic</option>
-                                            <option value="auto_body">🚙 Auto Body / Collision</option>
-                                            <option value="car_dealer">🚗 Car Dealership</option>
-                                            <option value="towing">🚛 Towing Service</option>
-                                            <option value="auto_detailing">✨ Auto Detailing</option>
-                                        </optgroup>
-                                        
-                                        <optgroup label="🍽️ Food & Hospitality">
-                                            <option value="restaurant">🍽️ Restaurant</option>
-                                            <option value="catering">🍴 Catering</option>
-                                            <option value="bakery">🥐 Bakery</option>
-                                            <option value="bar">🍺 Bar / Nightclub</option>
-                                            <option value="hotel">🏨 Hotel / Lodging</option>
-                                        </optgroup>
-                                        
-                                        <optgroup label="💇 Personal Services">
-                                            <option value="salon">💇 Hair Salon / Barbershop</option>
-                                            <option value="spa">💆 Spa / Massage</option>
-                                            <option value="fitness">🏋️ Gym / Fitness</option>
-                                            <option value="personal_trainer">💪 Personal Trainer</option>
-                                            <option value="photography">📷 Photography</option>
-                                            <option value="wedding">💒 Wedding Services</option>
-                                        </optgroup>
-                                        
-                                        <optgroup label="📦 Other">
-                                            <option value="moving">📦 Moving Services</option>
-                                            <option value="storage">🗄️ Storage Facility</option>
-                                            <option value="pet_services">🐕 Pet Services / Grooming</option>
-                                            <option value="daycare">👶 Daycare / Childcare</option>
-                                            <option value="tutoring">📚 Tutoring / Education</option>
-                                            <option value="nonprofit">❤️ Nonprofit</option>
-                                            <option value="other">📋 Other</option>
-                                        </optgroup>
-                                    </select>
-                                    <span id="check_industry" class="absolute right-8 top-1/2 -translate-y-1/2 text-green-500 hidden">
-                                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
-                                    </span>
-                                    <svg class="w-5 h-5 text-gray-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
-                                    </svg>
-                                </div>
+                            <div>
+                                <label class="block text-sm font-semibold text-gray-700 mb-2">Industry</label>
+                                <select id="industry" class="w-full px-4 py-3 text-lg border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all">
+                                    <option value="">Select industry...</option>
+                                    
+                                    <optgroup label="🏥 Medical & Healthcare">
+                                        <option value="dentist">🦷 Dentist / Dental Practice</option>
+                                        <option value="doctor">👨‍⚕️ Doctor / Physician</option>
+                                        <option value="chiropractor">🦴 Chiropractor</option>
+                                        <option value="optometrist">👁️ Optometrist / Eye Care</option>
+                                        <option value="dermatologist">🧴 Dermatologist</option>
+                                        <option value="plastic_surgeon">💉 Plastic Surgeon / Med Spa</option>
+                                        <option value="veterinarian">🐾 Veterinarian</option>
+                                        <option value="physical_therapy">🏃 Physical Therapy</option>
+                                        <option value="mental_health">🧠 Mental Health / Therapist</option>
+                                        <option value="urgent_care">🏨 Urgent Care / Clinic</option>
+                                        <option value="home_health">🏠 Home Health Care</option>
+                                    </optgroup>
+                                    
+                                    <optgroup label="💼 Professional Services">
+                                        <option value="web_design">🌐 Web Design / Development</option>
+                                        <option value="seo">📈 SEO / Digital Marketing</option>
+                                        <option value="marketing_agency">📣 Marketing Agency</option>
+                                        <option value="lawyer">⚖️ Lawyer / Attorney</option>
+                                        <option value="accountant">📊 Accountant / CPA</option>
+                                        <option value="financial_advisor">💰 Financial Advisor</option>
+                                        <option value="insurance">🛡️ Insurance Agency</option>
+                                        <option value="real_estate">🏡 Real Estate Agent</option>
+                                        <option value="mortgage">🏦 Mortgage / Lending</option>
+                                        <option value="consultant">💡 Business Consultant</option>
+                                        <option value="it_services">💻 IT Services / Tech Support</option>
+                                    </optgroup>
+                                    
+                                    <optgroup label="🔧 Home Services & Trades">
+                                        <option value="hvac">❄️ HVAC / Air Conditioning</option>
+                                        <option value="plumbing">🔧 Plumbing</option>
+                                        <option value="electrical">⚡ Electrical</option>
+                                        <option value="roofing">🏠 Roofing</option>
+                                        <option value="windows">🪟 Windows & Doors</option>
+                                        <option value="remodeling">🔨 Remodeling / General Contractor</option>
+                                        <option value="painting">🎨 Painting</option>
+                                        <option value="flooring">🪵 Flooring</option>
+                                        <option value="landscaping">🌳 Landscaping</option>
+                                        <option value="pool">🏊 Pool Services</option>
+                                        <option value="pest_control">🐜 Pest Control</option>
+                                        <option value="cleaning">🧹 Cleaning Services</option>
+                                        <option value="garage_doors">🚗 Garage Doors</option>
+                                        <option value="solar">☀️ Solar</option>
+                                        <option value="fencing">🏗️ Fencing</option>
+                                        <option value="concrete">🧱 Concrete / Masonry</option>
+                                        <option value="tree_service">🌲 Tree Service</option>
+                                        <option value="locksmith">🔐 Locksmith</option>
+                                        <option value="appliance_repair">🔌 Appliance Repair</option>
+                                    </optgroup>
+                                    
+                                    <optgroup label="🚗 Automotive">
+                                        <option value="auto_repair">🔧 Auto Repair / Mechanic</option>
+                                        <option value="auto_body">🚙 Auto Body / Collision</option>
+                                        <option value="car_dealer">🚗 Car Dealership</option>
+                                        <option value="towing">🚛 Towing Service</option>
+                                        <option value="auto_detailing">✨ Auto Detailing</option>
+                                    </optgroup>
+                                    
+                                    <optgroup label="🍽️ Food & Hospitality">
+                                        <option value="restaurant">🍽️ Restaurant</option>
+                                        <option value="catering">🍴 Catering</option>
+                                        <option value="bakery">🥐 Bakery</option>
+                                        <option value="bar">🍺 Bar / Nightclub</option>
+                                        <option value="hotel">🏨 Hotel / Lodging</option>
+                                    </optgroup>
+                                    
+                                    <optgroup label="💇 Personal Services">
+                                        <option value="salon">💇 Hair Salon / Barbershop</option>
+                                        <option value="spa">💆 Spa / Massage</option>
+                                        <option value="fitness">🏋️ Gym / Fitness</option>
+                                        <option value="personal_trainer">💪 Personal Trainer</option>
+                                        <option value="photography">📷 Photography</option>
+                                        <option value="wedding">💒 Wedding Services</option>
+                                    </optgroup>
+                                    
+                                    <optgroup label="📦 Other">
+                                        <option value="moving">📦 Moving Services</option>
+                                        <option value="storage">🗄️ Storage Facility</option>
+                                        <option value="pet_services">🐕 Pet Services / Grooming</option>
+                                        <option value="daycare">👶 Daycare / Childcare</option>
+                                        <option value="tutoring">📚 Tutoring / Education</option>
+                                        <option value="nonprofit">❤️ Nonprofit</option>
+                                        <option value="other">📋 Other</option>
+                                    </optgroup>
+                                </select>
                             </div>
                             
-                            <!-- Primary Location -->
-                            <div class="relative">
-                                <label class="block text-sm font-semibold text-gray-700 mb-2">
-                                    Primary Location <span class="text-red-500">*</span>
-                                </label>
-                                <div class="relative">
-                                    <input type="text" id="geo" placeholder="e.g., Sarasota, FL" 
-                                           class="w-full px-4 py-3 text-lg border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all pr-10"
-                                           oninput="validateField(this, 'geo')">
-                                    <span id="check_geo" class="absolute right-3 top-1/2 -translate-y-1/2 text-green-500 hidden">
-                                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
-                                    </span>
-                                </div>
+                            <div>
+                                <label class="block text-sm font-semibold text-gray-700 mb-2">Primary Location</label>
+                                <input type="text" id="geo" placeholder="e.g., Sarasota, FL" 
+                                       class="w-full px-4 py-3 text-lg border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all">
                                 <p class="text-xs text-gray-400 mt-1">We'll optimize all content for this location</p>
                             </div>
                         </div>
                         
-                        <!-- Website with auto-competitor discovery -->
                         <div>
-                            <label class="block text-sm font-semibold text-gray-700 mb-2">
-                                Website <span class="text-gray-400 font-normal">(optional but recommended)</span>
-                            </label>
-                            <div class="relative">
-                                <input type="text" id="website" placeholder="https://example.com" 
-                                       class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all pr-32"
-                                       onblur="checkWebsiteForCompetitors()">
-                                <button onclick="checkWebsiteForCompetitors()" class="absolute right-2 top-1/2 -translate-y-1/2 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-600 text-xs rounded-lg transition">
-                                    <i class="fas fa-search mr-1"></i>Find Competitors
-                                </button>
-                            </div>
-                            <p class="text-xs text-gray-400 mt-1">Enter their website to auto-discover competitors</p>
-                        </div>
-                        
-                        <!-- Service Areas (Tags Input) -->
-                        <div>
-                            <label class="block text-sm font-semibold text-gray-700 mb-2">
-                                Service Areas <span class="text-gray-400 font-normal">(cities/neighborhoods served)</span>
-                            </label>
-                            <div class="flex flex-wrap gap-2 p-3 border-2 border-gray-200 rounded-xl min-h-[50px] focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-blue-500" id="service_areas_container" onclick="document.getElementById('service_area_input').focus()">
-                                <div id="service_area_tags" class="flex flex-wrap gap-2"></div>
-                                <input type="text" id="service_area_input" placeholder="Type a city and press Enter..." 
-                                       class="flex-1 min-w-[150px] border-none outline-none text-sm py-1"
-                                       onkeydown="handleServiceAreaInput(event)">
-                            </div>
-                            <p class="text-xs text-gray-400 mt-1">Press Enter or comma to add each area</p>
-                            <input type="hidden" id="service_areas" value="">
-                        </div>
-                        
-                        <!-- Common USPs Checkboxes -->
-                        <div id="usp_section">
-                            <label class="block text-sm font-semibold text-gray-700 mb-3">
-                                What Makes Them Stand Out? <span class="text-gray-400 font-normal">(select all that apply)</span>
-                            </label>
-                            <div class="grid grid-cols-2 md:grid-cols-3 gap-2" id="usp_checkboxes">
-                                <label class="flex items-center gap-2 p-2 rounded-lg hover:bg-gray-50 cursor-pointer">
-                                    <input type="checkbox" class="usp-check w-4 h-4 text-blue-600 rounded" value="24/7 Emergency Service">
-                                    <span class="text-sm text-gray-700">24/7 Emergency Service</span>
-                                </label>
-                                <label class="flex items-center gap-2 p-2 rounded-lg hover:bg-gray-50 cursor-pointer">
-                                    <input type="checkbox" class="usp-check w-4 h-4 text-blue-600 rounded" value="Free Estimates">
-                                    <span class="text-sm text-gray-700">Free Estimates</span>
-                                </label>
-                                <label class="flex items-center gap-2 p-2 rounded-lg hover:bg-gray-50 cursor-pointer">
-                                    <input type="checkbox" class="usp-check w-4 h-4 text-blue-600 rounded" value="Family-Owned">
-                                    <span class="text-sm text-gray-700">Family-Owned</span>
-                                </label>
-                                <label class="flex items-center gap-2 p-2 rounded-lg hover:bg-gray-50 cursor-pointer">
-                                    <input type="checkbox" class="usp-check w-4 h-4 text-blue-600 rounded" value="Licensed & Insured">
-                                    <span class="text-sm text-gray-700">Licensed & Insured</span>
-                                </label>
-                                <label class="flex items-center gap-2 p-2 rounded-lg hover:bg-gray-50 cursor-pointer">
-                                    <input type="checkbox" class="usp-check w-4 h-4 text-blue-600 rounded" value="Financing Available">
-                                    <span class="text-sm text-gray-700">Financing Available</span>
-                                </label>
-                                <label class="flex items-center gap-2 p-2 rounded-lg hover:bg-gray-50 cursor-pointer">
-                                    <input type="checkbox" class="usp-check w-4 h-4 text-blue-600 rounded" value="Senior/Military Discount">
-                                    <span class="text-sm text-gray-700">Senior/Military Discount</span>
-                                </label>
-                                <label class="flex items-center gap-2 p-2 rounded-lg hover:bg-gray-50 cursor-pointer">
-                                    <input type="checkbox" class="usp-check w-4 h-4 text-blue-600 rounded" value="Same-Day Service">
-                                    <span class="text-sm text-gray-700">Same-Day Service</span>
-                                </label>
-                                <label class="flex items-center gap-2 p-2 rounded-lg hover:bg-gray-50 cursor-pointer">
-                                    <input type="checkbox" class="usp-check w-4 h-4 text-blue-600 rounded" value="Satisfaction Guaranteed">
-                                    <span class="text-sm text-gray-700">Satisfaction Guaranteed</span>
-                                </label>
-                                <label class="flex items-center gap-2 p-2 rounded-lg hover:bg-gray-50 cursor-pointer">
-                                    <input type="checkbox" class="usp-check w-4 h-4 text-blue-600 rounded" value="Locally Owned">
-                                    <span class="text-sm text-gray-700">Locally Owned</span>
-                                </label>
-                            </div>
-                            <div class="mt-3">
-                                <input type="text" id="custom_usp" placeholder="Add custom differentiator..." 
-                                       class="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                       onkeydown="if(event.key==='Enter'){event.preventDefault();addCustomUSP()}">
-                            </div>
-                            <input type="hidden" id="usps" value="">
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">Website <span class="text-gray-400 font-normal">(optional)</span></label>
+                            <input type="text" id="website" placeholder="https://example.com" 
+                                   class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all">
                         </div>
                         
                         <!-- Collapsible Additional Info -->
-                        <details class="group border border-gray-200 rounded-xl">
-                            <summary class="cursor-pointer px-4 py-3 text-blue-600 hover:text-blue-700 font-medium flex items-center justify-between bg-gray-50 rounded-xl">
-                                <span class="flex items-center">
-                                    <svg class="w-5 h-5 mr-2 transition-transform group-open:rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
-                                    </svg>
-                                    Additional Contact Info
-                                </span>
-                                <span class="text-xs text-gray-400 font-normal">Optional</span>
+                        <details class="group">
+                            <summary class="cursor-pointer text-blue-600 hover:text-blue-700 font-medium flex items-center">
+                                <svg class="w-5 h-5 mr-2 transition-transform group-open:rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                                </svg>
+                                Add more details (optional)
                             </summary>
-                            <div class="p-4 space-y-4 border-t border-gray-200">
+                            <div class="mt-4 space-y-4 pl-7">
                                 <div class="grid grid-cols-2 gap-4">
                                     <div>
                                         <label class="block text-sm text-gray-600 mb-1">Phone</label>
                                         <input type="text" id="phone" placeholder="(941) 555-1234" 
-                                               class="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                               class="w-full px-3 py-2 border border-gray-200 rounded-lg">
                                     </div>
                                     <div>
                                         <label class="block text-sm text-gray-600 mb-1">Email</label>
                                         <input type="email" id="email" placeholder="info@example.com" 
-                                               class="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                               class="w-full px-3 py-2 border border-gray-200 rounded-lg">
                                     </div>
                                 </div>
                                 <div>
-                                    <label class="block text-sm text-gray-600 mb-1">Street Address</label>
-                                    <input type="text" id="address" placeholder="123 Main St, Sarasota, FL 34236" 
-                                           class="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                    <label class="block text-sm text-gray-600 mb-1">Service Areas</label>
+                                    <input type="text" id="service_areas" placeholder="Sarasota, Bradenton, Venice" 
+                                           class="w-full px-3 py-2 border border-gray-200 rounded-lg">
                                 </div>
-                                <div class="grid grid-cols-2 gap-4">
-                                    <div>
-                                        <label class="block text-sm text-gray-600 mb-1">Years in Business</label>
-                                        <input type="number" id="years_in_business" placeholder="e.g., 15" 
-                                               class="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-                                    </div>
-                                    <div>
-                                        <label class="block text-sm text-gray-600 mb-1">Google Business Profile</label>
-                                        <input type="text" id="gbp_url" placeholder="Google Maps URL" 
-                                               class="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-                                    </div>
+                                <div>
+                                    <label class="block text-sm text-gray-600 mb-1">What makes them unique?</label>
+                                    <textarea id="usps" rows="2" placeholder="24/7 service, family-owned, free estimates..." 
+                                              class="w-full px-3 py-2 border border-gray-200 rounded-lg"></textarea>
                                 </div>
                             </div>
                         </details>
-                        
-                        <!-- Competitor Discovery Results -->
-                        <div id="competitor_discovery" class="hidden">
-                            <div class="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-xl p-4">
-                                <h4 class="font-semibold text-amber-800 mb-3 flex items-center">
-                                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                                    </svg>
-                                    Competitors Found
-                                </h4>
-                                <div id="competitor_list" class="space-y-2">
-                                    <!-- Populated by JS -->
-                                </div>
-                                <p class="text-xs text-amber-600 mt-2">Selected competitors will be tracked for content gaps</p>
-                            </div>
-                        </div>
                     </div>
                     
-                    <!-- Form Progress Indicator -->
-                    <div class="mt-8 p-4 bg-gray-50 rounded-xl">
-                        <div class="flex items-center justify-between mb-2">
-                            <span class="text-sm text-gray-500">Form Completion</span>
-                            <span class="text-sm font-medium text-blue-600" id="form_completion">0%</span>
-                        </div>
-                        <div class="w-full bg-gray-200 rounded-full h-2">
-                            <div id="form_progress_bar" class="bg-blue-600 h-2 rounded-full transition-all" style="width: 0%"></div>
-                        </div>
-                    </div>
-                    
-                    <div class="mt-10 flex justify-between items-center">
-                        <button onclick="saveDraft()" class="px-4 py-2 text-gray-500 hover:text-gray-700 text-sm flex items-center">
-                            <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"/>
-                            </svg>
-                            Save Draft
-                        </button>
+                    <div class="mt-10 flex justify-end">
                         <button onclick="goToStep(2)" class="px-8 py-4 bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 transition-all flex items-center text-lg">
                             Find Keywords
                             <svg class="w-5 h-5 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1559,352 +1408,26 @@
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
 
-        // ==================== FORM VALIDATION & HELPERS ====================
-        
-        let serviceAreas = [];
-        let selectedUSPs = [];
-        let discoveredCompetitors = [];
-        
-        function validateField(input, fieldName) {
-            const value = input.value.trim();
-            const checkMark = document.getElementById(`check_${fieldName}`);
-            
-            if (value) {
-                input.classList.remove('border-red-300');
-                input.classList.add('border-green-300');
-                if (checkMark) checkMark.classList.remove('hidden');
-            } else {
-                input.classList.remove('border-green-300');
-                if (checkMark) checkMark.classList.add('hidden');
-            }
-            
-            updateFormProgress();
-        }
-        
-        function updateFormProgress() {
-            const fields = ['business_name', 'industry', 'geo'];
-            let filled = 0;
-            
-            fields.forEach(f => {
-                const el = document.getElementById(f);
-                if (el && el.value.trim()) filled++;
-            });
-            
-            // Bonus for optional fields
-            if (document.getElementById('website').value.trim()) filled += 0.5;
-            if (serviceAreas.length > 0) filled += 0.5;
-            if (selectedUSPs.length > 0) filled += 0.5;
-            
-            const percentage = Math.min(100, Math.round((filled / 4.5) * 100));
-            
-            document.getElementById('form_completion').textContent = percentage + '%';
-            document.getElementById('form_progress_bar').style.width = percentage + '%';
-            
-            // Color based on progress
-            const bar = document.getElementById('form_progress_bar');
-            if (percentage >= 75) {
-                bar.classList.remove('bg-blue-600', 'bg-yellow-500');
-                bar.classList.add('bg-green-500');
-            } else if (percentage >= 50) {
-                bar.classList.remove('bg-green-500', 'bg-yellow-500');
-                bar.classList.add('bg-blue-600');
-            } else {
-                bar.classList.remove('bg-green-500', 'bg-blue-600');
-                bar.classList.add('bg-yellow-500');
-            }
-        }
-        
-        function handleServiceAreaInput(event) {
-            if (event.key === 'Enter' || event.key === ',') {
-                event.preventDefault();
-                const input = document.getElementById('service_area_input');
-                const value = input.value.replace(',', '').trim();
-                
-                if (value && !serviceAreas.includes(value)) {
-                    serviceAreas.push(value);
-                    renderServiceAreaTags();
-                    updateFormProgress();
-                }
-                
-                input.value = '';
-            }
-        }
-        
-        function escapeHtml(text) {
-            const div = document.createElement('div');
-            div.textContent = text;
-            return div.innerHTML;
-        }
-        
-        function renderServiceAreaTags() {
-            const container = document.getElementById('service_area_tags');
-            container.innerHTML = serviceAreas.map((area, idx) => `
-                <span class="inline-flex items-center gap-1 px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm">
-                    ${escapeHtml(area)}
-                    <button type="button" onclick="removeServiceArea(${idx})" class="hover:text-blue-900">
-                        <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                            <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/>
-                        </svg>
-                    </button>
-                </span>
-            `).join('');
-            
-            // Update hidden field
-            document.getElementById('service_areas').value = serviceAreas.join(', ');
-        }
-        
-        function removeServiceArea(idx) {
-            serviceAreas.splice(idx, 1);
-            renderServiceAreaTags();
-            updateFormProgress();
-        }
-        
-        function updateIndustryUSPs() {
-            // Collect selected USPs from checkboxes
-            collectSelectedUSPs();
-        }
-        
-        function collectSelectedUSPs() {
-            selectedUSPs = [];
-            document.querySelectorAll('.usp-check:checked').forEach(cb => {
-                selectedUSPs.push(cb.value);
-            });
-            document.getElementById('usps').value = selectedUSPs.join(', ');
-            updateFormProgress();
-        }
-        
-        function addCustomUSP() {
-            const input = document.getElementById('custom_usp');
-            const value = input.value.trim();
-            
-            if (value && !selectedUSPs.includes(value)) {
-                // Add as a new checkbox
-                const container = document.getElementById('usp_checkboxes');
-                const label = document.createElement('label');
-                label.className = 'flex items-center gap-2 p-2 rounded-lg hover:bg-gray-50 cursor-pointer bg-green-50';
-                const escapedValue = escapeHtml(value);
-                label.innerHTML = `
-                    <input type="checkbox" class="usp-check w-4 h-4 text-blue-600 rounded" value="${escapedValue}" checked onchange="collectSelectedUSPs()">
-                    <span class="text-sm text-gray-700">${escapedValue}</span>
-                `;
-                container.appendChild(label);
-                
-                selectedUSPs.push(value);
-                document.getElementById('usps').value = selectedUSPs.join(', ');
-                input.value = '';
-                updateFormProgress();
-            }
-        }
-        
-        // Add event listeners to USP checkboxes
-        document.addEventListener('DOMContentLoaded', function() {
-            document.querySelectorAll('.usp-check').forEach(cb => {
-                cb.addEventListener('change', collectSelectedUSPs);
-            });
-        });
-        
-        async function checkWebsiteForCompetitors() {
-            const website = document.getElementById('website').value.trim();
-            if (!website) return;
-            
-            const geo = document.getElementById('geo').value.trim();
-            const industry = document.getElementById('industry').value;
-            
-            if (!geo || !industry) {
-                // Need geo and industry first
-                return;
-            }
-            
-            // Show loading
-            const discoveryDiv = document.getElementById('competitor_discovery');
-            const listDiv = document.getElementById('competitor_list');
-            
-            discoveryDiv.classList.remove('hidden');
-            listDiv.innerHTML = `
-                <div class="flex items-center gap-2 text-amber-600">
-                    <svg class="animate-spin w-5 h-5" fill="none" viewBox="0 0 24 24">
-                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    <span class="text-sm">Discovering competitors...</span>
-                </div>
-            `;
-            
-            try {
-                // Use the intake research endpoint to find competitors
-                const response = await fetch(`${API_URL}/api/intake/research`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}`
-                    },
-                    body: JSON.stringify({
-                        industry: industry,
-                        geo: geo,
-                        website: website,
-                        find_competitors: true
-                    })
-                });
-                
-                if (response.ok) {
-                    const data = await response.json();
-                    
-                    if (data.competitors && data.competitors.length > 0) {
-                        discoveredCompetitors = data.competitors.slice(0, 5);
-                        
-                        listDiv.innerHTML = discoveredCompetitors.map((comp, idx) => {
-                            const domain = escapeHtml(comp.domain || comp);
-                            const name = escapeHtml(comp.name || comp.domain || comp);
-                            return `
-                            <label class="flex items-center gap-3 p-2 rounded-lg hover:bg-amber-100 cursor-pointer">
-                                <input type="checkbox" class="competitor-check w-4 h-4 text-amber-600 rounded" value="${domain}" checked>
-                                <span class="text-sm text-gray-700">${name}</span>
-                                ${comp.similarity ? `<span class="text-xs text-amber-500">${comp.similarity}% similar</span>` : ''}
-                            </label>
-                        `}).join('');
-                    } else {
-                        // Suggest based on industry
-                        listDiv.innerHTML = `
-                            <p class="text-sm text-amber-600">No direct competitors found. You can add them manually in Step 2.</p>
-                        `;
-                    }
-                } else {
-                    listDiv.innerHTML = `
-                        <p class="text-sm text-amber-600">Could not analyze website. You can add competitors manually in Step 2.</p>
-                    `;
-                }
-            } catch (error) {
-                console.error('Competitor discovery error:', error);
-                listDiv.innerHTML = `
-                    <p class="text-sm text-amber-600">Could not connect. You can add competitors manually in Step 2.</p>
-                `;
-            }
-        }
-        
-        function saveDraft() {
-            const draftData = {
-                business_name: document.getElementById('business_name').value,
-                industry: document.getElementById('industry').value,
-                geo: document.getElementById('geo').value,
-                website: document.getElementById('website').value,
-                phone: document.getElementById('phone').value || '',
-                email: document.getElementById('email').value || '',
-                address: document.getElementById('address')?.value || '',
-                years_in_business: document.getElementById('years_in_business')?.value || '',
-                gbp_url: document.getElementById('gbp_url')?.value || '',
-                service_areas: serviceAreas,
-                usps: selectedUSPs,
-                competitors: discoveredCompetitors,
-                savedAt: new Date().toISOString()
-            };
-            
-            localStorage.setItem('intake_draft', JSON.stringify(draftData));
-            
-            // Show confirmation
-            const toast = document.createElement('div');
-            toast.className = 'fixed bottom-4 right-4 bg-green-500 text-white px-6 py-3 rounded-xl shadow-lg z-50';
-            toast.innerHTML = '<i class="fas fa-check mr-2"></i>Draft saved!';
-            document.body.appendChild(toast);
-            setTimeout(() => toast.remove(), 3000);
-        }
-        
-        function loadDraft() {
-            const draft = localStorage.getItem('intake_draft');
-            if (!draft) return false;
-            
-            try {
-                const data = JSON.parse(draft);
-                
-                document.getElementById('business_name').value = data.business_name || '';
-                document.getElementById('industry').value = data.industry || '';
-                document.getElementById('geo').value = data.geo || '';
-                document.getElementById('website').value = data.website || '';
-                document.getElementById('phone').value = data.phone || '';
-                document.getElementById('email').value = data.email || '';
-                
-                if (document.getElementById('address')) {
-                    document.getElementById('address').value = data.address || '';
-                }
-                if (document.getElementById('years_in_business')) {
-                    document.getElementById('years_in_business').value = data.years_in_business || '';
-                }
-                if (document.getElementById('gbp_url')) {
-                    document.getElementById('gbp_url').value = data.gbp_url || '';
-                }
-                
-                if (data.service_areas && data.service_areas.length > 0) {
-                    serviceAreas = data.service_areas;
-                    renderServiceAreaTags();
-                }
-                
-                if (data.usps && data.usps.length > 0) {
-                    selectedUSPs = data.usps;
-                    // Check the matching checkboxes
-                    document.querySelectorAll('.usp-check').forEach(cb => {
-                        if (selectedUSPs.includes(cb.value)) {
-                            cb.checked = true;
-                        }
-                    });
-                    document.getElementById('usps').value = selectedUSPs.join(', ');
-                }
-                
-                if (data.competitors) {
-                    discoveredCompetitors = data.competitors;
-                }
-                
-                // Validate fields to show checkmarks
-                ['business_name', 'industry', 'geo'].forEach(f => {
-                    const el = document.getElementById(f);
-                    if (el && el.value) validateField(el, f);
-                });
-                
-                updateFormProgress();
-                return true;
-            } catch (e) {
-                console.error('Error loading draft:', e);
-                return false;
-            }
-        }
-        
         function validateStep1() {
             const name = document.getElementById('business_name').value.trim();
             const industry = document.getElementById('industry').value;
             const geo = document.getElementById('geo').value.trim();
             
-            // Visual validation
-            let isValid = true;
-            
             if (!name) {
-                document.getElementById('business_name').classList.add('border-red-300');
+                alert('Please enter the business name');
                 document.getElementById('business_name').focus();
-                isValid = false;
-            }
-            if (!industry) {
-                document.getElementById('industry').classList.add('border-red-300');
-                if (isValid) document.getElementById('industry').focus();
-                isValid = false;
-            }
-            if (!geo) {
-                document.getElementById('geo').classList.add('border-red-300');
-                if (isValid) document.getElementById('geo').focus();
-                isValid = false;
-            }
-            
-            if (!isValid) {
-                // Show toast instead of alert
-                const toast = document.createElement('div');
-                toast.className = 'fixed bottom-4 right-4 bg-red-500 text-white px-6 py-3 rounded-xl shadow-lg z-50';
-                toast.innerHTML = '<i class="fas fa-exclamation-circle mr-2"></i>Please fill in all required fields';
-                document.body.appendChild(toast);
-                setTimeout(() => toast.remove(), 3000);
                 return false;
             }
-            
-            // Collect selected competitors
-            const selectedCompetitors = [];
-            document.querySelectorAll('.competitor-check:checked').forEach(cb => {
-                selectedCompetitors.push(cb.value);
-            });
+            if (!industry) {
+                alert('Please select an industry');
+                document.getElementById('industry').focus();
+                return false;
+            }
+            if (!geo) {
+                alert('Please enter the primary location');
+                document.getElementById('geo').focus();
+                return false;
+            }
             
             // Store client data
             clientData = {
@@ -1914,12 +1437,8 @@
                 website: document.getElementById('website').value.trim(),
                 phone: document.getElementById('phone').value.trim(),
                 email: document.getElementById('email').value.trim(),
-                address: document.getElementById('address')?.value.trim() || '',
-                years_in_business: document.getElementById('years_in_business')?.value || '',
-                gbp_url: document.getElementById('gbp_url')?.value.trim() || '',
-                service_areas: serviceAreas.length > 0 ? serviceAreas : document.getElementById('service_areas').value.split(',').map(s => s.trim()).filter(s => s),
-                usps: selectedUSPs.length > 0 ? selectedUSPs : document.getElementById('usps').value.split(',').map(s => s.trim()).filter(s => s),
-                competitors: selectedCompetitors
+                service_areas: document.getElementById('service_areas').value.split(',').map(s => s.trim()).filter(s => s),
+                usps: document.getElementById('usps').value.split(',').map(s => s.trim()).filter(s => s)
             };
             
             return true;
@@ -2953,39 +2472,11 @@
                 // Stay on step 1 until user chooses
                 goToStep(1);
             } else {
-                // Check for draft in localStorage
-                const draft = localStorage.getItem('intake_draft');
-                if (draft) {
-                    try {
-                        const draftData = JSON.parse(draft);
-                        // Only show if draft is less than 24 hours old
-                        const savedAt = new Date(draftData.savedAt);
-                        const now = new Date();
-                        const hoursSinceSave = (now - savedAt) / (1000 * 60 * 60);
-                        
-                        if (hoursSinceSave < 24 && draftData.business_name) {
-                            document.getElementById('resume-banner').classList.remove('hidden');
-                            document.getElementById('resume-info').textContent = 
-                                `Draft: ${draftData.business_name} | ${draftData.geo || 'No location'} | Saved ${Math.round(hoursSinceSave)} hours ago`;
-                            // Load draft data into form
-                            if (typeof loadDraft === 'function') {
-                                loadDraft();
-                            }
-                        }
-                    } catch(e) {
-                        console.log('No valid draft found');
-                    }
-                }
                 goToStep(1);
             }
             
             // Initialize Quick Setup state (default checked for Render hosting)
             toggleQuickSetup();
-            
-            // Initialize form progress
-            if (typeof updateFormProgress === 'function') {
-                updateFormProgress();
-            }
         });
     </script>
     </div><!-- end mainDashboard -->

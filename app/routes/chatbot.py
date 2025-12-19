@@ -133,7 +133,6 @@ def get_widget_config(chatbot_id):
         'collect_email': config.collect_email,
         'collect_phone': config.collect_phone,
         'collect_name': config.collect_name,
-        'lead_capture_enabled': config.lead_capture_enabled,
         'business_hours_only': config.business_hours_only,
         'offline_message': config.offline_message
     })
@@ -301,7 +300,7 @@ def send_message(chatbot_id):
     
     return jsonify({
         'message': assistant_msg.to_dict(),
-        'should_capture_lead': should_capture and not conversation.is_lead_captured and config.lead_capture_enabled
+        'should_capture_lead': should_capture and not conversation.is_lead_captured
     })
 
 

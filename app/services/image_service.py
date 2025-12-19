@@ -440,36 +440,29 @@ class ImageGenerationService:
     # ==========================================
     
     def _enhance_prompt(self, prompt: str, style: str) -> str:
-        """
-        Enhance prompt based on style preset with quality safeguards
-        
-        DALL-E 3 specific optimizations:
-        - Clear scene descriptions work better than technical camera specs
-        - Negative instructions should be minimal (DALL-E handles internally)
-        - Specific visual details produce better results
-        """
+        """Enhance prompt based on style preset with quality safeguards"""
         style_modifiers = {
-            'photorealistic': 'Realistic photograph with natural lighting and authentic details, like a professional stock photo',
-            'illustration': 'Clean modern digital illustration with vibrant colors, professional graphic design style',
-            'minimal': 'Minimalist composition with clean negative space, simple elegant design, modern aesthetic',
-            'corporate': 'Professional business photograph, clean and polished, suitable for corporate marketing',
-            'social_media': 'Eye-catching vibrant image perfect for social media, bold colors, engaging composition',
-            'blog_header': 'Wide cinematic composition suitable for blog header, editorial photography style',
-            'product': 'Clean product photography on white background, professional studio lighting',
-            'lifestyle': 'Authentic lifestyle photograph capturing a genuine moment, warm natural tones',
-            'abstract': 'Creative abstract composition with artistic visual elements, contemporary design',
-            'vintage': 'Warm vintage aesthetic with nostalgic film-like tones and classic styling'
+            'photorealistic': 'Professional photograph, high resolution, natural lighting, sharp focus, realistic details, Canon EOS R5 camera quality',
+            'illustration': 'Digital illustration, clean lines, vibrant colors, modern style, professional artwork, vector-style',
+            'minimal': 'Minimalist design, clean composition, simple shapes, modern aesthetic, generous negative space, elegant',
+            'corporate': 'Professional business image, clean and modern, corporate style, premium stock photo quality, polished',
+            'social_media': 'Eye-catching social media post image, vibrant colors, engaging composition, modern design, scroll-stopping',
+            'blog_header': 'Wide blog header image, professional, engaging visual, relevant imagery, editorial quality',
+            'product': 'Professional product photography, clean white background, studio lighting, commercial quality, crisp',
+            'lifestyle': 'Lifestyle photography, authentic candid moment, natural setting, relatable scene, warm tones',
+            'abstract': 'Abstract digital art, creative composition, artistic interpretation, unique visual, contemporary',
+            'vintage': 'Vintage style, retro aesthetic, warm film tones, nostalgic feel, classic timeless look'
         }
         
         modifier = style_modifiers.get(style, style_modifiers['photorealistic'])
         
-        # Quality enhancement - simpler is better for DALL-E 3
-        quality_suffix = "High quality, sharp details, professional composition"
+        # Critical quality and safety modifiers to avoid bad AI artifacts
+        quality_suffix = "8K resolution, highly detailed, professional quality"
         
-        # DALL-E 3 handles text avoidance better with simple instructions
-        safety_suffix = "No text or words in the image"
+        # IMPORTANT: Explicit instructions to avoid common AI image problems
+        safety_suffix = "NO text, NO words, NO letters, NO logos, NO watermarks, NO signatures, NO clipart style, NO cartoon elements, NO stock photo watermarks, photographic realism only"
         
-        # Build enhanced prompt - keep it natural and descriptive
+        # Combine prompt with style and safety guidelines
         enhanced = f"{prompt}. {modifier}. {quality_suffix}. {safety_suffix}"
         
         return enhanced
@@ -650,112 +643,66 @@ class ImageGenerationService:
         """
         Generate an optimized image prompt from a topic
         
-        Best practices for DALL-E 3:
-        - Be specific and descriptive
-        - Describe the scene like you're explaining it to someone
-        - Include lighting, mood, and perspective details
-        - Avoid overly technical or negative instructions
-        """
-        prompt_parts = []
+        Args:
+            topic: Content topic
+            business_type: Type of business (e.g., 'HVAC', 'dental')
+            location: Business location
+            style: Desired style
         
-        # Industry-specific scene descriptions - detailed and visual
+        Returns:
+            Optimized prompt string
+        """
+        # Build contextual prompt with better scene descriptions
+        scene_elements = []
+        
         if business_type:
             industry_scenes = {
-                'hvac': {
-                    'scene': 'A professional HVAC technician in a clean uniform installing a modern air conditioning unit on the side of a beautiful suburban home',
-                    'details': 'sunny day, the technician appears competent and friendly, modern equipment visible, well-maintained house with nice landscaping',
-                    'mood': 'professional, trustworthy, residential comfort'
-                },
-                'plumbing': {
-                    'scene': 'A skilled plumber using modern tools to repair pipes under a kitchen sink in a clean, well-lit home',
-                    'details': 'organized workspace, professional appearance, homeowner visible in background looking relieved',
-                    'mood': 'reliable, professional, problem-solving'
-                },
-                'roofing': {
-                    'scene': 'Professional roofing crew installing new architectural shingles on a residential home at golden hour',
-                    'details': 'safety equipment visible, beautiful new roof taking shape, suburban neighborhood setting',
-                    'mood': 'skilled craftsmanship, home improvement, quality work'
-                },
-                'electrical': {
-                    'scene': 'Licensed electrician in professional attire working on a modern electrical panel in a new home',
-                    'details': 'clean workspace, safety equipment, modern wiring, professional tools',
-                    'mood': 'precision, safety, expertise'
-                },
-                'dental': {
-                    'scene': 'Modern dental office with a patient comfortably seated in a state-of-the-art chair, friendly dentist in clean scrubs',
-                    'details': 'bright natural lighting, contemporary interior design, calming atmosphere, advanced equipment',
-                    'mood': 'welcoming, clean, professional healthcare'
-                },
-                'real_estate': {
-                    'scene': 'Stunning modern home exterior photographed at twilight with warm interior lights glowing',
-                    'details': 'manicured lawn, beautiful landscaping, welcoming entrance, aspirational living',
-                    'mood': 'luxury, dream home, inviting'
-                },
-                'landscaping': {
-                    'scene': 'Beautifully designed backyard oasis with lush green lawn, flowering plants, and elegant hardscaping',
-                    'details': 'perfect manicured grass, colorful seasonal flowers, professional patio design, outdoor living space',
-                    'mood': 'serene, beautiful outdoor living, professional design'
-                },
-                'pest_control': {
-                    'scene': 'Professional pest control technician in clean uniform inspecting a beautiful home exterior',
-                    'details': 'modern equipment, professional appearance, well-maintained home, protective family atmosphere',
-                    'mood': 'protection, professionalism, peace of mind'
-                },
-                'cleaning': {
-                    'scene': 'Sparkling clean modern living room with sunlight streaming through crystal-clear windows',
-                    'details': 'immaculate surfaces, organized space, fresh and bright atmosphere, premium home interior',
-                    'mood': 'pristine, fresh, satisfying cleanliness'
-                },
-                'painting': {
-                    'scene': 'Professional painter carefully applying fresh paint to a home interior, transforming the space',
-                    'details': 'clean workspace with drop cloths, high-quality paint and tools, dramatic before-after potential',
-                    'mood': 'transformation, craftsmanship, home improvement'
-                },
-                'windows': {
-                    'scene': 'Beautiful new energy-efficient windows installed in a modern home with natural light flooding in',
-                    'details': 'crystal clear glass, sleek frames, view of beautiful outdoors, warm inviting interior',
-                    'mood': 'bright, energy-efficient, home upgrade'
-                },
-                'garage_door': {
-                    'scene': 'Stunning new modern garage door on a beautiful home, perfectly complementing the architecture',
-                    'details': 'contemporary design, premium materials, excellent curb appeal, residential street setting',
-                    'mood': 'curb appeal, home value, modern design'
-                }
+                'hvac': 'modern HVAC technician servicing air conditioning unit on a comfortable home, professional service call scene',
+                'dental': 'bright modern dental office with comfortable patient chair, professional healthcare environment',
+                'legal': 'distinguished law office with leather chairs and legal books, professional atmosphere',
+                'real_estate': 'beautiful modern home exterior with manicured lawn, inviting curb appeal, real estate photography',
+                'restaurant': 'elegant plated dish in upscale restaurant setting, food photography, appetizing presentation',
+                'fitness': 'modern fitness center with natural lighting, active lifestyle, motivating gym atmosphere',
+                'salon': 'chic modern salon interior with stylish stations, beauty and wellness atmosphere',
+                'automotive': 'clean professional auto service bay with modern vehicle, trusted mechanic scene',
+                'construction': 'active construction site at golden hour, professional contractors at work, progress scene',
+                'landscaping': 'beautifully landscaped backyard with lush green lawn, professional outdoor living space',
+                'roofing': 'professional roofer installing new shingles on residential home, construction safety, skilled tradework',
+                'plumbing': 'professional plumber repairing pipes under sink, clean workspace, skilled service',
+                'electrical': 'licensed electrician working on modern electrical panel, professional service, safety focused',
+                'marketing': 'modern marketing agency office with creative team, digital screens showing analytics, professional workspace',
+                'windows': 'beautiful new energy-efficient windows installed on modern home, natural light streaming in',
+                'painting': 'professional painter applying fresh coat to home interior, clean workspace, transformation scene'
             }
             
-            industry_data = industry_scenes.get(
-                business_type.lower(), 
-                {
-                    'scene': f'Professional {business_type} service being performed by a skilled technician',
-                    'details': 'clean professional environment, quality workmanship, satisfied customer',
-                    'mood': 'professional, trustworthy, quality service'
-                }
-            )
-            
-            prompt_parts.append(industry_data['scene'])
-            prompt_parts.append(industry_data['details'])
-            
+            scene = industry_scenes.get(business_type.lower(), f'professional {business_type} service scene')
+            scene_elements.append(scene)
         else:
-            # Use the topic if no business type specified
-            prompt_parts.append(topic)
+            scene_elements.append(topic)
         
-        # Add location context naturally
         if location:
+            # Add regional visual context
             location_lower = location.lower()
-            if any(fl in location_lower for fl in ['florida', 'sarasota', 'tampa', 'orlando', 'miami', 'fort myers']):
-                prompt_parts.append('Florida setting with palm trees and bright sunshine visible')
-            elif any(ca in location_lower for ca in ['california', 'los angeles', 'san diego', 'san francisco']):
-                prompt_parts.append('California setting with beautiful weather and blue skies')
-            elif any(tx in location_lower for tx in ['texas', 'houston', 'dallas', 'austin']):
-                prompt_parts.append('Texas setting with spacious property and clear skies')
-            elif any(az in location_lower for az in ['arizona', 'phoenix', 'scottsdale']):
-                prompt_parts.append('Arizona desert setting with warm earth tones')
-            # Add more regions as needed
+            if 'florida' in location_lower or 'sarasota' in location_lower or 'tampa' in location_lower:
+                scene_elements.append('Florida tropical setting, palm trees visible, sunny weather')
+            elif 'california' in location_lower:
+                scene_elements.append('California setting, beautiful weather')
+            elif 'texas' in location_lower:
+                scene_elements.append('Texas setting, wide open spaces')
+            else:
+                scene_elements.append(f'{location} regional setting')
         
-        # Compose the final prompt as a natural description
-        prompt = '. '.join(prompt_parts)
+        # Add style guidance
+        style_guidance = {
+            'professional': 'professional commercial photography style, trustworthy appearance, premium quality',
+            'friendly': 'warm and inviting atmosphere, approachable, genuine human connection',
+            'modern': 'contemporary design aesthetic, clean lines, current trends, sophisticated',
+            'traditional': 'classic timeless style, established presence, trusted and reliable'
+        }
         
-        return prompt
+        scene_elements.append(style_guidance.get(style, style_guidance['professional']))
+        
+        return ', '.join(scene_elements)
 
 
 # Singleton instance

@@ -8,14 +8,11 @@ import jwt
 import os
 import secrets
 import string
-import logging
 from datetime import datetime, timedelta
 
 from app.models.db_models import DBUser, UserRole
 from app.services.db_service import DataService, create_admin_user
 from app.services.audit_service import audit_service
-
-logger = logging.getLogger(__name__)
 
 auth_bp = Blueprint('auth', __name__)
 data_service = DataService()
@@ -166,34 +163,15 @@ def token_required(f):
                 current_app.config['JWT_SECRET_KEY'],
                 algorithms=['HS256']
             )
-            user_id = payload.get('user_id')
-            if not user_id:
-                logger.warning("Token missing user_id")
-                return jsonify({'error': 'Invalid token format'}), 401
-            
-            # Query user from database
-            from app.database import db
-            from app.models.db_models import DBUser
-            
-            # Direct query
-            current_user = DBUser.query.filter_by(id=user_id).first()
-            
+            current_user = data_service.get_user(payload['user_id'])
             if not current_user:
-                # Log details for debugging
-                total_users = DBUser.query.count()
-                sample_ids = [u.id for u in DBUser.query.limit(3).all()]
-                logger.warning(f"User not found for id: {user_id} (total users: {total_users}, sample IDs: {sample_ids})")
-                return jsonify({'error': 'User not found', 'detail': 'Please log in again'}), 401
+                return jsonify({'error': 'User not found'}), 401
             if not current_user.is_active:
                 return jsonify({'error': 'User is deactivated'}), 401
         except jwt.ExpiredSignatureError:
             return jsonify({'error': 'Token has expired'}), 401
-        except jwt.InvalidTokenError as e:
-            logger.warning(f"Invalid token: {e}")
+        except jwt.InvalidTokenError:
             return jsonify({'error': 'Invalid token'}), 401
-        except Exception as e:
-            logger.error(f"Token validation error: {e}")
-            return jsonify({'error': 'Authentication error', 'detail': 'Please log in again'}), 401
         
         return f(current_user, *args, **kwargs)
     
@@ -236,8 +214,9 @@ def optional_token(f):
 
 
 def admin_required(f):
-    """Decorator to require admin role - use AFTER @token_required"""
+    """Decorator to require admin role"""
     @wraps(f)
+    @token_required
     def decorated(current_user, *args, **kwargs):
         if current_user.role != UserRole.ADMIN:
             return jsonify({'error': 'Admin access required'}), 403
@@ -307,7 +286,6 @@ def login():
 
 
 @auth_bp.route('/register', methods=['POST'])
-@token_required
 @admin_required
 def register(current_user):
     """
@@ -367,42 +345,6 @@ def get_current_user(current_user):
     return jsonify(current_user.to_dict())
 
 
-@auth_bp.route('/me', methods=['PUT'])
-@token_required
-def update_current_user(current_user):
-    """
-    Update current user's profile
-    
-    PUT /api/auth/me
-    {
-        "name": "New Name",
-        "email": "newemail@example.com"
-    }
-    """
-    try:
-        data = request.get_json(silent=True) or {}
-    except Exception:
-        data = {}
-    
-    if 'name' in data:
-        current_user.name = data['name']
-    
-    if 'email' in data:
-        new_email = data['email'].lower().strip()
-        # Check if email is already taken by another user
-        existing = data_service.get_user_by_email(new_email)
-        if existing and existing.id != current_user.id:
-            return jsonify({'error': 'Email already in use'}), 400
-        current_user.email = new_email
-    
-    data_service.save_user(current_user)
-    
-    return jsonify({
-        'message': 'Profile updated',
-        'user': current_user.to_dict()
-    })
-
-
 @auth_bp.route('/change-password', methods=['POST'])
 @token_required
 def change_password(current_user):
@@ -430,7 +372,6 @@ def change_password(current_user):
 
 
 @auth_bp.route('/users', methods=['GET'])
-@token_required
 @admin_required
 def list_users(current_user):
     """List all users (admin only)"""
@@ -439,7 +380,6 @@ def list_users(current_user):
 
 
 @auth_bp.route('/users/<user_id>', methods=['DELETE'])
-@token_required
 @admin_required
 def delete_user(current_user, user_id):
     """Deactivate a user (admin only)"""
@@ -454,7 +394,6 @@ def delete_user(current_user, user_id):
 
 
 @auth_bp.route('/users/<user_id>', methods=['PUT'])
-@token_required
 @admin_required
 def update_user(current_user, user_id):
     """
@@ -497,7 +436,6 @@ def update_user(current_user, user_id):
 
 
 @auth_bp.route('/users/<user_id>/activate', methods=['POST'])
-@token_required
 @admin_required
 def activate_user(current_user, user_id):
     """Reactivate a deactivated user (admin only)"""
@@ -512,7 +450,6 @@ def activate_user(current_user, user_id):
 
 
 @auth_bp.route('/users/<user_id>/reset-password', methods=['POST'])
-@token_required
 @admin_required
 def reset_user_password(current_user, user_id):
     """
@@ -545,46 +482,36 @@ def reset_user_password(current_user, user_id):
 def fix_admin_role(current_user):
     """
     Fix admin role if it was corrupted during bootstrap.
-    Works if:
+    Only works if:
     1. No other admin exists, OR
-    2. Current user's email matches ADMIN_EMAIL env var, OR
-    3. Current user is the only user, OR
-    4. Current user is the first user (earliest created_at)
+    2. Current user's email matches ADMIN_EMAIL env var
     
     POST /api/auth/fix-admin
     """
     from app.database import db
     
-    # Check conditions for allowing the fix
+    # Check if there's already a properly working admin
     existing_admin = DBUser.query.filter_by(role=UserRole.ADMIN).first()
     admin_email = os.environ.get('ADMIN_EMAIL', 'admin@karma.marketing')
-    total_users = DBUser.query.count()
-    first_user = DBUser.query.order_by(DBUser.created_at.asc()).first()
     
-    # Allow fix if any of these conditions are met
+    # Allow fix if: no admin exists, OR current user matches admin email
     can_fix = (
-        existing_admin is None or  # No admin exists
-        current_user.email.lower() == admin_email.lower() or  # Email matches env
-        current_user == existing_admin or  # They're the admin but role is corrupted
-        total_users == 1 or  # Only one user - they should be admin
-        (first_user and current_user.id == first_user.id)  # First user should be admin
+        existing_admin is None or 
+        current_user.email.lower() == admin_email.lower() or
+        current_user == existing_admin  # They're the same but role is wrong
     )
     
     if not can_fix:
         return jsonify({
             'error': 'Cannot fix admin role',
             'reason': 'An admin already exists. Contact them to update your role.',
-            'your_role': current_user.role,
-            'your_email': current_user.email,
-            'admin_email_env': admin_email
+            'your_role': current_user.role
         }), 403
     
     # Fix the role
     old_role = current_user.role
     current_user.role = UserRole.ADMIN
     db.session.commit()
-    
-    logger.info(f"Admin role fixed for user {current_user.email}: {old_role} -> ADMIN")
     
     return jsonify({
         'success': True,
@@ -592,181 +519,4 @@ def fix_admin_role(current_user):
         'old_role': old_role,
         'new_role': current_user.role,
         'user_id': current_user.id
-    })
-
-
-@auth_bp.route('/force-fix-admin', methods=['POST'])
-def force_fix_admin():
-    """
-    Emergency endpoint to fix admin role.
-    Works WITHOUT auth in these cases:
-    1. There's exactly one user in the system, OR
-    2. No user has admin role, OR
-    3. Email provided matches ADMIN_EMAIL env var
-    
-    POST /api/auth/force-fix-admin
-    {
-        "email": "user@email.com"  // Email of user to make admin
-    }
-    
-    This is a safety net for bootstrap issues.
-    """
-    from app.database import db
-    
-    data = request.get_json() or {}
-    email = data.get('email', '').lower().strip()
-    admin_email = os.environ.get('ADMIN_EMAIL', 'admin@karma.marketing').lower()
-    
-    # Safety checks
-    total_users = DBUser.query.count()
-    admin_count = DBUser.query.filter_by(role=UserRole.ADMIN).count()
-    
-    # Find user to promote
-    user = None
-    if email:
-        user = DBUser.query.filter(DBUser.email.ilike(email)).first()
-    
-    # Allow if:
-    # 1. Single user system
-    # 2. No admins exist
-    # 3. Email matches ADMIN_EMAIL env var
-    # 4. Email matches the first user created
-    first_user = DBUser.query.order_by(DBUser.created_at.asc()).first()
-    
-    can_fix = (
-        total_users == 1 or
-        admin_count == 0 or
-        (email and email == admin_email) or
-        (email and first_user and email == first_user.email.lower())
-    )
-    
-    if not can_fix:
-        # Return helpful info
-        return jsonify({
-            'error': 'Cannot force-fix: specify the correct admin email',
-            'hint': f'Try with email matching ADMIN_EMAIL env var or first user',
-            'total_users': total_users,
-            'admin_count': admin_count,
-            'first_user_email': first_user.email if first_user else None
-        }), 403
-    
-    # If no specific user requested, use first user
-    if not user:
-        user = first_user
-    
-    if not user:
-        return jsonify({'error': 'No user found'}), 404
-    
-    # Fix the role
-    old_role = user.role
-    user.role = UserRole.ADMIN
-    db.session.commit()
-    
-    logger.warning(f"FORCE admin role fix for user {user.email}: {old_role} -> ADMIN")
-    
-    return jsonify({
-        'success': True,
-        'message': 'Admin role force-fixed',
-        'user_email': user.email,
-        'old_role': old_role,
-        'new_role': user.role
-    })
-
-
-@auth_bp.route('/promote-to-admin', methods=['POST'])
-@token_required
-def promote_to_admin(current_user):
-    """
-    Promote the currently logged-in user to admin.
-    Only works if current user is the first user OR matches ADMIN_EMAIL.
-    
-    POST /api/auth/promote-to-admin
-    """
-    from app.database import db
-    
-    admin_email = os.environ.get('ADMIN_EMAIL', 'admin@karma.marketing').lower()
-    first_user = DBUser.query.order_by(DBUser.created_at.asc()).first()
-    
-    # Check if current user should be admin
-    can_promote = (
-        current_user.email.lower() == admin_email or
-        (first_user and current_user.id == first_user.id)
-    )
-    
-    if not can_promote:
-        return jsonify({
-            'error': 'Cannot promote: you are not the designated admin',
-            'your_email': current_user.email,
-            'admin_email': admin_email
-        }), 403
-    
-    # Promote
-    old_role = current_user.role
-    current_user.role = UserRole.ADMIN
-    db.session.commit()
-    
-    logger.info(f"User promoted to admin: {current_user.email}")
-    
-    return jsonify({
-        'success': True,
-        'message': 'You are now an admin',
-        'old_role': old_role,
-        'new_role': current_user.role
-    })
-
-
-@auth_bp.route('/make-me-admin', methods=['POST'])
-@token_required
-def make_me_admin(current_user):
-    """
-    NUCLEAR OPTION: Make the currently logged-in user an admin.
-    No restrictions - if you can authenticate, you get admin.
-    
-    This is for development/bootstrap recovery only.
-    In production, you should remove or restrict this endpoint.
-    
-    POST /api/auth/make-me-admin
-    """
-    from app.database import db
-    
-    old_role = current_user.role
-    current_user.role = UserRole.ADMIN
-    db.session.commit()
-    
-    logger.warning(f"NUCLEAR ADMIN FIX: {current_user.email} promoted from {old_role} to ADMIN")
-    
-    return jsonify({
-        'success': True,
-        'message': 'You are now an admin!',
-        'email': current_user.email,
-        'old_role': old_role,
-        'new_role': 'ADMIN'
-    })
-
-
-@auth_bp.route('/debug-users', methods=['GET'])
-@token_required
-@admin_required
-def debug_users(current_user):
-    """
-    Debug endpoint to see all users and their roles.
-    Helps diagnose permission issues.
-    Admin only.
-    
-    GET /api/auth/debug-users
-    """
-    users = DBUser.query.all()
-    
-    return jsonify({
-        'total_users': len(users),
-        'users': [
-            {
-                'id': u.id,
-                'email': u.email,
-                'role': u.role,
-                'is_active': u.is_active,
-                'created_at': u.created_at.isoformat() if u.created_at else None
-            }
-            for u in users
-        ]
     })

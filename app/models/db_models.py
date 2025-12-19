@@ -940,31 +940,6 @@ class DBLead(db.Model):
     # Relationships
     client: Mapped["DBClient"] = relationship("DBClient", back_populates="leads")
     
-    def __init__(self, client_id: str, source: str = 'form', **kwargs):
-        self.id = f"lead_{uuid.uuid4().hex[:12]}"
-        self.client_id = client_id
-        self.source = source
-        self.name = kwargs.get('name', '')
-        self.email = kwargs.get('email')
-        self.phone = kwargs.get('phone')
-        self.service_requested = kwargs.get('service_requested')
-        self.message = kwargs.get('message')
-        self.source_detail = kwargs.get('source_detail')
-        self.landing_page = kwargs.get('landing_page')
-        self.utm_source = kwargs.get('utm_source')
-        self.utm_medium = kwargs.get('utm_medium')
-        self.utm_campaign = kwargs.get('utm_campaign')
-        self.keyword = kwargs.get('keyword')
-        self.status = kwargs.get('status', 'new')
-        self.notes = kwargs.get('notes')
-        self.assigned_to = kwargs.get('assigned_to')
-        self.estimated_value = kwargs.get('estimated_value')
-        self.actual_value = kwargs.get('actual_value')
-        self.notified_email = False
-        self.notified_sms = False
-        self.created_at = datetime.utcnow()
-        self.updated_at = datetime.utcnow()
-    
     def to_dict(self) -> dict:
         return {
             'id': self.id,
@@ -1021,23 +996,6 @@ class DBReview(db.Model):
     
     # Relationships
     client: Mapped["DBClient"] = relationship("DBClient", back_populates="reviews")
-    
-    def __init__(self, client_id: str, platform: str, reviewer_name: str, rating: int, review_date: datetime, **kwargs):
-        self.id = f"review_{uuid.uuid4().hex[:12]}"
-        self.client_id = client_id
-        self.platform = platform
-        self.reviewer_name = reviewer_name
-        self.rating = rating
-        self.review_date = review_date
-        self.platform_review_id = kwargs.get('platform_review_id')
-        self.reviewer_avatar = kwargs.get('reviewer_avatar')
-        self.review_text = kwargs.get('review_text')
-        self.response_text = kwargs.get('response_text')
-        self.response_date = kwargs.get('response_date')
-        self.suggested_response = kwargs.get('suggested_response')
-        self.status = kwargs.get('status', 'pending')
-        self.sentiment = kwargs.get('sentiment')
-        self.created_at = datetime.utcnow()
     
     def to_dict(self) -> dict:
         return {
@@ -1102,34 +1060,6 @@ class DBServicePage(db.Model):
     
     # Relationships
     client: Mapped["DBClient"] = relationship("DBClient", back_populates="service_pages_rel")
-    
-    def __init__(self, client_id: str, page_type: str, title: str, slug: str, primary_keyword: str, hero_headline: str, body_content: str, **kwargs):
-        self.id = f"svcpage_{uuid.uuid4().hex[:12]}"
-        self.client_id = client_id
-        self.page_type = page_type
-        self.title = title
-        self.slug = slug
-        self.primary_keyword = primary_keyword
-        self.hero_headline = hero_headline
-        self.body_content = body_content
-        self.service = kwargs.get('service')
-        self.location = kwargs.get('location')
-        self.secondary_keywords = kwargs.get('secondary_keywords')
-        self.hero_subheadline = kwargs.get('hero_subheadline')
-        self.intro_text = kwargs.get('intro_text')
-        self.cta_headline = kwargs.get('cta_headline')
-        self.cta_button_text = kwargs.get('cta_button_text')
-        self.form_headline = kwargs.get('form_headline')
-        self.trust_badges = kwargs.get('trust_badges')
-        self.meta_title = kwargs.get('meta_title')
-        self.meta_description = kwargs.get('meta_description')
-        self.schema_markup = kwargs.get('schema_markup')
-        self.status = kwargs.get('status', 'draft')
-        self.wordpress_id = kwargs.get('wordpress_id')
-        self.published_url = kwargs.get('published_url')
-        self.published_at = kwargs.get('published_at')
-        self.created_at = datetime.utcnow()
-        self.updated_at = datetime.utcnow()
     
     def to_dict(self) -> dict:
         return {
@@ -1312,21 +1242,6 @@ class DBWebhook(db.Model):
     def set_events(self, events: list):
         self.events = json.dumps(events)
     
-    def __init__(self, name: str, url: str, **kwargs):
-        self.id = f"webhook_{uuid.uuid4().hex[:12]}"
-        self.name = name
-        self.url = url
-        self.client_id = kwargs.get('client_id')
-        self.secret = kwargs.get('secret')
-        self.events = json.dumps(kwargs.get('events', []))
-        self.is_active = kwargs.get('is_active', True)
-        self.retry_count = kwargs.get('retry_count', 3)
-        self.timeout_seconds = kwargs.get('timeout_seconds', 30)
-        self.total_sent = 0
-        self.total_failed = 0
-        self.created_at = datetime.utcnow()
-        self.updated_at = datetime.utcnow()
-    
     def to_dict(self) -> dict:
         return {
             'id': self.id,
@@ -1462,24 +1377,6 @@ class DBAgentConfig(db.Model):
     def set_tools(self, tools: list):
         """Set allowed tools"""
         self.tools_allowed = json.dumps(tools)
-    
-    def __init__(self, name: str, display_name: str, system_prompt: str, **kwargs):
-        self.id = f"agent_{uuid.uuid4().hex[:12]}"
-        self.name = name
-        self.display_name = display_name
-        self.system_prompt = system_prompt
-        self.description = kwargs.get('description')
-        self.category = kwargs.get('category', 'general')
-        self.output_format = kwargs.get('output_format')
-        self.output_example = kwargs.get('output_example')
-        self.model = kwargs.get('model', 'gpt-4o-mini')
-        self.temperature = kwargs.get('temperature', 0.7)
-        self.max_tokens = kwargs.get('max_tokens', 2000)
-        self.tools_allowed = json.dumps(kwargs.get('tools_allowed', []))
-        self.is_active = kwargs.get('is_active', True)
-        self.version = kwargs.get('version', 1)
-        self.created_at = datetime.utcnow()
-        self.updated_at = datetime.utcnow()
     
     def to_dict(self) -> dict:
         return {
@@ -1791,7 +1688,7 @@ class DBContentFeedback(db.Model):
     """Content feedback and change requests from clients"""
     __tablename__ = 'content_feedback'
     
-    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
     content_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
     client_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
     user_id: Mapped[str] = mapped_column(String(36), nullable=False)
@@ -1860,7 +1757,7 @@ class DBNotificationPreferences(db.Model):
     """User notification preferences"""
     __tablename__ = 'notification_preferences'
     
-    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
     user_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
     client_id: Mapped[Optional[str]] = mapped_column(String(36), nullable=True, index=True)  # Null = global prefs
     
@@ -1903,7 +1800,7 @@ class DBNotificationPreferences(db.Model):
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     def __init__(self, user_id: str, **kwargs):
-        self.id = str(uuid.uuid4())
+        self.id = str(uuid4())
         self.user_id = user_id
         for key, value in kwargs.items():
             if hasattr(self, key):
@@ -1963,7 +1860,7 @@ class DBNotificationLog(db.Model):
     """Log of sent notifications for tracking and debugging"""
     __tablename__ = 'notification_log'
     
-    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
     user_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
     client_id: Mapped[Optional[str]] = mapped_column(String(36), nullable=True, index=True)
     
@@ -1987,7 +1884,7 @@ class DBNotificationLog(db.Model):
     sent_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     
     def __init__(self, user_id: str, notification_type: str, subject: str, recipient_email: str, **kwargs):
-        self.id = str(uuid.uuid4())
+        self.id = str(uuid4())
         self.user_id = user_id
         self.notification_type = notification_type
         self.subject = subject
@@ -2018,7 +1915,7 @@ class DBNotificationQueue(db.Model):
     """Queue for digest notifications (batched instead of instant)"""
     __tablename__ = 'notification_queue'
     
-    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
     user_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
     client_id: Mapped[Optional[str]] = mapped_column(String(36), nullable=True, index=True)
     
@@ -2039,7 +1936,7 @@ class DBNotificationQueue(db.Model):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     
     def __init__(self, user_id: str, notification_type: str, title: str, message: str, **kwargs):
-        self.id = str(uuid.uuid4())
+        self.id = str(uuid4())
         self.user_id = user_id
         self.notification_type = notification_type
         self.title = title
@@ -2166,90 +2063,3 @@ class DBWebhookEndpoint(db.Model):
             'failure_count': self.failure_count,
             'created_at': self.created_at.isoformat() if self.created_at else None
         }
-
-
-# ============================================
-# Client Image Library
-# ============================================
-
-class DBClientImage(db.Model):
-    """Images uploaded by clients for use in content"""
-    __tablename__ = 'client_images'
-    
-    id: Mapped[str] = mapped_column(String(50), primary_key=True)
-    client_id: Mapped[str] = mapped_column(String(50), ForeignKey('clients.id'), index=True)
-    
-    # Image info
-    filename: Mapped[str] = mapped_column(String(255))
-    original_filename: Mapped[str] = mapped_column(String(255))
-    file_path: Mapped[str] = mapped_column(String(500))  # Local storage path
-    file_url: Mapped[str] = mapped_column(String(500))   # Public URL
-    file_size: Mapped[int] = mapped_column(Integer, default=0)
-    mime_type: Mapped[str] = mapped_column(String(100), default='image/jpeg')
-    
-    # Dimensions
-    width: Mapped[int] = mapped_column(Integer, default=0)
-    height: Mapped[int] = mapped_column(Integer, default=0)
-    
-    # Metadata
-    title: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
-    alt_text: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
-    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    tags: Mapped[str] = mapped_column(Text, default='[]')  # JSON array
-    category: Mapped[str] = mapped_column(String(100), default='general')  # hero, team, work, logo, etc.
-    
-    # Usage tracking
-    use_count: Mapped[int] = mapped_column(Integer, default=0)
-    last_used_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
-    
-    # Status
-    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-    uploaded_by: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
-    
-    def __init__(self, client_id: str, filename: str, file_path: str, **kwargs):
-        self.id = f"img_{uuid.uuid4().hex[:12]}"
-        self.client_id = client_id
-        self.filename = filename
-        self.original_filename = kwargs.get('original_filename', filename)
-        self.file_path = file_path
-        self.file_url = kwargs.get('file_url', '')
-        self.file_size = kwargs.get('file_size', 0)
-        self.mime_type = kwargs.get('mime_type', 'image/jpeg')
-        self.width = kwargs.get('width', 0)
-        self.height = kwargs.get('height', 0)
-        self.title = kwargs.get('title')
-        self.alt_text = kwargs.get('alt_text')
-        self.description = kwargs.get('description')
-        self.tags = json.dumps(kwargs.get('tags', []))
-        self.category = kwargs.get('category', 'general')
-        self.uploaded_by = kwargs.get('uploaded_by')
-    
-    def get_tags(self) -> List[str]:
-        return safe_json_loads(self.tags, [])
-    
-    def to_dict(self) -> dict:
-        return {
-            'id': self.id,
-            'client_id': self.client_id,
-            'filename': self.filename,
-            'original_filename': self.original_filename,
-            'file_path': self.file_path,
-            'file_url': self.file_url,
-            'file_size': self.file_size,
-            'mime_type': self.mime_type,
-            'width': self.width,
-            'height': self.height,
-            'title': self.title,
-            'alt_text': self.alt_text,
-            'description': self.description,
-            'tags': self.get_tags(),
-            'category': self.category,
-            'use_count': self.use_count,
-            'is_active': self.is_active,
-            'created_at': self.created_at.isoformat() if self.created_at else None
-        }
-
-
-# Alias for backward compatibility
-DBContent = DBBlogPost
