@@ -1031,8 +1031,9 @@
         let competitorsData = [];
         let createdClientId = null;
 
-        // Industry data with icons
+        // Industry data with icons - organized by category
         const industries = [
+            // Home Services
             { value: 'hvac', label: 'HVAC', icon: 'snowflake', color: 'blue' },
             { value: 'plumbing', label: 'Plumbing', icon: 'wrench', color: 'cyan' },
             { value: 'roofing', label: 'Roofing', icon: 'home', color: 'amber' },
@@ -1042,11 +1043,79 @@
             { value: 'pest_control', label: 'Pest Control', icon: 'bug', color: 'red' },
             { value: 'painting', label: 'Painting', icon: 'paint-brush', color: 'pink' },
             { value: 'flooring', label: 'Flooring', icon: 'square', color: 'orange' },
-            { value: 'windows', label: 'Windows', icon: 'window-maximize', color: 'teal' },
+            { value: 'windows', label: 'Windows & Doors', icon: 'window-maximize', color: 'teal' },
+            { value: 'garage_door', label: 'Garage Door', icon: 'warehouse', color: 'stone' },
+            { value: 'moving', label: 'Moving', icon: 'truck', color: 'lime' },
+            { value: 'pool', label: 'Pool Service', icon: 'swimming-pool', color: 'sky' },
+            { value: 'fencing', label: 'Fencing', icon: 'grip-lines', color: 'brown' },
+            { value: 'concrete', label: 'Concrete', icon: 'road', color: 'gray' },
+            
+            // Healthcare
+            { value: 'dental', label: 'Dental', icon: 'tooth', color: 'sky' },
+            { value: 'medical', label: 'Medical/Doctor', icon: 'stethoscope', color: 'red' },
+            { value: 'chiropractor', label: 'Chiropractor', icon: 'user-md', color: 'green' },
+            { value: 'veterinary', label: 'Veterinary', icon: 'paw', color: 'amber' },
+            { value: 'optometry', label: 'Optometry', icon: 'eye', color: 'blue' },
+            { value: 'mental_health', label: 'Mental Health', icon: 'brain', color: 'purple' },
+            { value: 'physical_therapy', label: 'Physical Therapy', icon: 'walking', color: 'teal' },
+            
+            // Professional Services
+            { value: 'law', label: 'Attorney/Legal', icon: 'gavel', color: 'slate' },
+            { value: 'accounting', label: 'Accounting/CPA', icon: 'calculator', color: 'emerald' },
+            { value: 'insurance', label: 'Insurance', icon: 'shield-alt', color: 'blue' },
+            { value: 'financial', label: 'Financial Services', icon: 'chart-line', color: 'green' },
+            { value: 'consulting', label: 'Consulting', icon: 'handshake', color: 'indigo' },
+            { value: 'hr_staffing', label: 'HR & Staffing', icon: 'users', color: 'orange' },
+            
+            // Digital & Marketing
+            { value: 'web_design', label: 'Web Design', icon: 'laptop-code', color: 'purple' },
+            { value: 'digital_marketing', label: 'Digital Marketing', icon: 'bullhorn', color: 'pink' },
+            { value: 'seo', label: 'SEO Agency', icon: 'search', color: 'blue' },
+            { value: 'graphic_design', label: 'Graphic Design', icon: 'palette', color: 'rose' },
+            { value: 'photography', label: 'Photography', icon: 'camera', color: 'amber' },
+            { value: 'video_production', label: 'Video Production', icon: 'video', color: 'red' },
+            { value: 'it_services', label: 'IT Services', icon: 'server', color: 'cyan' },
+            { value: 'software', label: 'Software Dev', icon: 'code', color: 'violet' },
+            
+            // Real Estate & Property
             { value: 'real_estate', label: 'Real Estate', icon: 'building', color: 'indigo' },
-            { value: 'dentist', label: 'Dentist', icon: 'tooth', color: 'sky' },
-            { value: 'lawyer', label: 'Attorney', icon: 'gavel', color: 'slate' },
+            { value: 'property_management', label: 'Property Mgmt', icon: 'key', color: 'teal' },
+            { value: 'mortgage', label: 'Mortgage', icon: 'hand-holding-usd', color: 'green' },
+            { value: 'title_company', label: 'Title Company', icon: 'file-signature', color: 'blue' },
+            { value: 'home_inspection', label: 'Home Inspection', icon: 'clipboard-check', color: 'orange' },
+            
+            // Auto
             { value: 'auto_repair', label: 'Auto Repair', icon: 'car', color: 'zinc' },
+            { value: 'auto_dealer', label: 'Auto Dealer', icon: 'car-side', color: 'blue' },
+            { value: 'auto_body', label: 'Auto Body Shop', icon: 'car-crash', color: 'red' },
+            { value: 'tire_shop', label: 'Tire Shop', icon: 'circle', color: 'gray' },
+            { value: 'car_wash', label: 'Car Wash', icon: 'tint', color: 'sky' },
+            
+            // Personal Services
+            { value: 'salon', label: 'Hair Salon', icon: 'cut', color: 'pink' },
+            { value: 'spa', label: 'Spa & Wellness', icon: 'spa', color: 'purple' },
+            { value: 'fitness', label: 'Fitness/Gym', icon: 'dumbbell', color: 'red' },
+            { value: 'martial_arts', label: 'Martial Arts', icon: 'fist-raised', color: 'orange' },
+            { value: 'yoga', label: 'Yoga Studio', icon: 'pray', color: 'teal' },
+            { value: 'pet_services', label: 'Pet Services', icon: 'dog', color: 'amber' },
+            
+            // Food & Hospitality
+            { value: 'restaurant', label: 'Restaurant', icon: 'utensils', color: 'red' },
+            { value: 'catering', label: 'Catering', icon: 'concierge-bell', color: 'amber' },
+            { value: 'bakery', label: 'Bakery', icon: 'birthday-cake', color: 'pink' },
+            { value: 'hotel', label: 'Hotel/Lodging', icon: 'bed', color: 'indigo' },
+            { value: 'event_venue', label: 'Event Venue', icon: 'glass-cheers', color: 'purple' },
+            
+            // Education & Childcare
+            { value: 'tutoring', label: 'Tutoring', icon: 'chalkboard-teacher', color: 'blue' },
+            { value: 'daycare', label: 'Daycare', icon: 'baby', color: 'pink' },
+            { value: 'driving_school', label: 'Driving School', icon: 'car', color: 'green' },
+            { value: 'music_lessons', label: 'Music Lessons', icon: 'music', color: 'purple' },
+            
+            // Other
+            { value: 'nonprofit', label: 'Nonprofit', icon: 'heart', color: 'red' },
+            { value: 'church', label: 'Church/Religious', icon: 'church', color: 'blue' },
+            { value: 'funeral', label: 'Funeral Home', icon: 'cross', color: 'slate' },
             { value: 'other', label: 'Other', icon: 'ellipsis-h', color: 'gray' }
         ];
 
@@ -1877,10 +1946,56 @@
             
             // Common USPs by industry
             const uspsByIndustry = {
+                // Home Services
                 hvac: ['24/7 Emergency Service', 'Licensed & Insured', 'Free Estimates', 'Same-Day Service', 'Financing Available', 'Senior Discounts'],
                 plumbing: ['No Overtime Charges', '24/7 Emergency', 'Licensed Master Plumber', 'Upfront Pricing', 'Satisfaction Guaranteed'],
                 roofing: ['Free Roof Inspections', 'Lifetime Warranty', 'Insurance Claims Assistance', 'Local Family Owned', 'GAF Certified'],
                 electrical: ['Licensed Electricians', 'Safety First', 'Code Compliant Work', 'Free Safety Inspections', 'Commercial & Residential'],
+                landscaping: ['Free Design Consultations', 'Sustainable Solutions', 'Year-Round Maintenance', 'Award-Winning Designs', 'Licensed & Insured'],
+                cleaning: ['Eco-Friendly Products', 'Background Checked Staff', 'Satisfaction Guaranteed', 'Flexible Scheduling', 'Free Estimates'],
+                
+                // Healthcare
+                dental: ['Accepting New Patients', 'Same-Day Appointments', 'Sedation Dentistry', 'Insurance Accepted', 'Family-Friendly', 'Modern Technology'],
+                medical: ['Accepting New Patients', 'Same-Day Appointments', 'Telehealth Available', 'Most Insurance Accepted', 'Bilingual Staff'],
+                chiropractor: ['No Referral Needed', 'Same-Day Appointments', 'Insurance Accepted', 'Evidence-Based Care', 'Family Wellness'],
+                veterinary: ['Fear-Free Certified', 'Emergency Services', 'Compassionate Care', 'State-of-Art Equipment', 'All Species Welcome'],
+                
+                // Professional Services
+                law: ['Free Consultations', 'No Win No Fee', 'Experienced Trial Lawyers', '24/7 Availability', 'Bilingual Services'],
+                accounting: ['Year-Round Support', 'IRS Representation', 'QuickBooks Certified', 'Small Business Specialists', 'Audit Protection'],
+                insurance: ['Free Policy Review', 'Independent Agent', 'Multiple Carriers', 'Local & Responsive', 'Claims Assistance'],
+                financial: ['Fiduciary Standard', 'Fee-Only Advisor', 'Personalized Plans', 'Retirement Specialists', 'Free Consultation'],
+                
+                // Digital & Marketing
+                web_design: ['Custom Designs', 'Mobile Responsive', 'SEO Optimized', 'Fast Turnaround', 'Ongoing Support', 'Affordable Pricing'],
+                digital_marketing: ['Data-Driven Results', 'Transparent Reporting', 'No Long-Term Contracts', 'Certified Experts', 'ROI Focused'],
+                seo: ['White-Hat Only', 'Proven Results', 'Monthly Reporting', 'No Long-Term Contracts', 'Local SEO Experts'],
+                photography: ['Professional Equipment', 'Quick Turnaround', 'Online Gallery', 'Print Services', 'Flexible Packages'],
+                it_services: ['24/7 Support', 'Fast Response Time', 'Flat-Rate Pricing', 'Proactive Monitoring', 'Cybersecurity Focus'],
+                
+                // Real Estate
+                real_estate: ['Local Market Expert', 'Top Producer', 'Full Service', 'Free Home Valuation', 'Negotiation Expert'],
+                property_management: ['24/7 Maintenance', 'Online Portal', 'Thorough Screening', 'Competitive Fees', 'Local Expertise'],
+                mortgage: ['Fast Pre-Approval', 'Competitive Rates', 'First-Time Buyer Specialist', 'VA/FHA Expert', 'No Hidden Fees'],
+                
+                // Personal Services
+                salon: ['Award-Winning Stylists', 'Luxury Experience', 'Online Booking', 'Organic Products', 'Walk-Ins Welcome'],
+                spa: ['Relaxing Atmosphere', 'Licensed Therapists', 'Organic Products', 'Couples Packages', 'Gift Cards Available'],
+                fitness: ['No Contracts', 'Personal Training Included', 'Open 24/7', 'State-of-Art Equipment', 'Free First Visit'],
+                
+                // Auto
+                auto_repair: ['ASE Certified', 'Free Diagnostics', 'Warranty on Work', 'Loaner Cars Available', 'Same-Day Service'],
+                auto_dealer: ['No Pressure Sales', 'Certified Pre-Owned', 'Trade-Ins Welcome', 'Financing Available', 'Warranty Included'],
+                
+                // Food & Hospitality
+                restaurant: ['Farm to Table', 'Locally Sourced', 'Private Events', 'Online Reservations', 'Catering Available'],
+                catering: ['Customizable Menus', 'Full Service', 'Dietary Accommodations', 'On-Time Delivery', 'Professional Staff'],
+                
+                // Education
+                tutoring: ['Certified Teachers', 'Personalized Plans', 'Flexible Scheduling', 'Online & In-Person', 'Proven Results'],
+                daycare: ['Licensed & Accredited', 'Low Teacher Ratios', 'Security Cameras', 'Nutritious Meals', 'Flexible Hours'],
+                
+                // Default
                 default: ['Family Owned', 'Licensed & Insured', 'Free Estimates', 'Satisfaction Guaranteed', 'Fast Response Time', 'Competitive Pricing']
             };
 

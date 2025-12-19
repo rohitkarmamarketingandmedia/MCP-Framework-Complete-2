@@ -232,6 +232,255 @@ def _generate_industry_keywords(industry: str, location: str, business_name: str
             ('houses for sale', 1900), ('luxury homes', 1600), ('condos for sale', 1400),
             ('property for sale', 1200), ('real estate listings', 1000), ('home buying', 880),
             ('home selling', 720), ('waterfront homes', 590), ('new construction', 480)
+        ],
+        'dental': [
+            ('dentist', 6600), ('dental clinic', 2900), ('teeth cleaning', 2400),
+            ('dental implants', 1900), ('teeth whitening', 1600), ('emergency dentist', 1400),
+            ('cosmetic dentist', 1200), ('root canal', 1000), ('dental crown', 880),
+            ('invisalign', 720), ('veneers', 590), ('dental exam', 480),
+            ('family dentist', 390), ('pediatric dentist', 320), ('dental x-ray', 260),
+            ('tooth extraction', 210), ('dentures', 170), ('dental bridge', 140)
+        ],
+        'medical': [
+            ('doctor near me', 4400), ('family doctor', 2900), ('primary care physician', 2400),
+            ('urgent care', 1900), ('medical clinic', 1600), ('walk in clinic', 1400),
+            ('physical exam', 1200), ('annual checkup', 1000), ('vaccinations', 880),
+            ('blood test', 720), ('health screening', 590), ('telemedicine', 480)
+        ],
+        'law': [
+            ('lawyer', 4400), ('attorney', 3600), ('personal injury lawyer', 2900),
+            ('divorce lawyer', 2400), ('criminal defense attorney', 1900), ('family lawyer', 1600),
+            ('estate planning attorney', 1400), ('business lawyer', 1200), ('immigration lawyer', 1000),
+            ('bankruptcy attorney', 880), ('real estate lawyer', 720), ('dui lawyer', 590)
+        ],
+        'auto': [
+            ('auto repair', 3600), ('car mechanic', 2900), ('oil change', 2400),
+            ('brake repair', 1900), ('tire shop', 1600), ('transmission repair', 1400),
+            ('auto body shop', 1200), ('car detailing', 1000), ('engine repair', 880),
+            ('ac repair car', 720), ('wheel alignment', 590), ('car battery replacement', 480)
+        ],
+        'restaurant': [
+            ('restaurant', 4400), ('best restaurant', 2900), ('food delivery', 2400),
+            ('catering', 1900), ('takeout', 1600), ('brunch', 1400),
+            ('dinner reservations', 1200), ('happy hour', 1000), ('private dining', 880)
+        ],
+        'fitness': [
+            ('gym', 4400), ('personal trainer', 2900), ('fitness center', 2400),
+            ('yoga studio', 1900), ('crossfit', 1600), ('pilates', 1400),
+            ('weight loss program', 1200), ('group fitness classes', 1000), ('gym membership', 880)
+        ],
+        'salon': [
+            ('hair salon', 3600), ('haircut', 2900), ('hair color', 2400),
+            ('balayage', 1900), ('highlights', 1600), ('keratin treatment', 1400),
+            ('hair extensions', 1200), ('mens haircut', 1000), ('blowout', 880),
+            ('nail salon', 720), ('manicure pedicure', 590), ('spa', 480)
+        ],
+        'windows': [
+            ('window installation', 2400), ('window replacement', 1900), ('vinyl windows', 1600),
+            ('energy efficient windows', 1400), ('window repair', 1200), ('window contractor', 1000),
+            ('double pane windows', 880), ('bay windows', 720), ('sliding windows', 590),
+            ('window glass replacement', 480), ('storm windows', 390), ('egress windows', 320)
+        ],
+        'garage_door': [
+            ('garage door repair', 2400), ('garage door installation', 1900), ('garage door opener', 1600),
+            ('garage door replacement', 1400), ('broken garage door spring', 1200), ('garage door service', 1000),
+            ('automatic garage door', 880), ('garage door maintenance', 720), ('overhead door', 590)
+        ],
+        'moving': [
+            ('moving company', 3600), ('movers', 2900), ('local movers', 2400),
+            ('long distance moving', 1900), ('packing services', 1600), ('moving services', 1400),
+            ('furniture movers', 1200), ('office moving', 1000), ('piano movers', 880),
+            ('storage', 720), ('moving truck', 590), ('moving quotes', 480)
+        ],
+        'insurance': [
+            ('insurance agent', 2900), ('auto insurance', 2400), ('home insurance', 1900),
+            ('life insurance', 1600), ('health insurance', 1400), ('business insurance', 1200),
+            ('insurance quotes', 1000), ('cheap insurance', 880), ('insurance broker', 720)
+        ],
+        'accounting': [
+            ('accountant', 2900), ('cpa', 2400), ('tax preparation', 1900),
+            ('bookkeeping', 1600), ('tax accountant', 1400), ('small business accountant', 1200),
+            ('payroll services', 1000), ('tax planning', 880), ('financial advisor', 720)
+        ],
+        # Digital & Marketing Services
+        'web_design': [
+            ('web design', 4400), ('website design', 3600), ('web developer', 2900),
+            ('website development', 2400), ('ecommerce website', 1900), ('wordpress developer', 1600),
+            ('custom website', 1400), ('responsive web design', 1200), ('small business website', 1000),
+            ('landing page design', 880), ('website redesign', 720), ('web design agency', 590),
+            ('affordable web design', 480), ('professional website', 390), ('website maintenance', 320)
+        ],
+        'digital_marketing': [
+            ('digital marketing agency', 3600), ('online marketing', 2900), ('internet marketing', 2400),
+            ('social media marketing', 1900), ('ppc management', 1600), ('email marketing', 1400),
+            ('content marketing', 1200), ('marketing agency', 1000), ('lead generation', 880),
+            ('facebook ads', 720), ('google ads management', 590), ('marketing consultant', 480)
+        ],
+        'seo': [
+            ('seo services', 3600), ('seo agency', 2900), ('seo company', 2400),
+            ('local seo', 1900), ('seo consultant', 1600), ('search engine optimization', 1400),
+            ('seo expert', 1200), ('affordable seo', 1000), ('small business seo', 880),
+            ('ecommerce seo', 720), ('seo audit', 590), ('link building', 480)
+        ],
+        'graphic_design': [
+            ('graphic designer', 3600), ('logo design', 2900), ('graphic design', 2400),
+            ('brand design', 1900), ('logo designer', 1600), ('print design', 1400),
+            ('business card design', 1200), ('flyer design', 1000), ('brochure design', 880),
+            ('packaging design', 720), ('brand identity', 590), ('creative agency', 480)
+        ],
+        'photography': [
+            ('photographer', 4400), ('wedding photographer', 2900), ('portrait photographer', 2400),
+            ('commercial photography', 1900), ('headshot photographer', 1600), ('event photographer', 1400),
+            ('real estate photographer', 1200), ('product photography', 1000), ('family photographer', 880),
+            ('photo studio', 720), ('professional photographer', 590), ('photography services', 480)
+        ],
+        'video_production': [
+            ('video production', 2900), ('videographer', 2400), ('video marketing', 1900),
+            ('corporate video', 1600), ('promotional video', 1400), ('video editing', 1200),
+            ('commercial video', 1000), ('drone videography', 880), ('youtube video production', 720)
+        ],
+        'it_services': [
+            ('it services', 3600), ('managed it services', 2900), ('it support', 2400),
+            ('computer repair', 1900), ('network services', 1600), ('cybersecurity', 1400),
+            ('it consulting', 1200), ('cloud services', 1000), ('data backup', 880),
+            ('helpdesk support', 720), ('it outsourcing', 590), ('server management', 480)
+        ],
+        'software': [
+            ('software development', 2900), ('custom software', 2400), ('app development', 1900),
+            ('mobile app developer', 1600), ('software company', 1400), ('web application', 1200),
+            ('saas development', 1000), ('software consultant', 880), ('api development', 720)
+        ],
+        # Healthcare
+        'chiropractor': [
+            ('chiropractor', 4400), ('chiropractic', 2900), ('back pain treatment', 2400),
+            ('spinal adjustment', 1900), ('neck pain relief', 1600), ('chiropractor near me', 1400),
+            ('sports chiropractor', 1200), ('auto injury chiropractor', 1000), ('sciatica treatment', 880)
+        ],
+        'veterinary': [
+            ('veterinarian', 4400), ('vet clinic', 2900), ('animal hospital', 2400),
+            ('pet vaccinations', 1900), ('emergency vet', 1600), ('dog vet', 1400),
+            ('cat vet', 1200), ('pet surgery', 1000), ('vet near me', 880)
+        ],
+        'optometry': [
+            ('eye doctor', 3600), ('optometrist', 2900), ('eye exam', 2400),
+            ('glasses', 1900), ('contact lenses', 1600), ('vision care', 1400),
+            ('optical shop', 1200), ('eye care', 1000), ('pediatric eye doctor', 880)
+        ],
+        'mental_health': [
+            ('therapist', 3600), ('counselor', 2900), ('psychologist', 2400),
+            ('mental health counseling', 1900), ('anxiety therapist', 1600), ('depression treatment', 1400),
+            ('marriage counselor', 1200), ('family therapist', 1000), ('psychiatrist', 880)
+        ],
+        'physical_therapy': [
+            ('physical therapy', 3600), ('physical therapist', 2900), ('pt clinic', 2400),
+            ('sports physical therapy', 1900), ('orthopedic physical therapy', 1600), ('rehab center', 1400),
+            ('injury rehabilitation', 1200), ('back pain physical therapy', 1000), ('post surgery rehab', 880)
+        ],
+        # Real Estate & Property
+        'property_management': [
+            ('property management', 3600), ('property manager', 2900), ('rental management', 2400),
+            ('hoa management', 1900), ('apartment management', 1600), ('commercial property management', 1400),
+            ('vacation rental management', 1200), ('tenant placement', 1000), ('landlord services', 880)
+        ],
+        'mortgage': [
+            ('mortgage lender', 3600), ('home loan', 2900), ('mortgage broker', 2400),
+            ('refinance', 1900), ('fha loan', 1600), ('va loan', 1400),
+            ('first time home buyer', 1200), ('mortgage rates', 1000), ('home refinance', 880)
+        ],
+        'home_inspection': [
+            ('home inspector', 2900), ('home inspection', 2400), ('property inspection', 1900),
+            ('pre purchase inspection', 1600), ('mold inspection', 1400), ('radon testing', 1200),
+            ('termite inspection', 1000), ('roof inspection', 880), ('commercial inspection', 720)
+        ],
+        # Personal Services  
+        'salon': [
+            ('hair salon', 3600), ('haircut', 2900), ('hair color', 2400),
+            ('balayage', 1900), ('highlights', 1600), ('keratin treatment', 1400),
+            ('hair extensions', 1200), ('mens haircut', 1000), ('blowout', 880)
+        ],
+        'spa': [
+            ('spa', 3600), ('massage', 2900), ('facial', 2400),
+            ('day spa', 1900), ('couples massage', 1600), ('deep tissue massage', 1400),
+            ('med spa', 1200), ('botox', 1000), ('microneedling', 880)
+        ],
+        'fitness': [
+            ('gym', 4400), ('personal trainer', 2900), ('fitness center', 2400),
+            ('crossfit', 1900), ('weight loss program', 1600), ('group fitness', 1400),
+            ('gym membership', 1200), ('strength training', 1000), ('boot camp', 880)
+        ],
+        'yoga': [
+            ('yoga studio', 2900), ('yoga classes', 2400), ('hot yoga', 1900),
+            ('beginner yoga', 1600), ('prenatal yoga', 1400), ('yoga teacher', 1200),
+            ('meditation classes', 1000), ('pilates', 880), ('yoga retreat', 720)
+        ],
+        'pet_services': [
+            ('dog grooming', 2900), ('pet grooming', 2400), ('dog boarding', 1900),
+            ('pet sitting', 1600), ('dog daycare', 1400), ('dog training', 1200),
+            ('mobile pet grooming', 1000), ('cat grooming', 880), ('pet hotel', 720)
+        ],
+        # More Home Services
+        'pool': [
+            ('pool service', 2900), ('pool cleaning', 2400), ('pool repair', 1900),
+            ('pool maintenance', 1600), ('pool builder', 1400), ('pool installation', 1200),
+            ('pool resurfacing', 1000), ('pool leak detection', 880), ('pool equipment repair', 720)
+        ],
+        'fencing': [
+            ('fence company', 2400), ('fence installation', 1900), ('wood fence', 1600),
+            ('vinyl fence', 1400), ('chain link fence', 1200), ('fence repair', 1000),
+            ('privacy fence', 880), ('aluminum fence', 720), ('fence contractor', 590)
+        ],
+        'concrete': [
+            ('concrete contractor', 2400), ('concrete driveway', 1900), ('concrete patio', 1600),
+            ('stamped concrete', 1400), ('concrete repair', 1200), ('foundation repair', 1000),
+            ('concrete sidewalk', 880), ('decorative concrete', 720), ('concrete resurfacing', 590)
+        ],
+        'painting': [
+            ('house painter', 2900), ('interior painting', 2400), ('exterior painting', 1900),
+            ('commercial painting', 1600), ('cabinet painting', 1400), ('deck staining', 1200),
+            ('painting contractor', 1000), ('residential painting', 880), ('paint company', 720)
+        ],
+        'flooring': [
+            ('flooring company', 2900), ('hardwood flooring', 2400), ('carpet installation', 1900),
+            ('tile flooring', 1600), ('laminate flooring', 1400), ('vinyl flooring', 1200),
+            ('floor refinishing', 1000), ('flooring contractor', 880), ('epoxy flooring', 720)
+        ],
+        # Food & Hospitality
+        'catering': [
+            ('catering', 3600), ('catering service', 2900), ('wedding catering', 2400),
+            ('corporate catering', 1900), ('event catering', 1600), ('party catering', 1400),
+            ('food catering', 1200), ('bbq catering', 1000), ('catering company', 880)
+        ],
+        'bakery': [
+            ('bakery', 3600), ('custom cakes', 2900), ('wedding cake', 2400),
+            ('birthday cake', 1900), ('cupcakes', 1600), ('pastries', 1400),
+            ('bread bakery', 1200), ('gluten free bakery', 1000), ('cake shop', 880)
+        ],
+        'hotel': [
+            ('hotel', 6600), ('hotels near me', 4400), ('boutique hotel', 2900),
+            ('resort', 2400), ('bed and breakfast', 1900), ('vacation rental', 1600),
+            ('extended stay', 1400), ('hotel booking', 1200), ('lodging', 1000)
+        ],
+        # Education
+        'tutoring': [
+            ('tutoring', 2900), ('math tutor', 2400), ('reading tutor', 1900),
+            ('sat prep', 1600), ('act prep', 1400), ('private tutor', 1200),
+            ('online tutoring', 1000), ('homework help', 880), ('test prep', 720)
+        ],
+        'daycare': [
+            ('daycare', 4400), ('childcare', 2900), ('preschool', 2400),
+            ('child care center', 1900), ('infant care', 1600), ('after school care', 1400),
+            ('early learning center', 1200), ('nursery school', 1000), ('daycare near me', 880)
+        ],
+        # Financial
+        'financial': [
+            ('financial advisor', 3600), ('financial planner', 2900), ('wealth management', 2400),
+            ('investment advisor', 1900), ('retirement planning', 1600), ('financial planning', 1400),
+            ('estate planning', 1200), ('401k advisor', 1000), ('financial consultant', 880)
+        ],
+        'consulting': [
+            ('business consultant', 2900), ('management consulting', 2400), ('strategy consultant', 1900),
+            ('small business consultant', 1600), ('hr consultant', 1400), ('operations consultant', 1200),
+            ('consulting firm', 1000), ('business advisor', 880), ('startup consultant', 720)
         ]
     }
     
