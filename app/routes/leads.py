@@ -72,7 +72,6 @@ def capture_lead_for_client(client_id):
 # ==========================================
 
 @leads_bp.route('/', methods=['GET'])
-@leads_bp.route('', methods=['GET'])  # Also allow without trailing slash
 @token_required
 def get_leads(current_user):
     """

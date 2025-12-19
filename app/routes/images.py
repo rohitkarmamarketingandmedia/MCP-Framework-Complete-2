@@ -606,7 +606,7 @@ def create_featured_image(current_user, client_id):
             if brand_hex:
                 brand_hex = brand_hex.lstrip('#')
                 brand_color = tuple(int(brand_hex[i:i+2], 16) for i in (0, 2, 4))
-        except (ValueError, TypeError, KeyError):
+        except:
             pass
     
     # Determine source image

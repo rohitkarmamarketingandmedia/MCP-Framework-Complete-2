@@ -8,9 +8,6 @@ from app.services.analytics_service import AnalyticsService, ComparativeAnalytic
 from app.services.seo_service import SEOService
 from app.services.db_service import DataService
 from datetime import datetime, timedelta
-import logging
-
-logger = logging.getLogger(__name__)
 
 analytics_bp = Blueprint('analytics', __name__)
 analytics_service = AnalyticsService()
@@ -159,7 +156,6 @@ def get_traffic(current_user, client_id):
 
 
 @analytics_bp.route('/rankings/<client_id>', methods=['GET'])
-@analytics_bp.route('/client/<client_id>', methods=['GET'])  # Alias for /api/rankings/client/{id}
 @token_required
 def get_rankings(current_user, client_id):
     """
@@ -419,7 +415,6 @@ def get_health_score(current_user, client_id):
 
 
 @analytics_bp.route('/agency-summary', methods=['GET'])
-@token_required
 @admin_required
 def get_agency_summary(current_user):
     """

@@ -1,13 +1,6 @@
 # MCP Framework Changelog
 
-## v5.5.26 – Image Library + Featured Image Generator
-
----
-
-## v5.5.41 – Stable / Released
-
-## Completed end-to-end. Session concluded due to LLM context limit. No outstanding actions.
-
+## v5.5.26 - Image Library + Featured Image Generator
 
 ### 🖼️ NEW: Client Image Library
 

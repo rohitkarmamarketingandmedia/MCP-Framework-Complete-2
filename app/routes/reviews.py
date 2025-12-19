@@ -4,15 +4,12 @@ Review management, response generation, and review requests
 """
 from flask import Blueprint, request, jsonify
 from datetime import datetime
-import logging
 
 from app.routes.auth import token_required
 from app.utils import safe_int
 from app.services.review_service import review_service
 from app.models.db_models import DBReview, DBClient
 from app.database import db
-
-logger = logging.getLogger(__name__)
 
 reviews_bp = Blueprint('reviews', __name__)
 

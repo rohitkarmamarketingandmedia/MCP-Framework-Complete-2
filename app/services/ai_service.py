@@ -112,18 +112,6 @@ class AIService:
         
         if response.get('error'):
             logger.error(f"Blog generation failed: {response['error']}")
-            # Try to generate fallback content
-            if 'not configured' in str(response.get('error', '')).lower():
-                logger.info("Attempting fallback blog generation")
-                return self._generate_fallback_blog(
-                    keyword=keyword,
-                    geo=geo,
-                    industry=industry,
-                    word_count=word_count,
-                    business_name=business_name,
-                    include_faq=include_faq,
-                    faq_count=faq_count
-                )
             return response
         
         # Parse the response
@@ -302,18 +290,6 @@ Example for HVAC business:
         
         if response.get('error'):
             logger.error(f"Social generation failed: {response['error']}")
-            # Generate fallback content when AI unavailable
-            if 'not configured' in str(response.get('error', '')).lower():
-                logger.info("Generating fallback social post")
-                return self._generate_fallback_social(
-                    topic=topic,
-                    platform=platform,
-                    business_name=business_name,
-                    industry=industry,
-                    geo=geo,
-                    include_hashtags=include_hashtags,
-                    hashtag_count=hashtag_count
-                )
             return response
         
         try:
@@ -353,80 +329,6 @@ Example for HVAC business:
                 'image_alt': f"{topic} - {business_name}"
             }
     
-    def _generate_fallback_social(
-        self,
-        topic: str,
-        platform: str,
-        business_name: str,
-        industry: str,
-        geo: str,
-        include_hashtags: bool,
-        hashtag_count: int
-    ) -> Dict[str, Any]:
-        """Generate template-based social post when AI is unavailable"""
-        
-        # Platform-specific templates
-        templates = {
-            'gbp': [
-                f"🏠 Looking for professional {industry} services in {geo}? {business_name} is here to help! Our experienced team delivers quality workmanship you can trust. Contact us today for a free estimate!",
-                f"⭐ Why do {geo} residents choose {business_name}? Quality work, fair prices, and service you can count on. Call us for all your {industry} needs!",
-                f"🔧 Need {topic}? {business_name} serves {geo} with pride. Licensed, insured, and ready to help. Get your free quote today!"
-            ],
-            'facebook': [
-                f"Looking for reliable {industry} services in {geo}? 🏡\n\n{business_name} is here to help! Our team of experts delivers quality work at fair prices.\n\n✅ Licensed & Insured\n✅ Free Estimates\n✅ Satisfaction Guaranteed\n\nContact us today!",
-                f"Did you know? Regular maintenance can save you money in the long run! 💡\n\n{business_name} offers professional {industry} services throughout {geo}. Don't wait until there's a problem - schedule your service today!",
-                f"Happy customers = our #1 priority! 🌟\n\nThank you {geo} for trusting {business_name} with your {industry} needs. We're proud to serve this amazing community!"
-            ],
-            'instagram': [
-                f"Quality {industry} services you can trust 👊\n\nServing {geo} with pride ❤️\n\n{business_name} - Your local experts!",
-                f"Before ➡️ After transformation! 🔄\n\nAnother satisfied customer in {geo}! ⭐\n\nDM us for your free estimate 📩",
-                f"Expert tips from your friends at {business_name} 💡\n\nServing {geo} since day one 🏆\n\nLink in bio for more!"
-            ],
-            'linkedin': [
-                f"At {business_name}, we're committed to delivering exceptional {industry} services to the {geo} community. Our team of professionals brings years of experience and a dedication to quality workmanship.\n\nLooking for a reliable partner for your {industry} needs? Let's connect.",
-                f"Proud to announce another successful project completed in {geo}! Our team at {business_name} continues to set the standard for {industry} excellence in our community.\n\n#ProfessionalServices #QualityWork",
-                f"Building lasting relationships, one customer at a time. That's the {business_name} difference.\n\nServing {geo} with professional {industry} services. Contact us to learn more."
-            ],
-            'twitter': [
-                f"🔧 Need {industry} help in {geo}? {business_name} has you covered! Free estimates available. #local",
-                f"Quality {industry} services in {geo}. {business_name} - your trusted local experts! 🌟",
-                f"Did you know? {business_name} offers same-day service in {geo}! Call us today 📞"
-            ]
-        }
-        
-        import random
-        platform_templates = templates.get(platform, templates['facebook'])
-        text = random.choice(platform_templates)
-        
-        # Generate hashtags based on industry
-        industry_hashtags = {
-            'hvac': ['HVAC', 'AirConditioning', 'ACRepair', 'Cooling', 'HomeComfort', 'HVACService'],
-            'plumbing': ['Plumbing', 'PlumbingRepair', 'Plumber', 'WaterHeater', 'LeakRepair', 'DrainCleaning'],
-            'roofing': ['Roofing', 'RoofRepair', 'NewRoof', 'RoofingContractor', 'StormDamage', 'RoofInspection'],
-            'electrical': ['Electrical', 'Electrician', 'ElectricalRepair', 'HomeElectrical', 'Wiring', 'Licensed'],
-            'landscaping': ['Landscaping', 'LawnCare', 'Outdoors', 'CurbAppeal', 'GardenDesign', 'LawnMaintenance'],
-            'cleaning': ['Cleaning', 'CleanHome', 'ProfessionalCleaning', 'DeepClean', 'HouseCleaning', 'CleanSpace'],
-            'pest_control': ['PestControl', 'BugFree', 'PestFree', 'Exterminator', 'HomePest', 'PestPrevention']
-        }
-        
-        base_hashtags = industry_hashtags.get(industry.lower(), [industry.replace(' ', '')])
-        location_tag = geo.split(',')[0].replace(' ', '')
-        all_hashtags = base_hashtags + [location_tag, 'LocalBusiness', 'SmallBusiness', 'TrustedPros']
-        
-        # Select hashtags without duplicates
-        selected_hashtags = []
-        for h in all_hashtags:
-            if h not in selected_hashtags and len(selected_hashtags) < hashtag_count:
-                selected_hashtags.append(h)
-        
-        return {
-            'text': text,
-            'hashtags': selected_hashtags if include_hashtags else [],
-            'cta': f"Contact {business_name} today!",
-            'image_alt': f"{topic} - {industry} services in {geo}",
-            'fallback_generated': True
-        }
-    
     def generate_social_kit(
         self,
         topic: str,
@@ -461,159 +363,6 @@ Example for HVAC business:
                 break
         
         return kit
-    
-    def _generate_fallback_blog(
-        self,
-        keyword: str,
-        geo: str,
-        industry: str,
-        word_count: int,
-        business_name: str,
-        include_faq: bool,
-        faq_count: int
-    ) -> Dict[str, Any]:
-        """Generate template-based blog content when AI is unavailable"""
-        
-        title = f"{keyword.title()} in {geo} - Complete Guide"
-        meta_title = f"{keyword.title()} | Expert {industry.title()} Services in {geo}"[:60]
-        meta_description = f"Looking for {keyword} in {geo}? Our expert guide covers everything you need to know about {industry} services. Contact {business_name or 'us'} today!"[:160]
-        
-        # Build body content
-        body_parts = []
-        
-        # Introduction
-        body_parts.append(f"""
-<p>When it comes to <strong>{keyword}</strong> in <strong>{geo}</strong>, finding the right service provider makes all the difference. At {business_name or f'your local {industry} company'}, we understand the unique needs of {geo} residents and are committed to delivering exceptional service.</p>
-
-<p>Whether you're dealing with an emergency situation or planning routine maintenance, this guide will help you understand everything you need to know about {keyword} in the {geo} area.</p>
-""")
-        
-        # Section 1: Why Choose Professional Services
-        body_parts.append(f"""
-<h2>Why {geo} Residents Choose Professional {keyword.title()} Services</h2>
-
-<p>Professional {industry} services offer numerous advantages over DIY solutions. Our experienced technicians bring years of expertise, proper equipment, and guaranteed workmanship to every job.</p>
-
-<p>When you choose a professional for your {keyword} needs in {geo}, you benefit from:</p>
-<ul>
-    <li>Licensed and insured technicians</li>
-    <li>Proper diagnosis and lasting solutions</li>
-    <li>Warranty-backed workmanship</li>
-    <li>Safety compliance and code adherence</li>
-    <li>Time and cost savings in the long run</li>
-</ul>
-""")
-        
-        # Section 2: What to Expect
-        body_parts.append(f"""
-<h2>What to Expect from {keyword.title()} in {geo}</h2>
-
-<p>Understanding the process helps you make informed decisions. Here's what typically happens when you schedule {keyword} services:</p>
-
-<p><strong>Initial Assessment:</strong> Our technician will thoroughly evaluate your situation, identify the root cause, and explain all available options.</p>
-
-<p><strong>Transparent Pricing:</strong> Before any work begins, you'll receive a detailed estimate with no hidden fees. We believe in upfront, honest pricing.</p>
-
-<p><strong>Quality Service:</strong> Our team uses industry-leading techniques and materials to ensure lasting results that meet or exceed your expectations.</p>
-
-<p><strong>Follow-up Support:</strong> We stand behind our work with comprehensive warranties and responsive customer service.</p>
-""")
-        
-        # Section 3: Cost Information
-        body_parts.append(f"""
-<h2>{keyword.title()} Cost in {geo} - What to Budget</h2>
-
-<p>The cost of {keyword} varies based on several factors including the scope of work, materials needed, and complexity of the job. {geo} pricing is competitive with the regional market.</p>
-
-<p>We offer free estimates so you can understand the investment before committing. Contact us to discuss your specific needs and receive a personalized quote.</p>
-
-<p>{business_name or 'We'} offer flexible payment options and will work with you to find a solution that fits your budget.</p>
-""")
-        
-        # Section 4: Why Choose Us
-        body_parts.append(f"""
-<h2>Why {geo} Trusts {business_name or f'Our {industry.title()} Team'}</h2>
-
-<p>Serving the {geo} community, we've built our reputation on quality workmanship, honest pricing, and exceptional customer service. Our team is:</p>
-
-<ul>
-    <li>Fully licensed and insured</li>
-    <li>Background checked and trained</li>
-    <li>Committed to your satisfaction</li>
-    <li>Available for emergency service</li>
-</ul>
-
-<p>Don't settle for less when it comes to your {keyword} needs. Contact {business_name or 'us'} today to experience the difference professional service makes.</p>
-""")
-        
-        # Build FAQ section if requested
-        faq_items = []
-        if include_faq:
-            faq_templates = [
-                {
-                    'question': f'How much does {keyword} cost in {geo}?',
-                    'answer': f'The cost of {keyword} in {geo} varies depending on the specific work needed. Contact us for a free estimate tailored to your situation.'
-                },
-                {
-                    'question': f'How long does {keyword} typically take?',
-                    'answer': f'Most {keyword} jobs can be completed within a few hours to a day, depending on complexity. We\'ll provide a time estimate upfront.'
-                },
-                {
-                    'question': f'Do you offer emergency {keyword} services in {geo}?',
-                    'answer': f'Yes! We offer emergency services throughout {geo} and surrounding areas. Call us anytime for urgent assistance.'
-                },
-                {
-                    'question': f'Are you licensed and insured for {keyword}?',
-                    'answer': f'Absolutely. Our team is fully licensed and insured, giving you peace of mind with every service call.'
-                },
-                {
-                    'question': f'What areas do you serve besides {geo}?',
-                    'answer': f'We proudly serve {geo} and all surrounding communities. Contact us to confirm service in your specific area.'
-                }
-            ]
-            faq_items = faq_templates[:faq_count]
-            
-            body_parts.append(f"""
-<h2>Frequently Asked Questions About {keyword.title()} in {geo}</h2>
-""")
-            for faq in faq_items:
-                body_parts.append(f"""
-<h3>{faq['question']}</h3>
-<p>{faq['answer']}</p>
-""")
-        
-        # Call to action
-        body_parts.append(f"""
-<h2>Ready to Get Started with {keyword.title()} in {geo}?</h2>
-
-<p>Don't wait to address your {industry} needs. Contact {business_name or 'us'} today for a free consultation and estimate. Our friendly team is ready to help you with all your {keyword} needs in {geo}.</p>
-
-<p><strong>Call us now or fill out our contact form to schedule your appointment!</strong></p>
-""")
-        
-        body = ''.join(body_parts)
-        
-        return {
-            'title': title,
-            'h1': title,
-            'body': body,
-            'meta_title': meta_title,
-            'meta_description': meta_description,
-            'h2_headings': [
-                f'Why {geo} Residents Choose Professional {keyword.title()} Services',
-                f'What to Expect from {keyword.title()} in {geo}',
-                f'{keyword.title()} Cost in {geo} - What to Budget',
-                f'Why {geo} Trusts {business_name or f"Our {industry.title()} Team"}',
-                f'Frequently Asked Questions About {keyword.title()} in {geo}',
-                f'Ready to Get Started with {keyword.title()} in {geo}?'
-            ],
-            'h3_headings': [],
-            'faq_items': faq_items,
-            'secondary_keywords': [keyword, geo, industry, f'{keyword} {geo}', f'{industry} services'],
-            'word_count': len(body.split()),
-            'html': body,
-            'fallback_generated': True
-        }
     
     def _build_blog_prompt(
         self,
@@ -977,8 +726,6 @@ CRITICAL REMINDERS:
         """Generate raw text response (for simple prompts)"""
         self._rate_limit_delay()
         result = self._call_openai(prompt, max_tokens)
-        if 'error' in result:
-            raise Exception(result['error'])
         return result.get('content', '')
     
     def generate_raw_with_agent(
@@ -991,11 +738,3 @@ CRITICAL REMINDERS:
         self._rate_limit_delay()
         result = self.generate_with_agent(agent_name, user_input, variables)
         return result.get('content', '')
-
-# Singleton instance
-ai_service = AIService()
-
-
-def get_ai_service() -> AIService:
-    """Get the AI service singleton instance"""
-    return ai_service
