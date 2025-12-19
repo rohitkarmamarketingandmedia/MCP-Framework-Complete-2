@@ -521,34 +521,63 @@ class InteractionIntelligenceService:
         """Extract questions from text"""
         questions = []
         
-        # Split into sentences
-        sentences = re.split(r'[.!?\n]', text)
+        # Split into sentences - be more careful with ? to avoid false matches
+        sentences = re.split(r'[.\n]', text)
         
         for sentence in sentences:
             sentence = sentence.strip()
             if not sentence or len(sentence) < 10:
                 continue
             
-            # Check if it's a question
-            is_question = False
+            # Remove speaker labels (Customer:, Agent:, etc.)
+            sentence = re.sub(r'^(Customer|Agent|Rep|Tech|Technician|Staff|Support):\s*', '', sentence, flags=re.IGNORECASE)
+            sentence = sentence.strip()
+            
+            if not sentence or len(sentence) < 10:
+                continue
+            
+            # Check if it ends with ? - definite question
+            ends_with_question = sentence.endswith('?')
+            
+            # Check if it contains question patterns
+            has_question_pattern = False
             for pattern in self.QUESTION_PATTERNS:
+                if pattern == r'\?':
+                    continue  # Skip the ? pattern, handle separately
                 if re.search(pattern, sentence.lower()):
-                    is_question = True
+                    has_question_pattern = True
                     break
             
-            if is_question:
+            # It's a question if it ends with ? OR has question patterns at the START
+            is_question = ends_with_question or has_question_pattern
+            
+            # Filter out statements that accidentally match
+            # Skip if it starts with common non-question phrases
+            non_question_starts = [
+                'a diagnostic', 'the diagnostic', 'most repairs', 'repairs typically',
+                'we offer', 'we provide', 'we have', 'yes,', 'no,', 'that', 'i\'m sorry',
+                'i am sorry', 'it is', 'it\'s', 'there is', 'there are'
+            ]
+            is_statement = any(sentence.lower().startswith(p) for p in non_question_starts)
+            
+            if is_question and not is_statement:
                 # Clean up the question
                 question = sentence.strip()
                 if not question.endswith('?'):
                     question += '?'
-                questions.append(question)
+                
+                # Filter out agent questions (focus on customer questions)
+                agent_phrases = ['can i get you', 'would you like', 'may i have', 'can i help', 'shall i']
+                is_agent_question = any(question.lower().startswith(p) for p in agent_phrases)
+                
+                if not is_agent_question:
+                    questions.append(question)
         
         return questions
     
     def _extract_pain_points(self, text: str) -> List[str]:
         """Extract pain points and concerns from text"""
         pain_points = []
-        text_lower = text.lower()
         
         # Split into sentences
         sentences = re.split(r'[.!?\n]', text)
@@ -556,6 +585,13 @@ class InteractionIntelligenceService:
         for sentence in sentences:
             sentence = sentence.strip()
             if not sentence:
+                continue
+            
+            # Remove speaker labels
+            sentence = re.sub(r'^(Customer|Agent|Rep|Tech|Technician|Staff|Support):\s*', '', sentence, flags=re.IGNORECASE)
+            sentence = sentence.strip()
+            
+            if not sentence or len(sentence) < 10:
                 continue
             
             # Check for pain indicators
@@ -602,23 +638,55 @@ class InteractionIntelligenceService:
         services = []
         text_lower = text.lower()
         
-        # Common service patterns
+        # Industry-specific service keywords
+        industry_services = {
+            'hvac': ['ac repair', 'ac service', 'air conditioning', 'heating', 'furnace', 'hvac', 
+                     'cooling', 'maintenance', 'tune-up', 'installation', 'diagnostic', 'emergency'],
+            'plumbing': ['leak repair', 'drain cleaning', 'water heater', 'pipe repair', 'faucet',
+                        'toilet', 'sewer', 'plumbing', 'clog', 'garbage disposal', 'emergency'],
+            'roofing': ['roof repair', 'roof replacement', 'leak repair', 'shingle', 'inspection',
+                       'storm damage', 'insurance claim', 'gutter', 'flashing'],
+            'electrical': ['electrical repair', 'wiring', 'outlet', 'panel', 'breaker', 'lighting',
+                          'ceiling fan', 'generator', 'surge protector'],
+            'pest_control': ['pest control', 'termite', 'ant', 'roach', 'rodent', 'bed bug',
+                            'mosquito', 'extermination', 'fumigation', 'inspection']
+        }
+        
+        # Get services for this industry or all industries
+        service_keywords = []
+        if industry and industry.lower() in industry_services:
+            service_keywords = industry_services[industry.lower()]
+        else:
+            for kws in industry_services.values():
+                service_keywords.extend(kws)
+        
+        # Find mentioned services
+        for svc in service_keywords:
+            if svc.lower() in text_lower:
+                # Capitalize properly
+                services.append(svc.title())
+        
+        # Also look for common service request patterns
         service_patterns = [
-            r'\b(repair|fix|replace|install|maintenance|service|check|inspect)\s+(?:my|the|a|an)?\s*(\w+)',
-            r'\b(need|want|looking for|interested in)\s+(?:a|an)?\s*(\w+\s*\w*)\s*(repair|service|installation|replacement)?',
+            r'\bneed\s+(?:a\s+)?(\w+\s+(?:repair|service|replacement|installation))',
+            r'\b(?:same[- ]day|emergency|24[- ]hour)\s+(\w+)',
         ]
         
         for pattern in service_patterns:
             matches = re.findall(pattern, text_lower)
             for match in matches:
-                if isinstance(match, tuple):
-                    service = ' '.join(m for m in match if m).strip()
-                else:
-                    service = match.strip()
-                if service and len(service) > 3:
-                    services.append(service)
+                if match and len(match) > 3:
+                    services.append(match.strip().title())
         
-        return services
+        # Dedupe while preserving order
+        seen = set()
+        unique_services = []
+        for s in services:
+            if s.lower() not in seen:
+                seen.add(s.lower())
+                unique_services.append(s)
+        
+        return unique_services[:10]  # Limit to top 10
     
     def _analyze_sentiment(self, text: str) -> str:
         """Simple sentiment analysis"""

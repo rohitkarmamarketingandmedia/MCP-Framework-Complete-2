@@ -40,11 +40,24 @@ class BaseConfig:
         # Fallback to SQLite for local development
         return 'sqlite:///mcp_framework.db'
     
+    @property
+    def SQLALCHEMY_ENGINE_OPTIONS(self):
+        """Get engine options based on database type"""
+        db_url = os.environ.get('DATABASE_URL', '')
+        
+        if db_url and ('postgres' in db_url or 'postgresql' in db_url):
+            # PostgreSQL - use connection pooling
+            return {
+                'pool_pre_ping': True,
+                'pool_recycle': 300,
+                'pool_size': 5,
+                'max_overflow': 10,
+            }
+        else:
+            # SQLite - minimal options (doesn't support pooling)
+            return {}
+    
     SQLALCHEMY_TRACK_MODIFICATIONS = False
-    SQLALCHEMY_ENGINE_OPTIONS = {
-        'pool_pre_ping': True,
-        'pool_recycle': 300,
-    }
     
     # API Keys
     OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY', '')

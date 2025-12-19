@@ -8,11 +8,14 @@ import jwt
 import os
 import secrets
 import string
+import logging
 from datetime import datetime, timedelta
 
 from app.models.db_models import DBUser, UserRole
 from app.services.db_service import DataService, create_admin_user
 from app.services.audit_service import audit_service
+
+logger = logging.getLogger(__name__)
 
 auth_bp = Blueprint('auth', __name__)
 data_service = DataService()
@@ -163,15 +166,34 @@ def token_required(f):
                 current_app.config['JWT_SECRET_KEY'],
                 algorithms=['HS256']
             )
-            current_user = data_service.get_user(payload['user_id'])
+            user_id = payload.get('user_id')
+            if not user_id:
+                logger.warning("Token missing user_id")
+                return jsonify({'error': 'Invalid token format'}), 401
+            
+            # Query user from database
+            from app.database import db
+            from app.models.db_models import DBUser
+            
+            # Direct query
+            current_user = DBUser.query.filter_by(id=user_id).first()
+            
             if not current_user:
-                return jsonify({'error': 'User not found'}), 401
+                # Log details for debugging
+                total_users = DBUser.query.count()
+                sample_ids = [u.id for u in DBUser.query.limit(3).all()]
+                logger.warning(f"User not found for id: {user_id} (total users: {total_users}, sample IDs: {sample_ids})")
+                return jsonify({'error': 'User not found', 'detail': 'Please log in again'}), 401
             if not current_user.is_active:
                 return jsonify({'error': 'User is deactivated'}), 401
         except jwt.ExpiredSignatureError:
             return jsonify({'error': 'Token has expired'}), 401
-        except jwt.InvalidTokenError:
+        except jwt.InvalidTokenError as e:
+            logger.warning(f"Invalid token: {e}")
             return jsonify({'error': 'Invalid token'}), 401
+        except Exception as e:
+            logger.error(f"Token validation error: {e}")
+            return jsonify({'error': 'Authentication error', 'detail': 'Please log in again'}), 401
         
         return f(current_user, *args, **kwargs)
     
@@ -214,9 +236,8 @@ def optional_token(f):
 
 
 def admin_required(f):
-    """Decorator to require admin role"""
+    """Decorator to require admin role - use AFTER @token_required"""
     @wraps(f)
-    @token_required
     def decorated(current_user, *args, **kwargs):
         if current_user.role != UserRole.ADMIN:
             return jsonify({'error': 'Admin access required'}), 403
@@ -286,6 +307,7 @@ def login():
 
 
 @auth_bp.route('/register', methods=['POST'])
+@token_required
 @admin_required
 def register(current_user):
     """
@@ -345,6 +367,42 @@ def get_current_user(current_user):
     return jsonify(current_user.to_dict())
 
 
+@auth_bp.route('/me', methods=['PUT'])
+@token_required
+def update_current_user(current_user):
+    """
+    Update current user's profile
+    
+    PUT /api/auth/me
+    {
+        "name": "New Name",
+        "email": "newemail@example.com"
+    }
+    """
+    try:
+        data = request.get_json(silent=True) or {}
+    except Exception:
+        data = {}
+    
+    if 'name' in data:
+        current_user.name = data['name']
+    
+    if 'email' in data:
+        new_email = data['email'].lower().strip()
+        # Check if email is already taken by another user
+        existing = data_service.get_user_by_email(new_email)
+        if existing and existing.id != current_user.id:
+            return jsonify({'error': 'Email already in use'}), 400
+        current_user.email = new_email
+    
+    data_service.save_user(current_user)
+    
+    return jsonify({
+        'message': 'Profile updated',
+        'user': current_user.to_dict()
+    })
+
+
 @auth_bp.route('/change-password', methods=['POST'])
 @token_required
 def change_password(current_user):
@@ -372,6 +430,7 @@ def change_password(current_user):
 
 
 @auth_bp.route('/users', methods=['GET'])
+@token_required
 @admin_required
 def list_users(current_user):
     """List all users (admin only)"""
@@ -380,6 +439,7 @@ def list_users(current_user):
 
 
 @auth_bp.route('/users/<user_id>', methods=['DELETE'])
+@token_required
 @admin_required
 def delete_user(current_user, user_id):
     """Deactivate a user (admin only)"""
@@ -394,6 +454,7 @@ def delete_user(current_user, user_id):
 
 
 @auth_bp.route('/users/<user_id>', methods=['PUT'])
+@token_required
 @admin_required
 def update_user(current_user, user_id):
     """
@@ -436,6 +497,7 @@ def update_user(current_user, user_id):
 
 
 @auth_bp.route('/users/<user_id>/activate', methods=['POST'])
+@token_required
 @admin_required
 def activate_user(current_user, user_id):
     """Reactivate a deactivated user (admin only)"""
@@ -450,6 +512,7 @@ def activate_user(current_user, user_id):
 
 
 @auth_bp.route('/users/<user_id>/reset-password', methods=['POST'])
+@token_required
 @admin_required
 def reset_user_password(current_user, user_id):
     """
@@ -682,10 +745,13 @@ def make_me_admin(current_user):
 
 
 @auth_bp.route('/debug-users', methods=['GET'])
-def debug_users():
+@token_required
+@admin_required
+def debug_users(current_user):
     """
     Debug endpoint to see all users and their roles.
     Helps diagnose permission issues.
+    Admin only.
     
     GET /api/auth/debug-users
     """

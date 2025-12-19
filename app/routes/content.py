@@ -613,7 +613,7 @@ def get_content(current_user, content_id):
     if not current_user.has_access_to_client(content.client_id):
         return jsonify({'error': 'Access denied'}), 403
     
-    return jsonify(content.to_dict())
+    return jsonify({'content': content.to_dict()})
 
 
 @content_bp.route('/<content_id>', methods=['PUT'])

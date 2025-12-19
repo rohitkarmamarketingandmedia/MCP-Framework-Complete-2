@@ -155,7 +155,7 @@ class PreflightChecker:
                     db.session.commit()
                     
                     found = DBUser.query.filter_by(email='test@test.com').first()
-                    self.check("User CRUD", found is not None and found.check_password('test123'))
+                    self.check("User CRUD", found is not None and found.verify_password('test123'))
                 except Exception as e:
                     self.check("User CRUD", False, str(e))
                 

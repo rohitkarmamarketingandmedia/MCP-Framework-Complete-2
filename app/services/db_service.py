@@ -45,7 +45,9 @@ class DataService:
     
     def get_user(self, user_id: str) -> Optional[DBUser]:
         """Get user by ID"""
-        return DBUser.query.get(user_id)
+        # Use filter_by instead of get() for more reliable results
+        # query.get() can have issues with session state
+        return DBUser.query.filter_by(id=user_id).first()
     
     def get_user_by_email(self, email: str) -> Optional[DBUser]:
         """Get user by email"""
@@ -131,7 +133,7 @@ class DataService:
     
     def get_client(self, client_id: str) -> Optional[DBClient]:
         """Get client by ID"""
-        return DBClient.query.get(client_id)
+        return DBClient.query.filter_by(id=client_id).first()
     
     def get_all_clients(self) -> List[DBClient]:
         """Get all clients"""
