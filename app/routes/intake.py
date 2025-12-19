@@ -63,7 +63,7 @@ def analyze_transcript(current_user):
     if not current_user.can_generate_content:
         return jsonify({'error': 'Permission denied'}), 403
     
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     
     if not data.get('transcript'):
         return jsonify({'error': 'transcript is required'}), 400
@@ -116,7 +116,7 @@ def research_domain(current_user):
     if not current_user.can_generate_content:
         return jsonify({'error': 'Permission denied'}), 403
     
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     website = data.get('website', '')
     primary_keyword = data.get('primary_keyword', '')
     location = data.get('location', '') or data.get('geo', '')
@@ -300,7 +300,7 @@ def full_pipeline(current_user):
     if not current_user.can_generate_content:
         return jsonify({'error': 'Permission denied'}), 403
     
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     
     # Normalize website field - accept both 'website' and 'website_url'
     if not data.get('website') and data.get('website_url'):
@@ -674,7 +674,7 @@ def quick_intake(current_user):
     if not current_user.can_generate_content:
         return jsonify({'error': 'Permission denied'}), 403
     
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     # Accept both 'website' and 'website_url' for compatibility
     website = (data.get('website') or data.get('website_url') or '').strip()
     
@@ -754,7 +754,7 @@ def create_from_extraction(current_user):
     if not current_user.can_generate_content:
         return jsonify({'error': 'Permission denied'}), 403
     
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     extracted = data.get('extracted', {})
     
     if not extracted:
@@ -956,7 +956,7 @@ def comprehensive_seo_research(current_user):
     if not current_user.can_generate_content:
         return jsonify({'error': 'Permission denied'}), 403
     
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     website = data.get('website', '').strip()
     industry = data.get('industry', '').strip()
     location = data.get('location', '').strip()
@@ -1339,7 +1339,7 @@ def keyword_research(current_user):
     if not current_user.can_generate_content:
         return jsonify({'error': 'Permission denied'}), 403
     
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     keywords = data.get('keywords', [])
     location = data.get('location', '')
     include_variations = data.get('include_variations', True)
@@ -1463,7 +1463,7 @@ def competitor_gaps(current_user):
     if not current_user.can_generate_content:
         return jsonify({'error': 'Permission denied'}), 403
     
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     competitor_domain = data.get('competitor_domain', '').strip()
     client_domain = data.get('client_domain', '').strip()
     location = data.get('location', '')
@@ -1562,7 +1562,7 @@ def quick_setup(current_user):
     if not current_user.can_generate_content:
         return jsonify({'error': 'Permission denied'}), 403
     
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     
     # Normalize website field - accept both 'website' and 'website_url'
     if not data.get('website') and data.get('website_url'):
