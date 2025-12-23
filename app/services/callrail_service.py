@@ -14,13 +14,21 @@ logger = logging.getLogger(__name__)
 
 class CallRailConfig:
     """CallRail API configuration"""
-    API_KEY = os.environ.get('CALLRAIL_API_KEY', '')
-    ACCOUNT_ID = os.environ.get('CALLRAIL_ACCOUNT_ID', '')
     BASE_URL = 'https://api.callrail.com/v3'
     
     @classmethod
+    def get_api_key(cls):
+        """Get API key at runtime"""
+        return os.environ.get('CALLRAIL_API_KEY', '')
+    
+    @classmethod
+    def get_account_id(cls):
+        """Get account ID at runtime"""
+        return os.environ.get('CALLRAIL_ACCOUNT_ID', '')
+    
+    @classmethod
     def is_configured(cls) -> bool:
-        return bool(cls.API_KEY and cls.ACCOUNT_ID)
+        return bool(cls.get_api_key() and cls.get_account_id())
 
 
 class CallRailService:
@@ -36,21 +44,34 @@ class CallRailService:
     """
     
     def __init__(self):
-        self.api_key = CallRailConfig.API_KEY
-        self.account_id = CallRailConfig.ACCOUNT_ID
         self.base_url = CallRailConfig.BASE_URL
-        self.session = requests.Session()
-        self.session.headers.update({
+    
+    @property
+    def api_key(self):
+        """Get API key at runtime so env var changes are picked up"""
+        return CallRailConfig.get_api_key()
+    
+    @property
+    def account_id(self):
+        """Get account ID at runtime so env var changes are picked up"""
+        return CallRailConfig.get_account_id()
+    
+    def _get_session(self):
+        """Create a new session with current credentials"""
+        session = requests.Session()
+        session.headers.update({
             'Authorization': f'Token token={self.api_key}',
             'Content-Type': 'application/json'
         })
+        return session
     
     def _request(self, method: str, endpoint: str, params: dict = None, data: dict = None) -> dict:
         """Make API request to CallRail"""
         url = f"{self.base_url}/a/{self.account_id}{endpoint}"
         
         try:
-            response = self.session.request(
+            session = self._get_session()
+            response = session.request(
                 method=method,
                 url=url,
                 params=params,

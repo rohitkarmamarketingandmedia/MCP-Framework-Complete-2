@@ -4876,11 +4876,13 @@
                         </div>
                     `).join('');
                 } else {
-                    container.innerHTML = '<div class="text-center py-8 text-red-400">Failed to load leads</div>';
+                    const errorText = await response.text();
+                    console.error('Leads API error:', response.status, errorText);
+                    container.innerHTML = `<div class="text-center py-8 text-red-400">Failed to load leads (${response.status})</div>`;
                 }
             } catch (error) {
                 console.error('Failed to load leads:', error);
-                container.innerHTML = '<div class="text-center py-8 text-red-400">Error loading leads</div>';
+                container.innerHTML = `<div class="text-center py-8 text-red-400">Error loading leads: ${error.message || 'Network error'}</div>`;
             }
         }
         
@@ -7577,8 +7579,8 @@
         }
 
         function getPlatformName(platform) {
-            const names = { 'gbp': 'Google Business', 'facebook': 'Facebook', 'instagram': 'Instagram' };
-            return names[platform] || platform;
+            const names = { 'gbp': 'Google Business', 'facebook': 'Facebook', 'instagram': 'Instagram', 'linkedin': 'LinkedIn' };
+            return names[platform] || platform || 'Social Post';
         }
 
         // ==========================================

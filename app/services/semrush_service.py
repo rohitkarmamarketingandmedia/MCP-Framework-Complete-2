@@ -13,8 +13,12 @@ class SEMRushService:
     BASE_URL = "https://api.semrush.com/"
     
     def __init__(self):
-        self.api_key = os.environ.get('SEMRUSH_API_KEY', '')
         self.default_database = 'us'  # US database by default
+    
+    @property
+    def api_key(self):
+        """Get API key at runtime so env var changes are picked up"""
+        return os.environ.get('SEMRUSH_API_KEY', '')
     
     def is_configured(self) -> bool:
         """Check if SEMRush API key is configured"""
