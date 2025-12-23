@@ -395,6 +395,10 @@ If asked about something outside MCP, politely redirect to MCP-related help or s
         """
         Generate the JavaScript embed code for client websites
         """
+        # Ensure HTTPS in production
+        if base_url.startswith('http://') and 'localhost' not in base_url and '127.0.0.1' not in base_url:
+            base_url = base_url.replace('http://', 'https://')
+        
         return f'''<!-- MCP Chatbot Widget -->
 <script>
 (function() {{

@@ -16,9 +16,13 @@ class RankTrackingService:
     """
     
     def __init__(self):
-        self.api_key = os.environ.get('SEMRUSH_API_KEY', '')
         self.base_url = 'https://api.semrush.com/'
         self.default_database = 'us'
+    
+    @property
+    def api_key(self):
+        """Get API key at runtime so env var changes are picked up"""
+        return os.environ.get('SEMRUSH_API_KEY', '')
     
     def check_keyword_position(
         self,

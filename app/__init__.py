@@ -11,7 +11,7 @@ from flask_limiter.util import get_remote_address
 import os
 import logging
 
-__version__ = "5.5.80"
+__version__ = "5.5.81"
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)

@@ -13,7 +13,7 @@ from app.services.ai_service import AIService
 from app.services.seo_service import SEOService
 from app.services.db_service import DataService
 from app.services.seo_scoring_engine import seo_scoring_engine
-from app.models.db_models import DBBlogPost, ContentStatus
+from app.models.db_models import DBBlogPost, DBSocialPost, ContentStatus
 import json
 
 content_bp = Blueprint('content', __name__)
@@ -690,22 +690,39 @@ def delete_content(current_user, content_id):
 @content_bp.route('/client/<client_id>', methods=['GET'])
 @token_required
 def list_client_content(current_user, client_id):
-    """List all content for a client"""
+    """List all content for a client (blogs or social posts)"""
     if not current_user.has_access_to_client(client_id):
         return jsonify({'error': 'Access denied'}), 403
     
-    content_list = data_service.get_client_blog_posts(client_id)
-    
-    # Optional status filter
+    content_type = request.args.get('type', 'blog')
     status_filter = request.args.get('status')
-    if status_filter:
-        content_list = [c for c in content_list if c.status == status_filter]
     
-    return jsonify({
-        'client_id': client_id,
-        'total': len(content_list),
-        'content': [c.to_dict() for c in content_list]
-    })
+    if content_type == 'social':
+        # Get social posts
+        platform = request.args.get('platform')
+        content_list = data_service.get_client_social_posts(client_id, platform)
+        
+        if status_filter:
+            content_list = [c for c in content_list if c.status == status_filter]
+        
+        return jsonify({
+            'client_id': client_id,
+            'total': len(content_list),
+            'content': [c.to_dict() for c in content_list],
+            'posts': [c.to_dict() for c in content_list]  # Alias for compatibility
+        })
+    else:
+        # Get blog posts (default)
+        content_list = data_service.get_client_blog_posts(client_id)
+        
+        if status_filter:
+            content_list = [c for c in content_list if c.status == status_filter]
+        
+        return jsonify({
+            'client_id': client_id,
+            'total': len(content_list),
+            'content': [c.to_dict() for c in content_list]
+        })
 
 
 @content_bp.route('/seo-check', methods=['POST'])

@@ -16,11 +16,23 @@ class AIService:
     """AI content generation service"""
     
     def __init__(self):
-        self.openai_key = os.environ.get('OPENAI_API_KEY', '')
-        self.anthropic_key = os.environ.get('ANTHROPIC_API_KEY', '')
-        self.default_model = os.environ.get('DEFAULT_AI_MODEL', 'gpt-4o-mini')
         self._last_call_time = 0
         self._min_call_interval = 2  # seconds between calls to avoid rate limits
+    
+    @property
+    def openai_key(self):
+        """Get OpenAI API key at runtime"""
+        return os.environ.get('OPENAI_API_KEY', '')
+    
+    @property
+    def anthropic_key(self):
+        """Get Anthropic API key at runtime"""
+        return os.environ.get('ANTHROPIC_API_KEY', '')
+    
+    @property
+    def default_model(self):
+        """Get default AI model at runtime"""
+        return os.environ.get('DEFAULT_AI_MODEL', 'gpt-4o-mini')
     
     def _rate_limit_delay(self):
         """Enforce minimum delay between API calls"""

@@ -12,11 +12,27 @@ class SocialService:
     """Social media publishing service"""
     
     def __init__(self):
-        self.gbp_api_key = os.environ.get('GBP_API_KEY', '')
-        self.facebook_token = os.environ.get('FACEBOOK_ACCESS_TOKEN', '')
-        self.facebook_page_id = os.environ.get('FACEBOOK_PAGE_ID', '')
-        self.instagram_token = os.environ.get('INSTAGRAM_ACCESS_TOKEN', '')
-        self.linkedin_token = os.environ.get('LINKEDIN_ACCESS_TOKEN', '')
+        pass  # API keys read at runtime via properties
+    
+    @property
+    def gbp_api_key(self):
+        return os.environ.get('GBP_API_KEY', '')
+    
+    @property
+    def facebook_token(self):
+        return os.environ.get('FACEBOOK_ACCESS_TOKEN', '')
+    
+    @property
+    def facebook_page_id(self):
+        return os.environ.get('FACEBOOK_PAGE_ID', '')
+    
+    @property
+    def instagram_token(self):
+        return os.environ.get('INSTAGRAM_ACCESS_TOKEN', '')
+    
+    @property
+    def linkedin_token(self):
+        return os.environ.get('LINKEDIN_ACCESS_TOKEN', '')
     
     def publish_to_gbp(
         self,

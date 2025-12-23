@@ -139,7 +139,11 @@ class InteractionIntelligenceService:
     }
     
     def __init__(self):
-        self.openai_api_key = os.environ.get('OPENAI_API_KEY', '')
+        pass  # API key read at runtime via property
+    
+    @property
+    def openai_api_key(self):
+        return os.environ.get('OPENAI_API_KEY', '')
     
     # ==========================================
     # CALL TRANSCRIPT ANALYSIS

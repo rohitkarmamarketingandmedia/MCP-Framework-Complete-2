@@ -11,9 +11,15 @@ class AnalyticsService:
     """Google Analytics 4 reporting service"""
     
     def __init__(self):
-        self.ga4_property_id = os.environ.get('GA4_PROPERTY_ID', '')
-        self.credentials_json = os.environ.get('GA4_CREDENTIALS_JSON', '')
         self._client = None
+    
+    @property
+    def ga4_property_id(self):
+        return os.environ.get('GA4_PROPERTY_ID', '')
+    
+    @property
+    def credentials_json(self):
+        return os.environ.get('GA4_CREDENTIALS_JSON', '')
     
     def _get_client(self):
         """Initialize GA4 client (lazy loading)"""

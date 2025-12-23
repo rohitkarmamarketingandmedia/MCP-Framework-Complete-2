@@ -12,8 +12,17 @@ class SEOService:
     """SEO tools and keyword research service"""
     
     def __init__(self):
-        self.semrush_key = os.environ.get('SEMRUSH_API_KEY', '')
-        self.ahrefs_key = os.environ.get('AHREFS_API_KEY', '')
+        pass  # API keys read at runtime via properties
+    
+    @property
+    def semrush_key(self):
+        """Get SEMrush API key at runtime"""
+        return os.environ.get('SEMRUSH_API_KEY', '')
+    
+    @property
+    def ahrefs_key(self):
+        """Get Ahrefs API key at runtime"""
+        return os.environ.get('AHREFS_API_KEY', '')
     
     def get_keyword_rankings(
         self,

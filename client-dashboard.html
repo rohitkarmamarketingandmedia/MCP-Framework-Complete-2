@@ -9384,7 +9384,17 @@
             document.getElementById('rankAvgPosition').textContent = positions.length > 0 ? `#${avgPos}` : '#--';
             document.getElementById('rankTop3').textContent = keywords.filter(k => k.position && k.position <= 3).length;
             document.getElementById('rankTop10').textContent = keywords.filter(k => k.position && k.position <= 10).length;
-            document.getElementById('rankTrafficValue').textContent = `$${Math.round(rankingsData.traffic_value || 0).toLocaleString()}`;
+            
+            // Handle traffic value - can be a number or an object with estimated_monthly_value
+            let trafficValue = 0;
+            if (rankingsData.traffic_value) {
+                if (typeof rankingsData.traffic_value === 'object') {
+                    trafficValue = parseFloat(rankingsData.traffic_value.estimated_monthly_value) || 0;
+                } else {
+                    trafficValue = parseFloat(rankingsData.traffic_value) || 0;
+                }
+            }
+            document.getElementById('rankTrafficValue').textContent = isNaN(trafficValue) ? '$0' : `$${Math.round(trafficValue).toLocaleString()}`;
             
             // Render table
             const tbody = document.getElementById('rankingsTable');

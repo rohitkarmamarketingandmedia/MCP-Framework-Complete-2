@@ -1,5 +1,57 @@
 # Changelog
 
+## v5.5.81 (2025-12-23)
+
+### Fixed - Comprehensive Bug Fixes
+
+1. **Social posts disappearing when switching tabs**
+   - Root cause: `/api/content/client/<id>?type=social` was ignoring the `type` parameter
+   - Fix: Updated endpoint to properly return social posts when `type=social`
+   - Social posts now persist correctly across tab switches
+
+2. **SEMrush still showing "Demo Mode" after setting API key**
+   - Fixed ALL services to read env vars at RUNTIME (not import time):
+     - `rank_tracking_service.py` - SEMrush rankings
+     - `seo_service.py` - SEO analysis
+     - `ai_service.py` - OpenAI/Anthropic
+     - `social_service.py` - Social media tokens
+     - `analytics_service.py` - GA4
+     - `callrail_service.py` - CallRail
+     - `semrush_service.py` - SEMrush API
+     - `interaction_intelligence_service.py` - OpenAI
+   - All services now use `@property` decorators for env var access
+   - **No app restart required** after setting any env var
+
+3. **Traffic Value showing "$NaN"**
+   - Root cause: `traffic_value` returns a dict, not a number
+   - Fix: Frontend now correctly accesses `traffic_value.estimated_monthly_value`
+   - Proper fallback to $0 if value is missing or invalid
+
+4. **AI Chatbot embed code showing HTTP instead of HTTPS**
+   - Added automatic HTTP→HTTPS conversion for non-localhost URLs
+   - Production embed codes now always use HTTPS
+
+5. **Social posts showing "undefined" platform**
+   - Added fallback to "Social Post" when platform is null/undefined
+   - Added LinkedIn to platform name mappings
+
+6. **Improved error messages**
+   - Leads tab now shows HTTP status code on errors
+   - Better console logging for debugging
+
+### Technical Changes
+- All env var reads now use `@property` decorators
+- Removed instance variable caching of env vars at init time
+- CallRail creates fresh session per request with current credentials
+- Services are now truly dynamic - pick up env changes immediately
+
+### Notes
+- After deploying, SEMrush/CallRail/AI will work immediately when env vars are set
+- No more "restart required" after configuration changes
+- Social posts properly persist in database and reload correctly
+
+---
+
 ## v5.5.80 (2025-12-23)
 
 ### Fixed - Runtime Environment Variables & UI Fixes
