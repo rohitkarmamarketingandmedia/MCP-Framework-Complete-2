@@ -138,11 +138,19 @@ class RankTrackingService:
                 }
             }
         """
+        import logging
+        logger = logging.getLogger(__name__)
+        
         domain = self._clean_domain(domain)
         database = database or self.default_database
         
+        # Debug logging
+        api_key = self.api_key
+        logger.info(f"SEMrush check_all_keywords: api_key length={len(api_key) if api_key else 0}, domain={domain}")
+        
         # If no API key, return simulated data so dashboard still works
-        if not self.api_key:
+        if not api_key:
+            logger.warning("SEMrush API key not found, returning demo data")
             return self._generate_demo_rankings(domain, keywords)
         
         result = {

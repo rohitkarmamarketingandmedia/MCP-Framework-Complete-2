@@ -336,14 +336,16 @@ def capture_lead(chatbot_id):
     
     # Create lead in leads table
     try:
+        import uuid
         lead = DBLead(
+            id=f"lead_{uuid.uuid4().hex[:12]}",
             client_id=config.client_id,
             name=data.get('name', ''),
             email=data.get('email', ''),
             phone=data.get('phone', ''),
             source='chatbot',
             source_detail=f"Chat conversation: {conversation_id}",
-            page_url=conversation.page_url,
+            landing_page=conversation.page_url,
             notes=f"Captured via chatbot widget"
         )
         db.session.add(lead)
