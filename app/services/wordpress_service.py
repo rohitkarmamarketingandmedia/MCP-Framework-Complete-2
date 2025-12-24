@@ -62,62 +62,109 @@ class WordPressService:
         }
     
     def test_connection(self) -> Dict[str, Any]:
-        """Test the WordPress connection"""
+        """Test the WordPress connection using the /users/me endpoint"""
         try:
-            # Try to get posts with auth - don't use status=any as it requires admin
+            # Use /users/me endpoint - this is the proper way to test auth
             response = requests.get(
-                f"{self.api_url}/posts",
+                f"{self.api_url}/users/me",
                 headers=self.headers,
-                params={'per_page': 1},  # Just get one published post
                 timeout=15
             )
             
-            # Check for captcha/challenge page (very specific)
+            # Check for captcha/challenge page
             content_type = response.headers.get('Content-Type', '')
             if 'text/html' in content_type and 'application/json' not in content_type:
                 text = response.text.lower()
-                # Only trigger on actual captcha pages
                 if 'checking your browser' in text or 'cf-browser-verification' in text:
                     return {
                         'success': False,
                         'error': 'Security challenge detected',
-                        'message': 'Cloudflare or similar protection is showing a browser check. Try whitelisting the server IP.',
+                        'message': 'Cloudflare or similar protection is blocking access. Try whitelisting the server IP.',
                         'response_preview': response.text[:300]
                     }
             
             if response.status_code == 200:
-                # Can read posts, now test write access by checking user capabilities
-                return {
-                    'success': True,
-                    'connected_as': self.username,
-                    'site': self.site_url,
-                    'can_read_posts': True
-                }
+                # Successfully authenticated!
+                try:
+                    user_data = response.json()
+                    user_name = user_data.get('name', self.username)
+                    user_roles = user_data.get('roles', [])
+                    capabilities = user_data.get('capabilities', {})
+                    
+                    # Check if user can publish
+                    can_publish = (
+                        'administrator' in user_roles or 
+                        'editor' in user_roles or
+                        'author' in user_roles or
+                        capabilities.get('publish_posts', False)
+                    )
+                    
+                    return {
+                        'success': True,
+                        'user': user_name,
+                        'roles': user_roles,
+                        'can_publish': can_publish,
+                        'connected_as': user_name,
+                        'site': self.site_url,
+                        'message': f"Connected as {user_name}" + (" (can publish)" if can_publish else " (limited permissions)")
+                    }
+                except Exception:
+                    return {
+                        'success': True,
+                        'connected_as': self.username,
+                        'site': self.site_url,
+                        'message': 'Connected successfully'
+                    }
+                    
             elif response.status_code == 401:
+                # Get more details about the 401 error
+                try:
+                    error_data = response.json()
+                    error_code = error_data.get('code', '')
+                    error_msg = error_data.get('message', '')
+                except Exception:
+                    error_code = ''
+                    error_msg = response.text[:200]
+                
+                if 'invalid_username' in error_code or 'invalid_username' in error_msg.lower():
+                    return {
+                        'success': False,
+                        'error': 'Invalid username',
+                        'message': f'The username "{self.username}" was not found. Check your WordPress username.'
+                    }
+                elif 'incorrect_password' in error_code or 'incorrect_password' in error_msg.lower():
+                    return {
+                        'success': False,
+                        'error': 'Invalid password',
+                        'message': 'The Application Password is incorrect. Generate a new one at: WordPress Admin → Users → Profile → Application Passwords'
+                    }
+                else:
+                    return {
+                        'success': False,
+                        'error': 'Authentication failed',
+                        'message': f'Invalid credentials. Make sure you are using an Application Password (not your regular WordPress password). Error: {error_msg}'
+                    }
+                    
+            elif response.status_code == 403:
+                # 403 could mean REST API is disabled for users/me or security plugin blocking
                 return {
                     'success': False,
-                    'error': 'Authentication failed',
-                    'message': 'Invalid username or application password. Make sure you are using an Application Password (not your regular password). Generate one at: WordPress Admin → Users → Profile → Application Passwords'
+                    'error': 'Access forbidden',
+                    'message': 'Authentication was rejected. This could be: 1) Application Password is invalid or revoked, 2) Security plugin blocking REST API, 3) User lacks permissions. Try regenerating the Application Password.'
                 }
-            elif response.status_code == 403:
-                # Try without auth to see if it's a permission issue or site block
+                
+            elif response.status_code == 404:
+                # Check if REST API exists at all
                 public_check = requests.get(
-                    f"{self.site_url}/wp-json/wp/v2/posts",
-                    params={'per_page': 1},
+                    f"{self.site_url}/wp-json",
                     timeout=10
                 )
                 if public_check.status_code == 200:
                     return {
                         'success': False,
-                        'error': 'Authentication issue',
-                        'message': 'The REST API is accessible but authentication failed. Try regenerating the Application Password in WordPress.'
+                        'error': 'User endpoint not found',
+                        'message': 'REST API exists but user endpoint is not accessible. Check if REST API is fully enabled.'
                     }
-                return {
-                    'success': False,
-                    'error': 'Access denied',
-                    'message': 'WordPress is blocking access. This might be a security plugin. Check your WordPress security settings.'
-                }
-            elif response.status_code == 404:
                 return {
                     'success': False,
                     'error': 'REST API not found',
@@ -126,9 +173,10 @@ class WordPressService:
             else:
                 return {
                     'success': False,
-                    'error': f"Unexpected response: {response.status_code}",
+                    'error': f'Unexpected response: {response.status_code}',
                     'message': response.text[:300]
                 }
+                
         except requests.exceptions.Timeout:
             return {
                 'success': False,

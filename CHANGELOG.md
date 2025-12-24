@@ -1,5 +1,30 @@
 # Changelog
 
+## v5.5.82 (2025-12-23)
+
+### Fixed - WordPress Connection Test
+
+1. **WordPress test connection failing with "authentication failed"**
+   - Changed from `/posts` endpoint to `/users/me` endpoint
+   - `/users/me` is the proper way to test WordPress REST API authentication
+   - Now shows actual user name and roles on success
+   - Better error messages for different failure scenarios:
+     - Invalid username
+     - Invalid/incorrect password
+     - Access forbidden (security plugin)
+     - REST API disabled
+   - Shows whether user has publish permissions
+
+### How to fix WordPress connection issues:
+1. Go to WordPress Admin → Users → Profile
+2. Scroll down to "Application Passwords"
+3. Enter a name (e.g., "MCP Framework")
+4. Click "Add New Application Password"
+5. Copy the generated password (spaces are OK)
+6. Use this password in MCP settings (NOT your regular WordPress password)
+
+---
+
 ## v5.5.81 (2025-12-23)
 
 ### Fixed - Comprehensive Bug Fixes
