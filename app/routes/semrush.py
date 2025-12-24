@@ -16,24 +16,26 @@ def get_status(current_user):
     """Check if SEMRush API is configured"""
     import os
     
-    # Check multiple possible env var names
-    api_key = os.environ.get('SEMRUSH_API_KEY', '')
-    api_key_alt = os.environ.get('SEMRUSH_KEY', '')  # Alternative name
+    # Read env var directly
+    api_key_direct = os.environ.get('SEMRUSH_API_KEY', '')
     
-    # Debug: show key length (not the actual key for security)
-    key_info = {
-        'SEMRUSH_API_KEY': len(api_key) if api_key else 0,
-        'SEMRUSH_KEY': len(api_key_alt) if api_key_alt else 0,
-    }
+    # Read via service property
+    api_key_service = semrush_service.api_key
+    
+    # List all env vars with SEMRUSH in name (for debugging)
+    semrush_vars = {k: len(v) for k, v in os.environ.items() if 'SEMRUSH' in k.upper()}
     
     configured = semrush_service.is_configured()
     
     return jsonify({
         'configured': configured,
         'message': 'SEMRush API ready' if configured else 'SEMRUSH_API_KEY not set in environment',
-        'key_lengths': key_info,
-        'service_has_key': bool(semrush_service.api_key),
-        'env_var_set': bool(api_key)
+        'debug': {
+            'direct_env_length': len(api_key_direct),
+            'service_key_length': len(api_key_service),
+            'semrush_env_vars': semrush_vars,
+            'all_env_var_count': len(os.environ)
+        }
     })
 
 

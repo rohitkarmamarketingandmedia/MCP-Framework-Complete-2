@@ -79,31 +79,41 @@ def get_leads(current_user):
     
     GET /api/leads?client_id=xxx&status=new&source=form&days=30&limit=100
     """
-    client_id = request.args.get('client_id')
-    
-    if not client_id:
-        return jsonify({'error': 'client_id is required'}), 400
-    
-    if not current_user.has_access_to_client(client_id):
-        return jsonify({'error': 'Access denied'}), 403
-    
-    status = request.args.get('status')
-    source = request.args.get('source')
-    days = safe_int(request.args.get('days'), 30, max_val=365)
-    limit = safe_int(request.args.get('limit'), 100, max_val=500)
-    
-    leads = lead_service.get_client_leads(
-        client_id=client_id,
-        status=status,
-        source=source,
-        days=days,
-        limit=limit
-    )
-    
-    return jsonify({
-        'leads': leads,
-        'total': len(leads)
-    })
+    try:
+        client_id = request.args.get('client_id')
+        
+        if not client_id:
+            return jsonify({'error': 'client_id is required'}), 400
+        
+        if not current_user.has_access_to_client(client_id):
+            return jsonify({'error': 'Access denied'}), 403
+        
+        status = request.args.get('status')
+        source = request.args.get('source')
+        days = safe_int(request.args.get('days'), 30, max_val=365)
+        limit = safe_int(request.args.get('limit'), 100, max_val=500)
+        
+        leads = lead_service.get_client_leads(
+            client_id=client_id,
+            status=status,
+            source=source,
+            days=days,
+            limit=limit
+        )
+        
+        return jsonify({
+            'leads': leads,
+            'total': len(leads)
+        })
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'error': 'Failed to load leads',
+            'message': str(e),
+            'leads': [],
+            'total': 0
+        }), 500
 
 
 @leads_bp.route('/<lead_id>', methods=['GET'])
