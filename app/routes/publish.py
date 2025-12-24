@@ -48,7 +48,9 @@ def test_wordpress_connection(current_user):
             return jsonify({'error': 'Access denied'}), 403
         
         integrations = client.get_integrations()
-        wp_url = integrations.get('wordpress_url')
+        
+        # Get WordPress credentials - check integrations first, then direct fields
+        wp_url = integrations.get('wordpress_url') or client.wordpress_url
         wp_user = integrations.get('wordpress_user') or client.wordpress_user
         wp_password = integrations.get('wordpress_app_password') or client.wordpress_app_password
         
@@ -56,7 +58,17 @@ def test_wordpress_connection(current_user):
             return jsonify({
                 'success': False,
                 'error': 'WordPress URL not configured',
-                'message': 'Please configure WordPress URL in client integrations first.'
+                'message': 'Please configure WordPress URL in client settings first.'
+            }), 400
+        
+        if not wp_user or not wp_password:
+            return jsonify({
+                'success': False,
+                'error': 'WordPress credentials incomplete',
+                'message': 'Please configure WordPress username and application password in client settings.',
+                'has_url': bool(wp_url),
+                'has_user': bool(wp_user),
+                'has_password': bool(wp_password)
             }), 400
     else:
         # Use provided credentials

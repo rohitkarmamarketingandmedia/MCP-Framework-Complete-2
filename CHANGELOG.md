@@ -1,5 +1,30 @@
 # Changelog
 
+## v5.5.83 (2025-12-24)
+
+### Fixed - WordPress Connection Test Improvements
+
+1. **WordPress test now uses multiple fallback methods**
+   - First tries `/users/me` endpoint (proper auth test)
+   - Falls back to `/posts?context=edit` if `/users/me` returns 403/404
+   - Some WordPress security setups block `/users/me` but allow posts
+
+2. **Cleaner auth header construction**
+   - Stripped username/password of leading/trailing whitespace
+   - Simplified User-Agent header
+   - Explicit UTF-8 encoding for credentials
+
+3. **Better credential retrieval**
+   - Now checks both `integrations` JSON field AND direct client fields
+   - Added `wordpress_url` fallback to direct field
+   - Shows which credentials are missing in error message
+
+4. **Improved error messages**
+   - More specific error for missing credentials
+   - Shows what's configured vs what's missing
+
+---
+
 ## v5.5.82 (2025-12-23)
 
 ### Fixed - WordPress Connection Test

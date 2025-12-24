@@ -45,26 +45,24 @@ class WordPressService:
         """
         self.site_url = site_url.rstrip('/')
         self.api_url = f"{self.site_url}/wp-json/wp/v2"
-        self.username = username
-        self.app_password = app_password
+        self.username = username.strip()
+        # WordPress app passwords can have spaces - that's OK, but trim leading/trailing
+        self.app_password = app_password.strip() if app_password else ''
         
-        # Create auth header
-        credentials = f"{username}:{app_password}"
-        token = base64.b64encode(credentials.encode()).decode()
+        # Create auth header - WordPress uses Basic auth with base64
+        credentials = f"{self.username}:{self.app_password}"
+        token = base64.b64encode(credentials.encode('utf-8')).decode('ascii')
         self.headers = {
             'Authorization': f'Basic {token}',
             'Content-Type': 'application/json',
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            'Accept': 'application/json, text/plain, */*',
-            'Accept-Language': 'en-US,en;q=0.9',
-            'Cache-Control': 'no-cache',
-            'X-Requested-With': 'XMLHttpRequest'
+            'User-Agent': 'MCP-Framework/1.0',
+            'Accept': 'application/json'
         }
     
     def test_connection(self) -> Dict[str, Any]:
-        """Test the WordPress connection using the /users/me endpoint"""
+        """Test the WordPress connection using multiple methods"""
         try:
-            # Use /users/me endpoint - this is the proper way to test auth
+            # Method 1: Try /users/me endpoint (best for auth testing)
             response = requests.get(
                 f"{self.api_url}/users/me",
                 headers=self.headers,
@@ -91,7 +89,6 @@ class WordPressService:
                     user_roles = user_data.get('roles', [])
                     capabilities = user_data.get('capabilities', {})
                     
-                    # Check if user can publish
                     can_publish = (
                         'administrator' in user_roles or 
                         'editor' in user_roles or
@@ -115,7 +112,7 @@ class WordPressService:
                         'site': self.site_url,
                         'message': 'Connected successfully'
                     }
-                    
+            
             elif response.status_code == 401:
                 # Get more details about the 401 error
                 try:
@@ -126,13 +123,13 @@ class WordPressService:
                     error_code = ''
                     error_msg = response.text[:200]
                 
-                if 'invalid_username' in error_code or 'invalid_username' in error_msg.lower():
+                if 'invalid_username' in str(error_code).lower() or 'invalid_username' in error_msg.lower():
                     return {
                         'success': False,
                         'error': 'Invalid username',
                         'message': f'The username "{self.username}" was not found. Check your WordPress username.'
                     }
-                elif 'incorrect_password' in error_code or 'incorrect_password' in error_msg.lower():
+                elif 'incorrect_password' in str(error_code).lower() or 'incorrect_password' in error_msg.lower():
                     return {
                         'success': False,
                         'error': 'Invalid password',
@@ -144,32 +141,14 @@ class WordPressService:
                         'error': 'Authentication failed',
                         'message': f'Invalid credentials. Make sure you are using an Application Password (not your regular WordPress password). Error: {error_msg}'
                     }
-                    
+            
             elif response.status_code == 403:
-                # 403 could mean REST API is disabled for users/me or security plugin blocking
-                return {
-                    'success': False,
-                    'error': 'Access forbidden',
-                    'message': 'Authentication was rejected. This could be: 1) Application Password is invalid or revoked, 2) Security plugin blocking REST API, 3) User lacks permissions. Try regenerating the Application Password.'
-                }
+                # 403 on /users/me - try fallback to /posts with context=edit
+                return self._test_connection_fallback()
                 
             elif response.status_code == 404:
-                # Check if REST API exists at all
-                public_check = requests.get(
-                    f"{self.site_url}/wp-json",
-                    timeout=10
-                )
-                if public_check.status_code == 200:
-                    return {
-                        'success': False,
-                        'error': 'User endpoint not found',
-                        'message': 'REST API exists but user endpoint is not accessible. Check if REST API is fully enabled.'
-                    }
-                return {
-                    'success': False,
-                    'error': 'REST API not found',
-                    'message': 'WordPress REST API is not accessible. Check that permalinks are enabled and the site URL is correct.'
-                }
+                # /users/me not available, try fallback
+                return self._test_connection_fallback()
             else:
                 return {
                     'success': False,
@@ -194,6 +173,68 @@ class WordPressService:
                 'success': False,
                 'error': str(e),
                 'message': f'Connection test failed: {str(e)}'
+            }
+    
+    def _test_connection_fallback(self) -> Dict[str, Any]:
+        """Fallback connection test using posts endpoint with edit context"""
+        try:
+            # Try to access posts with edit context (requires auth)
+            response = requests.get(
+                f"{self.api_url}/posts",
+                headers=self.headers,
+                params={'per_page': 1, 'context': 'edit'},
+                timeout=15
+            )
+            
+            if response.status_code == 200:
+                return {
+                    'success': True,
+                    'connected_as': self.username,
+                    'site': self.site_url,
+                    'can_publish': True,
+                    'message': f'Connected as {self.username}'
+                }
+            elif response.status_code == 401:
+                try:
+                    error_data = response.json()
+                    error_msg = error_data.get('message', response.text[:200])
+                except:
+                    error_msg = response.text[:200]
+                return {
+                    'success': False,
+                    'error': 'Authentication failed',
+                    'message': f'Invalid credentials. {error_msg}'
+                }
+            elif response.status_code == 403:
+                # Check if public API works
+                public_check = requests.get(
+                    f"{self.site_url}/wp-json/wp/v2/posts",
+                    params={'per_page': 1},
+                    timeout=10
+                )
+                if public_check.status_code == 200:
+                    # API works but auth fails
+                    return {
+                        'success': False,
+                        'error': 'Authentication rejected',
+                        'message': 'REST API is accessible but authentication failed. Please check: 1) Application Password is correct (not regular password), 2) Username is correct, 3) No security plugin blocking REST API auth'
+                    }
+                return {
+                    'success': False,
+                    'error': 'Access forbidden',
+                    'message': 'WordPress is blocking REST API access. Check security plugins like Wordfence or iThemes Security.'
+                }
+            else:
+                return {
+                    'success': False,
+                    'error': f'Connection test failed ({response.status_code})',
+                    'message': response.text[:300]
+                }
+        except Exception as e:
+            return {
+                'success': False,
+                'error': str(e),
+                'message': f'Fallback test failed: {str(e)}'
             }
     
     def create_post(
