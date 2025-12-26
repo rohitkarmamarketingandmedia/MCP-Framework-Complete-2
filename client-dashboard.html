@@ -5259,57 +5259,6 @@
                 `;
             }
         }
-                                        <i class="fas fa-phone"></i>
-                                    </div>
-                                    <div>
-                                        <h4 class="text-white font-medium">${call.caller_name || call.caller_number || 'Unknown Caller'}</h4>
-                                        <p class="text-sm text-gray-400">${formatCallDuration(call.duration)} • ${call.tracking_source || 'Direct'}</p>
-                                    </div>
-                                </div>
-                                <div class="text-right">
-                                    <span class="px-2 py-1 rounded-full text-xs ${call.answered ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}">
-                                        ${call.answered ? 'Answered' : 'Missed'}
-                                    </span>
-                                    <p class="text-xs text-gray-500 mt-1">${formatDate(call.start_time)}</p>
-                                </div>
-                            </div>
-                            ${call.summary ? `
-                                <div class="mt-3 p-3 bg-white/5 rounded-lg">
-                                    <p class="text-sm text-gray-300">${call.summary}</p>
-                                </div>
-                            ` : ''}
-                            ${call.keywords && call.keywords.length > 0 ? `
-                                <div class="mt-3 flex flex-wrap gap-2">
-                                    ${call.keywords.slice(0, 5).map(kw => `<span class="px-2 py-1 bg-purple-500/20 text-purple-400 rounded-full text-xs">${kw}</span>`).join('')}
-                                </div>
-                            ` : ''}
-                        </div>
-                    `).join('');
-                } else if (response.status === 404) {
-                    container.innerHTML = `
-                        <div class="text-center py-12 text-gray-500">
-                            <i class="fas fa-phone text-4xl mb-4 opacity-50"></i>
-                            <p>CallRail not connected</p>
-                            <p class="text-sm mt-2">Connect CallRail to start analyzing customer calls with AI</p>
-                            <button onclick="showTab('settings')" class="mt-4 px-4 py-2 bg-gradient-to-r from-green-600 to-emerald-600 rounded-lg text-white text-sm hover:opacity-90 transition">
-                                <i class="fas fa-cog mr-2"></i>Connect CallRail
-                            </button>
-                        </div>
-                    `;
-                } else {
-                    container.innerHTML = '<div class="text-center py-8 text-red-400">Failed to load calls</div>';
-                }
-            } catch (error) {
-                console.error('Failed to load calls:', error);
-                container.innerHTML = `
-                    <div class="text-center py-12 text-gray-500">
-                        <i class="fas fa-phone text-4xl mb-4 opacity-50"></i>
-                        <p>Call Intelligence not available</p>
-                        <p class="text-sm mt-2">Connect CallRail in Settings to analyze calls</p>
-                    </div>
-                `;
-            }
-        }
         
         async function refreshCallData() {
             await loadCalls();
