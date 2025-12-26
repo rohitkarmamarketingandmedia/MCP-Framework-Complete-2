@@ -79,19 +79,26 @@ def get_leads(current_user):
     
     GET /api/leads?client_id=xxx&status=new&source=form&days=30&limit=100
     """
+    import logging
+    logger = logging.getLogger(__name__)
+    
     try:
         client_id = request.args.get('client_id')
+        logger.info(f"Leads request: client_id={client_id}, user={current_user.email}")
         
         if not client_id:
             return jsonify({'error': 'client_id is required'}), 400
         
         if not current_user.has_access_to_client(client_id):
+            logger.warning(f"Access denied for user {current_user.email} to client {client_id}")
             return jsonify({'error': 'Access denied'}), 403
         
         status = request.args.get('status')
         source = request.args.get('source')
         days = safe_int(request.args.get('days'), 30, max_val=365)
         limit = safe_int(request.args.get('limit'), 100, max_val=500)
+        
+        logger.info(f"Fetching leads: status={status}, source={source}, days={days}, limit={limit}")
         
         leads = lead_service.get_client_leads(
             client_id=client_id,
@@ -101,12 +108,15 @@ def get_leads(current_user):
             limit=limit
         )
         
+        logger.info(f"Found {len(leads)} leads for client {client_id}")
+        
         return jsonify({
             'leads': leads,
             'total': len(leads)
         })
     except Exception as e:
         import traceback
+        logger.error(f"Leads error: {str(e)}")
         traceback.print_exc()
         return jsonify({
             'error': 'Failed to load leads',
