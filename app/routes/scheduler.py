@@ -50,25 +50,58 @@ def test_email(current_user):
         "to": "test@example.com"
     }
     """
-    from app.services.email_service import get_email_service
-    
-    data = request.get_json(silent=True) or {}
-    to_email = data.get('to', current_user.email)
-    
-    if not to_email:
-        return jsonify({'error': 'No email address provided'}), 400
-    
-    email = get_email_service()
-    success = email.send_simple(
-        to=to_email,
-        subject="🧪 MCP Framework - Test Email",
-        body="This is a test email from your MCP Framework installation. If you received this, email notifications are working correctly!"
-    )
-    
-    if success:
-        return jsonify({'success': True, 'message': f'Test email sent to {to_email}'})
-    else:
-        return jsonify({'success': False, 'error': 'Failed to send email. Check your email configuration.'}), 500
+    try:
+        from app.services.email_service import get_email_service
+        import os
+        
+        data = request.get_json(silent=True) or {}
+        to_email = data.get('to', current_user.email)
+        
+        if not to_email:
+            return jsonify({'error': 'No email address provided'}), 400
+        
+        # Check if email is configured
+        sendgrid_key = os.getenv('SENDGRID_API_KEY')
+        from_email = os.getenv('FROM_EMAIL', os.getenv('EMAIL_FROM'))
+        
+        if not sendgrid_key:
+            return jsonify({
+                'success': False, 
+                'error': 'SENDGRID_API_KEY not configured',
+                'message': 'Add SENDGRID_API_KEY to your environment variables'
+            }), 400
+        
+        if not from_email:
+            return jsonify({
+                'success': False,
+                'error': 'FROM_EMAIL not configured', 
+                'message': 'Add FROM_EMAIL to your environment variables'
+            }), 400
+        
+        email = get_email_service()
+        success = email.send_simple(
+            to=to_email,
+            subject="🧪 MCP Framework - Test Email",
+            body="This is a test email from your MCP Framework installation. If you received this, email notifications are working correctly!"
+        )
+        
+        if success:
+            return jsonify({'success': True, 'message': f'Test email sent to {to_email}'})
+        else:
+            return jsonify({
+                'success': False, 
+                'error': 'Failed to send email',
+                'message': 'Check Render logs for details. Common issues: invalid SendGrid key, unverified sender email.'
+            }), 500
+            
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'message': 'Email send failed. Check Render logs for details.'
+        }), 500
 
 
 @scheduler_bp.route('/run-crawl', methods=['POST'])

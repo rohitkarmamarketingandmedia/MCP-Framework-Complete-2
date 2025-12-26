@@ -27,18 +27,39 @@ class EmailService:
     """Email notification service"""
     
     def __init__(self):
-        self.sendgrid_key = os.getenv('SENDGRID_API_KEY')
-        self.from_email = os.getenv('EMAIL_FROM', 'noreply@karmamarketing.com')
-        self.from_name = os.getenv('EMAIL_FROM_NAME', 'Karma Marketing')
-        
-        # SMTP fallback settings
-        self.smtp_host = os.getenv('SMTP_HOST', 'smtp.gmail.com')
-        self.smtp_port = int(os.getenv('SMTP_PORT', '587'))
-        self.smtp_user = os.getenv('SMTP_USER')
-        self.smtp_pass = os.getenv('SMTP_PASS')
-        
-        # Determine which method to use
-        self.use_sendgrid = SENDGRID_AVAILABLE and self.sendgrid_key
+        pass  # Read env vars at runtime via properties
+    
+    @property
+    def sendgrid_key(self):
+        return os.getenv('SENDGRID_API_KEY')
+    
+    @property
+    def from_email(self):
+        return os.getenv('FROM_EMAIL', os.getenv('EMAIL_FROM', 'noreply@example.com'))
+    
+    @property
+    def from_name(self):
+        return os.getenv('FROM_NAME', os.getenv('EMAIL_FROM_NAME', 'MCP Framework'))
+    
+    @property
+    def smtp_host(self):
+        return os.getenv('SMTP_HOST', 'smtp.gmail.com')
+    
+    @property
+    def smtp_port(self):
+        return int(os.getenv('SMTP_PORT', '587'))
+    
+    @property
+    def smtp_user(self):
+        return os.getenv('SMTP_USER')
+    
+    @property
+    def smtp_pass(self):
+        return os.getenv('SMTP_PASS')
+    
+    @property
+    def use_sendgrid(self):
+        return SENDGRID_AVAILABLE and self.sendgrid_key
         
     def send_simple(self, to: str, subject: str, body: str, html: bool = False) -> bool:
         """Send a simple email"""
