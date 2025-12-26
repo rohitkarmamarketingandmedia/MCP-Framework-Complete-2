@@ -3160,6 +3160,11 @@
         document.addEventListener('DOMContentLoaded', loadBranding);
         
         let API_URL = window.location.origin;
+        // Ensure HTTPS in production
+        if (API_URL.startsWith('http://') && !API_URL.includes('localhost')) {
+            API_URL = API_URL.replace('http://', 'https://');
+        }
+        console.log('API_URL:', API_URL);
         let AUTH_TOKEN = '';
         let currentClient = null;
         let allBlogs = [];
