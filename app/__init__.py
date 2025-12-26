@@ -11,7 +11,7 @@ from flask_limiter.util import get_remote_address
 import os
 import logging
 
-__version__ = "5.5.86"
+__version__ = "5.5.87"
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -178,6 +178,9 @@ def create_app(config_name=None):
         anthropic_key = os.environ.get('ANTHROPIC_API_KEY', '')
         semrush_key = os.environ.get('SEMRUSH_API_KEY', '')
         
+        # Debug: list all env vars with API or KEY in name (show lengths only for security)
+        api_vars = {k: len(v) for k, v in os.environ.items() if 'API' in k.upper() or 'KEY' in k.upper()}
+        
         return {
             'status': 'ok' if openai_key or anthropic_key else 'missing_ai_key',
             'version': __version__,
@@ -185,8 +188,11 @@ def create_app(config_name=None):
                 'openai_configured': bool(openai_key) and openai_key.startswith('sk-'),
                 'anthropic_configured': bool(anthropic_key),
                 'semrush_configured': bool(semrush_key),
+                'semrush_key_length': len(semrush_key),
                 'database_configured': bool(os.environ.get('DATABASE_URL', '')),
             },
+            'api_env_vars': api_vars,
+            'total_env_vars': len(os.environ),
             'message': 'All good!' if (openai_key or anthropic_key) else 'Set OPENAI_API_KEY in Render environment variables'
         }
     
