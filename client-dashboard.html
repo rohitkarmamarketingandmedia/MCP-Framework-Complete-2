@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests">
     <title>Content Dashboard | Karma Marketing + Media</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="/static/js/unified-header.js"></script>
@@ -3160,9 +3161,13 @@
         document.addEventListener('DOMContentLoaded', loadBranding);
         
         let API_URL = window.location.origin;
-        // Ensure HTTPS in production
-        if (API_URL.startsWith('http://') && !API_URL.includes('localhost')) {
+        // Ensure HTTPS in production - CRITICAL FIX
+        if (window.location.protocol === 'https:') {
             API_URL = API_URL.replace('http://', 'https://');
+        }
+        // Double check - force HTTPS if on render.com
+        if (API_URL.includes('onrender.com') && !API_URL.startsWith('https://')) {
+            API_URL = 'https://' + API_URL.replace('http://', '').replace('https://', '');
         }
         console.log('API_URL:', API_URL);
         let AUTH_TOKEN = '';
@@ -4824,7 +4829,7 @@
             container.innerHTML = '<div class="text-center py-8"><i class="fas fa-spinner fa-spin text-2xl text-purple-400"></i><p class="text-gray-400 mt-2">Loading leads...</p></div>';
             
             try {
-                let url = `${API_URL}/api/leads?client_id=${currentClient.id}`;
+                let url = `${API_URL}/api/leads/?client_id=${currentClient.id}`;
                 if (statusFilter) url += `&status=${statusFilter}`;
                 
                 console.log('Fetching leads from:', url);
