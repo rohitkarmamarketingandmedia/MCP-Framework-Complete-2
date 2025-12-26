@@ -11,7 +11,7 @@ from flask_limiter.util import get_remote_address
 import os
 import logging
 
-__version__ = "5.5.88"
+__version__ = "5.5.90"
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -177,9 +177,16 @@ def create_app(config_name=None):
         openai_key = os.environ.get('OPENAI_API_KEY', '')
         anthropic_key = os.environ.get('ANTHROPIC_API_KEY', '')
         semrush_key = os.environ.get('SEMRUSH_API_KEY', '')
+        sendgrid_key = os.environ.get('SENDGRID_API_KEY', '')
+        from_email = os.environ.get('FROM_EMAIL', '')
         
         # Debug: list all env vars with API or KEY in name (show lengths only for security)
         api_vars = {k: len(v) for k, v in os.environ.items() if 'API' in k.upper() or 'KEY' in k.upper()}
+        
+        # Check for missing recommended vars
+        missing = []
+        if not from_email:
+            missing.append('FROM_EMAIL (required for sending emails)')
         
         return {
             'status': 'ok' if openai_key or anthropic_key else 'missing_ai_key',
@@ -189,10 +196,13 @@ def create_app(config_name=None):
                 'anthropic_configured': bool(anthropic_key),
                 'semrush_configured': bool(semrush_key),
                 'semrush_key_length': len(semrush_key),
+                'sendgrid_configured': bool(sendgrid_key),
+                'from_email_configured': bool(from_email),
                 'database_configured': bool(os.environ.get('DATABASE_URL', '')),
             },
             'api_env_vars': api_vars,
             'total_env_vars': len(os.environ),
+            'missing_recommended': missing,
             'message': 'All good!' if (openai_key or anthropic_key) else 'Set OPENAI_API_KEY in Render environment variables'
         }
     

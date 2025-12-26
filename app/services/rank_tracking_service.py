@@ -173,18 +173,53 @@ class RankTrackingService:
             # Get all organic keywords for domain
             params = {
                 'type': 'domain_organic',
-                'key': self.api_key,
+                'key': api_key,
                 'display_limit': 500,
                 'export_columns': 'Ph,Po,Pp,Ur,Nq,Cp,Co',
                 'domain': domain,
                 'database': database
             }
             
+            logger.info(f"SEMrush API request: domain={domain}, database={database}")
             response = requests.get(self.base_url, params=params, timeout=30)
             
             if response.status_code != 200:
-                # Fall back to demo mode if API fails (invalid key, expired, etc.)
-                return self._generate_demo_rankings(domain, keywords)
+                # Log the error for debugging
+                logger.error(f"SEMrush API error: status={response.status_code}, response={response.text[:500]}")
+                
+                # Check for common errors
+                error_text = response.text.lower()
+                if 'error' in error_text:
+                    # Return error info instead of silently falling back to demo
+                    return {
+                        'domain': domain,
+                        'checked_at': datetime.utcnow().isoformat(),
+                        'keywords': [],
+                        'summary': {'total': len(keywords), 'in_top_3': 0, 'in_top_10': 0, 'in_top_20': 0, 'not_ranking': len(keywords)},
+                        'demo_mode': True,
+                        'error': f'SEMrush API error: {response.text[:200]}',
+                        'message': 'SEMrush API returned an error. Check your API key and account status.'
+                    }
+                
+                # Fall back to demo mode if API fails
+                result = self._generate_demo_rankings(domain, keywords)
+                result['api_status'] = response.status_code
+                return result
+            
+            # Check if response is an error message (SEMrush returns 200 even for errors sometimes)
+            if response.text.startswith('ERROR'):
+                logger.error(f"SEMrush returned error: {response.text[:200]}")
+                return {
+                    'domain': domain,
+                    'checked_at': datetime.utcnow().isoformat(),
+                    'keywords': [],
+                    'summary': {'total': len(keywords), 'in_top_3': 0, 'in_top_10': 0, 'in_top_20': 0, 'not_ranking': len(keywords)},
+                    'demo_mode': True,
+                    'error': response.text[:200],
+                    'message': 'SEMrush API error. Common causes: invalid API key, expired subscription, rate limit exceeded.'
+                }
+            
+            logger.info(f"SEMrush API success: got {len(response.text)} bytes")
             
             # Parse response into lookup dict
             domain_keywords = {}
