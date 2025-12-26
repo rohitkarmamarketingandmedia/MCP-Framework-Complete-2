@@ -15,6 +15,13 @@ from app.database import db
 leads_bp = Blueprint('leads', __name__)
 
 
+# Simple test endpoint
+@leads_bp.route('/test', methods=['GET'])
+def test_leads():
+    """Simple test to verify leads blueprint is working"""
+    return jsonify({'status': 'ok', 'message': 'Leads blueprint is working'})
+
+
 # ==========================================
 # Public Lead Capture (No Auth Required)
 # ==========================================
