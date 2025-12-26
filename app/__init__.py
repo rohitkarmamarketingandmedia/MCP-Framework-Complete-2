@@ -8,10 +8,11 @@ from flask import Flask, send_from_directory, jsonify
 from flask_cors import CORS
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
+from werkzeug.middleware.proxy_fix import ProxyFix
 import os
 import logging
 
-__version__ = "5.5.97"
+__version__ = "5.5.98"
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -25,6 +26,10 @@ def create_app(config_name=None):
     static_dir = os.path.join(root_dir, 'static')
     
     app = Flask(__name__, static_folder=static_dir, static_url_path='/static')
+    
+    # Fix for running behind a reverse proxy (Render, Heroku, etc.)
+    # This ensures request.url uses https:// when behind HTTPS proxy
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
     
     # Load config
     if config_name is None:
