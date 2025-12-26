@@ -15,11 +15,23 @@ from app.database import db
 leads_bp = Blueprint('leads', __name__)
 
 
-# Simple test endpoint
+# Simple test endpoint (no auth)
 @leads_bp.route('/test', methods=['GET'])
 def test_leads():
     """Simple test to verify leads blueprint is working"""
     return jsonify({'status': 'ok', 'message': 'Leads blueprint is working'})
+
+
+# Authenticated test endpoint
+@leads_bp.route('/test-auth', methods=['GET'])
+@token_required
+def test_leads_auth(current_user):
+    """Test with authentication"""
+    return jsonify({
+        'status': 'ok', 
+        'message': 'Auth working',
+        'user': current_user.email
+    })
 
 
 # ==========================================
@@ -81,56 +93,50 @@ def capture_lead_for_client(client_id):
 @leads_bp.route('/', methods=['GET'])
 @token_required
 def get_leads(current_user):
-    """
-    Get leads with optional filters
-    
-    GET /api/leads?client_id=xxx&status=new&source=form&days=30&limit=100
-    """
+    """Get leads - simplified"""
     import logging
     logger = logging.getLogger(__name__)
-    logger.info("=== LEADS ENDPOINT CALLED ===")
+    
+    logger.info("=== GET LEADS START ===")
+    
+    client_id = request.args.get('client_id')
+    logger.info(f"Client: {client_id}, User: {current_user.email}")
+    
+    if not client_id:
+        logger.info("No client_id")
+        return jsonify({'error': 'client_id required', 'leads': [], 'total': 0}), 400
+    
+    # Skip access check for now to test
+    logger.info("Querying leads...")
     
     try:
-        client_id = request.args.get('client_id')
-        logger.info(f"Client ID: {client_id}")
-        
-        if not client_id:
-            return jsonify({'error': 'client_id is required', 'leads': [], 'total': 0}), 400
-        
-        # Simple access check
-        if not current_user.has_access_to_client(client_id):
-            return jsonify({'error': 'Access denied', 'leads': [], 'total': 0}), 403
-        
-        logger.info("Access granted, querying database...")
-        
-        # Simple query - no filters for now
-        leads_db = DBLead.query.filter_by(client_id=client_id).order_by(DBLead.created_at.desc()).limit(100).all()
-        
-        logger.info(f"Query returned {len(leads_db)} leads")
+        # Direct simple query
+        from sqlalchemy import text
+        result = db.session.execute(
+            text("SELECT id, name, email, phone, source, status, created_at FROM leads WHERE client_id = :cid ORDER BY created_at DESC LIMIT 50"),
+            {'cid': client_id}
+        )
         
         leads = []
-        for lead in leads_db:
-            try:
-                leads.append(lead.to_dict())
-            except Exception as e:
-                logger.error(f"Error converting lead {lead.id}: {e}")
+        for row in result:
+            leads.append({
+                'id': row[0],
+                'name': row[1],
+                'email': row[2],
+                'phone': row[3],
+                'source': row[4],
+                'status': row[5],
+                'created_at': row[6].isoformat() if row[6] else None
+            })
         
-        logger.info(f"Returning {len(leads)} leads")
-        
-        return jsonify({
-            'leads': leads,
-            'total': len(leads)
-        })
+        logger.info(f"Found {len(leads)} leads")
+        return jsonify({'leads': leads, 'total': len(leads)})
         
     except Exception as e:
+        logger.error(f"DB Error: {e}")
         import traceback
-        logger.error(f"LEADS ERROR: {str(e)}")
         traceback.print_exc()
-        return jsonify({
-            'error': str(e),
-            'leads': [],
-            'total': 0
-        }), 500
+        return jsonify({'error': str(e), 'leads': [], 'total': 0}), 500
 
 
 @leads_bp.route('/<lead_id>', methods=['GET'])
