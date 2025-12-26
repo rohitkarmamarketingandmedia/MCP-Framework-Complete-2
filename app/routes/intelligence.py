@@ -13,6 +13,98 @@ intelligence_bp = Blueprint('intelligence', __name__)
 
 
 # ==========================================
+# CALLRAIL DIRECT ENDPOINTS
+# ==========================================
+
+@intelligence_bp.route('/calls/<client_id>', methods=['GET'])
+@token_required
+def get_client_calls(current_user, client_id):
+    """
+    Get calls directly from CallRail for a client
+    
+    GET /api/intelligence/calls/{client_id}?days=30
+    """
+    if not current_user.has_access_to_client(client_id):
+        return jsonify({'error': 'Access denied'}), 403
+    
+    days = request.args.get('days', 30, type=int)
+    
+    try:
+        from app.services.callrail_service import CallRailConfig, get_callrail_service
+        
+        # Check if CallRail is configured at server level
+        if not CallRailConfig.is_configured():
+            return jsonify({
+                'error': 'CallRail not configured',
+                'message': 'CALLRAIL_API_KEY and CALLRAIL_ACCOUNT_ID must be set in environment variables',
+                'calls': [],
+                'total': 0
+            })
+        
+        # Get client's company ID
+        client = DBClient.query.get(client_id)
+        if not client:
+            return jsonify({'error': 'Client not found'}), 404
+        
+        callrail_company_id = getattr(client, 'callrail_company_id', None)
+        
+        if not callrail_company_id:
+            return jsonify({
+                'error': 'CallRail Company ID not set',
+                'message': 'Set the CallRail Company ID in Settings → Integrations',
+                'calls': [],
+                'total': 0
+            })
+        
+        logger.info(f"Fetching CallRail calls for company {callrail_company_id}")
+        
+        # Get calls from CallRail
+        callrail = get_callrail_service()
+        calls = callrail.get_recent_calls(
+            company_id=callrail_company_id,
+            limit=100,
+            include_recordings=True,
+            include_transcripts=True
+        )
+        
+        logger.info(f"Got {len(calls)} calls from CallRail")
+        
+        return jsonify({
+            'calls': calls,
+            'total': len(calls),
+            'company_id': callrail_company_id
+        })
+        
+    except Exception as e:
+        logger.error(f"CallRail error: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'error': str(e),
+            'calls': [],
+            'total': 0
+        }), 500
+
+
+@intelligence_bp.route('/callrail/status', methods=['GET'])
+@token_required
+def callrail_status(current_user):
+    """Check CallRail configuration status"""
+    from app.services.callrail_service import CallRailConfig
+    
+    api_key = CallRailConfig.get_api_key()
+    account_id = CallRailConfig.get_account_id()
+    
+    return jsonify({
+        'configured': CallRailConfig.is_configured(),
+        'api_key_set': bool(api_key),
+        'api_key_length': len(api_key) if api_key else 0,
+        'account_id_set': bool(account_id),
+        'account_id': account_id if account_id else None
+    })
+
+
+# ==========================================
 # CALL TRANSCRIPT ANALYSIS
 # ==========================================
 

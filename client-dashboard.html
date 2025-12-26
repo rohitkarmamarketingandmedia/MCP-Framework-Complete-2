@@ -5172,62 +5172,93 @@
             container.innerHTML = '<div class="text-center py-8"><i class="fas fa-spinner fa-spin text-2xl text-green-400"></i><p class="text-gray-400 mt-2">Loading calls...</p></div>';
             
             try {
-                const response = await fetch(`${API_URL}/api/intelligence/report/${currentClient.id}?days=30`, {
+                // First try the direct calls endpoint
+                const response = await fetch(`${API_URL}/api/intelligence/calls/${currentClient.id}?days=30`, {
                     headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
                 });
                 
-                if (response.ok) {
-                    const data = await response.json();
-                    const calls = data.recent_calls || data.calls || [];
-                    
-                    // Update stats
-                    const totalCalls = calls.length;
-                    const answeredCalls = calls.filter(c => c.answered).length;
-                    const totalDuration = calls.reduce((sum, c) => sum + (c.duration || 0), 0);
-                    const avgDuration = totalCalls > 0 ? Math.round(totalDuration / totalCalls) : 0;
-                    const leadsGenerated = calls.filter(c => c.lead_created).length;
-                    
-                    document.getElementById('callsTotal').textContent = totalCalls;
-                    document.getElementById('callsAnswered').textContent = answeredCalls;
-                    document.getElementById('callsAvgDuration').textContent = formatCallDuration(avgDuration);
-                    document.getElementById('callsLeads').textContent = leadsGenerated;
-                    
-                    // Update insights
-                    if (data.top_questions && data.top_questions.length > 0) {
-                        document.getElementById('topQuestions').innerHTML = data.top_questions.slice(0, 5).map(q => `
-                            <div class="p-2 bg-white/5 rounded-lg text-gray-300 text-sm">${q}</div>
-                        `).join('');
-                    } else {
-                        document.getElementById('topQuestions').innerHTML = '<p class="text-gray-500 text-sm">Not enough call data yet</p>';
-                    }
-                    
-                    if (data.keywords && data.keywords.length > 0) {
-                        document.getElementById('callKeywords').innerHTML = data.keywords.slice(0, 10).map(kw => `
-                            <span class="px-3 py-1 bg-blue-500/20 text-blue-400 rounded-full text-sm">${kw}</span>
-                        `).join('');
-                    } else {
-                        document.getElementById('callKeywords').innerHTML = '<p class="text-gray-500 text-sm">Not enough call data yet</p>';
-                    }
-                    
-                    if (calls.length === 0) {
-                        container.innerHTML = `
-                            <div class="text-center py-12 text-gray-500">
-                                <i class="fas fa-phone text-4xl mb-4 opacity-50"></i>
-                                <p>No calls recorded yet</p>
-                                <p class="text-sm mt-2">Connect CallRail in Settings → Integrations to analyze calls</p>
-                                <button onclick="showTab('settings')" class="mt-4 px-4 py-2 bg-gradient-to-r from-green-600 to-emerald-600 rounded-lg text-white text-sm hover:opacity-90 transition">
-                                    <i class="fas fa-cog mr-2"></i>Connect CallRail
-                                </button>
+                const data = await response.json();
+                
+                // Check for configuration errors
+                if (data.error) {
+                    container.innerHTML = `
+                        <div class="text-center py-12 text-gray-500">
+                            <i class="fas fa-exclamation-triangle text-4xl mb-4 text-yellow-500"></i>
+                            <p class="text-yellow-400">${data.error}</p>
+                            <p class="text-sm mt-2">${data.message || ''}</p>
+                            <button onclick="showTab('settings')" class="mt-4 px-4 py-2 bg-gradient-to-r from-green-600 to-emerald-600 rounded-lg text-white text-sm hover:opacity-90 transition">
+                                <i class="fas fa-cog mr-2"></i>Configure CallRail
+                            </button>
+                        </div>
+                    `;
+                    return;
+                }
+                
+                const calls = data.calls || [];
+                
+                // Update stats
+                const totalCalls = calls.length;
+                const answeredCalls = calls.filter(c => c.answered).length;
+                const totalDuration = calls.reduce((sum, c) => sum + (c.duration || 0), 0);
+                const avgDuration = totalCalls > 0 ? Math.round(totalDuration / totalCalls) : 0;
+                const leadsGenerated = calls.filter(c => c.lead_created || c.first_call).length;
+                
+                document.getElementById('callsTotal').textContent = totalCalls;
+                document.getElementById('callsAnswered').textContent = answeredCalls;
+                document.getElementById('callsAvgDuration').textContent = formatCallDuration(avgDuration);
+                document.getElementById('callsLeads').textContent = leadsGenerated;
+                
+                // Update insights (from calls data)
+                document.getElementById('topQuestions').innerHTML = '<p class="text-gray-500 text-sm">Analysis requires call transcripts</p>';
+                document.getElementById('callKeywords').innerHTML = '<p class="text-gray-500 text-sm">Analysis requires call transcripts</p>';
+                
+                if (calls.length === 0) {
+                    container.innerHTML = `
+                        <div class="text-center py-12 text-gray-500">
+                            <i class="fas fa-phone text-4xl mb-4 opacity-50"></i>
+                            <p>No calls recorded yet</p>
+                            <p class="text-sm mt-2">Calls will appear here once they come through CallRail</p>
+                        </div>
+                    `;
+                    return;
+                }
+                
+                container.innerHTML = calls.map(call => `
+                    <div class="glass rounded-xl p-4 hover:bg-white/5 transition">
+                        <div class="flex items-start justify-between">
+                            <div class="flex items-center gap-3">
+                                <div class="w-10 h-10 rounded-full bg-gradient-to-br ${call.answered ? 'from-green-500 to-emerald-600' : 'from-red-500 to-rose-600'} flex items-center justify-center text-white">
+                                    <i class="fas fa-phone${call.voicemail ? '-slash' : ''}"></i>
+                                </div>
+                                <div>
+                                    <h4 class="font-semibold text-white">${call.caller_name || 'Unknown Caller'}</h4>
+                                    <p class="text-sm text-gray-400">${call.caller_number || 'No number'}</p>
+                                </div>
                             </div>
-                        `;
-                        return;
-                    }
-                    
-                    container.innerHTML = calls.map(call => `
-                        <div class="glass rounded-xl p-4 hover:bg-white/5 transition">
-                            <div class="flex items-start justify-between">
-                                <div class="flex items-center gap-3">
-                                    <div class="w-10 h-10 rounded-full bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center text-white">
+                            <div class="text-right">
+                                <p class="text-sm text-gray-400">${formatDate(call.date)}</p>
+                                <p class="text-sm ${call.answered ? 'text-green-400' : 'text-red-400'}">${call.duration_formatted || formatCallDuration(call.duration)}</p>
+                            </div>
+                        </div>
+                        ${call.first_call ? '<span class="inline-block mt-2 px-2 py-1 bg-yellow-500/20 text-yellow-400 text-xs rounded">First Time Caller</span>' : ''}
+                        ${call.has_transcript ? `<p class="mt-2 text-sm text-gray-400 line-clamp-2">${call.transcript_preview || ''}</p>` : ''}
+                        <div class="flex gap-2 mt-3">
+                            ${call.recording_url ? `<a href="${call.recording_url}" target="_blank" class="text-xs text-blue-400 hover:underline"><i class="fas fa-play mr-1"></i>Recording</a>` : ''}
+                            <span class="text-xs text-gray-500">${call.source || 'Direct'}</span>
+                        </div>
+                    </div>
+                `).join('');
+                
+            } catch (error) {
+                console.error('Failed to load calls:', error);
+                container.innerHTML = `
+                    <div class="text-center py-8 text-red-400">
+                        <i class="fas fa-exclamation-circle text-2xl mb-2"></i>
+                        <p>Error loading calls: ${error.message}</p>
+                    </div>
+                `;
+            }
+        }
                                         <i class="fas fa-phone"></i>
                                     </div>
                                     <div>
