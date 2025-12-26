@@ -4800,10 +4800,19 @@
         // ==========================================
         
         async function loadLeads() {
-            if (!currentClient) return;
+            console.log('loadLeads called, currentClient:', currentClient);
+            
+            if (!currentClient) {
+                console.log('No currentClient, returning');
+                return;
+            }
             
             const container = document.getElementById('leadsList');
-            if (!container) return;
+            console.log('leadsList container:', container);
+            if (!container) {
+                console.log('No leadsList container, returning');
+                return;
+            }
             
             const statusFilter = document.getElementById('leadStatusFilter')?.value || '';
             
@@ -4813,9 +4822,13 @@
                 let url = `${API_URL}/api/leads?client_id=${currentClient.id}`;
                 if (statusFilter) url += `&status=${statusFilter}`;
                 
+                console.log('Fetching leads from:', url);
+                
                 const response = await fetch(url, {
                     headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
                 });
+                
+                console.log('Leads response status:', response.status);
                 
                 if (response.ok) {
                     const data = await response.json();

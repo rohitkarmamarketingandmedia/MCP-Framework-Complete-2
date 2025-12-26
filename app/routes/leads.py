@@ -81,46 +81,46 @@ def get_leads(current_user):
     """
     import logging
     logger = logging.getLogger(__name__)
+    logger.info("=== LEADS ENDPOINT CALLED ===")
     
     try:
         client_id = request.args.get('client_id')
-        logger.info(f"Leads request: client_id={client_id}, user={current_user.email}")
+        logger.info(f"Client ID: {client_id}")
         
         if not client_id:
-            return jsonify({'error': 'client_id is required'}), 400
+            return jsonify({'error': 'client_id is required', 'leads': [], 'total': 0}), 400
         
+        # Simple access check
         if not current_user.has_access_to_client(client_id):
-            logger.warning(f"Access denied for user {current_user.email} to client {client_id}")
-            return jsonify({'error': 'Access denied'}), 403
+            return jsonify({'error': 'Access denied', 'leads': [], 'total': 0}), 403
         
-        status = request.args.get('status')
-        source = request.args.get('source')
-        days = safe_int(request.args.get('days'), 30, max_val=365)
-        limit = safe_int(request.args.get('limit'), 100, max_val=500)
+        logger.info("Access granted, querying database...")
         
-        logger.info(f"Fetching leads: status={status}, source={source}, days={days}, limit={limit}")
+        # Simple query - no filters for now
+        leads_db = DBLead.query.filter_by(client_id=client_id).order_by(DBLead.created_at.desc()).limit(100).all()
         
-        leads = lead_service.get_client_leads(
-            client_id=client_id,
-            status=status,
-            source=source,
-            days=days,
-            limit=limit
-        )
+        logger.info(f"Query returned {len(leads_db)} leads")
         
-        logger.info(f"Found {len(leads)} leads for client {client_id}")
+        leads = []
+        for lead in leads_db:
+            try:
+                leads.append(lead.to_dict())
+            except Exception as e:
+                logger.error(f"Error converting lead {lead.id}: {e}")
+        
+        logger.info(f"Returning {len(leads)} leads")
         
         return jsonify({
             'leads': leads,
             'total': len(leads)
         })
+        
     except Exception as e:
         import traceback
-        logger.error(f"Leads error: {str(e)}")
+        logger.error(f"LEADS ERROR: {str(e)}")
         traceback.print_exc()
         return jsonify({
-            'error': 'Failed to load leads',
-            'message': str(e),
+            'error': str(e),
             'leads': [],
             'total': 0
         }), 500
