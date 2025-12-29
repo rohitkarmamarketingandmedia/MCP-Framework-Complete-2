@@ -391,6 +391,10 @@ Example for HVAC business:
     ) -> str:
         """Build the blog generation prompt - optimized for long-form SEO content"""
         
+        # Get current year
+        from datetime import datetime
+        current_year = datetime.utcnow().year
+        
         # Build internal links section with clear instructions
         links_section = ""
         if internal_links:
@@ -435,6 +439,8 @@ Include exactly {faq_count} frequently asked questions at the end.
         
         return f"""You are an expert SEO content writer. Write a comprehensive, in-depth blog post.
 
+CURRENT DATE CONTEXT: The current year is {current_year}. All content should be timely and reference {current_year} where appropriate.
+
 BUSINESS: {business_name or f'A {industry} company'} in {geo}
 PRIMARY KEYWORD: "{keyword}"
 TARGET LOCATION: {geo}
@@ -448,7 +454,7 @@ DO NOT write short, thin content. Expand every section thoroughly.
 
 ===== CONTENT STRUCTURE (REQUIRED) =====
 1. H1 HEADING: Must contain "{keyword}" AND "{geo}"
-   Example: "{keyword.title()} in {geo}: Complete Guide for [Year]"
+   Example: "{keyword.title()} in {geo}: Complete Guide for {current_year}"
 
 2. INTRODUCTION (150+ words):
    - Hook the reader
