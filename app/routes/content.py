@@ -632,6 +632,7 @@ def update_content(current_user, content_id):
         return jsonify({'error': 'Access denied'}), 403
     
     data = request.get_json(silent=True) or {}
+    old_status = content.status
     
     # Update allowed fields
     if 'title' in data:
@@ -660,6 +661,36 @@ def update_content(current_user, content_id):
             content.scheduled_for = None
     
     data_service.save_blog_post(content)
+    
+    # Send notification if status changed to approved
+    new_status = data.get('status', '')
+    if new_status == 'approved' and old_status != 'approved':
+        try:
+            from app.services.notification_service import get_notification_service
+            from app.models.db_models import DBUser, DBClient
+            import logging
+            logger = logging.getLogger(__name__)
+            
+            notification_service = get_notification_service()
+            admins = DBUser.query.filter_by(role='admin', is_active=True).all()
+            client = DBClient.query.get(content.client_id)
+            
+            logger.info(f"Sending approval notifications to {len(admins)} admins for content {content_id}")
+            
+            for admin in admins:
+                notification_service.notify_content_approved(
+                    user_id=admin.id,
+                    client_name=client.business_name if client else 'Unknown',
+                    content_title=content.title,
+                    approved_by=current_user.email,
+                    content_id=content_id,
+                    client_id=content.client_id
+                )
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).error(f"Failed to send approval notification: {e}")
+            import traceback
+            traceback.print_exc()
     
     return jsonify({
         'message': 'Content updated',
