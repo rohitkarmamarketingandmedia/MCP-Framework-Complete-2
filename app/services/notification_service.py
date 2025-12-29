@@ -133,22 +133,34 @@ class NotificationService:
         Returns:
             True if sent/queued successfully
         """
+        logger.info(f"=== SEND_NOTIFICATION: type={notification_type}, user={user_id}, subject={subject[:50]}...")
+        
         # Get user
         user = DBUser.query.get(user_id)
         if not user or not user.email:
             logger.warning(f"Cannot notify user {user_id}: user not found or no email")
             return False
         
+        logger.info(f"Found user: {user.email}")
+        
         # Get preferences
         prefs = self.get_user_preferences(user_id, client_id)
+        logger.info(f"Prefs: email_enabled={prefs.email_enabled}, digest_frequency={prefs.digest_frequency}")
         
         # Check if notification type is enabled (unless forced)
-        if not force and not prefs.is_enabled(notification_type):
+        type_enabled = prefs.is_enabled(notification_type)
+        logger.info(f"Type '{notification_type}' enabled: {type_enabled}")
+        
+        if not force and not type_enabled:
             logger.debug(f"Notification {notification_type} disabled for user {user_id}")
             return False
         
         # Check quiet hours (unless high priority)
-        if priority != 'high' and self.is_in_quiet_hours(prefs):
+        in_quiet = self.is_in_quiet_hours(prefs)
+        logger.info(f"In quiet hours: {in_quiet}")
+        
+        if priority != 'high' and in_quiet:
+            logger.info("Queuing due to quiet hours")
             # Queue for later
             return self._queue_notification(
                 user_id=user_id,
@@ -163,6 +175,7 @@ class NotificationService:
         
         # Check digest preference
         if prefs.digest_frequency != 'instant' and priority != 'high':
+            logger.info(f"Queuing due to digest_frequency={prefs.digest_frequency}")
             return self._queue_notification(
                 user_id=user_id,
                 notification_type=notification_type,
@@ -173,6 +186,8 @@ class NotificationService:
                 related_type=related_type,
                 priority=priority
             )
+        
+        logger.info("Sending immediately...")
         
         # Send immediately
         return self._send_email(

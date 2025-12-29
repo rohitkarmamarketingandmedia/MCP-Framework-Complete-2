@@ -155,12 +155,14 @@ def approve_content(current_user, content_type, content_id):
                 user_id=admin.id,
                 client_name=client.business_name if client else 'Unknown',
                 content_title=content.title if hasattr(content, 'title') else 'Social Post',
-                content_type=content_type,
+                approved_by=current_user.email,
                 content_id=content_id,
                 client_id=content.client_id
             )
     except Exception as e:
         logger.warning(f"Failed to send approval notification: {e}")
+        import traceback
+        traceback.print_exc()
     
     # Fire webhook for external systems
     try:
