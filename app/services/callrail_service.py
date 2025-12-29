@@ -329,15 +329,24 @@ class CallRailService:
     def get_recent_calls(
         self,
         company_id: str,
-        limit: int = 10,
+        limit: int = 100,
         include_recordings: bool = True,
-        include_transcripts: bool = True
+        include_transcripts: bool = True,
+        days: int = 90
     ) -> List[Dict[str, Any]]:
         """
         Get recent calls for display in client portal
         
         Returns formatted call data for UI display
         """
+        from datetime import datetime, timedelta
+        
+        # Calculate date range - use last N days instead of 'this_month'
+        end_date = datetime.now().strftime('%Y-%m-%d')
+        start_date = (datetime.now() - timedelta(days=days)).strftime('%Y-%m-%d')
+        
+        logger.info(f"CallRail get_recent_calls: company={company_id}, date_range={start_date} to {end_date}")
+        
         fields = ['duration', 'answered', 'voicemail', 'source', 'first_call', 
                   'caller_name', 'caller_number', 'tracking_phone_number']
         
@@ -348,13 +357,22 @@ class CallRailService:
         
         result = self.get_calls(
             company_id=company_id,
-            date_range='this_month',
+            start_date=start_date,
+            end_date=end_date,
             per_page=limit,
             fields=fields
         )
         
+        # Log raw result for debugging
+        if result.get('error'):
+            logger.error(f"CallRail API error: {result.get('error')}")
+            return []
+        
+        raw_calls = result.get('calls', [])
+        logger.info(f"CallRail returned {len(raw_calls)} raw calls")
+        
         calls = []
-        for call in result.get('calls', [])[:limit]:
+        for call in raw_calls[:limit]:
             calls.append({
                 'id': call.get('id'),
                 'date': call.get('start_time'),
