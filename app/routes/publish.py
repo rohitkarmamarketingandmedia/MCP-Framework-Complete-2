@@ -10,6 +10,9 @@ from app.services.db_service import DataService
 from app.services.wordpress_service import WordPressService
 from app.models.db_models import ContentStatus
 from datetime import datetime
+import logging
+
+logger = logging.getLogger(__name__)
 
 publish_bp = Blueprint('publish', __name__)
 cms_service = CMSService()
@@ -171,6 +174,30 @@ def publish_to_wordpress(current_user):
     content.published_at = datetime.utcnow()
     content.published_url = result.get('url', '')
     data_service.save_blog_post(content)
+    
+    # Send notification to admins
+    try:
+        from app.services.notification_service import get_notification_service
+        notification_service = get_notification_service()
+        from app.models.db_models import DBUser
+        
+        admins = DBUser.query.filter_by(role='admin', is_active=True).all()
+        logger.info(f"Sending WordPress publish notifications to {len(admins)} admins")
+        
+        for admin in admins:
+            notification_service.notify_content_published(
+                user_id=admin.id,
+                client_name=client.business_name if client else 'Unknown',
+                content_title=content.title,
+                content_url=result.get('url', ''),
+                platform='WordPress',
+                content_id=content.id,
+                client_id=content.client_id
+            )
+    except Exception as e:
+        logger.error(f"Failed to send publish notification: {e}")
+        import traceback
+        traceback.print_exc()
     
     return jsonify({
         'success': True,

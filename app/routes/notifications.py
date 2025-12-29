@@ -4,6 +4,7 @@ API for managing notification preferences and viewing notification history
 """
 from flask import Blueprint, request, jsonify
 from datetime import datetime, timedelta
+import logging
 
 from app.routes.auth import token_required, admin_required
 from app.utils import safe_int
@@ -14,8 +15,93 @@ from app.models.db_models import (
 )
 from app.services.notification_service import get_notification_service
 
+logger = logging.getLogger(__name__)
+
 notifications_bp = Blueprint('notifications', __name__)
 notification_service = get_notification_service()
+
+
+# ==========================================
+# TEST ENDPOINT
+# ==========================================
+
+@notifications_bp.route('/test-send', methods=['POST'])
+@token_required
+def test_send_notification(current_user):
+    """
+    Test sending a notification email
+    
+    POST /api/notifications/test-send
+    {
+        "type": "approval" | "publish" | "simple"
+    }
+    """
+    data = request.get_json(silent=True) or {}
+    test_type = data.get('type', 'simple')
+    
+    logger.info(f"=== TEST NOTIFICATION: type={test_type}, user={current_user.email} ===")
+    
+    try:
+        if test_type == 'simple':
+            # Direct email test
+            from app.services.email_service import get_email_service
+            email = get_email_service()
+            result = email.send_simple(
+                current_user.email,
+                "Test Notification Email",
+                "<h2>Test Email</h2><p>This is a test notification from MCP.</p>",
+                html=True
+            )
+            return jsonify({
+                'success': result,
+                'method': 'direct_email',
+                'to': current_user.email
+            })
+        
+        elif test_type == 'approval':
+            # Test approval notification
+            result = notification_service.notify_content_approved(
+                user_id=current_user.id,
+                client_name="Test Client",
+                content_title="Test Blog Post",
+                approved_by="test@example.com",
+                content_id="test123",
+                client_id=None
+            )
+            return jsonify({
+                'success': result,
+                'method': 'notify_content_approved',
+                'to': current_user.email
+            })
+        
+        elif test_type == 'publish':
+            # Test publish notification
+            result = notification_service.notify_content_published(
+                user_id=current_user.id,
+                client_name="Test Client",
+                content_title="Test Blog Post",
+                content_url="https://example.com/test-post",
+                platform="WordPress",
+                content_id="test123",
+                client_id=None
+            )
+            return jsonify({
+                'success': result,
+                'method': 'notify_content_published',
+                'to': current_user.email
+            })
+        
+        else:
+            return jsonify({'error': f'Unknown type: {test_type}'}), 400
+            
+    except Exception as e:
+        logger.error(f"Test notification failed: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
 
 
 # ==========================================

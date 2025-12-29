@@ -721,17 +721,26 @@ class WordPressManager:
             db.session.commit()
             
             # Send notification
+            logger.info(f"Sending WordPress publish notifications...")
             email = get_email_service()
             from app.models.db_models import DBUser
             admins = DBUser.query.filter_by(role='admin').all()
+            logger.info(f"Found {len(admins)} admin users")
             for admin in admins:
                 if admin.email:
-                    email.send_wordpress_published(
-                        admin.email,
-                        client.business_name,
-                        content.title,
-                        result.get('url')
-                    )
+                    logger.info(f"Sending WordPress publish email to {admin.email}")
+                    try:
+                        result_email = email.send_wordpress_published(
+                            admin.email,
+                            client.business_name,
+                            content.title,
+                            result.get('url')
+                        )
+                        logger.info(f"Email result: {result_email}")
+                    except Exception as e:
+                        logger.error(f"Failed to send WordPress publish email: {e}")
+                        import traceback
+                        traceback.print_exc()
             
             logger.info(f"Published to WordPress: {content.title} -> {result.get('url')}")
         
