@@ -555,12 +555,76 @@ def full_pipeline(current_user):
 @token_required
 def quick_intake(current_user):
     """
-    Quick intake - just website URL, we figure out the rest
+    Quick client creation - creates client without content generation
+    Used by intake wizard when "Quick Setup" is checked
     
     POST /api/intake/quick
     {
-        "website": "https://example.com",
-        "generate_content": true
+        "business_name": "ABC Company",
+        "industry": "roofing",
+        "geo": "Sarasota, FL",
+        "website_url": "https://example.com",
+        "phone": "...",
+        "email": "...",
+        "primary_keywords": [...],
+        "secondary_keywords": [...],
+        ...
+    }
+    """
+    if not current_user.can_generate_content:
+        return jsonify({'error': 'Permission denied'}), 403
+    
+    data = request.get_json(silent=True) or {}
+    
+    # Validate required fields
+    required = ['business_name', 'industry', 'geo']
+    for field in required:
+        if not data.get(field):
+            return jsonify({'error': f'{field} is required'}), 400
+    
+    # Create client - accept both 'website' and 'website_url'
+    try:
+        client = DBClient(
+            business_name=data['business_name'],
+            industry=data['industry'],
+            geo=data['geo'],
+            website_url=data.get('website') or data.get('website_url'),
+            phone=data.get('phone'),
+            email=data.get('email'),
+            service_areas=data.get('service_areas', []),
+            primary_keywords=data.get('primary_keywords', []),
+            secondary_keywords=data.get('secondary_keywords', []),
+            competitors=data.get('competitors', []),
+            tone=data.get('tone', 'professional'),
+            unique_selling_points=data.get('usps', [])
+        )
+        
+        data_service.save_client(client)
+        
+        return jsonify({
+            'success': True,
+            'client_id': client.id,
+            'client': client.to_dict(),
+            'blogs_created': 0,
+            'social_created': 0,
+            'message': f'Client "{client.business_name}" created successfully. Generate content from the dashboard.'
+        })
+    except Exception as e:
+        logger.error(f"Quick intake failed: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': f'Failed to create client: {str(e)}'}), 500
+
+
+@intake_bp.route('/research', methods=['POST'])
+@token_required
+def research_website(current_user):
+    """
+    Research a website with SEMRush - returns suggestions but doesn't create client
+    
+    POST /api/intake/research
+    {
+        "website": "https://example.com"
     }
     """
     if not current_user.can_generate_content:
