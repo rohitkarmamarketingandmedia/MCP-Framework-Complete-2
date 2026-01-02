@@ -404,8 +404,12 @@ class CallRailService:
         effective_account = account_id or self.account_id
         logger.info(f"CallRail get_recent_calls: company={company_id}, account={effective_account}, date_range={start_date} to {end_date}")
         
-        # Don't specify fields - let API return defaults to avoid 400 errors
-        # Some fields like transcription may not be available on all plans
+        # Request essential fields - avoid transcription fields that may cause 400 errors
+        fields = [
+            'duration', 'answered', 'voicemail', 'source', 'first_call',
+            'caller_name', 'caller_number', 'customer_name', 'customer_phone_number',
+            'tracking_phone_number', 'recording', 'recording_player'
+        ]
         
         result = self.get_calls(
             company_id=company_id,
@@ -413,7 +417,7 @@ class CallRailService:
             start_date=start_date,
             end_date=end_date,
             per_page=limit,
-            fields=None  # Use API defaults
+            fields=fields
         )
         
         # Log raw result for debugging
@@ -429,8 +433,9 @@ class CallRailService:
             calls.append({
                 'id': call.get('id'),
                 'date': call.get('start_time'),
-                'caller_name': call.get('caller_name') or 'Unknown',
-                'caller_number': self._format_phone(call.get('caller_number', '')),
+                # CallRail uses customer_name/customer_phone_number in API response
+                'caller_name': call.get('customer_name') or call.get('caller_name') or 'Unknown',
+                'caller_number': self._format_phone(call.get('customer_phone_number') or call.get('caller_number', '')),
                 'tracking_number': self._format_phone(call.get('tracking_phone_number', '')),
                 'duration': call.get('duration', 0),
                 'duration_formatted': self._format_duration(call.get('duration', 0)),
