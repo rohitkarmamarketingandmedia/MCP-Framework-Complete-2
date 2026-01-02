@@ -65,6 +65,39 @@ class CallRailService:
         })
         return session
     
+    def _convert_company_id(self, company_id: str, account_id: str = None) -> str:
+        """
+        Convert numeric company ID to string format if needed.
+        CallRail API requires string IDs like 'COM869780fd2d7b470aa2c3dd2beb44fa9b'
+        but UI shows numeric IDs like '731456575'
+        """
+        if not company_id:
+            return None
+            
+        # Already in correct format
+        if company_id.startswith('COM'):
+            return company_id
+        
+        # Try to find the string ID by looking up companies
+        try:
+            effective_account_id = account_id or self.account_id
+            companies = self._request('GET', '/companies.json', account_id=effective_account_id)
+            
+            if 'companies' in companies:
+                for company in companies['companies']:
+                    # Check if numeric ID matches (it's in the script_url)
+                    script_url = company.get('script_url', '')
+                    if f'/{company_id}/' in script_url:
+                        logger.info(f"Converted company ID {company_id} -> {company['id']}")
+                        return company['id']
+            
+            logger.warning(f"Could not find string ID for company {company_id}, using as-is")
+            return company_id
+            
+        except Exception as e:
+            logger.error(f"Error converting company ID: {e}")
+            return company_id
+    
     def _request(self, method: str, endpoint: str, params: dict = None, data: dict = None, account_id: str = None) -> dict:
         """Make API request to CallRail
         
@@ -145,8 +178,11 @@ class CallRailService:
             'order': 'desc'
         }
         
+        # Convert numeric company ID to string format if needed
         if company_id:
-            params['company_id'] = company_id
+            converted_id = self._convert_company_id(company_id, account_id)
+            if converted_id:
+                params['company_id'] = converted_id
         
         if start_date and end_date:
             params['start_date'] = start_date
