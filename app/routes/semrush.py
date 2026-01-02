@@ -5,6 +5,8 @@ Competitor research, keyword data, and domain analytics API
 from flask import Blueprint, request, jsonify
 from app.routes.auth import token_required
 from app.services.semrush_service import SEMRushService
+import os
+import requests
 
 semrush_bp = Blueprint('semrush', __name__)
 semrush_service = SEMRushService()
@@ -14,7 +16,6 @@ semrush_service = SEMRushService()
 @token_required
 def get_status(current_user):
     """Check if SEMRush API is configured"""
-    import os
     
     # Read env var directly
     api_key_direct = os.environ.get('SEMRUSH_API_KEY', '')
@@ -37,6 +38,80 @@ def get_status(current_user):
             'all_env_var_count': len(os.environ)
         }
     })
+
+
+@semrush_bp.route('/test', methods=['GET'])
+@token_required
+def test_api(current_user):
+    """
+    Test SEMRush API with a real call
+    
+    GET /api/semrush/test?domain=example.com
+    """
+    api_key = os.environ.get('SEMRUSH_API_KEY', '')
+    domain = request.args.get('domain', 'cliffsac.com')
+    
+    if not api_key:
+        return jsonify({
+            'success': False,
+            'error': 'SEMRUSH_API_KEY not configured',
+            'configured': False
+        })
+    
+    try:
+        # Make a simple API call to get domain overview
+        params = {
+            'type': 'domain_rank',
+            'key': api_key,
+            'domain': domain,
+            'database': 'us',
+            'export_columns': 'Dn,Rk,Or,Ot,Oc,Ad,At,Ac'
+        }
+        
+        response = requests.get('https://api.semrush.com/', params=params, timeout=30)
+        
+        result = {
+            'success': response.status_code == 200,
+            'configured': True,
+            'api_key_length': len(api_key),
+            'status_code': response.status_code,
+            'domain': domain,
+            'response_length': len(response.text),
+            'response_preview': response.text[:500] if response.text else 'Empty response'
+        }
+        
+        # Check for API errors
+        if response.text.startswith('ERROR'):
+            result['success'] = False
+            result['error'] = response.text[:200]
+            result['error_type'] = 'api_error'
+            
+            # Common error translations
+            if 'ERROR 132' in response.text:
+                result['error_message'] = 'API units balance is zero. Add more API units to your SEMrush account.'
+            elif 'ERROR 120' in response.text:
+                result['error_message'] = 'Invalid API key'
+            elif 'ERROR 134' in response.text:
+                result['error_message'] = 'API access denied'
+        else:
+            # Parse successful response
+            lines = response.text.strip().split('\n')
+            if len(lines) > 1:
+                headers = lines[0].split(';')
+                values = lines[1].split(';') if len(lines) > 1 else []
+                result['data'] = dict(zip(headers, values)) if len(headers) == len(values) else None
+                result['raw_headers'] = headers
+                result['raw_values'] = values
+        
+        return jsonify(result)
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'configured': True,
+            'error': str(e),
+            'error_type': 'exception'
+        })
 
 
 # ==========================================

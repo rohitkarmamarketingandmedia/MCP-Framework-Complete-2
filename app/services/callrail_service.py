@@ -438,7 +438,8 @@ class CallRailService:
                 'voicemail': call.get('voicemail', False),
                 'first_call': call.get('first_call', False),
                 'source': call.get('source', 'Direct'),
-                'recording_url': call.get('recording'),
+                # Use recording_player (has access key) instead of recording (requires auth)
+                'recording_url': call.get('recording_player') or call.get('recording'),
                 'has_transcript': bool(call.get('transcription') or call.get('conversational_transcript')),
                 'transcript_preview': self._get_transcript_preview(call),
                 'lead_quality': self._calculate_lead_quality(call)

@@ -6637,14 +6637,14 @@
             const checks = {};
             let score = 0;
             
-            // Word count (20 points) - target 1800+
+            // Word count (20 points) - target 800+ for pass, ideal 1200+
             const wordCount = blog.word_count || 0;
-            checks.wordCount = wordCount >= 1500;
+            checks.wordCount = wordCount >= 800;  // More reasonable threshold
             if (wordCount >= 1800) score += 20;
             else if (wordCount >= 1500) score += 17;
-            else if (wordCount >= 1200) score += 12;
-            else if (wordCount >= 800) score += 7;
-            else if (wordCount >= 500) score += 3;
+            else if (wordCount >= 1200) score += 14;
+            else if (wordCount >= 800) score += 10;
+            else if (wordCount >= 500) score += 5;
             
             // Keyword density (15 points) - target 1-2%
             const body = blog.body || '';
@@ -6662,30 +6662,32 @@
                 checks.keywordDensity = false;
             }
             
-            // Internal links (15 points) - target 5+
+            // Internal links (15 points) - target 1+ for pass, ideal 3+
             const linkCount = countInternalLinks(body);
-            checks.internalLinks = linkCount >= 3;
+            checks.internalLinks = linkCount >= 1;  // At least 1 link
             if (linkCount >= 6) score += 15;
             else if (linkCount >= 4) score += 12;
             else if (linkCount >= 2) score += 8;
-            else if (linkCount >= 1) score += 4;
+            else if (linkCount >= 1) score += 5;
             
-            // Meta title (15 points) - target 50-60 chars with keyword
+            // Meta title (15 points) - target 40-65 chars (more flexible)
             const metaTitle = blog.meta_title || '';
             const titleLen = metaTitle.length;
             const titleHasKeyword = keyword && metaTitle.toLowerCase().includes(keyword);
-            checks.metaTitle = titleLen >= 50 && titleLen <= 60 && titleHasKeyword;
+            checks.metaTitle = titleLen >= 40 && titleLen <= 65;  // More flexible range
             if (titleLen >= 50 && titleLen <= 60) score += 8;
-            else if (titleLen >= 40 && titleLen <= 70) score += 5;
+            else if (titleLen >= 40 && titleLen <= 65) score += 6;
+            else if (titleLen >= 30 && titleLen <= 70) score += 4;
             if (titleHasKeyword) score += 7;
             
-            // Meta description (15 points) - target 150-160 chars
+            // Meta description (15 points) - target 120-165 chars (more flexible)
             const metaDesc = blog.meta_description || '';
             const descLen = metaDesc.length;
             const descHasKeyword = keyword && metaDesc.toLowerCase().includes(keyword);
-            checks.metaDesc = descLen >= 150 && descLen <= 160 && descHasKeyword;
+            checks.metaDesc = descLen >= 120 && descLen <= 165;  // More flexible range
             if (descLen >= 150 && descLen <= 160) score += 8;
-            else if (descLen >= 120 && descLen <= 180) score += 5;
+            else if (descLen >= 120 && descLen <= 165) score += 6;
+            else if (descLen >= 100 && descLen <= 180) score += 4;
             if (descHasKeyword) score += 7;
             
             // Heading structure (20 points) - H2s and H3s with location
@@ -6815,9 +6817,12 @@
             
             const title = currentBlog.meta_title || currentBlog.title || 'Page Title';
             const description = currentBlog.meta_description || '';
-            const url = currentClient?.website_url 
-                ? `${currentClient.website_url}/${currentBlog.slug || currentBlog.title?.toLowerCase().replace(/[^a-z0-9]+/g, '-')}/`
-                : 'https://example.com/blog-post/';
+            
+            // Build URL, avoiding double slashes
+            let baseUrl = currentClient?.website_url || 'https://example.com';
+            baseUrl = baseUrl.replace(/\/+$/, ''); // Remove trailing slashes
+            const slug = currentBlog.slug || currentBlog.title?.toLowerCase().replace(/[^a-z0-9]+/g, '-') || 'blog-post';
+            const url = `${baseUrl}/${slug}/`;
             
             showSERPPreview(title, description, url);
         }
