@@ -24,13 +24,16 @@ settings_bp = Blueprint('settings', __name__)
 
 @settings_bp.route('/migrate', methods=['POST'])
 @token_required
-@admin_required
 def run_migration(current_user):
     """
     Run database migrations to add new columns
     
     POST /api/settings/migrate
     """
+    # Check if user is admin
+    if not current_user.is_admin:
+        return jsonify({'error': 'Admin access required'}), 403
+    
     results = []
     
     try:
