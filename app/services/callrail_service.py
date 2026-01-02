@@ -404,13 +404,8 @@ class CallRailService:
         effective_account = account_id or self.account_id
         logger.info(f"CallRail get_recent_calls: company={company_id}, account={effective_account}, date_range={start_date} to {end_date}")
         
-        fields = ['duration', 'answered', 'voicemail', 'source', 'first_call', 
-                  'caller_name', 'caller_number', 'tracking_phone_number']
-        
-        if include_recordings:
-            fields.append('recording')
-        if include_transcripts:
-            fields.extend(['transcription', 'conversational_transcript'])
+        # Don't specify fields - let API return defaults to avoid 400 errors
+        # Some fields like transcription may not be available on all plans
         
         result = self.get_calls(
             company_id=company_id,
@@ -418,7 +413,7 @@ class CallRailService:
             start_date=start_date,
             end_date=end_date,
             per_page=limit,
-            fields=fields
+            fields=None  # Use API defaults
         )
         
         # Log raw result for debugging
