@@ -3602,11 +3602,20 @@
             document.getElementById('editPhone').value = currentClient.phone || '';
             document.getElementById('editEmail').value = currentClient.email || '';
             document.getElementById('editTone').value = currentClient.tone || 'professional';
-            document.getElementById('editPrimaryKeywords').value = (currentClient.primary_keywords || []).join(', ');
-            document.getElementById('editSecondaryKeywords').value = (currentClient.secondary_keywords || []).join(', ');
-            document.getElementById('editServiceAreas').value = (currentClient.service_areas || []).join(', ');
-            document.getElementById('editUSPs').value = (currentClient.unique_selling_points || []).join(', ');
-            document.getElementById('editCompetitors').value = (currentClient.competitors || []).join(', ');
+            
+            // Helper to safely convert to comma-separated string (handles both arrays and strings)
+            const toCommaString = (val) => {
+                if (!val) return '';
+                if (Array.isArray(val)) return val.join(', ');
+                if (typeof val === 'string') return val;
+                return String(val);
+            };
+            
+            document.getElementById('editPrimaryKeywords').value = toCommaString(currentClient.primary_keywords);
+            document.getElementById('editSecondaryKeywords').value = toCommaString(currentClient.secondary_keywords);
+            document.getElementById('editServiceAreas').value = toCommaString(currentClient.service_areas);
+            document.getElementById('editUSPs').value = toCommaString(currentClient.unique_selling_points);
+            document.getElementById('editCompetitors').value = toCommaString(currentClient.competitors);
             
             // WordPress fields
             document.getElementById('editWordpressUrl').value = currentClient.wordpress_url || '';
