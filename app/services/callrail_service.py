@@ -404,12 +404,8 @@ class CallRailService:
         effective_account = account_id or self.account_id
         logger.info(f"CallRail get_recent_calls: company={company_id}, account={effective_account}, date_range={start_date} to {end_date}")
         
-        # Request essential fields - avoid transcription fields that may cause 400 errors
-        fields = [
-            'duration', 'answered', 'voicemail', 'source', 'first_call',
-            'caller_name', 'caller_number', 'customer_name', 'customer_phone_number',
-            'tracking_phone_number', 'recording', 'recording_player'
-        ]
+        # Don't specify fields parameter - API defaults return all needed data
+        # Including fields causes 400 errors on some CallRail accounts
         
         result = self.get_calls(
             company_id=company_id,
@@ -417,7 +413,7 @@ class CallRailService:
             start_date=start_date,
             end_date=end_date,
             per_page=limit,
-            fields=fields
+            fields=None
         )
         
         # Log raw result for debugging
@@ -427,6 +423,12 @@ class CallRailService:
         
         raw_calls = result.get('calls', [])
         logger.info(f"CallRail returned {len(raw_calls)} raw calls")
+        
+        # Debug: log first call's fields to see what API returns
+        if raw_calls:
+            first_call = raw_calls[0]
+            logger.info(f"CallRail first call fields: {list(first_call.keys())}")
+            logger.info(f"CallRail first call customer_name: {first_call.get('customer_name')}, customer_phone_number: {first_call.get('customer_phone_number')}")
         
         calls = []
         for call in raw_calls[:limit]:
