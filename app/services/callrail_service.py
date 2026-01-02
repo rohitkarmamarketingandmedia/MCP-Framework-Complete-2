@@ -65,9 +65,18 @@ class CallRailService:
         })
         return session
     
-    def _request(self, method: str, endpoint: str, params: dict = None, data: dict = None) -> dict:
-        """Make API request to CallRail"""
-        url = f"{self.base_url}/a/{self.account_id}{endpoint}"
+    def _request(self, method: str, endpoint: str, params: dict = None, data: dict = None, account_id: str = None) -> dict:
+        """Make API request to CallRail
+        
+        Args:
+            method: HTTP method
+            endpoint: API endpoint
+            params: Query parameters
+            data: Request body
+            account_id: Override account ID (for per-client accounts)
+        """
+        effective_account_id = account_id or self.account_id
+        url = f"{self.base_url}/a/{effective_account_id}{endpoint}"
         
         try:
             session = self._get_session()
@@ -101,6 +110,7 @@ class CallRailService:
     def get_calls(
         self,
         company_id: str = None,
+        account_id: str = None,
         start_date: str = None,
         end_date: str = None,
         date_range: str = 'this_month',
@@ -115,6 +125,7 @@ class CallRailService:
         
         Args:
             company_id: Filter by specific company/client
+            account_id: Override account ID (for per-client accounts)
             start_date: Start date (YYYY-MM-DD)
             end_date: End date (YYYY-MM-DD)
             date_range: Preset range (today, yesterday, this_week, last_week, this_month, last_month, all_time)
@@ -152,7 +163,7 @@ class CallRailService:
         if fields:
             params['fields'] = ','.join(fields)
         
-        result = self._request('GET', '/calls.json', params=params)
+        result = self._request('GET', '/calls.json', params=params, account_id=account_id)
         
         if 'error' not in result:
             # Enhance calls with lead quality scoring
@@ -329,6 +340,7 @@ class CallRailService:
     def get_recent_calls(
         self,
         company_id: str,
+        account_id: str = None,
         limit: int = 100,
         include_recordings: bool = True,
         include_transcripts: bool = True,
@@ -336,6 +348,14 @@ class CallRailService:
     ) -> List[Dict[str, Any]]:
         """
         Get recent calls for display in client portal
+        
+        Args:
+            company_id: CallRail company ID
+            account_id: Override account ID (for per-client accounts)
+            limit: Max calls to return
+            include_recordings: Include recording URLs
+            include_transcripts: Include transcriptions
+            days: Number of days to look back
         
         Returns formatted call data for UI display
         """
@@ -345,7 +365,8 @@ class CallRailService:
         end_date = datetime.now().strftime('%Y-%m-%d')
         start_date = (datetime.now() - timedelta(days=days)).strftime('%Y-%m-%d')
         
-        logger.info(f"CallRail get_recent_calls: company={company_id}, date_range={start_date} to {end_date}")
+        effective_account = account_id or self.account_id
+        logger.info(f"CallRail get_recent_calls: company={company_id}, account={effective_account}, date_range={start_date} to {end_date}")
         
         fields = ['duration', 'answered', 'voicemail', 'source', 'first_call', 
                   'caller_name', 'caller_number', 'tracking_phone_number']
@@ -357,6 +378,7 @@ class CallRailService:
         
         result = self.get_calls(
             company_id=company_id,
+            account_id=account_id,
             start_date=start_date,
             end_date=end_date,
             per_page=limit,

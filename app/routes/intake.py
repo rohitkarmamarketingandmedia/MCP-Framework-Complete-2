@@ -227,8 +227,9 @@ def full_pipeline(current_user):
     if run_research and semrush_service.is_configured():
         response['steps'].append('semrush_research')
         
-        # Research domain
-        if data.get('website'):
+        # Research domain - accept both 'website' and 'website_url'
+        website = data.get('website') or data.get('website_url')
+        if website:
             try:
                 domain_research = semrush_service.full_competitor_research(data['website'])
                 if not domain_research.get('error'):
@@ -326,7 +327,7 @@ def full_pipeline(current_user):
             business_name=data['business_name'],
             industry=data['industry'],
             geo=data['geo'],
-            website_url=data.get('website'),
+            website_url=data.get('website') or data.get('website_url'),
             phone=data.get('phone'),
             email=data.get('email'),
             service_areas=data.get('service_areas', []),
@@ -566,7 +567,8 @@ def quick_intake(current_user):
         return jsonify({'error': 'Permission denied'}), 403
     
     data = request.get_json(silent=True) or {}
-    website = data.get('website', '').strip()
+    # Accept both 'website' and 'website_url' field names
+    website = data.get('website', data.get('website_url', '')).strip()
     
     if not website:
         return jsonify({'error': 'website is required'}), 400
@@ -1465,7 +1467,7 @@ def quick_setup(current_user):
         business_name=data['business_name'],
         industry=data['industry'],
         geo=data['geo'],
-        website_url=data.get('website'),
+        website_url=data.get('website') or data.get('website_url'),
         phone=data.get('phone'),
         email=data.get('email'),
         service_areas=data.get('service_areas', []),

@@ -189,6 +189,7 @@ class DBClient(db.Model):
     
     # CallRail Integration
     callrail_company_id: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    callrail_account_id: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)  # Per-client account ID (overrides global)
     monthly_lead_target: Mapped[int] = mapped_column(Integer, default=10)
     
     # Google Analytics 4 Integration
@@ -349,6 +350,7 @@ class DBClient(db.Model):
             'ga4_property_id': self.ga4_property_id,
             'gsc_site_url': self.gsc_site_url,
             'callrail_company_id': self.callrail_company_id,
+            'callrail_account_id': self.callrail_account_id,
             # Social connections (status only, no tokens)
             'social_connections': {
                 'gbp': {

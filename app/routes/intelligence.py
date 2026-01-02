@@ -47,6 +47,7 @@ def get_client_calls(current_user, client_id):
             return jsonify({'error': 'Client not found'}), 404
         
         callrail_company_id = getattr(client, 'callrail_company_id', None)
+        callrail_account_id = getattr(client, 'callrail_account_id', None)  # Per-client override
         
         if not callrail_company_id:
             return jsonify({
@@ -56,12 +57,13 @@ def get_client_calls(current_user, client_id):
                 'total': 0
             })
         
-        logger.info(f"Fetching CallRail calls for company {callrail_company_id}")
+        logger.info(f"Fetching CallRail calls for company {callrail_company_id}, account {callrail_account_id or 'global'}")
         
         # Get calls from CallRail
         callrail = get_callrail_service()
         calls = callrail.get_recent_calls(
             company_id=callrail_company_id,
+            account_id=callrail_account_id,  # Pass per-client account ID
             limit=100,
             include_recordings=True,
             include_transcripts=True
@@ -72,7 +74,8 @@ def get_client_calls(current_user, client_id):
         return jsonify({
             'calls': calls,
             'total': len(calls),
-            'company_id': callrail_company_id
+            'company_id': callrail_company_id,
+            'account_id': callrail_account_id or CallRailConfig.get_account_id()
         })
         
     except Exception as e:

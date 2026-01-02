@@ -297,6 +297,9 @@ def update_integrations(current_user, client_id):
     if 'callrail_company_id' in data:
         integrations['callrail_company_id'] = data['callrail_company_id']
         client.callrail_company_id = data['callrail_company_id'] or None  # Also save to direct field
+    if 'callrail_account_id' in data:
+        integrations['callrail_account_id'] = data['callrail_account_id']
+        client.callrail_account_id = data['callrail_account_id'] or None  # Per-client account override
     if 'gsc_site_url' in data:
         integrations['gsc_site_url'] = data['gsc_site_url']
         client.gsc_site_url = data['gsc_site_url'] or None  # Also save to direct field
