@@ -4,6 +4,7 @@ Settings, Audit Logs, and Webhooks management
 """
 from flask import Blueprint, request, jsonify
 from datetime import datetime, timedelta
+import logging
 
 from app.routes.auth import token_required, admin_required
 from app.services.audit_service import audit_service
@@ -12,7 +13,52 @@ from app.models.db_models import DBSetting, DBWebhook, DBAuditLog
 from app.database import db
 from app.utils import safe_int
 
+logger = logging.getLogger(__name__)
+
 settings_bp = Blueprint('settings', __name__)
+
+
+# ==========================================
+# DATABASE MIGRATION ENDPOINT
+# ==========================================
+
+@settings_bp.route('/migrate', methods=['POST'])
+@token_required
+@admin_required
+def run_migration(current_user):
+    """
+    Run database migrations to add new columns
+    
+    POST /api/settings/migrate
+    """
+    results = []
+    
+    try:
+        # Add callrail_account_id to clients table
+        try:
+            db.session.execute(db.text(
+                "ALTER TABLE clients ADD COLUMN IF NOT EXISTS callrail_account_id VARCHAR(100)"
+            ))
+            db.session.commit()
+            results.append({'column': 'clients.callrail_account_id', 'status': 'success'})
+        except Exception as e:
+            db.session.rollback()
+            results.append({'column': 'clients.callrail_account_id', 'status': 'error', 'error': str(e)})
+        
+        logger.info(f"Migration completed: {results}")
+        
+        return jsonify({
+            'success': True,
+            'message': 'Migration completed',
+            'results': results
+        })
+        
+    except Exception as e:
+        logger.error(f"Migration failed: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
 
 
 # ==========================================
