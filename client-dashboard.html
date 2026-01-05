@@ -3546,6 +3546,10 @@
                 if (currentClient.competitors && typeof currentClient.competitors === 'string') {
                     currentClient.competitors = currentClient.competitors.split(',').map(k => k.trim()).filter(k => k);
                 }
+                if (currentClient.unique_selling_points && typeof currentClient.unique_selling_points === 'string') {
+                    // USPs might be a long text string - wrap in array
+                    currentClient.unique_selling_points = [currentClient.unique_selling_points];
+                }
 
                 // Update header
                 document.getElementById('clientName').textContent = currentClient.business_name || 'Client';
@@ -3579,17 +3583,17 @@
                 renderSocial();
                 renderSEO();
                 
-                // Load overview data
-                loadOverviewData();
+                // Load overview data (with error handling)
+                try { loadOverviewData(); } catch(e) { console.error('loadOverviewData error:', e); }
                 
-                // Load image library
-                loadImageLibrary();
+                // Load image library (with error handling)
+                try { loadImageLibrary(); } catch(e) { console.error('loadImageLibrary error:', e); }
                 
-                // Load integrations settings
-                loadIntegrations();
+                // Load integrations settings (with error handling)
+                try { loadIntegrations(); } catch(e) { console.error('loadIntegrations error:', e); }
                 
-                // Load system status
-                loadSystemStatus();
+                // Load system status (with error handling)
+                try { loadSystemStatus(); } catch(e) { console.error('loadSystemStatus error:', e); }
 
             } catch (e) {
                 console.error('Failed to load client:', e);
