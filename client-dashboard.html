@@ -3517,10 +3517,35 @@
                 const clientRes = await fetch(`${API_URL}/api/clients/${clientId}`, {
                     headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
                 });
+                
                 if (!clientRes.ok) {
+                    const errorText = await clientRes.text();
+                    console.error('Client load error:', clientRes.status, errorText);
+                    
+                    // Check for token expiry
+                    if (clientRes.status === 401 || errorText.includes('expired')) {
+                        showToast('Session expired. Please log in again.', 'error');
+                        setTimeout(() => window.location.href = '/admin', 2000);
+                        return;
+                    }
+                    
                     throw new Error(`Failed to load client: ${clientRes.status}`);
                 }
                 currentClient = await clientRes.json();
+                
+                // Ensure arrays are properly parsed
+                if (currentClient.primary_keywords && typeof currentClient.primary_keywords === 'string') {
+                    currentClient.primary_keywords = currentClient.primary_keywords.split(',').map(k => k.trim()).filter(k => k);
+                }
+                if (currentClient.secondary_keywords && typeof currentClient.secondary_keywords === 'string') {
+                    currentClient.secondary_keywords = currentClient.secondary_keywords.split(',').map(k => k.trim()).filter(k => k);
+                }
+                if (currentClient.service_areas && typeof currentClient.service_areas === 'string') {
+                    currentClient.service_areas = currentClient.service_areas.split(',').map(k => k.trim()).filter(k => k);
+                }
+                if (currentClient.competitors && typeof currentClient.competitors === 'string') {
+                    currentClient.competitors = currentClient.competitors.split(',').map(k => k.trim()).filter(k => k);
+                }
 
                 // Update header
                 document.getElementById('clientName').textContent = currentClient.business_name || 'Client';

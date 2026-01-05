@@ -228,9 +228,16 @@ class DBClient(db.Model):
     def get_primary_keywords(self) -> List[str]:
         if not self.primary_keywords:
             return []
+        # If already a list, return it
+        if isinstance(self.primary_keywords, list):
+            return self.primary_keywords
         try:
-            return json.loads(self.primary_keywords)
+            result = json.loads(self.primary_keywords)
+            return result if isinstance(result, list) else []
         except (json.JSONDecodeError, TypeError):
+            # Try splitting by comma if it's a plain string
+            if isinstance(self.primary_keywords, str):
+                return [k.strip() for k in self.primary_keywords.split(',') if k.strip()]
             return []
     
     def set_primary_keywords(self, keywords: List[str]):
@@ -239,17 +246,31 @@ class DBClient(db.Model):
     def get_secondary_keywords(self) -> List[str]:
         if not self.secondary_keywords:
             return []
+        # If already a list, return it
+        if isinstance(self.secondary_keywords, list):
+            return self.secondary_keywords
         try:
-            return json.loads(self.secondary_keywords)
+            result = json.loads(self.secondary_keywords)
+            return result if isinstance(result, list) else []
         except (json.JSONDecodeError, TypeError):
+            # Try splitting by comma if it's a plain string
+            if isinstance(self.secondary_keywords, str):
+                return [k.strip() for k in self.secondary_keywords.split(',') if k.strip()]
             return []
     
     def get_competitors(self) -> List[str]:
         if not self.competitors:
             return []
+        # If already a list, return it
+        if isinstance(self.competitors, list):
+            return self.competitors
         try:
-            return json.loads(self.competitors)
+            result = json.loads(self.competitors)
+            return result if isinstance(result, list) else []
         except (json.JSONDecodeError, TypeError):
+            # Try splitting by comma if it's a plain string
+            if isinstance(self.competitors, str):
+                return [k.strip() for k in self.competitors.split(',') if k.strip()]
             return []
     
     def set_competitors(self, competitors: List[str]):

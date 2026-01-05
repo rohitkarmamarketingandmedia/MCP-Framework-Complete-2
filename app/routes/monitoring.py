@@ -762,55 +762,61 @@ def get_rankings(current_user):
     if not client:
         return jsonify({'error': 'Client not found'}), 404
     
-    # Get keywords to track
-    keywords = client.get_primary_keywords() + client.get_secondary_keywords()
-    
-    if not keywords:
-        return jsonify({'error': 'No keywords configured for client'}), 400
-    
-    # Debug: Check if API key is available
-    api_key_set = bool(os.environ.get('SEMRUSH_API_KEY'))
-    service_key_set = bool(rank_tracking_service.api_key)
-    
-    # Check rankings
-    result = rank_tracking_service.check_all_keywords(
-        client.website_url or client.business_name,
-        keywords[:50]  # Limit to 50 keywords
-    )
-    
-    # Add debug info to result
-    result['_debug'] = {
-        'env_var_set': api_key_set,
-        'service_key_set': service_key_set,
-        'key_length': len(os.environ.get('SEMRUSH_API_KEY', ''))
-    }
-    
-    if result.get('error'):
-        return jsonify({'error': result['error']}), 500
-    
-    # Save to history (only if not demo mode)
-    if not result.get('demo_mode'):
-        for kw_data in result.get('keywords', []):
-            history = DBRankHistory(
-                client_id=client_id,
-                keyword=kw_data['keyword'],
-                position=kw_data.get('position'),
-                previous_position=kw_data.get('previous_position'),
-                change=kw_data.get('change', 0),
-                url=kw_data.get('url', ''),
-                search_volume=kw_data.get('search_volume', 0),
-                cpc=kw_data.get('cpc', 0.0)
-            )
-            db.session.add(history)
+    try:
+        # Get keywords to track
+        keywords = client.get_primary_keywords() + client.get_secondary_keywords()
         
-        db.session.commit()
-    
-    # Calculate traffic value
-    traffic_value = rank_tracking_service.calculate_traffic_value(result.get('keywords', []))
-    
-    result['traffic_value'] = traffic_value
-    
-    return jsonify(result)
+        if not keywords:
+            return jsonify({'error': 'No keywords configured for client'}), 400
+        
+        # Debug: Check if API key is available
+        api_key_set = bool(os.environ.get('SEMRUSH_API_KEY'))
+        service_key_set = bool(rank_tracking_service.api_key)
+        
+        # Check rankings
+        result = rank_tracking_service.check_all_keywords(
+            client.website_url or client.business_name,
+            keywords[:50]  # Limit to 50 keywords
+        )
+        
+        # Add debug info to result
+        result['_debug'] = {
+            'env_var_set': api_key_set,
+            'service_key_set': service_key_set,
+            'key_length': len(os.environ.get('SEMRUSH_API_KEY', ''))
+        }
+        
+        if result.get('error'):
+            return jsonify({'error': result['error']}), 500
+        
+        # Save to history (only if not demo mode)
+        if not result.get('demo_mode'):
+            for kw_data in result.get('keywords', []):
+                history = DBRankHistory(
+                    client_id=client_id,
+                    keyword=kw_data['keyword'],
+                    position=kw_data.get('position'),
+                    previous_position=kw_data.get('previous_position'),
+                    change=kw_data.get('change', 0),
+                    url=kw_data.get('url', ''),
+                    search_volume=kw_data.get('search_volume', 0),
+                    cpc=kw_data.get('cpc', 0.0)
+                )
+                db.session.add(history)
+            
+            db.session.commit()
+        
+        # Calculate traffic value
+        traffic_value = rank_tracking_service.calculate_traffic_value(result.get('keywords', []))
+        
+        result['traffic_value'] = traffic_value
+        
+        return jsonify(result)
+        
+    except Exception as e:
+        import traceback
+        logger.error(f"Rankings error for client {client_id}: {e}\n{traceback.format_exc()}")
+        return jsonify({'error': f'Server error: {str(e)}'}), 500
 
 
 @monitoring_bp.route('/rankings/history', methods=['GET'])
