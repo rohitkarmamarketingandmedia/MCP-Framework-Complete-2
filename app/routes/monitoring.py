@@ -786,7 +786,9 @@ def get_rankings(current_user):
             'key_length': len(os.environ.get('SEMRUSH_API_KEY', ''))
         }
         
-        if result.get('error'):
+        # Don't treat demo_mode results as errors - they're valid responses
+        # Only return 500 for actual server errors, not SEMrush "nothing found"
+        if result.get('error') and not result.get('demo_mode'):
             return jsonify({'error': result['error']}), 500
         
         # Save to history (only if not demo mode)
