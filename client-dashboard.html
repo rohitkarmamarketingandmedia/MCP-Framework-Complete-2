@@ -4365,14 +4365,23 @@
                         callsToday.textContent = `${callCount} calls analyzed`;
                     }
                     
-                    // Update extracted insights from AI analysis
-                    if (report.questions || report.keywords || report.pain_points || report.opportunities) {
+                    // Check if we have any AI insights data
+                    const hasInsights = (report.questions?.length > 0) || 
+                                       (report.keywords?.length > 0) || 
+                                       (report.pain_points?.length > 0) || 
+                                       (report.opportunities?.length > 0);
+                    
+                    if (hasInsights) {
+                        // Update extracted insights from AI analysis
                         updateExtractedUI(
                             report.questions || report.top_questions || [],
                             report.keywords || report.trending_keywords || [],
                             report.pain_points || [],
                             report.opportunities || report.content_opportunities || []
                         );
+                    } else {
+                        // No AI insights - show helpful message instead of Loading...
+                        showNoInsightsMessage();
                     }
                     
                     // Get recent call for phone mockup
@@ -4413,12 +4422,35 @@
                     } else {
                         loadDemoCallData();
                     }
+                    
+                    // Show no insights message when falling back
+                    showNoInsightsMessage();
                 }
             } catch (error) {
                 console.error('Error loading call intelligence:', error);
                 loadDemoCallData();
+                showNoInsightsMessage();
             }
         }
+        
+        function showNoInsightsMessage() {
+            // Update UI elements to show no data message instead of Loading...
+            const containers = [
+                { selector: '#questions-container, [data-insight="questions"]', message: 'No questions detected yet' },
+                { selector: '#keywords-container, [data-insight="keywords"]', message: 'No keywords detected yet' },
+                { selector: '#painpoints-container, [data-insight="painpoints"]', message: 'No pain points detected yet' },
+                { selector: '#opportunities-container, [data-insight="opportunities"]', message: 'No opportunities detected yet' }
+            ];
+            
+            // Find all Loading... elements in the AI Insights section and update them
+            document.querySelectorAll('.text-gray-300, .text-purple-300, .text-orange-300, .text-emerald-300').forEach(el => {
+                if (el.textContent.includes('Loading...')) {
+                    el.textContent = 'Requires call transcripts';
+                    el.classList.add('text-gray-500');
+                }
+            });
+        }
+        
         
         function loadDemoCallData() {
             // Demo data for visualization

@@ -267,26 +267,36 @@ def get_intelligence_report(current_user, client_id):
     from app.services.interaction_intelligence_service import get_interaction_intelligence_service
     service = get_interaction_intelligence_service()
     
-    # Get CallRail transcripts if available
+    # Get CallRail data if available
     call_transcripts = None
+    total_calls = 0
+    all_calls = []
+    
     try:
         from app.services.callrail_service import CallRailConfig, get_callrail_service
         
         if CallRailConfig.is_configured():
             client = DBClient.query.get(client_id)
             callrail_company_id = getattr(client, 'callrail_company_id', None)
+            callrail_account_id = getattr(client, 'callrail_account_id', None)
             
             if callrail_company_id:
                 callrail = get_callrail_service()
-                calls = callrail.get_recent_calls(
+                all_calls = callrail.get_recent_calls(
                     company_id=callrail_company_id,
-                    limit=100,
-                    include_transcripts=True
+                    account_id=callrail_account_id,
+                    days=days,
+                    limit=100
                 )
+                total_calls = len(all_calls)
+                logger.info(f"Intelligence report: got {total_calls} calls from CallRail")
+                
+                # Extract transcripts from calls that have them
                 call_transcripts = [
                     {'id': c['id'], 'transcript': c.get('transcript_preview', ''), 'date': c['date']}
-                    for c in calls if c.get('has_transcript')
+                    for c in all_calls if c.get('has_transcript')
                 ]
+                logger.info(f"Intelligence report: {len(call_transcripts or [])} calls have transcripts")
     except Exception as e:
         logger.warning(f"Could not fetch CallRail data: {e}")
     
@@ -295,6 +305,10 @@ def get_intelligence_report(current_user, client_id):
         call_transcripts=call_transcripts,
         days=days
     )
+    
+    # Add call count to report (even if no transcripts)
+    report['call_count'] = total_calls
+    report['calls_with_transcripts'] = len(call_transcripts) if call_transcripts else 0
     
     return jsonify(report)
 
