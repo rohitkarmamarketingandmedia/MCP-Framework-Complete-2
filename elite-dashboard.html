@@ -575,6 +575,7 @@
         let API_URL = window.location.origin;
         let AUTH_TOKEN = '';
         let currentClientId = '';
+        let currentClient = null;
         let currentQueueItem = null;
         
         // ==========================================
@@ -652,6 +653,24 @@
             currentClientId = clientId;
 
             try {
+                // First get full client data for keywords
+                const clientRes = await fetch(`${API_URL}/api/clients/${clientId}`, {
+                    headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
+                });
+                if (clientRes.ok) {
+                    currentClient = await clientRes.json();
+                    
+                    // Ensure primary_keywords is an array
+                    if (currentClient.primary_keywords && typeof currentClient.primary_keywords === 'string') {
+                        currentClient.primary_keywords = currentClient.primary_keywords.split(',').map(k => k.trim()).filter(k => k);
+                    }
+                    if (currentClient.secondary_keywords && typeof currentClient.secondary_keywords === 'string') {
+                        currentClient.secondary_keywords = currentClient.secondary_keywords.split(',').map(k => k.trim()).filter(k => k);
+                    }
+                    
+                    console.log('Loaded client:', currentClient.business_name, 'Keywords:', currentClient.primary_keywords);
+                }
+                
                 // Get dashboard data
                 const res = await fetch(`${API_URL}/api/monitoring/dashboard?client_id=${clientId}`, {
                     headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
@@ -664,11 +683,11 @@
                 }
 
                 // Update header
-                document.getElementById('clientName').textContent = data.client?.business_name || 'Client';
+                document.getElementById('clientName').textContent = data.client?.business_name || currentClient?.business_name || 'Client';
 
                 // Update stats
                 document.getElementById('statCompetitors').textContent = data.stats?.competitors_tracked || 0;
-                document.getElementById('statKeywords').textContent = data.stats?.keywords_tracked || 0;
+                document.getElementById('statKeywords').textContent = data.stats?.keywords_tracked || currentClient?.primary_keywords?.length || 0;
                 document.getElementById('statContentReady').textContent = data.stats?.content_pending_review || 0;
                 document.getElementById('statTop10').textContent = data.ranking_summary?.in_top_10 || 0;
                 document.getElementById('statAlerts').textContent = data.stats?.unread_alerts || 0;
@@ -681,6 +700,9 @@
 
                 // Load content queue
                 loadContentQueue();
+                
+                // Initialize rank chart with keywords
+                initRankChart();
 
             } catch (e) {
                 console.error('Failed to load client:', e);
@@ -1122,9 +1144,13 @@
         function initRankChart() {
             // Populate keyword dropdown
             const select = document.getElementById('rankHistoryKeyword');
-            if (currentClient && currentClient.primary_keywords) {
+            const keywords = currentClient?.primary_keywords || [];
+            
+            if (keywords.length > 0) {
                 select.innerHTML = '<option value="">Select keyword...</option>' +
-                    currentClient.primary_keywords.map(k => `<option value="${k}">${k}</option>`).join('');
+                    keywords.map(k => `<option value="${k}">${k}</option>`).join('');
+            } else {
+                select.innerHTML = '<option value="">No keywords configured</option>';
             }
             
             // Initialize empty chart
