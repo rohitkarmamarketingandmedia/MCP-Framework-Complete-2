@@ -171,81 +171,87 @@ def crawl_competitor(current_user, competitor_id):
     Manually trigger a crawl of a competitor
     Returns new pages detected
     """
-    competitor = DBCompetitor.query.get(competitor_id)
-    
-    if not competitor:
-        return jsonify({'error': 'Competitor not found'}), 404
-    
-    if not current_user.has_access_to_client(competitor.client_id):
-        return jsonify({'error': 'Access denied'}), 403
-    
-    # Get known pages
-    known_pages = DBCompetitorPage.query.filter_by(
-        competitor_id=competitor_id
-    ).all()
-    
-    known_page_data = [{'url': p.url, 'lastmod': None} for p in known_pages]
-    
-    # Crawl for new content
-    new_pages, updated_pages = competitor_monitoring_service.detect_new_content(
-        competitor.domain,
-        known_page_data,
-        competitor.last_crawl_at
-    )
-    
-    # Save new pages
-    saved_pages = []
-    for page_data in new_pages:
-        # Extract content
-        content = competitor_monitoring_service.extract_page_content(page_data['url'])
+    try:
+        competitor = DBCompetitor.query.get(competitor_id)
         
-        if content.get('error'):
-            continue
+        if not competitor:
+            return jsonify({'error': 'Competitor not found'}), 404
         
-        # Check if it's a content page worth tracking
-        if content.get('word_count', 0) < 300:
-            continue
+        if not current_user.has_access_to_client(competitor.client_id):
+            return jsonify({'error': 'Access denied'}), 403
         
-        # Save to database
-        page = DBCompetitorPage(
-            competitor_id=competitor_id,
-            client_id=competitor.client_id,
-            url=page_data['url'],
-            title=content.get('title', ''),
-            content_hash=content.get('content_hash', ''),
-            word_count=content.get('word_count', 0),
-            h1=content.get('h1', ''),
-            meta_description=content.get('meta_description', '')
+        # Get known pages
+        known_pages = DBCompetitorPage.query.filter_by(
+            competitor_id=competitor_id
+        ).all()
+        
+        known_page_data = [{'url': p.url, 'lastmod': None} for p in known_pages]
+        
+        # Crawl for new content
+        new_pages, updated_pages = competitor_monitoring_service.detect_new_content(
+            competitor.domain,
+            known_page_data,
+            competitor.last_crawl_at
         )
         
-        db.session.add(page)
-        saved_pages.append(page)
+        # Save new pages
+        saved_pages = []
+        for page_data in new_pages:
+            # Extract content
+            content = competitor_monitoring_service.extract_page_content(page_data['url'])
+            
+            if content.get('error'):
+                continue
+            
+            # Check if it's a content page worth tracking
+            if content.get('word_count', 0) < 300:
+                continue
+            
+            # Save to database
+            page = DBCompetitorPage(
+                competitor_id=competitor_id,
+                client_id=competitor.client_id,
+                url=page_data['url'],
+                title=content.get('title', ''),
+                content_hash=content.get('content_hash', ''),
+                word_count=content.get('word_count', 0),
+                h1=content.get('h1', ''),
+                meta_description=content.get('meta_description', '')
+            )
+            
+            db.session.add(page)
+            saved_pages.append(page)
+            
+            # Create alert
+            alert = DBAlert(
+                client_id=competitor.client_id,
+                alert_type='new_competitor_content',
+                title=f'New content from {competitor.name}',
+                message=f'"{content.get("title", "Untitled")}" ({content.get("word_count", 0)} words)',
+                related_competitor_id=competitor_id,
+                related_page_id=page.id,
+                priority='high'
+            )
+            db.session.add(alert)
         
-        # Create alert
-        alert = DBAlert(
-            client_id=competitor.client_id,
-            alert_type='new_competitor_content',
-            title=f'New content from {competitor.name}',
-            message=f'"{content.get("title", "Untitled")}" ({content.get("word_count", 0)} words)',
-            related_competitor_id=competitor_id,
-            related_page_id=page.id,
-            priority='high'
-        )
-        db.session.add(alert)
-    
-    # Update competitor stats
-    competitor.last_crawl_at = datetime.utcnow()
-    competitor.next_crawl_at = datetime.utcnow() + timedelta(days=1)
-    competitor.known_pages_count = len(known_pages) + len(saved_pages)
-    competitor.new_pages_detected += len(saved_pages)
-    
-    db.session.commit()
-    
-    return jsonify({
-        'competitor': competitor.to_dict(),
-        'new_pages_found': len(saved_pages),
-        'pages': [p.to_dict() for p in saved_pages]
-    })
+        # Update competitor stats
+        competitor.last_crawl_at = datetime.utcnow()
+        competitor.next_crawl_at = datetime.utcnow() + timedelta(days=1)
+        competitor.known_pages_count = len(known_pages) + len(saved_pages)
+        competitor.new_pages_detected += len(saved_pages)
+        
+        db.session.commit()
+        
+        return jsonify({
+            'competitor': competitor.to_dict(),
+            'new_pages_found': len(saved_pages),
+            'pages': [p.to_dict() for p in saved_pages]
+        })
+        
+    except Exception as e:
+        import traceback
+        logger.error(f"Crawl error for competitor {competitor_id}: {e}\n{traceback.format_exc()}")
+        return jsonify({'error': f'Crawl failed: {str(e)}'}), 500
 
 
 @monitoring_bp.route('/competitors/discover', methods=['POST'])
