@@ -4095,6 +4095,33 @@
                 console.error('Error loading overview stats:', error);
             }
             
+            // Fallback: fetch leads count directly if not returned from analytics
+            if (leads === 0) {
+                try {
+                    const leadsResponse = await fetch(`${API_URL}/api/leads?client_id=${currentClient.id}`, {
+                        headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
+                    });
+                    if (leadsResponse.ok) {
+                        const leadsData = await leadsResponse.json();
+                        // Count leads from this month
+                        const now = new Date();
+                        const thisMonth = now.getMonth();
+                        const thisYear = now.getFullYear();
+                        const allLeads = leadsData.leads || [];
+                        leads = allLeads.filter(l => {
+                            const leadDate = new Date(l.created_at);
+                            return leadDate.getMonth() === thisMonth && leadDate.getFullYear() === thisYear;
+                        }).length;
+                        // If no leads this month, show total
+                        if (leads === 0 && allLeads.length > 0) {
+                            leads = allLeads.length;
+                        }
+                    }
+                } catch (e) {
+                    console.error('Error fetching leads:', e);
+                }
+            }
+            
             // Use fallbacks from local data if API didn't return values
             if (contentCount === 0) {
                 contentCount = allBlogs?.filter(b => b.status === 'published').length || 0;
