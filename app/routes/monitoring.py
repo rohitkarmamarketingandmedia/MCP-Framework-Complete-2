@@ -194,9 +194,17 @@ def crawl_competitor(current_user, competitor_id):
             competitor.last_crawl_at
         )
         
-        # Save new pages
+        # Save new pages - limit to 5 to avoid worker timeout
         saved_pages = []
+        pages_processed = 0
+        max_pages_to_process = 5
+        
         for page_data in new_pages:
+            if pages_processed >= max_pages_to_process:
+                break
+                
+            pages_processed += 1
+            
             # Extract content
             content = competitor_monitoring_service.extract_page_content(page_data['url'])
             
