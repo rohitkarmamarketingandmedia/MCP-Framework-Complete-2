@@ -9324,6 +9324,11 @@
                         document.getElementById('ga4Pageviews').textContent = (data.pageviews || 0).toLocaleString();
                         document.getElementById('ga4BounceRate').textContent = (data.bounce_rate || 0).toFixed(1) + '%';
                         
+                        // Show message if credentials missing
+                        if (data.credentials_missing) {
+                            showToast('GA4 Property ID saved, but server needs Google credentials to fetch data. Contact admin.', 'warning');
+                        }
+                        
                         // Update top pages
                         const topPagesHtml = data.top_pages?.length 
                             ? data.top_pages.slice(0, 5).map(p => `

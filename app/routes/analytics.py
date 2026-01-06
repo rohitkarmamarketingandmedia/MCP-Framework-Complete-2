@@ -109,8 +109,9 @@ def get_traffic(current_user, client_id):
     if not client:
         return jsonify({'error': 'Client not found'}), 404
     
-    # Check if GA4 is configured
+    # Check if GA4 is configured (need both property ID AND credentials)
     property_id = getattr(client, 'ga4_property_id', None) or current_app.config.get('GA4_PROPERTY_ID')
+    credentials_configured = bool(os.environ.get('GA4_CREDENTIALS_JSON'))
     is_configured = bool(property_id)
     
     if not is_configured:
@@ -118,6 +119,20 @@ def get_traffic(current_user, client_id):
             'configured': False,
             'client_id': client_id,
             'message': 'GA4 not configured. Add your GA4 Property ID in Settings → Integrations.'
+        })
+    
+    if not credentials_configured:
+        return jsonify({
+            'configured': True,
+            'credentials_missing': True,
+            'client_id': client_id,
+            'sessions': 0,
+            'users': 0, 
+            'pageviews': 0,
+            'bounce_rate': 0,
+            'top_pages': [],
+            'search_terms': [],
+            'message': 'GA4 Property ID saved. Server needs GA4_CREDENTIALS_JSON environment variable with a Google Service Account to fetch data.'
         })
     
     try:
