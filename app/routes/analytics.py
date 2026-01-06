@@ -2,6 +2,7 @@
 MCP Framework - Analytics Routes
 Traffic, rankings, and performance metrics
 """
+import os
 from flask import Blueprint, request, jsonify, current_app
 from app.routes.auth import token_required, admin_required
 from app.services.analytics_service import AnalyticsService, ComparativeAnalytics
