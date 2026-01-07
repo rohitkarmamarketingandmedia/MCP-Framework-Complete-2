@@ -317,8 +317,8 @@ def generate_content(current_user):
         'word_count': data.get('word_count', current_app.config['DEFAULT_BLOG_WORD_COUNT']),
         'tone': data.get('tone', current_app.config['DEFAULT_TONE']),
         'business_name': client.business_name or '',
-        'include_faq': data.get('include_faq', True),
-        'faq_count': data.get('faq_count', 5),
+        'include_faq': data.get('include_faq', False),
+        'faq_count': data.get('faq_count', 2),
         'internal_links': internal_links,
         'usps': client.get_unique_selling_points() or []
     }

@@ -110,14 +110,18 @@ class AIService:
             system_prompt = system_prompt.replace('{tone}', tone)
             system_prompt = system_prompt.replace('{industry}', industry)
             
+            # Override model and tokens for speed on Render free tier
+            fast_model = self.default_model  # gpt-3.5-turbo
+            fast_tokens = min(agent_config.max_tokens, 1000)  # Cap at 1000
+            
             response = self._call_with_retry(
                 prompt, 
-                max_tokens=agent_config.max_tokens,
+                max_tokens=fast_tokens,
                 system_prompt=system_prompt,
-                model=agent_config.model,
+                model=fast_model,
                 temperature=agent_config.temperature
             )
-            logger.info(f"Used content_writer agent config (model={agent_config.model})")
+            logger.info(f"Used content_writer agent config (model={fast_model}, tokens={fast_tokens})")
         else:
             # Fallback to default behavior - use 1000 tokens for faster response
             response = self._call_with_retry(prompt, max_tokens=1000)
