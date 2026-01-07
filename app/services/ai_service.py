@@ -119,8 +119,8 @@ class AIService:
             )
             logger.info(f"Used content_writer agent config (model={agent_config.model})")
         else:
-            # Fallback to default behavior
-            response = self._call_with_retry(prompt, max_tokens=4000)
+            # Fallback to default behavior - use 2500 tokens for faster response
+            response = self._call_with_retry(prompt, max_tokens=2500)
         
         if response.get('error'):
             logger.error(f"Blog generation failed: {response['error']}")
@@ -624,7 +624,7 @@ CRITICAL REMINDERS:
                     'max_tokens': max_tokens,
                     'temperature': temperature
                 },
-                timeout=120
+                timeout=90
             )
             
             if response.status_code == 429:
@@ -675,7 +675,7 @@ CRITICAL REMINDERS:
                     'anthropic-version': '2023-06-01'
                 },
                 json=payload,
-                timeout=120
+                timeout=90
             )
             
             response.raise_for_status()
