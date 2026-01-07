@@ -48,11 +48,11 @@ class AIService:
         keyword: str,
         geo: str,
         industry: str,
-        word_count: int = 1200,
+        word_count: int = 600,
         tone: str = 'professional',
         business_name: str = '',
         include_faq: bool = True,
-        faq_count: int = 5,
+        faq_count: int = 3,
         internal_links: List[Dict] = None,
         usps: List[str] = None
     ) -> Dict[str, Any]:
@@ -119,8 +119,8 @@ class AIService:
             )
             logger.info(f"Used content_writer agent config (model={agent_config.model})")
         else:
-            # Fallback to default behavior - use 2500 tokens for faster response
-            response = self._call_with_retry(prompt, max_tokens=2500)
+            # Fallback to default behavior - use 1500 tokens for faster response
+            response = self._call_with_retry(prompt, max_tokens=1500)
         
         if response.get('error'):
             logger.error(f"Blog generation failed: {response['error']}")

@@ -9,7 +9,7 @@ services:
     region: oregon
     plan: starter
     buildCommand: chmod +x build.sh && ./build.sh
-    startCommand: gunicorn run:app --bind 0.0.0.0:$PORT --workers 1 --threads 4 --timeout 180
+    startCommand: gunicorn run:app --bind 0.0.0.0:$PORT --worker-class gevent --workers 2 --timeout 300
     envVars:
       # Environment
       - key: FLASK_ENV
