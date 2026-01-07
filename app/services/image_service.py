@@ -214,7 +214,7 @@ class ImageGenerationService:
             'https://api.openai.com/v1/images/generations',
             headers=headers,
             json=payload,
-            timeout=120
+            timeout=25  # Reduced for Render's 30s limit
         )
         
         if response.status_code != 200:

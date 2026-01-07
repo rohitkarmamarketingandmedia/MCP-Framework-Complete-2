@@ -60,6 +60,16 @@ def generate_image(current_user):
     try:
         image_service = get_image_service()
         
+        # Check if any providers are configured
+        available_providers = ImageConfig.get_available_providers()
+        logger.info(f"Image generation request - Available providers: {available_providers}")
+        
+        if not available_providers:
+            return jsonify({
+                'success': False,
+                'error': 'No image providers configured. Add OPENAI_API_KEY for DALL-E or UNSPLASH_ACCESS_KEY for stock photos.'
+            }), 400
+        
         result = image_service.generate_image(
             prompt=prompt,
             style=data.get('style', 'photorealistic'),
@@ -70,13 +80,20 @@ def generate_image(current_user):
             client_id=client_id
         )
         
+        if not result.get('success'):
+            logger.error(f"Image generation failed: {result.get('error')}")
+        else:
+            logger.info(f"Image generated successfully: {result.get('url')}")
+        
         return jsonify(result)
         
     except Exception as e:
         logger.error(f"Image generation error: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({
             'success': False,
-            'error': 'An error occurred. Please try again.'
+            'error': f'Image generation failed: {str(e)}'
         }), 500
 
 
@@ -675,3 +692,31 @@ def get_image_categories():
         {'id': 'general', 'name': 'General', 'description': 'Other images'}
     ]
     return jsonify({'categories': categories})
+
+
+@images_bp.route('/debug', methods=['GET'])
+@token_required
+def debug_image_config(current_user):
+    """
+    Debug endpoint to check image generation configuration
+    
+    GET /api/images/debug
+    """
+    if not current_user.is_admin:
+        return jsonify({'error': 'Admin only'}), 403
+    
+    import os
+    
+    providers = ImageConfig.get_available_providers()
+    
+    return jsonify({
+        'available_providers': providers,
+        'openai_key_set': bool(os.getenv('OPENAI_API_KEY')),
+        'openai_key_length': len(os.getenv('OPENAI_API_KEY', '')),
+        'stability_key_set': bool(os.getenv('STABILITY_API_KEY')),
+        'replicate_token_set': bool(os.getenv('REPLICATE_API_TOKEN')),
+        'unsplash_key_set': bool(os.getenv('UNSPLASH_ACCESS_KEY')),
+        'upload_dir': ImageConfig.IMAGE_UPLOAD_DIR,
+        'upload_dir_exists': os.path.exists(ImageConfig.IMAGE_UPLOAD_DIR),
+        'pillow_available': True  # Would check PIL import
+    })
