@@ -718,7 +718,7 @@ CRITICAL REMINDERS:
         agent = agent_service.get_agent(agent_name)
         if not agent:
             logger.warning(f"Agent '{agent_name}' not found, using default behavior")
-            return self._call_openai(user_input, max_tokens=2000)
+            return self._call_openai(user_input, max_tokens=1000)
         
         # Get system prompt with variable substitution
         system_prompt = agent.system_prompt
@@ -726,26 +726,20 @@ CRITICAL REMINDERS:
             for key, value in variables.items():
                 system_prompt = system_prompt.replace(f'{{{key}}}', str(value))
         
-        logger.info(f"Using agent '{agent_name}' with model {agent.model}")
+        # Override model for speed on Render free tier
+        fast_model = self.default_model  # gpt-3.5-turbo
+        fast_tokens = min(agent.max_tokens, 1000)  # Cap at 1000
         
-        # Determine which API to call based on model
-        model_lower = agent.model.lower()
-        if 'claude' in model_lower or 'anthropic' in model_lower:
-            return self._call_anthropic(
-                prompt=user_input,
-                max_tokens=agent.max_tokens,
-                system_prompt=system_prompt,
-                model=agent.model,
-                temperature=agent.temperature
-            )
-        else:
-            return self._call_openai(
-                prompt=user_input,
-                max_tokens=agent.max_tokens,
-                system_prompt=system_prompt,
-                model=agent.model,
-                temperature=agent.temperature
-            )
+        logger.info(f"Using agent '{agent_name}' with model {fast_model} (override)")
+        
+        # Always use OpenAI with fast model
+        return self._call_openai(
+            prompt=user_input,
+            max_tokens=fast_tokens,
+            system_prompt=system_prompt,
+            model=fast_model,
+            temperature=agent.temperature
+        )
     
     def generate_raw(self, prompt: str, max_tokens: int = 2000) -> str:
         """Generate raw text response (for simple prompts)"""
