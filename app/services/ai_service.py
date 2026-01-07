@@ -291,16 +291,19 @@ Example for HVAC business:
         # Enforce rate limiting
         self._rate_limit_delay()
         
-        # Use agent config if available
+        # Use agent config if available, but override for speed
         if agent_config:
+            fast_model = self.default_model  # gpt-3.5-turbo
+            fast_tokens = min(agent_config.max_tokens, 500)  # Cap at 500 for social
+            
             response = self._call_with_retry(
                 prompt, 
-                max_tokens=agent_config.max_tokens,
+                max_tokens=fast_tokens,
                 system_prompt=agent_config.system_prompt,
-                model=agent_config.model,
+                model=fast_model,
                 temperature=agent_config.temperature
             )
-            logger.info(f"Used social_writer agent config")
+            logger.info(f"Used social_writer agent config (model={fast_model})")
         else:
             response = self._call_with_retry(prompt, max_tokens=500)
         
