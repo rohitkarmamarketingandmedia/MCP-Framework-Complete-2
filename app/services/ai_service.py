@@ -31,8 +31,8 @@ class AIService:
     
     @property
     def default_model(self):
-        """Get default AI model at runtime"""
-        return os.environ.get('DEFAULT_AI_MODEL', 'gpt-4o-mini')
+        """Get default AI model at runtime - use gpt-3.5-turbo for speed"""
+        return os.environ.get('DEFAULT_AI_MODEL', 'gpt-3.5-turbo')
     
     def _rate_limit_delay(self):
         """Enforce minimum delay between API calls"""
@@ -48,11 +48,11 @@ class AIService:
         keyword: str,
         geo: str,
         industry: str,
-        word_count: int = 600,
+        word_count: int = 400,
         tone: str = 'professional',
         business_name: str = '',
-        include_faq: bool = True,
-        faq_count: int = 3,
+        include_faq: bool = False,
+        faq_count: int = 2,
         internal_links: List[Dict] = None,
         usps: List[str] = None
     ) -> Dict[str, Any]:
@@ -119,8 +119,8 @@ class AIService:
             )
             logger.info(f"Used content_writer agent config (model={agent_config.model})")
         else:
-            # Fallback to default behavior - use 1500 tokens for faster response
-            response = self._call_with_retry(prompt, max_tokens=1500)
+            # Fallback to default behavior - use 1000 tokens for faster response
+            response = self._call_with_retry(prompt, max_tokens=1000)
         
         if response.get('error'):
             logger.error(f"Blog generation failed: {response['error']}")
