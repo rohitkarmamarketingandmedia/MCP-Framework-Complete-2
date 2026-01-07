@@ -140,13 +140,15 @@ class AnalyticsService:
             )
             
             client = self._get_client()
+            date_range = DateRange(
+                start_date=start_date.strftime('%Y-%m-%d'),
+                end_date=end_date.strftime('%Y-%m-%d')
+            )
             
-            request = RunReportRequest(
+            # Request 1: Channel breakdown
+            channel_request = RunReportRequest(
                 property=f'properties/{property_id}',
-                date_ranges=[DateRange(
-                    start_date=start_date.strftime('%Y-%m-%d'),
-                    end_date=end_date.strftime('%Y-%m-%d')
-                )],
+                date_ranges=[date_range],
                 dimensions=[
                     Dimension(name='sessionDefaultChannelGrouping')
                 ],
@@ -157,10 +159,10 @@ class AnalyticsService:
                 ]
             )
             
-            response = client.run_report(request)
+            channel_response = client.run_report(channel_request)
             
             channels = []
-            for row in response.rows:
+            for row in channel_response.rows:
                 channels.append({
                     'channel': row.dimension_values[0].value,
                     'sessions': int(row.metric_values[0].value),
@@ -168,8 +170,56 @@ class AnalyticsService:
                     'conversions': int(row.metric_values[2].value)
                 })
             
+            # Request 2: Overall metrics (pageviews, bounce rate)
+            metrics_request = RunReportRequest(
+                property=f'properties/{property_id}',
+                date_ranges=[date_range],
+                metrics=[
+                    Metric(name='screenPageViews'),
+                    Metric(name='bounceRate'),
+                    Metric(name='averageSessionDuration')
+                ]
+            )
+            
+            metrics_response = client.run_report(metrics_request)
+            
+            pageviews = 0
+            bounce_rate = 0
+            avg_session_duration = 0
+            if metrics_response.rows:
+                row = metrics_response.rows[0]
+                pageviews = int(float(row.metric_values[0].value))
+                bounce_rate = round(float(row.metric_values[1].value) * 100, 1)
+                avg_session_duration = round(float(row.metric_values[2].value), 1)
+            
+            # Request 3: Top pages
+            pages_request = RunReportRequest(
+                property=f'properties/{property_id}',
+                date_ranges=[date_range],
+                dimensions=[
+                    Dimension(name='pagePath')
+                ],
+                metrics=[
+                    Metric(name='screenPageViews')
+                ],
+                limit=10
+            )
+            
+            pages_response = client.run_report(pages_request)
+            
+            top_pages = []
+            for row in pages_response.rows:
+                top_pages.append({
+                    'page': row.dimension_values[0].value,
+                    'views': int(row.metric_values[0].value)
+                })
+            
             return {
                 'channels': channels,
+                'pageviews': pageviews,
+                'bounce_rate': bounce_rate,
+                'avg_session_duration': avg_session_duration,
+                'top_pages': top_pages,
                 'period': {
                     'start': start_date.isoformat(),
                     'end': end_date.isoformat()
@@ -177,6 +227,7 @@ class AnalyticsService:
             }
             
         except Exception as e:
+            logger.error(f"GA4 detailed traffic error: {e}")
             return {'error': str(e), **self._mock_detailed_traffic()}
     
     def get_page_metrics(
