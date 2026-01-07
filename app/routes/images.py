@@ -687,6 +687,55 @@ def get_featured_templates(current_user):
     })
 
 
+@images_bp.route('/featured/from-url', methods=['POST'])
+@token_required
+def create_featured_from_url(current_user):
+    """
+    Create featured image from an external URL
+    
+    POST /api/images/featured/from-url
+    {
+        "image_url": "https://example.com/image.jpg",
+        "title": "SEO Title to Overlay",
+        "subtitle": "Optional subtitle",
+        "template": "gradient_bottom"
+    }
+    
+    This works with external image URLs (Unsplash, Imgur, etc.)
+    """
+    from app.services.featured_image_service import featured_image_service
+    
+    if not current_user.can_generate_content:
+        return jsonify({'error': 'Permission denied'}), 403
+    
+    if not featured_image_service.is_available():
+        return jsonify({
+            'error': 'Featured image generation not available. Install Pillow: pip install Pillow'
+        }), 500
+    
+    data = request.get_json(silent=True) or {}
+    
+    image_url = data.get('image_url')
+    title = data.get('title')
+    
+    if not image_url:
+        return jsonify({'error': 'image_url is required'}), 400
+    if not title:
+        return jsonify({'error': 'title is required'}), 400
+    
+    if not image_url.startswith('http'):
+        return jsonify({'error': 'image_url must be a valid HTTP/HTTPS URL'}), 400
+    
+    result = featured_image_service.create_featured_image(
+        source_image=image_url,
+        title=title,
+        template=data.get('template', 'gradient_bottom'),
+        subtitle=data.get('subtitle')
+    )
+    
+    return jsonify(result), 200 if result.get('success') else 400
+
+
 @images_bp.route('/categories', methods=['GET'])
 def get_image_categories():
     """Get available image categories"""

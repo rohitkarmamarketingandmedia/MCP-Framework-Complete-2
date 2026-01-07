@@ -999,6 +999,9 @@
                             </h4>
                             <input type="text" id="featuredImageTitle" placeholder="Enter SEO title for overlay..." 
                                 class="w-full px-3 py-2 bg-white/10 border border-white/10 rounded-lg text-white text-sm mb-2 focus:outline-none focus:border-pink-500">
+                            <input type="text" id="featuredImageUrl" placeholder="External image URL (https://...)" 
+                                class="w-full px-3 py-2 bg-white/10 border border-white/10 rounded-lg text-white text-sm mb-2 focus:outline-none focus:border-pink-500">
+                            <p class="text-xs text-gray-400 mb-2">💡 Use Unsplash, Imgur, or any image URL. Leave blank to use uploaded images.</p>
                             <select id="featuredImageTemplate" class="w-full px-3 py-2 bg-white/10 border border-white/10 rounded-lg text-white text-sm mb-2 focus:outline-none focus:border-pink-500">
                                 <option value="gradient_bottom">Gradient Bottom</option>
                                 <option value="gradient_full">Full Overlay</option>
@@ -8550,23 +8553,43 @@
             }
             
             const template = document.getElementById('featuredImageTemplate').value;
+            const externalUrl = document.getElementById('featuredImageUrl').value.trim();
             
-            const requestBody = {
-                title: title,
-                template: template,
-                subtitle: currentClient.geo || ''
-            };
+            let endpoint, requestBody;
             
-            // If an image is selected, use it
-            if (selectedLibraryImage) {
-                requestBody.source_image_id = selectedLibraryImage;
+            if (externalUrl) {
+                // Use external URL endpoint
+                if (!externalUrl.startsWith('http')) {
+                    alert('Please enter a valid URL starting with http:// or https://');
+                    return;
+                }
+                endpoint = `${API_URL}/api/images/featured/from-url`;
+                requestBody = {
+                    image_url: externalUrl,
+                    title: title,
+                    template: template,
+                    subtitle: currentClient.geo || ''
+                };
             } else {
-                // Otherwise, auto-select from library
-                requestBody.category = 'hero';
+                // Use client library
+                endpoint = `${API_URL}/api/images/featured/${currentClient.id}`;
+                requestBody = {
+                    title: title,
+                    template: template,
+                    subtitle: currentClient.geo || ''
+                };
+                
+                // If an image is selected, use it
+                if (selectedLibraryImage) {
+                    requestBody.source_image_id = selectedLibraryImage;
+                } else {
+                    // Otherwise, auto-select from library
+                    requestBody.category = 'hero';
+                }
             }
             
             try {
-                const response = await fetch(`${API_URL}/api/images/featured/${currentClient.id}`, {
+                const response = await fetch(endpoint, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',

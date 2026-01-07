@@ -489,23 +489,39 @@ class FeaturedImageService:
         
         # Create featured image - prefer file_path (filesystem) over file_url
         source = None
-        if image.file_path and os.path.exists(image.file_path):
-            source = image.file_path
-            logger.info(f"Using file_path: {source}")
-        elif image.file_url and image.file_url.startswith('http'):
+        source_type = None
+        
+        # Check filesystem first
+        if image.file_path:
+            if os.path.exists(image.file_path):
+                source = image.file_path
+                source_type = 'file_path'
+                logger.info(f"Using file_path: {source}")
+            else:
+                logger.warning(f"file_path does not exist: {image.file_path}")
+        
+        # Try HTTP URL
+        if not source and image.file_url and image.file_url.startswith('http'):
             source = image.file_url
+            source_type = 'http_url'
             logger.info(f"Using file_url (http): {source}")
-        else:
-            # Try to construct filesystem path from file_url
-            if image.file_url and image.file_url.startswith('/static/'):
-                # Convert /static/uploads/... to static/uploads/...
-                source = image.file_url.lstrip('/')
+        
+        # Try to construct filesystem path from file_url
+        if not source and image.file_url and image.file_url.startswith('/static/'):
+            # Convert /static/uploads/... to static/uploads/...
+            relative_path = image.file_url.lstrip('/')
+            if os.path.exists(relative_path):
+                source = relative_path
+                source_type = 'relative_path'
                 logger.info(f"Using file_url as path: {source}")
+            else:
+                logger.warning(f"Relative path does not exist: {relative_path}")
         
         if not source:
+            logger.error(f"Could not locate image. file_path={image.file_path}, file_url={image.file_url}")
             return {
                 'success': False,
-                'error': f'Could not locate source image file'
+                'error': 'Image file not found on server. On Render, uploaded files are lost after each deploy. Please upload images to an external service (like Imgur or Cloudinary) and use the URL, or re-upload after each deploy.'
             }
         
         result = self.create_featured_image(
