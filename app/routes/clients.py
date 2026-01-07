@@ -174,7 +174,7 @@ def delete_client(current_user, client_id):
     
     if hard_delete:
         # Hard delete - remove client and all associated content
-        from app import db
+        from app.database import db
         from app.models.db_models import DBClient, DBBlogPost, DBSocialPost, DBChatbotConfig, DBChatConversation
         
         try:
