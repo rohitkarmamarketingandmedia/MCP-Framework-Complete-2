@@ -143,18 +143,24 @@ def get_traffic(current_user, client_id):
             end_date=end_date
         )
         
+        # Aggregate totals from channels if available
+        channels = traffic.get('channels', [])
+        total_sessions = sum(c.get('sessions', 0) for c in channels)
+        total_users = sum(c.get('users', 0) for c in channels)
+        
         return jsonify({
             'configured': True,
             'client_id': client_id,
             'start_date': start_date.isoformat(),
             'end_date': end_date.isoformat(),
-            'sessions': traffic.get('sessions', 0),
-            'users': traffic.get('users', 0),
+            'sessions': total_sessions or traffic.get('sessions', 0),
+            'users': total_users or traffic.get('users', 0),
             'pageviews': traffic.get('pageviews', 0),
             'bounce_rate': traffic.get('bounce_rate', 0),
             'avg_session_duration': traffic.get('avg_session_duration', 0),
             'top_pages': traffic.get('top_pages', []),
             'search_terms': traffic.get('search_terms', []),
+            'channels': channels,
             'metrics': traffic
         })
     except Exception as e:
