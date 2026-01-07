@@ -632,7 +632,15 @@ def create_featured_image(current_user, client_id):
     if data.get('source_image_id'):
         img = DBClientImage.query.filter_by(id=data['source_image_id'], client_id=client_id).first()
         if img:
-            source_image = img.file_path if os.path.exists(img.file_path) else img.file_url
+            # Prefer file_path (filesystem) over file_url
+            if img.file_path and os.path.exists(img.file_path):
+                source_image = img.file_path
+            elif img.file_url and img.file_url.startswith('http'):
+                source_image = img.file_url
+            elif img.file_url and img.file_url.startswith('/static/'):
+                # Convert /static/uploads/... to static/uploads/...
+                source_image = img.file_url.lstrip('/')
+            logger.info(f"Source image for featured: {source_image}")
     
     elif data.get('source_image_url'):
         source_image = data['source_image_url']

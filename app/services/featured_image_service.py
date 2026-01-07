@@ -487,8 +487,26 @@ class FeaturedImageService:
         from app.database import db
         db.session.commit()
         
-        # Create featured image
-        source = image.file_url if image.file_url.startswith('http') else image.file_path
+        # Create featured image - prefer file_path (filesystem) over file_url
+        source = None
+        if image.file_path and os.path.exists(image.file_path):
+            source = image.file_path
+            logger.info(f"Using file_path: {source}")
+        elif image.file_url and image.file_url.startswith('http'):
+            source = image.file_url
+            logger.info(f"Using file_url (http): {source}")
+        else:
+            # Try to construct filesystem path from file_url
+            if image.file_url and image.file_url.startswith('/static/'):
+                # Convert /static/uploads/... to static/uploads/...
+                source = image.file_url.lstrip('/')
+                logger.info(f"Using file_url as path: {source}")
+        
+        if not source:
+            return {
+                'success': False,
+                'error': f'Could not locate source image file'
+            }
         
         result = self.create_featured_image(
             source_image=source,
