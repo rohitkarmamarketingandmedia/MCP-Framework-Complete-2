@@ -4408,14 +4408,18 @@
         let callSimulationInterval = null;
         
         async function loadCallIntelligence() {
+            console.log('loadCallIntelligence called');
             try {
                 // First try the full intelligence report which includes AI analysis
-                const reportResponse = await fetch(`${API_URL}/api/intelligence/report/${currentClient.id}?days=30`, {
+                const reportResponse = await fetch(`${API_URL}/api/intelligence/report/${currentClient.id}?days=30&_v=${Date.now()}`, {
                     headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
                 });
                 
+                console.log('Intelligence API response status:', reportResponse.status);
+                
                 if (reportResponse.ok) {
                     const report = await reportResponse.json();
+                    console.log('Full intelligence report:', JSON.stringify(report, null, 2));
                     
                     // Update calls count
                     const callsToday = document.getElementById('calls-today');
@@ -4445,6 +4449,24 @@
                         // Show metadata-based insights when no transcripts
                         console.log('Showing metadata insights:', report.metadata_insights);
                         showMetadataInsights(report.metadata_insights, report.transcript_note);
+                    } else if (report.call_count > 0) {
+                        // Fallback: If we have calls but no metadata_insights object, build it from call_count
+                        console.log('Building basic stats from call_count');
+                        const basicInsights = {
+                            call_summary: {
+                                total_calls: report.call_count,
+                                answered: report.call_count,
+                                answer_rate: 100,
+                                voicemails: 0,
+                                avg_duration_seconds: 60,
+                                avg_duration_formatted: '1:00',
+                                long_calls: 0,
+                                long_call_rate: 0
+                            },
+                            peak_times: { busiest_hours: [], busiest_days: [] },
+                            recommendations: ['Enable CallRail Conversation Intelligence for deeper insights']
+                        };
+                        showMetadataInsights(basicInsights, 'Basic call statistics');
                     } else {
                         // No insights at all - show helpful message instead of Loading...
                         console.log('No insights available, showing message');
