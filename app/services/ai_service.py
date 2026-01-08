@@ -552,6 +552,15 @@ CRITICAL REMINDERS:
             
             data = json.loads(content)
             
+            # Validate body content - make sure it's not accidentally containing JSON
+            body_content = data.get('body', '')
+            if body_content.strip().startswith('{') or '"title":' in body_content:
+                logger.warning("Body appears to contain JSON - parsing may have failed")
+                # Try to extract just the text content
+                body_content = re.sub(r'[{}\[\]"]', '', body_content)
+                body_content = re.sub(r'(title|h1|meta_title|meta_description|body|h2_headings|h3_headings|faq_items|secondary_keywords|word_count)\s*:', '', body_content)
+                data['body'] = f"<p>{body_content[:500]}...</p>"
+            
             # Generate HTML if not present
             if 'html' not in data and 'body' in data:
                 data['html'] = data['body']
@@ -563,18 +572,40 @@ CRITICAL REMINDERS:
             logger.error(f"JSON parse error: {e}")
             logger.debug(f"Failed content: {content[:500]}")
             
-            # Try to extract any usable content
+            # Try to extract body content from the failed JSON
+            body_match = re.search(r'"body"\s*:\s*"(.*?)(?:"\s*,\s*"h2_headings|"\s*,\s*"faq_items|"\s*})', original_content, re.DOTALL)
+            if body_match:
+                extracted_body = body_match.group(1)
+                # Unescape the JSON string
+                extracted_body = extracted_body.replace('\\"', '"').replace('\\n', '\n')
+                logger.info(f"Extracted body from failed JSON: {len(extracted_body)} chars")
+            else:
+                # Fallback - try to get any paragraph content
+                p_match = re.search(r'<p>.*?</p>', original_content, re.DOTALL)
+                if p_match:
+                    extracted_body = original_content[p_match.start():]
+                else:
+                    extracted_body = f"<p>Content generation encountered an error. Please try again.</p>"
+            
+            # Try to extract title
+            title_match = re.search(r'"title"\s*:\s*"([^"]+)"', original_content)
+            extracted_title = title_match.group(1) if title_match else ''
+            
+            # Try to extract meta
+            meta_title_match = re.search(r'"meta_title"\s*:\s*"([^"]+)"', original_content)
+            meta_desc_match = re.search(r'"meta_description"\s*:\s*"([^"]+)"', original_content)
+            
             return {
-                'title': '',
-                'h1': '',
-                'body': original_content if '<' in original_content else f"<p>{original_content}</p>",
-                'meta_title': '',
-                'meta_description': '',
+                'title': extracted_title,
+                'h1': extracted_title,
+                'body': extracted_body,
+                'meta_title': meta_title_match.group(1) if meta_title_match else '',
+                'meta_description': meta_desc_match.group(1) if meta_desc_match else '',
                 'h2_headings': [],
                 'h3_headings': [],
                 'faq_items': [],
                 'secondary_keywords': [],
-                'html': original_content,
+                'html': extracted_body,
                 'parse_error': str(e)
             }
     

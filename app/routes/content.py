@@ -97,6 +97,13 @@ def _generate_blog_background(task_id, app, client_id, keyword, word_count, incl
                 _blog_tasks[task_id] = {'status': 'error', 'error': result['error']}
                 return
             
+            # Validate the result - make sure body is actual HTML not JSON
+            body_content = result.get('body', '')
+            if not body_content or body_content.strip().startswith('{') or '"title":' in body_content:
+                logger.error(f"Blog generation returned invalid body: {body_content[:200]}")
+                _blog_tasks[task_id] = {'status': 'error', 'error': 'AI returned invalid content format. Please try again.'}
+                return
+            
             # Process with internal linking
             body_content = result.get('body', '')
             links_added = 0
