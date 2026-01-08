@@ -773,7 +773,8 @@ def publish_now(current_user, client_id):
                     location_id=client.gbp_location_id,
                     text=content,
                     image_url=image_url,
-                    access_token=client.gbp_access_token
+                    access_token=client.gbp_access_token,
+                    account_id=client.gbp_account_id
                 )
                 results['gbp'] = result
                 

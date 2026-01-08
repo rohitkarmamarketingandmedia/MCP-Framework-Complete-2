@@ -44,7 +44,8 @@ class SocialService:
         image_url: str = None,
         cta_type: str = None,
         cta_url: str = None,
-        access_token: str = None
+        access_token: str = None,
+        account_id: str = None
     ) -> Dict[str, Any]:
         """
         Publish post to Google Business Profile
@@ -56,6 +57,7 @@ class SocialService:
             cta_type: LEARN_MORE, BOOK, ORDER, SHOP, SIGN_UP, CALL
             cta_url: URL for CTA button
             access_token: OAuth access token for GBP
+            account_id: GBP account ID
         """
         token = access_token or self.gbp_api_key
         if not token:
@@ -83,13 +85,21 @@ class SocialService:
                     'sourceUrl': image_url
                 }
             
-            # GBP API endpoint - use Business Profile API
-            # The location_id should be in format: accounts/{account_id}/locations/{location_id}
-            if '/' in location_id:
-                url = f'https://mybusinessbusinessinformation.googleapis.com/v1/{location_id}/localPosts'
+            # Build GBP API URL
+            # Google Business Profile has multiple API endpoints:
+            # - Old: mybusiness.googleapis.com/v4/accounts/{accountId}/locations/{locationId}/localPosts
+            # - New: mybusinessbusinessinformation.googleapis.com for info
+            # - Posting: Use accounts/-/locations/{locationId} with wildcard
+            
+            # Try with wildcard account first (most compatible)
+            if 'accounts/' in str(location_id) and 'locations/' in str(location_id):
+                # Already has full path format
+                base_path = location_id
             else:
-                # Try the My Business API v4 format
-                url = f'https://mybusiness.googleapis.com/v4/{location_id}/localPosts'
+                # Use wildcard account - GBP API supports this for authenticated users
+                base_path = f'accounts/-/locations/{location_id}'
+            
+            url = f'https://mybusiness.googleapis.com/v4/{base_path}/localPosts'
             
             logger.info(f"Publishing to GBP: {url}")
             
@@ -106,7 +116,14 @@ class SocialService:
             if response.status_code == 401:
                 return {'success': False, 'error': 'GBP token expired - please reconnect Google Business'}
             
-            response.raise_for_status()
+            if response.status_code == 404:
+                return {'success': False, 'error': 'GBP location not found - please reconnect Google Business'}
+            
+            if not response.ok:
+                error_text = response.text[:200]
+                logger.error(f"GBP API error {response.status_code}: {error_text}")
+                return {'success': False, 'error': f'GBP error: {error_text}'}
+            
             result = response.json()
             
             return {
