@@ -40,7 +40,8 @@ class SocialService:
         text: str,
         image_url: str = None,
         cta_type: str = None,
-        cta_url: str = None
+        cta_url: str = None,
+        access_token: str = None
     ) -> Dict[str, Any]:
         """
         Publish post to Google Business Profile
@@ -51,9 +52,11 @@ class SocialService:
             image_url: Optional image URL
             cta_type: LEARN_MORE, BOOK, ORDER, SHOP, SIGN_UP, CALL
             cta_url: URL for CTA button
+            access_token: OAuth access token for GBP
         """
-        if not self.gbp_api_key:
-            return {'error': 'GBP API key not configured', 'mock': True, 'post_id': 'mock_gbp_123'}
+        token = access_token or self.gbp_api_key
+        if not token:
+            return {'success': False, 'error': 'GBP access token not configured'}
         
         try:
             # Build post data
@@ -77,18 +80,28 @@ class SocialService:
                     'sourceUrl': image_url
                 }
             
-            # GBP API endpoint
-            url = f'https://mybusiness.googleapis.com/v4/accounts/{{account_id}}/locations/{location_id}/localPosts'
+            # GBP API endpoint - use Business Profile API
+            # The location_id should be in format: accounts/{account_id}/locations/{location_id}
+            if '/' in location_id:
+                url = f'https://mybusinessbusinessinformation.googleapis.com/v1/{location_id}/localPosts'
+            else:
+                # Try the My Business API v4 format
+                url = f'https://mybusiness.googleapis.com/v4/{location_id}/localPosts'
+            
+            logger.info(f"Publishing to GBP: {url}")
             
             response = requests.post(
                 url,
                 headers={
-                    'Authorization': f'Bearer {self.gbp_api_key}',
+                    'Authorization': f'Bearer {token}',
                     'Content-Type': 'application/json'
                 },
                 json=post_data,
                 timeout=30
             )
+            
+            if response.status_code == 401:
+                return {'success': False, 'error': 'GBP token expired - please reconnect Google Business'}
             
             response.raise_for_status()
             result = response.json()
@@ -100,7 +113,8 @@ class SocialService:
             }
             
         except requests.RequestException as e:
-            return {'error': f'GBP API error: {str(e)}'}
+            logger.error(f"GBP publish error: {e}")
+            return {'success': False, 'error': f'GBP API error: {str(e)}'}
     
     def publish_to_facebook(
         self,
@@ -124,7 +138,7 @@ class SocialService:
         access_token = access_token or self.facebook_token
         
         if not page_id or not access_token:
-            return {'error': 'Facebook credentials not configured', 'mock': True, 'post_id': 'mock_fb_123'}
+            return {'success': False, 'error': 'Facebook not connected - please reconnect in Settings'}
         
         try:
             if image_url:
@@ -145,9 +159,20 @@ class SocialService:
                 if link:
                     data['link'] = link
             
+            logger.info(f"Publishing to Facebook page {page_id}")
             response = requests.post(endpoint, data=data, timeout=30)
-            response.raise_for_status()
+            
+            if response.status_code == 401 or response.status_code == 190:
+                return {'success': False, 'error': 'Facebook token expired - please reconnect'}
+            
             result = response.json()
+            
+            if 'error' in result:
+                error_msg = result['error'].get('message', 'Unknown error')
+                logger.error(f"Facebook API error: {error_msg}")
+                return {'success': False, 'error': f'Facebook: {error_msg}'}
+            
+            response.raise_for_status()
             
             return {
                 'success': True,
@@ -155,7 +180,8 @@ class SocialService:
             }
             
         except requests.RequestException as e:
-            return {'error': f'Facebook API error: {str(e)}'}
+            logger.error(f"Facebook publish error: {e}")
+            return {'success': False, 'error': f'Facebook API error: {str(e)}'}
     
     def publish_to_instagram(
         self,
@@ -225,7 +251,7 @@ class SocialService:
         access_token = access_token or self.linkedin_token
         
         if not organization_id or not access_token:
-            return {'error': 'LinkedIn credentials not configured', 'mock': True, 'post_id': 'mock_li_123'}
+            return {'success': False, 'error': 'LinkedIn not connected - please reconnect in Settings'}
         
         try:
             post_data = {
@@ -254,6 +280,7 @@ class SocialService:
                     'description': {'text': link_description or ''}
                 }]
             
+            logger.info(f"Publishing to LinkedIn org {organization_id}")
             response = requests.post(
                 'https://api.linkedin.com/v2/ugcPosts',
                 headers={
@@ -265,7 +292,14 @@ class SocialService:
                 timeout=30
             )
             
-            response.raise_for_status()
+            if response.status_code == 401:
+                return {'success': False, 'error': 'LinkedIn token expired - please reconnect'}
+            
+            if not response.ok:
+                error_data = response.json() if response.text else {}
+                error_msg = error_data.get('message', response.text[:100])
+                logger.error(f"LinkedIn API error: {error_msg}")
+                return {'success': False, 'error': f'LinkedIn: {error_msg}'}
             
             return {
                 'success': True,
@@ -273,7 +307,8 @@ class SocialService:
             }
             
         except requests.RequestException as e:
-            return {'error': f'LinkedIn API error: {str(e)}'}
+            logger.error(f"LinkedIn publish error: {e}")
+            return {'success': False, 'error': f'LinkedIn API error: {str(e)}'}
     
     def get_gbp_insights(
         self,
