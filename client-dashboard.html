@@ -3087,9 +3087,10 @@
     </div>
 
     <script>
-        // Debug logging - disabled in production
-        const DEBUG = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-        if (!DEBUG) { console.log = () => {}; console.error = () => {}; }
+        // Debug logging - ENABLED for troubleshooting
+        const DEBUG = true; // Temporarily enabled
+        // if (!DEBUG) { console.log = () => {}; console.error = () => {}; }
+        console.log('=== MCP Dashboard v5.5.148 Loaded ===');
         
         // ==========================================
         // LOADING STATE UTILITY
