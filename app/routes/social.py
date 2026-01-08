@@ -10,6 +10,9 @@ from app.services.db_service import DataService
 from app.models.db_models import DBSocialPost, ContentStatus
 from datetime import datetime
 import json
+import logging
+
+logger = logging.getLogger(__name__)
 
 social_bp = Blueprint('social', __name__)
 ai_service = AIService()
@@ -775,7 +778,10 @@ def publish_now(current_user, client_id):
                 results['gbp'] = result
                 
         except Exception as e:
-            results[platform] = {'success': False, 'error': 'An error occurred. Please try again.'}
+            import traceback
+            logger.error(f"Social publish error for {platform}: {e}")
+            logger.error(traceback.format_exc())
+            results[platform] = {'success': False, 'error': str(e)}
     
     successful = sum(1 for r in results.values() if r.get('success'))
     
