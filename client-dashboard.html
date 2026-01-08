@@ -1726,10 +1726,17 @@
 
                 <!-- Social Connections -->
                 <div class="glass rounded-2xl p-6 mt-6">
-                    <h3 class="text-lg font-bold text-white mb-4">
-                        <i class="fas fa-share-nodes mr-2 text-blue-400"></i>Social Media Connections
-                    </h3>
-                    <p class="text-gray-400 text-sm mb-4">Connect your social accounts for automated publishing</p>
+                    <div class="flex items-center justify-between mb-4">
+                        <div>
+                            <h3 class="text-lg font-bold text-white">
+                                <i class="fas fa-share-nodes mr-2 text-blue-400"></i>Social Media Connections
+                            </h3>
+                            <p class="text-gray-400 text-sm">Connect your social accounts for automated publishing</p>
+                        </div>
+                        <button onclick="verifyOAuthCredentials()" class="px-3 py-1.5 bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 rounded-lg text-xs transition" title="Verify API credentials are configured correctly">
+                            <i class="fas fa-check-circle mr-1"></i>Verify API Setup
+                        </button>
+                    </div>
                     <div id="socialConnections" class="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
                         <!-- GBP -->
                         <div class="bg-white/5 rounded-xl p-4 border border-white/10" data-platform="gbp">
@@ -10704,6 +10711,74 @@
             } else if (oauthError) {
                 alert(`OAuth Error: ${decodeURIComponent(oauthError)} for ${platform}`);
                 window.history.replaceState({}, document.title, window.location.pathname);
+            }
+        }
+        
+        async function verifyOAuthCredentials() {
+            try {
+                const response = await fetch(`${API_URL}/api/oauth/verify-credentials`, {
+                    headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
+                });
+                const data = await response.json();
+                
+                if (!response.ok) {
+                    alert('Error verifying credentials: ' + (data.error || 'Unknown error'));
+                    return;
+                }
+                
+                // Build result message
+                let message = '🔐 OAuth API Credentials Status\n\n';
+                
+                // Facebook
+                const fb = data.platforms.facebook;
+                message += `📘 Facebook:\n`;
+                message += `   Configured: ${fb.configured ? '✅ Yes' : '❌ No'}\n`;
+                if (fb.configured) {
+                    message += `   Valid: ${fb.valid ? '✅ Yes' : '❌ No'}\n`;
+                    message += `   App ID: ${fb.app_id || 'N/A'}\n`;
+                    if (fb.app_name) message += `   App Name: ${fb.app_name}\n`;
+                    if (fb.error) message += `   Error: ${fb.error}\n`;
+                } else {
+                    message += `   Error: ${fb.error}\n`;
+                }
+                message += '\n';
+                
+                // Google
+                const google = data.platforms.google;
+                message += `🔵 Google Business Profile:\n`;
+                message += `   Configured: ${google.configured ? '✅ Yes' : '❌ No'}\n`;
+                if (google.configured) {
+                    message += `   Valid: ${google.valid ? '✅ Yes' : '❌ No'}\n`;
+                    message += `   Client ID: ${google.client_id || 'N/A'}\n`;
+                    if (google.error) message += `   Error: ${google.error}\n`;
+                } else {
+                    message += `   Error: ${google.error}\n`;
+                }
+                message += '\n';
+                
+                // LinkedIn
+                const li = data.platforms.linkedin;
+                message += `💼 LinkedIn:\n`;
+                message += `   Configured: ${li.configured ? '✅ Yes' : '❌ No'}\n`;
+                if (li.configured) {
+                    message += `   Valid: ${li.valid ? '✅ Yes' : '❌ No'}\n`;
+                    message += `   Client ID: ${li.client_id || 'N/A'}\n`;
+                    if (li.error) message += `   Error: ${li.error}\n`;
+                } else {
+                    message += `   Error: ${li.error}\n`;
+                }
+                message += '\n';
+                
+                // Callbacks
+                message += `📍 Required Callback URLs:\n`;
+                message += `   Facebook: ${data.required_callbacks.facebook}\n`;
+                message += `   Google: ${data.required_callbacks.google}\n`;
+                message += `   LinkedIn: ${data.required_callbacks.linkedin}\n`;
+                
+                alert(message);
+                
+            } catch (error) {
+                alert('Error verifying credentials: ' + error.message);
             }
         }
         

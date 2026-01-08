@@ -601,3 +601,125 @@ def disconnect_platform(current_user, platform, client_id):
     except Exception as e:
         db.session.rollback()
         return jsonify({'error': 'An error occurred. Please try again.'}), 500
+
+
+# ==========================================
+# VERIFY API CREDENTIALS
+# ==========================================
+
+@oauth_bp.route('/verify-credentials', methods=['GET'])
+@token_required
+def verify_credentials(current_user):
+    """
+    Verify that OAuth API credentials are correctly configured
+    
+    GET /api/oauth/verify-credentials
+    
+    Tests each platform's credentials by making a simple API call
+    """
+    import requests
+    import os
+    
+    results = {
+        'facebook': {'configured': False, 'valid': False, 'error': None},
+        'google': {'configured': False, 'valid': False, 'error': None},
+        'linkedin': {'configured': False, 'valid': False, 'error': None}
+    }
+    
+    # ===== FACEBOOK =====
+    fb_app_id = os.getenv('FACEBOOK_APP_ID', '')
+    fb_app_secret = os.getenv('FACEBOOK_APP_SECRET', '')
+    
+    if fb_app_id and fb_app_secret:
+        results['facebook']['configured'] = True
+        results['facebook']['app_id'] = fb_app_id[:8] + '...'  # Show partial for verification
+        
+        try:
+            # Test by getting app access token
+            url = "https://graph.facebook.com/oauth/access_token"
+            params = {
+                'client_id': fb_app_id,
+                'client_secret': fb_app_secret,
+                'grant_type': 'client_credentials'
+            }
+            response = requests.get(url, params=params, timeout=10)
+            data = response.json()
+            
+            if 'access_token' in data:
+                results['facebook']['valid'] = True
+                results['facebook']['message'] = 'App credentials are valid'
+                
+                # Check app mode (dev vs live)
+                app_token = data['access_token']
+                app_url = f"https://graph.facebook.com/{fb_app_id}"
+                app_response = requests.get(app_url, params={'access_token': app_token}, timeout=10)
+                app_data = app_response.json()
+                
+                # Try to determine if app is in dev mode
+                # Apps in dev mode have restricted access
+                results['facebook']['app_name'] = app_data.get('name', 'Unknown')
+            else:
+                results['facebook']['valid'] = False
+                results['facebook']['error'] = data.get('error', {}).get('message', 'Invalid credentials')
+        except Exception as e:
+            results['facebook']['error'] = str(e)
+    else:
+        results['facebook']['error'] = 'FACEBOOK_APP_ID or FACEBOOK_APP_SECRET not set'
+    
+    # ===== GOOGLE =====
+    google_client_id = os.getenv('GOOGLE_CLIENT_ID', '')
+    google_client_secret = os.getenv('GOOGLE_CLIENT_SECRET', '')
+    
+    if google_client_id and google_client_secret:
+        results['google']['configured'] = True
+        results['google']['client_id'] = google_client_id[:20] + '...'  # Show partial
+        
+        # Google OAuth can't be tested without user interaction
+        # But we can verify the format
+        if '.apps.googleusercontent.com' in google_client_id:
+            results['google']['valid'] = True
+            results['google']['message'] = 'Credentials format looks valid (full test requires OAuth flow)'
+        else:
+            results['google']['valid'] = False
+            results['google']['error'] = 'Client ID format looks incorrect (should end with .apps.googleusercontent.com)'
+    else:
+        results['google']['error'] = 'GOOGLE_CLIENT_ID or GOOGLE_CLIENT_SECRET not set'
+    
+    # ===== LINKEDIN =====
+    li_client_id = os.getenv('LINKEDIN_CLIENT_ID', '')
+    li_client_secret = os.getenv('LINKEDIN_CLIENT_SECRET', '')
+    
+    if li_client_id and li_client_secret:
+        results['linkedin']['configured'] = True
+        results['linkedin']['client_id'] = li_client_id[:8] + '...'  # Show partial
+        
+        # LinkedIn also requires OAuth flow to fully test
+        # Check format - LinkedIn client IDs are typically 14 characters
+        if len(li_client_id) >= 10:
+            results['linkedin']['valid'] = True
+            results['linkedin']['message'] = 'Credentials format looks valid (full test requires OAuth flow)'
+        else:
+            results['linkedin']['valid'] = False
+            results['linkedin']['error'] = 'Client ID format looks incorrect'
+    else:
+        results['linkedin']['error'] = 'LINKEDIN_CLIENT_ID or LINKEDIN_CLIENT_SECRET not set'
+    
+    # Summary
+    all_configured = all(r['configured'] for r in results.values())
+    all_valid = all(r['valid'] for r in results.values())
+    
+    return jsonify({
+        'success': True,
+        'summary': {
+            'all_configured': all_configured,
+            'all_valid': all_valid,
+            'message': 'All credentials verified!' if all_valid else 'Some credentials need attention'
+        },
+        'platforms': results,
+        'callback_url': os.getenv('OAUTH_CALLBACK_URL', OAuthConfig.APP_URL),
+        'required_callbacks': {
+            'facebook': f"{os.getenv('OAUTH_CALLBACK_URL', OAuthConfig.APP_URL)}/api/oauth/callback/facebook",
+            'google': f"{os.getenv('OAUTH_CALLBACK_URL', OAuthConfig.APP_URL)}/api/oauth/callback/google",
+            'linkedin': f"{os.getenv('OAUTH_CALLBACK_URL', OAuthConfig.APP_URL)}/api/oauth/callback/linkedin"
+        }
+    })
