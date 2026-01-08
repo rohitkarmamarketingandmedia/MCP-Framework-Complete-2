@@ -455,6 +455,9 @@ class CallRailService:
         
         calls = []
         for call in raw_calls[:limit]:
+            # Get full transcript for analysis
+            full_transcript = call.get('conversational_transcript') or call.get('transcription') or ''
+            
             calls.append({
                 'id': call.get('id'),
                 'date': call.get('start_time'),
@@ -470,8 +473,11 @@ class CallRailService:
                 'source': call.get('source', 'Direct'),
                 # Use recording_player (has access key) instead of recording (requires auth)
                 'recording_url': call.get('recording_player') or call.get('recording'),
-                'has_transcript': bool(call.get('transcription') or call.get('conversational_transcript')),
-                'transcript_preview': self._get_transcript_preview(call),
+                'has_transcript': bool(full_transcript),
+                'transcript': full_transcript,  # Full transcript for analysis
+                'transcript_preview': self._get_transcript_preview(call),  # Short preview for UI
+                'keywords': call.get('keywords', []),
+                'call_highlights': call.get('call_highlights', []),
                 'lead_quality': self._calculate_lead_quality(call)
             })
         

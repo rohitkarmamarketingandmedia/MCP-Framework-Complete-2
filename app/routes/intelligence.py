@@ -295,10 +295,14 @@ def get_intelligence_report(current_user, client_id):
                 
                 # Extract transcripts from calls that have them
                 call_transcripts = [
-                    {'id': c['id'], 'transcript': c.get('transcript_preview', ''), 'date': c['date']}
+                    {'id': c['id'], 'transcript': c.get('transcript', '') or c.get('transcript_preview', ''), 'date': c['date']}
                     for c in all_calls if c.get('has_transcript')
                 ]
                 logger.info(f"Intelligence report: {len(call_transcripts or [])} calls have transcripts")
+                if call_transcripts:
+                    # Log first transcript length for debugging
+                    first_len = len(call_transcripts[0].get('transcript', ''))
+                    logger.info(f"First transcript length: {first_len} chars")
     except Exception as e:
         logger.warning(f"Could not fetch CallRail data: {e}")
     
