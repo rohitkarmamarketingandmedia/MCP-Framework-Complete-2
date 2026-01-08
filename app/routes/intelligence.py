@@ -3,6 +3,8 @@ MCP Framework - Customer Intelligence Routes
 Routes for analyzing interactions and generating content from customer data
 """
 from flask import Blueprint, request, jsonify
+from datetime import datetime
+from typing import List, Dict
 import logging
 
 from app.routes.auth import token_required
@@ -303,14 +305,121 @@ def get_intelligence_report(current_user, client_id):
     report = service.get_full_intelligence_report(
         client_id,
         call_transcripts=call_transcripts,
-        days=days
+        days=days,
+        all_calls=all_calls
     )
     
     # Add call count to report (even if no transcripts)
     report['call_count'] = total_calls
     report['calls_with_transcripts'] = len(call_transcripts) if call_transcripts else 0
     
+    # If we have calls but no transcripts, generate metadata-based insights
+    if total_calls > 0 and not call_transcripts:
+        report['metadata_insights'] = _generate_metadata_insights(all_calls)
+        report['transcript_note'] = 'Call transcripts require CallRail Conversation Intelligence add-on. Showing insights from call metadata.'
+    
     return jsonify(report)
+
+
+def _generate_metadata_insights(calls: List[Dict]) -> Dict:
+    """Generate useful insights from call metadata when transcripts aren't available"""
+    if not calls:
+        return {}
+    
+    # Analyze call patterns
+    total_calls = len(calls)
+    answered_calls = sum(1 for c in calls if c.get('answered'))
+    voicemails = sum(1 for c in calls if c.get('voicemail'))
+    
+    # Duration analysis
+    durations = [c.get('duration', 0) for c in calls]
+    avg_duration = sum(durations) / len(durations) if durations else 0
+    long_calls = sum(1 for d in durations if d > 120)  # Over 2 minutes
+    
+    # Time patterns
+    call_hours = []
+    call_days = []
+    for call in calls:
+        if call.get('date'):
+            try:
+                dt = datetime.fromisoformat(call['date'].replace('Z', '+00:00'))
+                call_hours.append(dt.hour)
+                call_days.append(dt.strftime('%A'))
+            except:
+                pass
+    
+    # Find peak hours
+    from collections import Counter
+    hour_counts = Counter(call_hours)
+    peak_hours = hour_counts.most_common(3)
+    day_counts = Counter(call_days)
+    busiest_days = day_counts.most_common(3)
+    
+    # Caller locations (from city if available)
+    locations = []
+    for call in calls:
+        if isinstance(call.get('caller_name'), str):
+            # Extract city from caller info if present
+            pass
+    
+    return {
+        'call_summary': {
+            'total_calls': total_calls,
+            'answered': answered_calls,
+            'answer_rate': round(answered_calls / total_calls * 100) if total_calls else 0,
+            'voicemails': voicemails,
+            'avg_duration_seconds': round(avg_duration),
+            'avg_duration_formatted': f"{int(avg_duration // 60)}:{int(avg_duration % 60):02d}",
+            'long_calls': long_calls,
+            'long_call_rate': round(long_calls / total_calls * 100) if total_calls else 0
+        },
+        'peak_times': {
+            'busiest_hours': [
+                {'hour': h, 'count': c, 'display': f"{h}:00 - {h+1}:00"}
+                for h, c in peak_hours
+            ],
+            'busiest_days': [
+                {'day': d, 'count': c}
+                for d, c in busiest_days
+            ]
+        },
+        'recommendations': _generate_recommendations_from_metadata(
+            answer_rate=answered_calls / total_calls * 100 if total_calls else 0,
+            avg_duration=avg_duration,
+            peak_hours=peak_hours
+        )
+    }
+
+
+def _generate_recommendations_from_metadata(answer_rate: float, avg_duration: float, peak_hours: list) -> List[str]:
+    """Generate actionable recommendations from call metadata"""
+    recommendations = []
+    
+    if answer_rate < 80:
+        recommendations.append("Consider adding more staff during peak hours - missing calls means missing leads")
+    
+    if answer_rate < 60:
+        recommendations.append("High missed call rate! Consider call forwarding or answering service")
+    
+    if avg_duration < 60:
+        recommendations.append("Short average call duration - ensure staff are engaging callers effectively")
+    
+    if avg_duration > 300:
+        recommendations.append("Long average call duration - consider FAQ page to answer common questions before calls")
+    
+    if peak_hours:
+        peak_hour = peak_hours[0][0]
+        if 8 <= peak_hour <= 10:
+            recommendations.append("Morning is your busiest time - ensure full staff coverage 8-11 AM")
+        elif 12 <= peak_hour <= 14:
+            recommendations.append("Lunch hour is busy - consider staggered lunch breaks for staff")
+        elif 16 <= peak_hour <= 18:
+            recommendations.append("Late afternoon is peak time - maintain coverage until 6 PM")
+    
+    if not recommendations:
+        recommendations.append("Good call patterns! Consider enabling CallRail Conversation Intelligence for deeper insights")
+    
+    return recommendations
 
 
 @intelligence_bp.route('/questions/<client_id>', methods=['GET'])

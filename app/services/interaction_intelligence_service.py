@@ -406,13 +406,15 @@ class InteractionIntelligenceService:
         self,
         client_id: str,
         call_transcripts: List[Dict] = None,
-        days: int = 30
+        days: int = 30,
+        all_calls: List[Dict] = None  # Add all calls for metadata analysis
     ) -> Dict[str, Any]:
         """
         Get comprehensive intelligence report from all sources
         
         Combines:
         - Call transcript analysis
+        - Call metadata analysis (when no transcripts)
         - Chatbot conversations
         - Lead form submissions
         
@@ -424,7 +426,8 @@ class InteractionIntelligenceService:
             'generated_at': datetime.utcnow().isoformat(),
             'sources': {},
             'combined_insights': {},
-            'content_opportunities': []
+            'content_opportunities': [],
+            'transcript_status': 'none'  # none, partial, full
         }
         
         all_questions = []
@@ -444,6 +447,7 @@ class InteractionIntelligenceService:
             all_keywords.extend([k['keyword'] for k in call_analysis.get('top_keywords', [])])
             all_pain_points.extend([p['pain_point'] for p in call_analysis.get('top_pain_points', [])])
             all_services.extend([s['service'] for s in call_analysis.get('services_requested', [])])
+            report['transcript_status'] = 'full' if len(call_transcripts) > 5 else 'partial'
         
         # Analyze chatbot
         try:

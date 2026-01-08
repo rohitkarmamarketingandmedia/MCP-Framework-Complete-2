@@ -4424,22 +4424,24 @@
                         callsToday.textContent = `${callCount} calls analyzed`;
                     }
                     
-                    // Check if we have any AI insights data
-                    const hasInsights = (report.questions?.length > 0) || 
-                                       (report.keywords?.length > 0) || 
-                                       (report.pain_points?.length > 0) || 
-                                       (report.opportunities?.length > 0);
+                    // Check if we have transcript-based AI insights
+                    const hasTranscriptInsights = (report.combined_insights?.top_questions?.length > 0) || 
+                                       (report.combined_insights?.top_keywords?.length > 0);
                     
-                    if (hasInsights) {
+                    if (hasTranscriptInsights) {
                         // Update extracted insights from AI analysis
+                        const insights = report.combined_insights || {};
                         updateExtractedUI(
-                            report.questions || report.top_questions || [],
-                            report.keywords || report.trending_keywords || [],
-                            report.pain_points || [],
-                            report.opportunities || report.content_opportunities || []
+                            (insights.top_questions || []).map(q => q.question || q),
+                            (insights.top_keywords || []).map(k => k.keyword || k),
+                            (insights.top_pain_points || []).map(p => p.pain_point || p),
+                            report.content_opportunities || []
                         );
+                    } else if (report.metadata_insights) {
+                        // Show metadata-based insights when no transcripts
+                        showMetadataInsights(report.metadata_insights, report.transcript_note);
                     } else {
-                        // No AI insights - show helpful message instead of Loading...
+                        // No insights at all - show helpful message instead of Loading...
                         showNoInsightsMessage();
                     }
                     
@@ -4489,6 +4491,69 @@
                 console.error('Error loading call intelligence:', error);
                 loadDemoCallData();
                 showNoInsightsMessage();
+            }
+        }
+        
+        function showMetadataInsights(metadata, note) {
+            // Display call metadata insights when transcripts aren't available
+            const summary = metadata.call_summary || {};
+            const peakTimes = metadata.peak_times || {};
+            const recommendations = metadata.recommendations || [];
+            
+            // Questions section - show call summary stats
+            const questionsEl = document.getElementById('extracted-questions');
+            if (questionsEl) {
+                questionsEl.innerHTML = `
+                    <div class="bg-slate-800/50 rounded-lg p-2 text-xs text-gray-300 mb-1">
+                        📞 ${summary.total_calls || 0} total calls
+                    </div>
+                    <div class="bg-slate-800/50 rounded-lg p-2 text-xs text-gray-300 mb-1">
+                        ✅ ${summary.answer_rate || 0}% answer rate
+                    </div>
+                    <div class="bg-slate-800/50 rounded-lg p-2 text-xs text-gray-300 mb-1">
+                        ⏱️ Avg duration: ${summary.avg_duration_formatted || '0:00'}
+                    </div>
+                    <div class="bg-slate-800/50 rounded-lg p-2 text-xs text-gray-300">
+                        🔥 ${summary.long_calls || 0} calls over 2 min
+                    </div>
+                `;
+            }
+            
+            // Keywords section - show peak times
+            const keywordsEl = document.getElementById('extracted-keywords');
+            if (keywordsEl && peakTimes.busiest_hours) {
+                keywordsEl.innerHTML = peakTimes.busiest_hours.map(h => `
+                    <span class="bg-purple-500/20 text-purple-300 px-2 py-1 rounded-full text-xs">
+                        🕐 ${h.display} (${h.count})
+                    </span>
+                `).join('') + (peakTimes.busiest_days || []).slice(0,2).map(d => `
+                    <span class="bg-blue-500/20 text-blue-300 px-2 py-1 rounded-full text-xs">
+                        📅 ${d.day}
+                    </span>
+                `).join('');
+            }
+            
+            // Pain Points section - show recommendations
+            const painEl = document.getElementById('extracted-pain');
+            if (painEl && recommendations.length > 0) {
+                painEl.innerHTML = recommendations.slice(0,3).map(r => `
+                    <div class="text-xs text-orange-300 mb-1">
+                        💡 ${r}
+                    </div>
+                `).join('');
+            }
+            
+            // Content Opportunities section - show transcript note
+            const opportunitiesEl = document.getElementById('content-opportunities');
+            if (opportunitiesEl) {
+                opportunitiesEl.innerHTML = `
+                    <div class="text-xs text-yellow-400 mb-2">
+                        ⚡ Enable CallRail Conversation Intelligence for:
+                    </div>
+                    <div class="text-xs text-emerald-300 mb-1">• Extract customer questions</div>
+                    <div class="text-xs text-emerald-300 mb-1">• Identify pain points</div>
+                    <div class="text-xs text-emerald-300">• Auto-generate content ideas</div>
+                `;
             }
         }
         
