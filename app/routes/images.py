@@ -451,35 +451,61 @@ def upload_to_library(current_user, client_id):
         return jsonify({'error': f'File type not allowed. Use: {", ".join(ALLOWED_EXTENSIONS)}'}), 400
     
     try:
-        # Create upload directory
-        upload_dir = os.path.join(current_app.config.get('UPLOAD_FOLDER', 'static/uploads'), 'client_images', client_id)
-        os.makedirs(upload_dir, exist_ok=True)
+        # Read file data
+        file_data = file.read()
+        file.seek(0)  # Reset for potential local save
         
-        # Generate unique filename
         original_filename = secure_filename(file.filename)
         ext = original_filename.rsplit('.', 1)[1].lower()
-        filename = f"{uuid.uuid4().hex[:12]}.{ext}"
-        file_path = os.path.join(upload_dir, filename)
         
-        # Save file
-        file.save(file_path)
+        # Try SFTP first if configured
+        sftp_result = None
+        try:
+            from app.services.sftp_storage_service import get_sftp_service
+            sftp = get_sftp_service()
+            if sftp.is_configured():
+                category = request.form.get('category', 'general')
+                sftp_result = sftp.upload_file(file_data, original_filename, client_id, category)
+                if sftp_result:
+                    logger.info(f"Image uploaded to SFTP: {sftp_result['file_url']}")
+        except Exception as e:
+            logger.warning(f"SFTP upload failed, falling back to local: {e}")
+        
+        if sftp_result:
+            # Use SFTP storage
+            file_url = sftp_result['file_url']
+            file_path = sftp_result['file_path']
+            filename = sftp_result['filename']
+            storage_type = 'sftp'
+        else:
+            # Fall back to local storage
+            upload_dir = os.path.join(current_app.config.get('UPLOAD_FOLDER', 'static/uploads'), 'client_images', client_id)
+            os.makedirs(upload_dir, exist_ok=True)
+            
+            filename = f"{uuid.uuid4().hex[:12]}.{ext}"
+            file_path = os.path.join(upload_dir, filename)
+            
+            # Save file locally
+            with open(file_path, 'wb') as f:
+                f.write(file_data)
+            
+            file_url = f"/static/uploads/client_images/{client_id}/{filename}"
+            storage_type = 'local'
         
         # Get file info
-        file_size = os.path.getsize(file_path)
+        file_size = len(file_data)
         
         # Get image dimensions
         width, height = 0, 0
         try:
             from PIL import Image
-            with Image.open(file_path) as img:
+            from io import BytesIO
+            with Image.open(BytesIO(file_data)) as img:
                 width, height = img.size
         except ImportError:
             pass
         except Exception as e:
             logger.warning(f"Could not get image dimensions: {e}")
-        
-        # Build URL
-        file_url = f"/static/uploads/client_images/{client_id}/{filename}"
         
         # Parse tags
         tags_str = request.form.get('tags', '')
@@ -509,7 +535,8 @@ def upload_to_library(current_user, client_id):
         
         return jsonify({
             'success': True,
-            'message': 'Image uploaded successfully',
+            'message': f'Image uploaded successfully ({storage_type})',
+            'storage': storage_type,
             'image': image.to_dict()
         }), 201
         
@@ -777,3 +804,63 @@ def debug_image_config(current_user):
         'upload_dir_exists': os.path.exists(ImageConfig.IMAGE_UPLOAD_DIR),
         'pillow_available': True  # Would check PIL import
     })
+
+
+@images_bp.route('/storage/status', methods=['GET'])
+@token_required
+def get_storage_status(current_user):
+    """
+    Get current storage configuration status
+    
+    GET /api/images/storage/status
+    """
+    import os
+    
+    # Check SFTP configuration
+    sftp_configured = False
+    sftp_status = None
+    try:
+        from app.services.sftp_storage_service import get_sftp_service
+        sftp = get_sftp_service()
+        sftp_configured = sftp.is_configured()
+        if sftp_configured:
+            sftp_status = {
+                'host': os.getenv('SFTP_HOST', ''),
+                'port': os.getenv('SFTP_PORT', '22'),
+                'remote_path': os.getenv('SFTP_REMOTE_PATH', '/public_html/uploads'),
+                'base_url': os.getenv('SFTP_BASE_URL', '')
+            }
+    except Exception as e:
+        logger.warning(f"SFTP status check failed: {e}")
+    
+    return jsonify({
+        'storage_type': 'sftp' if sftp_configured else 'local',
+        'sftp_configured': sftp_configured,
+        'sftp_status': sftp_status,
+        'local_path': 'static/uploads (ephemeral on Render)',
+        'warning': None if sftp_configured else 'Local storage is ephemeral - files will be lost on deploy. Configure SFTP for persistent storage.'
+    })
+
+
+@images_bp.route('/storage/test-sftp', methods=['POST'])
+@token_required
+def test_sftp_connection(current_user):
+    """
+    Test SFTP connection
+    
+    POST /api/images/storage/test-sftp
+    """
+    if not current_user.is_admin:
+        return jsonify({'error': 'Admin only'}), 403
+    
+    try:
+        from app.services.sftp_storage_service import get_sftp_service
+        sftp = get_sftp_service()
+        result = sftp.test_connection()
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        })
+

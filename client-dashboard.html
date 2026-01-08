@@ -987,6 +987,7 @@
                                     <i class="fas fa-sync-alt mr-1"></i>Refresh
                                 </button>
                             </div>
+                            <p class="text-xs text-yellow-500/70 mb-2">⚠️ Uploaded images may be lost after server updates. Use external URLs below for reliable images.</p>
                             <div id="imageLibraryGrid" class="grid grid-cols-3 gap-2 max-h-48 overflow-y-auto">
                                 <p class="col-span-3 text-center text-gray-500 text-sm py-4">Upload images to see them here</p>
                             </div>
@@ -7671,6 +7672,9 @@
                     ? `<span class="text-xs text-blue-400"><i class="fas fa-calendar mr-1"></i>${new Date(post.scheduled_for).toLocaleDateString()}</span>` 
                     : '';
                 
+                // Show publish button only for draft/approved posts
+                const showPublish = post.status !== 'published';
+                
                 return `
                 <div class="glass rounded-xl p-4 social-${post.platform}">
                     <div class="flex items-center gap-2 mb-3">
@@ -7689,6 +7693,13 @@
                     <div class="flex items-center justify-between pt-3 border-t border-white/10">
                         ${scheduledInfo}
                         <div class="flex items-center gap-1 ml-auto">
+                            ${showPublish ? `
+                            <button onclick="publishSocialPost('${post.id}', '${post.platform}')" 
+                                    class="px-2 py-1 text-xs bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded hover:opacity-90 transition" 
+                                    title="Publish Now">
+                                <i class="fas fa-paper-plane mr-1"></i>Publish
+                            </button>
+                            ` : ''}
                             <button onclick="copySocialPost('${post.id}')" class="p-1.5 text-gray-400 hover:text-white hover:bg-white/10 rounded transition" title="Copy">
                                 <i class="fas fa-copy text-xs"></i>
                             </button>
@@ -7711,7 +7722,91 @@
             }
             
             navigator.clipboard.writeText(text);
-            alert('✓ Copied to clipboard!');
+            showToast('✓ Copied to clipboard!', 'success');
+        }
+        
+        async function publishSocialPost(postId, platform) {
+            const post = allSocial.find(p => p.id === postId);
+            if (!post) {
+                showToast('Post not found', 'error');
+                return;
+            }
+            
+            if (!currentClient) {
+                showToast('No client selected', 'error');
+                return;
+            }
+            
+            // Confirm before publishing
+            if (!confirm(`Publish this post to ${getPlatformName(platform)}?\n\n"${post.content?.substring(0, 100)}..."`)) {
+                return;
+            }
+            
+            // Find the button and show loading
+            const btn = event.target.closest('button');
+            const originalHtml = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+            
+            try {
+                const response = await fetch(`${API_URL}/api/social/publish-now/${currentClient.id}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${AUTH_TOKEN}`
+                    },
+                    body: JSON.stringify({
+                        platforms: [platform],
+                        content: post.content + (post.hashtags?.length > 0 ? '\n\n' + post.hashtags.map(h => '#' + h).join(' ') : ''),
+                        image_url: post.image_url || null,
+                        link_url: post.link_url || null
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    const platformResult = result.results?.[platform] || result[platform];
+                    
+                    if (platformResult?.success) {
+                        showToast(`✓ Published to ${getPlatformName(platform)}!`, 'success');
+                        
+                        // Update post status locally
+                        post.status = 'published';
+                        renderSocial();
+                        
+                        // Also update on server
+                        try {
+                            await fetch(`${API_URL}/api/content/${postId}`, {
+                                method: 'PUT',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'Authorization': `Bearer ${AUTH_TOKEN}`
+                                },
+                                body: JSON.stringify({ status: 'published' })
+                            });
+                        } catch (e) {
+                            console.log('Could not update post status:', e);
+                        }
+                    } else {
+                        const error = platformResult?.error || 'Publishing failed';
+                        showToast(`Failed: ${error}`, 'error');
+                        
+                        // Show more details if not connected
+                        if (error.includes('Not connected')) {
+                            alert(`⚠️ ${getPlatformName(platform)} is not connected.\n\nGo to Settings → Social Connections to connect your account.`);
+                        }
+                    }
+                } else {
+                    showToast(result.error || 'Publishing failed', 'error');
+                }
+            } catch (error) {
+                console.error('Publish error:', error);
+                showToast('Error publishing: ' + error.message, 'error');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = originalHtml;
+            }
         }
         
         async function deleteSocialPost(postId) {
@@ -8529,9 +8624,13 @@
             
             grid.innerHTML = clientImageLibrary.map(img => `
                 <div class="relative group cursor-pointer rounded-lg overflow-hidden ${selectedLibraryImage === img.id ? 'ring-2 ring-pink-500' : ''}" 
-                     onclick="selectLibraryImage('${img.id}')">
+                     onclick="selectLibraryImage('${img.id}')" title="${img.title || img.filename || 'Image'}">
                     <img src="${img.file_url}" alt="${img.alt_text || img.title || 'Image'}" 
-                         class="w-full h-20 object-cover">
+                         class="w-full h-20 object-cover bg-slate-700"
+                         onerror="this.onerror=null; this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect fill=%22%23475569%22 width=%22100%22 height=%22100%22/><text x=%2250%22 y=%2255%22 font-size=%2212%22 fill=%22%239ca3af%22 text-anchor=%22middle%22>Lost on deploy</text></svg>'; this.classList.add('opacity-50');">
+                    <div class="absolute bottom-0 left-0 right-0 bg-black/70 px-1 py-0.5 text-xs text-gray-300 truncate">
+                        ${(img.title || img.filename || 'Image').substring(0, 20)}${(img.title || img.filename || '').length > 20 ? '...' : ''}
+                    </div>
                     <div class="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition flex items-center justify-center">
                         <i class="fas fa-check text-white"></i>
                     </div>
