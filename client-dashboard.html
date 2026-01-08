@@ -4428,6 +4428,10 @@
                     const hasTranscriptInsights = (report.combined_insights?.top_questions?.length > 0) || 
                                        (report.combined_insights?.top_keywords?.length > 0);
                     
+                    console.log('Intelligence report:', report);
+                    console.log('Has transcript insights:', hasTranscriptInsights);
+                    console.log('Has metadata insights:', !!report.metadata_insights);
+                    
                     if (hasTranscriptInsights) {
                         // Update extracted insights from AI analysis
                         const insights = report.combined_insights || {};
@@ -4439,9 +4443,11 @@
                         );
                     } else if (report.metadata_insights) {
                         // Show metadata-based insights when no transcripts
+                        console.log('Showing metadata insights:', report.metadata_insights);
                         showMetadataInsights(report.metadata_insights, report.transcript_note);
                     } else {
                         // No insights at all - show helpful message instead of Loading...
+                        console.log('No insights available, showing message');
                         showNoInsightsMessage();
                     }
                     

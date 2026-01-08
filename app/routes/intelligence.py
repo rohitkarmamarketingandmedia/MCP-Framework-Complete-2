@@ -315,8 +315,15 @@ def get_intelligence_report(current_user, client_id):
     
     # If we have calls but no transcripts, generate metadata-based insights
     if total_calls > 0 and not call_transcripts:
-        report['metadata_insights'] = _generate_metadata_insights(all_calls)
-        report['transcript_note'] = 'Call transcripts require CallRail Conversation Intelligence add-on. Showing insights from call metadata.'
+        logger.info(f"Generating metadata insights for {total_calls} calls (no transcripts)")
+        try:
+            report['metadata_insights'] = _generate_metadata_insights(all_calls)
+            report['transcript_note'] = 'Call transcripts require CallRail Conversation Intelligence add-on. Showing insights from call metadata.'
+            logger.info(f"Metadata insights generated: {report['metadata_insights'].get('call_summary', {})}")
+        except Exception as e:
+            logger.error(f"Error generating metadata insights: {e}")
+            import traceback
+            traceback.print_exc()
     
     return jsonify(report)
 
