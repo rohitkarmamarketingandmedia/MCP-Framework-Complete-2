@@ -351,7 +351,13 @@ def finalize_connection(current_user):
     
     token_data = state_data['token_data']
     client_id = token_data['client_id']
-    access_token = page_access_token or token_data['access_token']
+    
+    # Log what tokens we have
+    user_token = token_data.get('access_token', '')
+    logger.info(f"OAuth finalize: user_token_length={len(user_token)}, page_access_token_length={len(page_access_token) if page_access_token else 0}")
+    
+    # Prefer page token (from /me/accounts) over user token
+    access_token = page_access_token or user_token
     refresh_token = token_data.get('refresh_token')
     
     # Verify client access
@@ -365,10 +371,14 @@ def finalize_connection(current_user):
     try:
         # Store connection based on account type
         if account_type == 'facebook_page':
+            # Log existing data
+            logger.info(f"BEFORE: facebook_page_id={client.facebook_page_id}, token_length={len(client.facebook_access_token) if client.facebook_access_token else 0}")
+            
             client.facebook_page_id = account_id
             client.facebook_access_token = access_token
             client.facebook_connected_at = datetime.utcnow()
             platform = 'Facebook'
+            logger.info(f"AFTER: Saving Facebook connection: page_id={account_id}, token_length={len(access_token) if access_token else 0}")
             
         elif account_type == 'instagram_business':
             client.instagram_account_id = account_id
