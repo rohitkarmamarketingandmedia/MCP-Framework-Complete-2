@@ -400,6 +400,10 @@ def finalize_connection(current_user):
         elif account_type == 'google_location':
             client.gbp_location_id = account_id
             client.gbp_access_token = access_token
+            # Store account_id if provided (needed for API calls)
+            google_account_id = data.get('google_account_id') or data.get('account_id')
+            if google_account_id:
+                client.gbp_account_id = google_account_id
             if refresh_token:
                 client.gbp_refresh_token = refresh_token
             client.gbp_connected_at = datetime.utcnow() if hasattr(client, 'gbp_connected_at') else None

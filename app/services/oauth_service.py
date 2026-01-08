@@ -232,7 +232,14 @@ class OAuthService:
         }
         
         response = requests.get(url, params=params)
-        return response.json()
+        result = response.json()
+        
+        if 'error' in result:
+            logger.warning(f"Failed to get long-lived token: {result['error']}")
+            return {'access_token': short_token}  # Fall back to short token
+        
+        logger.info(f"Got long-lived Facebook token, expires_in: {result.get('expires_in', 'unknown')}")
+        return result
     
     def _linkedin_exchange(self, code: str) -> Dict:
         """Exchange LinkedIn auth code for token"""

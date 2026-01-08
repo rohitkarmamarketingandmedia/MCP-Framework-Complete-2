@@ -404,18 +404,28 @@ class CallRailService:
         effective_account = account_id or self.account_id
         logger.info(f"CallRail get_recent_calls: company={company_id}, account={effective_account}, date_range={start_date} to {end_date}")
         
-        # Don't specify fields parameter - API returns all available data
-        # Note: Transcript fields only available with Conversation Intelligence add-on
-        # Requesting unavailable fields causes 400 errors
-        
+        # First try with transcript fields (Conversation Intelligence)
+        transcript_fields = ['transcription', 'keywords', 'call_highlights']
         result = self.get_calls(
             company_id=company_id,
             account_id=account_id,
             start_date=start_date,
             end_date=end_date,
             per_page=limit,
-            fields=None
+            fields=transcript_fields
         )
+        
+        # If transcript fields caused error, retry without them
+        if result.get('error') and '400' in str(result.get('error')):
+            logger.info("CallRail: Transcript fields not available, retrying without them")
+            result = self.get_calls(
+                company_id=company_id,
+                account_id=account_id,
+                start_date=start_date,
+                end_date=end_date,
+                per_page=limit,
+                fields=None
+            )
         
         # Log raw result for debugging
         if result.get('error'):
@@ -436,6 +446,12 @@ class CallRailService:
             has_keywords = bool(first_call.get('keywords'))
             has_highlights = bool(first_call.get('call_highlights'))
             logger.info(f"CallRail transcript check: transcription={has_transcription}, conversational_transcript={has_conv_transcript}, keywords={has_keywords}, call_highlights={has_highlights}")
+            # Log actual transcript content if available
+            if has_transcription:
+                transcript_preview = str(first_call.get('transcription', ''))[:200]
+                logger.info(f"CallRail transcript preview: {transcript_preview}")
+            if has_keywords:
+                logger.info(f"CallRail keywords: {first_call.get('keywords')}")
         
         calls = []
         for call in raw_calls[:limit]:
