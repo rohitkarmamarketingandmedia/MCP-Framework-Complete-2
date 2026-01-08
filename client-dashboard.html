@@ -4444,11 +4444,16 @@
                         // Update extracted insights from AI analysis
                         console.log('Showing transcript-based insights');
                         const insights = report.combined_insights || {};
+                        
+                        // Get services from top_services or content_opportunities
+                        const services = (insights.top_services || []).map(s => s.service || s);
+                        const opportunities = services.length > 0 ? services : (report.content_opportunities || []);
+                        
                         updateExtractedUI(
                             (insights.top_questions || []).map(q => q.question || q),
                             (insights.top_keywords || []).map(k => k.keyword || k),
                             (insights.top_pain_points || []).map(p => p.pain_point || p),
-                            report.content_opportunities || []
+                            opportunities
                         );
                     } else if (report.metadata_insights) {
                         // Show metadata-based insights when no transcripts
@@ -4673,42 +4678,58 @@
         function updateExtractedUI(questions, keywords, painPoints, opportunities) {
             // Update questions
             const questionsEl = document.getElementById('extracted-questions');
-            if (questionsEl && questions.length > 0) {
-                questionsEl.innerHTML = questions.map((q, i) => `
-                    <div class="bg-slate-800/50 rounded-lg p-2 text-xs text-gray-300 fade-in" style="animation-delay: ${i * 0.1}s">
-                        ${q}
-                    </div>
-                `).join('');
+            if (questionsEl) {
+                if (questions.length > 0) {
+                    questionsEl.innerHTML = questions.map((q, i) => `
+                        <div class="bg-slate-800/50 rounded-lg p-2 text-xs text-gray-300 fade-in" style="animation-delay: ${i * 0.1}s">
+                            ${q}
+                        </div>
+                    `).join('');
+                } else {
+                    questionsEl.innerHTML = `<div class="text-xs text-gray-500 italic">No questions detected in calls</div>`;
+                }
             }
             
             // Update keywords
             const keywordsEl = document.getElementById('extracted-keywords');
-            if (keywordsEl && keywords.length > 0) {
-                keywordsEl.innerHTML = keywords.map((k, i) => `
-                    <span class="bg-purple-500/20 text-purple-300 px-2 py-1 rounded-full text-xs fade-in" style="animation-delay: ${i * 0.1}s">
-                        ${k}
-                    </span>
-                `).join('');
+            if (keywordsEl) {
+                if (keywords.length > 0) {
+                    keywordsEl.innerHTML = keywords.map((k, i) => `
+                        <span class="bg-purple-500/20 text-purple-300 px-2 py-1 rounded-full text-xs fade-in" style="animation-delay: ${i * 0.1}s">
+                            ${k}
+                        </span>
+                    `).join('');
+                } else {
+                    keywordsEl.innerHTML = `<div class="text-xs text-gray-500 italic">No keywords detected in calls</div>`;
+                }
             }
             
             // Update pain points
             const painEl = document.getElementById('extracted-pain');
-            if (painEl && painPoints.length > 0) {
-                painEl.innerHTML = painPoints.map((p, i) => `
-                    <div class="text-xs text-orange-300 fade-in" style="animation-delay: ${i * 0.15}s">
-                        ⚠️ ${p}
-                    </div>
-                `).join('');
+            if (painEl) {
+                if (painPoints.length > 0) {
+                    painEl.innerHTML = painPoints.map((p, i) => `
+                        <div class="text-xs text-orange-300 fade-in" style="animation-delay: ${i * 0.15}s">
+                            ⚠️ ${p}
+                        </div>
+                    `).join('');
+                } else {
+                    painEl.innerHTML = `<div class="text-xs text-gray-500 italic">No pain points detected - callers seem satisfied!</div>`;
+                }
             }
             
-            // Update opportunities
+            // Update opportunities/services
             const opportunitiesEl = document.getElementById('content-opportunities');
-            if (opportunitiesEl && opportunities.length > 0) {
-                opportunitiesEl.innerHTML = opportunities.map((o, i) => `
-                    <div class="text-xs text-emerald-300 fade-in cursor-pointer hover:text-emerald-200" style="animation-delay: ${i * 0.15}s">
-                        💡 ${o}
-                    </div>
-                `).join('');
+            if (opportunitiesEl) {
+                if (opportunities.length > 0) {
+                    opportunitiesEl.innerHTML = opportunities.map((o, i) => `
+                        <div class="text-xs text-emerald-300 fade-in cursor-pointer hover:text-emerald-200" style="animation-delay: ${i * 0.15}s">
+                            💡 ${o}
+                        </div>
+                    `).join('');
+                } else {
+                    opportunitiesEl.innerHTML = `<div class="text-xs text-gray-500 italic">Analyzing call patterns...</div>`;
+                }
             }
         }
         
