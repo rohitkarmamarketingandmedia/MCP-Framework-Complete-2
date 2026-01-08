@@ -86,6 +86,49 @@ class InteractionIntelligenceService:
         r'\?',  # Direct questions
     ]
     
+    # Generic phrases to EXCLUDE from questions (agent/greeting phrases)
+    EXCLUDED_QUESTION_PHRASES = [
+        'how can i help',
+        'how may i help',
+        'what is your name',
+        'what\'s your name',
+        'what is your phone',
+        'what\'s your phone',
+        'what is your number',
+        'what\'s your number',
+        'what is your address',
+        'what\'s your address',
+        'what is your email',
+        'what\'s your email',
+        'can i get your',
+        'can i have your',
+        'may i have your',
+        'is this cliff',
+        'is this the',
+        'who am i speaking',
+        'thank you for calling',
+        'thanks for calling',
+        'how are you',
+        'are you there',
+        'can you hear me',
+        'hello',
+        'hi there',
+        'good morning',
+        'good afternoon',
+        'good evening',
+        'one moment',
+        'hold on',
+        'please hold',
+        'let me check',
+        'let me see',
+        'what was that',
+        'can you repeat',
+        'sorry what',
+        'excuse me',
+        'caller:',  # Filter out caller labels
+        'agent:',   # Filter out agent labels
+    ]
+    
     # Pain point indicators
     PAIN_INDICATORS = [
         r'\b(problem|issue|trouble|broken|not working|failed|failing)\b',
@@ -96,6 +139,10 @@ class InteractionIntelligenceService:
         r'\b(don\'t understand|confused|unsure|not sure)\b',
         r'\b(waited|waiting|delayed|slow)\b',
         r'\b(scam|rip off|overcharged|dishonest)\b',
+        r'\b(stopped working|quit working|won\'t start|won\'t turn on)\b',
+        r'\b(leaking|leak|water damage|flooding)\b',
+        r'\b(no heat|no cooling|no air|not cooling|not heating)\b',
+        r'\b(loud noise|strange noise|making noise)\b',
     ]
     
     # Service-related keywords by industry
@@ -526,7 +573,7 @@ class InteractionIntelligenceService:
     # ==========================================
     
     def _extract_questions(self, text: str) -> List[str]:
-        """Extract questions from text"""
+        """Extract meaningful customer questions from text (excludes agent/generic questions)"""
         questions = []
         
         # Split into sentences
@@ -534,19 +581,37 @@ class InteractionIntelligenceService:
         
         for sentence in sentences:
             sentence = sentence.strip()
-            if not sentence or len(sentence) < 10:
+            if not sentence or len(sentence) < 15:  # Minimum length for meaningful question
+                continue
+            
+            sentence_lower = sentence.lower()
+            
+            # Skip if it contains excluded phrases (agent questions, greetings, etc.)
+            is_excluded = False
+            for excluded in self.EXCLUDED_QUESTION_PHRASES:
+                if excluded in sentence_lower:
+                    is_excluded = True
+                    break
+            
+            if is_excluded:
                 continue
             
             # Check if it's a question
             is_question = False
             for pattern in self.QUESTION_PATTERNS:
-                if re.search(pattern, sentence.lower()):
+                if re.search(pattern, sentence_lower):
                     is_question = True
                     break
             
             if is_question:
-                # Clean up the question
-                question = sentence.strip()
+                # Clean up the question - remove speaker labels
+                question = re.sub(r'^(caller|agent|customer|rep|representative):\s*', '', sentence, flags=re.IGNORECASE)
+                question = question.strip()
+                
+                # Skip very short questions after cleanup
+                if len(question) < 15:
+                    continue
+                    
                 if not question.endswith('?'):
                     question += '?'
                 questions.append(question)
@@ -554,7 +619,7 @@ class InteractionIntelligenceService:
         return questions
     
     def _extract_pain_points(self, text: str) -> List[str]:
-        """Extract pain points and concerns from text"""
+        """Extract customer pain points and concerns from text"""
         pain_points = []
         text_lower = text.lower()
         
@@ -563,22 +628,51 @@ class InteractionIntelligenceService:
         
         for sentence in sentences:
             sentence = sentence.strip()
-            if not sentence:
+            if not sentence or len(sentence) < 20:
+                continue
+            
+            sentence_lower = sentence.lower()
+            
+            # Skip agent statements - we want CALLER pain points
+            if sentence_lower.startswith('agent:') or 'thank you for calling' in sentence_lower:
                 continue
             
             # Check for pain indicators
             for pattern in self.PAIN_INDICATORS:
-                if re.search(pattern, sentence.lower()):
-                    # Extract the pain point context
-                    pain_points.append(sentence[:100])  # Limit length
+                if re.search(pattern, sentence_lower):
+                    # Clean up - remove speaker labels
+                    pain_point = re.sub(r'^(caller|agent|customer):\s*', '', sentence, flags=re.IGNORECASE)
+                    pain_point = pain_point.strip()
+                    
+                    # Only add if it's meaningful
+                    if len(pain_point) >= 20 and len(pain_point) <= 150:
+                        pain_points.append(pain_point)
                     break
         
         return pain_points
     
     def _extract_keywords(self, text: str, industry: str = None) -> List[str]:
-        """Extract relevant keywords from text"""
+        """Extract relevant keywords from text (filters out generic/common words)"""
         keywords = []
         text_lower = text.lower()
+        
+        # Common words to exclude (expanded list)
+        STOP_WORDS = {
+            'about', 'would', 'could', 'should', 'there', 'their', 'where', 'which', 
+            'these', 'those', 'going', 'trying', 'thing', 'think', 'things', 'getting',
+            'really', 'actually', 'basically', 'probably', 'maybe', 'might', 'right',
+            'please', 'thank', 'thanks', 'hello', 'okay', 'alright', 'yeah', 'yes',
+            'know', 'just', 'like', 'well', 'good', 'great', 'want', 'need',
+            'today', 'tomorrow', 'yesterday', 'morning', 'afternoon', 'evening',
+            'number', 'phone', 'email', 'address', 'name', 'called', 'calling',
+            'office', 'company', 'business', 'customer', 'agent', 'caller',
+            'something', 'anything', 'nothing', 'everything', 'someone', 'anyone',
+            'here', 'come', 'coming', 'going', 'back', 'make', 'made', 'have',
+            'because', 'since', 'while', 'after', 'before', 'during', 'between',
+            'include', 'included', 'excuse', 'sorry', 'happy', 'support', 'needs',
+            'captured', 'chatbot', 'widget', 'spelled', 'checked', 'decided',
+            'extension', 'another', 'kings'  # Location-specific noise
+        }
         
         # Get industry-specific keywords
         industry_kws = []
@@ -589,19 +683,13 @@ class InteractionIntelligenceService:
             for kws in self.INDUSTRY_KEYWORDS.values():
                 industry_kws.extend(kws)
         
-        # Find industry keywords in text
+        # Find industry keywords in text - these are always valuable
         for kw in industry_kws:
             if kw.lower() in text_lower:
                 keywords.append(kw)
         
-        # Extract noun phrases (simple approach)
-        # In production, would use NLP library like spaCy
-        words = text_lower.split()
-        for i, word in enumerate(words):
-            if len(word) > 4 and word.isalpha():
-                # Check if it's a meaningful word
-                if word not in ['about', 'would', 'could', 'should', 'there', 'their', 'where', 'which', 'these', 'those']:
-                    keywords.append(word)
+        # DON'T extract generic single words - they add noise
+        # Only use industry-specific keywords
         
         return keywords
     
@@ -610,13 +698,21 @@ class InteractionIntelligenceService:
         services = []
         text_lower = text.lower()
         
-        # Common service patterns
-        service_patterns = [
-            r'\b(repair|fix|replace|install|maintenance|service|check|inspect)\s+(?:my|the|a|an)?\s*(\w+)',
-            r'\b(need|want|looking for|interested in)\s+(?:a|an)?\s*(\w+\s*\w*)\s*(repair|service|installation|replacement)?',
+        # HVAC-specific service patterns (more precise)
+        hvac_services = [
+            r'\b(ac|air conditioner|air conditioning)\s*(repair|service|installation|replacement|maintenance|tune.?up)',
+            r'\b(heating|furnace|heat pump)\s*(repair|service|installation|replacement|maintenance)',
+            r'\b(thermostat)\s*(repair|replacement|installation|programming)',
+            r'\b(duct|ductwork)\s*(cleaning|repair|installation)',
+            r'\b(freon|refrigerant)\s*(recharge|leak|check)',
+            r'\bnew\s+(ac|air conditioner|unit|system|furnace)',
+            r'\b(repair|fix|replace|install|service)\s+(?:my|the|our|their)?\s*(ac|air conditioner|unit|furnace|thermostat|system)',
+            r'\b(not cooling|not heating|won\'t turn on|stopped working)',
+            r'\b(emergency|same.?day|urgent)\s*(service|repair)',
+            r'\bget\s+(?:a|an)?\s*(quote|estimate|bid)',
         ]
         
-        for pattern in service_patterns:
+        for pattern in hvac_services:
             matches = re.findall(pattern, text_lower)
             for match in matches:
                 if isinstance(match, tuple):
@@ -624,7 +720,21 @@ class InteractionIntelligenceService:
                 else:
                     service = match.strip()
                 if service and len(service) > 3:
-                    services.append(service)
+                    # Capitalize for display
+                    services.append(service.title())
+        
+        # Generic service patterns as fallback
+        generic_patterns = [
+            r'(?:need|want|looking for|interested in)\s+(?:a|an|to)?\s*(?:get\s+)?(?:my|the|our)?\s*(\w+(?:\s+\w+)?)\s*(?:repaired|fixed|replaced|installed|serviced)',
+        ]
+        
+        for pattern in generic_patterns:
+            matches = re.findall(pattern, text_lower)
+            for match in matches:
+                if match and len(match) > 3:
+                    services.append(match.strip().title())
+        
+        return services
         
         return services
     
