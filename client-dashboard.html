@@ -4429,16 +4429,19 @@
                         callsToday.textContent = `${callCount} calls analyzed`;
                     }
                     
-                    // Check if we have transcript-based AI insights
-                    const hasTranscriptInsights = (report.combined_insights?.top_questions?.length > 0) || 
-                                       (report.combined_insights?.top_keywords?.length > 0);
+                    // Check if we have REAL transcript-based AI insights (must have questions from calls)
+                    // Keywords alone from chatbot shouldn't count - we need actual call transcript analysis
+                    const hasTranscriptInsights = report.calls_with_transcripts > 0 && 
+                                       (report.combined_insights?.top_questions?.length > 0);
                     
                     console.log('Intelligence report:', report);
+                    console.log('Calls with transcripts:', report.calls_with_transcripts);
                     console.log('Has transcript insights:', hasTranscriptInsights);
                     console.log('Has metadata insights:', !!report.metadata_insights);
                     
                     if (hasTranscriptInsights) {
                         // Update extracted insights from AI analysis
+                        console.log('Showing transcript-based insights');
                         const insights = report.combined_insights || {};
                         updateExtractedUI(
                             (insights.top_questions || []).map(q => q.question || q),
