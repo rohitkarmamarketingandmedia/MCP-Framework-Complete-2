@@ -404,8 +404,9 @@ class CallRailService:
         effective_account = account_id or self.account_id
         logger.info(f"CallRail get_recent_calls: company={company_id}, account={effective_account}, date_range={start_date} to {end_date}")
         
-        # Don't specify fields parameter - API defaults return all needed data
-        # Including fields causes 400 errors on some CallRail accounts
+        # Request transcript fields explicitly
+        # Note: transcription only available with Conversation Intelligence add-on
+        transcript_fields = ['transcription', 'conversational_transcript', 'keywords', 'call_highlights']
         
         result = self.get_calls(
             company_id=company_id,
@@ -413,7 +414,7 @@ class CallRailService:
             start_date=start_date,
             end_date=end_date,
             per_page=limit,
-            fields=None
+            fields=transcript_fields
         )
         
         # Log raw result for debugging
@@ -429,6 +430,12 @@ class CallRailService:
             first_call = raw_calls[0]
             logger.info(f"CallRail first call fields: {list(first_call.keys())}")
             logger.info(f"CallRail first call customer_name: {first_call.get('customer_name')}, customer_phone_number: {first_call.get('customer_phone_number')}")
+            # Check for transcript data
+            has_transcription = bool(first_call.get('transcription'))
+            has_conv_transcript = bool(first_call.get('conversational_transcript'))
+            has_keywords = bool(first_call.get('keywords'))
+            has_highlights = bool(first_call.get('call_highlights'))
+            logger.info(f"CallRail transcript check: transcription={has_transcription}, conversational_transcript={has_conv_transcript}, keywords={has_keywords}, call_highlights={has_highlights}")
         
         calls = []
         for call in raw_calls[:limit]:

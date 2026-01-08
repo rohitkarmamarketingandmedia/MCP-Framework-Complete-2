@@ -611,11 +611,11 @@
                                 </div>
                             </div>
                             
-                            <!-- Content Opportunities -->
+                            <!-- Services Requested -->
                             <div class="bg-slate-900/50 rounded-xl p-4">
                                 <div class="flex items-center gap-2 mb-3">
-                                    <span class="text-emerald-400">💡</span>
-                                    <span class="text-sm font-medium text-white">Content Opportunities</span>
+                                    <span class="text-emerald-400">🔧</span>
+                                    <span class="text-sm font-medium text-white">Services Requested</span>
                                 </div>
                                 <div class="space-y-2" id="content-opportunities">
                                     <div class="text-xs text-emerald-300">Loading...</div>
@@ -4527,64 +4527,45 @@
         }
         
         function showMetadataInsights(metadata, note) {
-            // Display call metadata insights when transcripts aren't available
-            const summary = metadata.call_summary || {};
-            const peakTimes = metadata.peak_times || {};
-            const recommendations = metadata.recommendations || [];
+            // No transcript data available - show clear message in each section
             
-            // Questions section - show call summary stats
+            // Questions section - no real questions without transcripts
             const questionsEl = document.getElementById('extracted-questions');
             if (questionsEl) {
                 questionsEl.innerHTML = `
-                    <div class="bg-slate-800/50 rounded-lg p-2 text-xs text-gray-300 mb-1">
-                        📞 ${summary.total_calls || 0} total calls
-                    </div>
-                    <div class="bg-slate-800/50 rounded-lg p-2 text-xs text-gray-300 mb-1">
-                        ✅ ${summary.answer_rate || 0}% answer rate
-                    </div>
-                    <div class="bg-slate-800/50 rounded-lg p-2 text-xs text-gray-300 mb-1">
-                        ⏱️ Avg duration: ${summary.avg_duration_formatted || '0:00'}
-                    </div>
-                    <div class="bg-slate-800/50 rounded-lg p-2 text-xs text-gray-300">
-                        🔥 ${summary.long_calls || 0} calls over 2 min
+                    <div class="text-xs text-gray-500 italic">
+                        No call transcripts available
                     </div>
                 `;
             }
             
-            // Keywords section - show peak times
+            // Keywords section - no real keywords without transcripts
             const keywordsEl = document.getElementById('extracted-keywords');
-            if (keywordsEl && peakTimes.busiest_hours) {
-                keywordsEl.innerHTML = peakTimes.busiest_hours.map(h => `
-                    <span class="bg-purple-500/20 text-purple-300 px-2 py-1 rounded-full text-xs">
-                        🕐 ${h.display} (${h.count})
+            if (keywordsEl) {
+                keywordsEl.innerHTML = `
+                    <span class="text-xs text-gray-500 italic">
+                        No call transcripts available
                     </span>
-                `).join('') + (peakTimes.busiest_days || []).slice(0,2).map(d => `
-                    <span class="bg-blue-500/20 text-blue-300 px-2 py-1 rounded-full text-xs">
-                        📅 ${d.day}
-                    </span>
-                `).join('');
+                `;
             }
             
-            // Pain Points section - show recommendations
+            // Pain Points section - no real pain points without transcripts
             const painEl = document.getElementById('extracted-pain');
-            if (painEl && recommendations.length > 0) {
-                painEl.innerHTML = recommendations.slice(0,3).map(r => `
-                    <div class="text-xs text-orange-300 mb-1">
-                        💡 ${r}
+            if (painEl) {
+                painEl.innerHTML = `
+                    <div class="text-xs text-gray-500 italic">
+                        No call transcripts available
                     </div>
-                `).join('');
+                `;
             }
             
-            // Content Opportunities section - show transcript note
+            // Services section - no real services without transcripts
             const opportunitiesEl = document.getElementById('content-opportunities');
             if (opportunitiesEl) {
                 opportunitiesEl.innerHTML = `
-                    <div class="text-xs text-yellow-400 mb-2">
-                        ⚡ Enable CallRail Conversation Intelligence for:
+                    <div class="text-xs text-gray-500 italic">
+                        No call transcripts available
                     </div>
-                    <div class="text-xs text-emerald-300 mb-1">• Extract customer questions</div>
-                    <div class="text-xs text-emerald-300 mb-1">• Identify pain points</div>
-                    <div class="text-xs text-emerald-300">• Auto-generate content ideas</div>
                 `;
             }
         }
