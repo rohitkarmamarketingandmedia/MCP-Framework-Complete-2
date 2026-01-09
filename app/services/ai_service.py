@@ -153,8 +153,33 @@ class AIService:
                 'raw_response': response.get('content', '')[:500]
             }
         
-        # ===== POST-PROCESSING FOR SEO QUALITY =====
+        # ===== PLACEHOLDER DETECTION =====
+        # Check for placeholder text in body and FAQs
+        placeholder_patterns = [
+            'Response...', 'Insight...', 'Explanation...', 'Advice...', 
+            'Information...', 'Clarification...', 'CTA section...', 
+            'Content...', 'Details...', 'Details here', 'Content here'
+        ]
+        
         body_content = result.get('body', '')
+        has_placeholders = any(p.lower() in body_content.lower() for p in placeholder_patterns)
+        
+        # Check FAQs for placeholders
+        faq_items = result.get('faq_items', [])
+        for faq in faq_items:
+            answer = faq.get('answer', '')
+            if len(answer) < 20 or any(p.lower() in answer.lower() for p in placeholder_patterns):
+                has_placeholders = True
+                logger.warning(f"FAQ has placeholder or too short: {answer[:50]}")
+        
+        if has_placeholders:
+            logger.error("Blog contains placeholder text - AI did not generate real content")
+            return {
+                'error': 'AI returned placeholder content instead of real text. Please try again.',
+                'raw_response': response.get('content', '')[:500]
+            }
+        
+        # ===== POST-PROCESSING FOR SEO QUALITY =====
         actual_word_count = len(body_content.split())
         
         logger.info(f"Blog raw word count: {actual_word_count} (target: {word_count})")
@@ -491,11 +516,12 @@ CURRENT YEAR: {current_year}
    - Common mistakes to avoid
 
 5. FAQ SECTION (MANDATORY - exactly 5-7 FAQs):
-   - Questions must be specific and natural
-   - Each answer: 40-70 words
-   - No fluff or marketing language
-   - Answer-first format (start with the actual answer)
-   - Format: <h3>Question?</h3><p>Answer...</p>
+   - Questions must be specific and natural (what real people ask)
+   - Each answer MUST be 40-70 words of REAL, HELPFUL content
+   - NEVER use placeholder words like "Response...", "Insight...", "Explanation...", "Advice...", "Information...", "Clarification..."
+   - Start each answer with the ACTUAL answer to the question
+   - Include specific facts, numbers, or actionable information
+   - Format in body: <h3>Question?</h3><p>Full detailed answer here...</p>
 
 6. CTA SECTION (MANDATORY - appears twice):
    First CTA: Mid-content (subtle, helpful)
@@ -538,11 +564,11 @@ Return ONLY this JSON structure - no markdown, no code blocks:
         "Takeaway 3 - important consideration"
     ],
     "faq_items": [
-        {{"question": "Specific question about {keyword}?", "answer": "40-70 word answer starting with the actual answer, not fluff."}},
-        {{"question": "Another real question?", "answer": "Direct answer with useful information."}},
-        {{"question": "Third question?", "answer": "Helpful response."}},
-        {{"question": "Fourth question?", "answer": "Practical answer."}},
-        {{"question": "Fifth question?", "answer": "Clear response."}}
+        {{"question": "What are the signs of a {keyword} problem?", "answer": "The most common signs include [specific symptom 1], [specific symptom 2], and [specific symptom 3]. If you notice any of these issues, it's important to address them promptly to prevent further damage or complications. Most {geo} residents experience these signs during [specific timeframe or condition]."}},
+        {{"question": "How much does {keyword} typically cost in {geo}?", "answer": "In {geo}, {keyword} services typically range from $X to $Y depending on the complexity and scope of work needed. Factors that affect pricing include [factor 1], [factor 2], and [factor 3]. Many providers offer free estimates to help you understand the specific costs for your situation."}},
+        {{"question": "How long does the {keyword} process take?", "answer": "Most {keyword} projects in {geo} take between X and Y [hours/days/weeks] to complete. Simple cases may be finished in [shorter time], while more complex situations could require [longer time]. Your provider should give you a specific timeline after assessing your needs."}},
+        {{"question": "What should I look for when choosing a {keyword} provider?", "answer": "When selecting a {keyword} provider in {geo}, look for [qualification 1], [qualification 2], and [qualification 3]. Check online reviews, ask for references, and verify they have proper licensing and insurance. A reputable provider will offer a clear estimate and explain the process before starting work."}},
+        {{"question": "Can I handle {keyword} myself or do I need a professional?", "answer": "While some minor {keyword} tasks can be DIY projects, most situations benefit from professional expertise. Professionals have specialized tools, training, and experience that ensure the job is done correctly and safely. Attempting complex {keyword} work yourself can lead to costly mistakes or safety hazards."}}
     ],
     "cta": {{
         "contact_name": "{contact_name or ''}",
@@ -554,13 +580,15 @@ Return ONLY this JSON structure - no markdown, no code blocks:
     "word_count": {word_count}
 }}
 
-CRITICAL RULES:
-1. Body MUST be {word_count}+ words of REAL content
-2. NEVER use placeholder text ("Content...", "Details here...")
-3. Write complete, helpful, authoritative content
-4. FAQs are MANDATORY with 5-7 specific questions
-5. CTA appears twice in body content
-6. Return ONLY valid JSON
+CRITICAL RULES - READ CAREFULLY:
+1. Body MUST be {word_count}+ words of REAL, HELPFUL content
+2. ABSOLUTELY NO placeholder text anywhere - not in body, not in FAQs, not in CTA
+3. BANNED PLACEHOLDER WORDS: "Content...", "Details...", "Response...", "Insight...", "Explanation...", "Advice...", "Information...", "Clarification...", "CTA section..."
+4. Every FAQ answer MUST be 40-70 words of ACTUAL helpful information
+5. Write like a knowledgeable {industry} professional helping a real customer
+6. Include specific facts, numbers, timeframes, and actionable advice
+7. CTA appears twice in body content with real contact info
+8. Return ONLY valid JSON - no markdown code blocks
 """
     
     def _parse_blog_response(self, content: str) -> Dict[str, Any]:
