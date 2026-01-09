@@ -1725,88 +1725,6 @@
                     </div>
                 </div>
 
-                <!-- Social Connections -->
-                <div class="glass rounded-2xl p-6 mt-6">
-                    <div class="flex items-center justify-between mb-4">
-                        <div>
-                            <h3 class="text-lg font-bold text-white">
-                                <i class="fas fa-share-nodes mr-2 text-blue-400"></i>Social Media Connections
-                            </h3>
-                            <p class="text-gray-400 text-sm">Connect your social accounts for automated publishing</p>
-                        </div>
-                        <div class="flex gap-2">
-                            <button onclick="testClientTokens()" class="px-3 py-1.5 bg-green-500/20 hover:bg-green-500/30 text-green-300 rounded-lg text-xs transition" title="Test if client's OAuth tokens are working">
-                                <i class="fas fa-vial mr-1"></i>Test Tokens
-                            </button>
-                            <button onclick="verifyOAuthCredentials()" class="px-3 py-1.5 bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 rounded-lg text-xs transition" title="Verify API credentials are configured correctly">
-                                <i class="fas fa-check-circle mr-1"></i>Verify API Setup
-                            </button>
-                        </div>
-                    </div>
-                    <div id="socialConnections" class="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
-                        <!-- GBP -->
-                        <div class="bg-white/5 rounded-xl p-4 border border-white/10" data-platform="gbp">
-                            <div class="flex items-center gap-3 mb-3">
-                                <div class="w-10 h-10 rounded-lg flex items-center justify-center" style="background: #4285F4;">
-                                    <i class="fab fa-google text-white"></i>
-                                </div>
-                                <div>
-                                    <div class="font-medium text-white text-sm">Google Business</div>
-                                    <div class="text-xs text-gray-500" id="gbp-status">Not connected</div>
-                                </div>
-                            </div>
-                            <button onclick="connectSocial('gbp')" class="w-full py-2 px-3 bg-white/10 hover:bg-white/20 rounded-lg text-sm text-white transition" id="gbp-btn">
-                                Connect
-                            </button>
-                        </div>
-                        
-                        <!-- Facebook -->
-                        <div class="bg-white/5 rounded-xl p-4 border border-white/10" data-platform="facebook">
-                            <div class="flex items-center gap-3 mb-3">
-                                <div class="w-10 h-10 rounded-lg flex items-center justify-center" style="background: #1877F2;">
-                                    <i class="fab fa-facebook text-white"></i>
-                                </div>
-                                <div>
-                                    <div class="font-medium text-white text-sm">Facebook</div>
-                                    <div class="text-xs text-gray-500" id="facebook-status">Not connected</div>
-                                </div>
-                            </div>
-                            <button onclick="connectSocial('facebook')" class="w-full py-2 px-3 bg-white/10 hover:bg-white/20 rounded-lg text-sm text-white transition" id="facebook-btn">
-                                Connect
-                            </button>
-                        </div>
-                        
-                        <!-- Instagram -->
-                        <div class="bg-white/5 rounded-xl p-4 border border-white/10" data-platform="instagram">
-                            <div class="flex items-center gap-3 mb-3">
-                                <div class="w-10 h-10 rounded-lg flex items-center justify-center" style="background: linear-gradient(45deg, #f09433, #e6683c, #dc2743, #cc2366, #bc1888);">
-                                    <i class="fab fa-instagram text-white"></i>
-                                </div>
-                                <div>
-                                    <div class="font-medium text-white text-sm">Instagram</div>
-                                    <div class="text-xs text-gray-500" id="instagram-status">Not connected</div>
-                                </div>
-                            </div>
-                            <button onclick="connectSocial('instagram')" class="w-full py-2 px-3 bg-white/10 hover:bg-white/20 rounded-lg text-sm text-white transition" id="instagram-btn">
-                                Connect
-                            </button>
-                        </div>
-                        
-                        <!-- LinkedIn -->
-                        <div class="bg-white/5 rounded-xl p-4 border border-white/10" data-platform="linkedin">
-                            <div class="flex items-center gap-3 mb-3">
-                                <div class="w-10 h-10 rounded-lg flex items-center justify-center" style="background: #0A66C2;">
-                                    <i class="fab fa-linkedin text-white"></i>
-                                </div>
-                                <div>
-                                    <div class="font-medium text-white text-sm">LinkedIn</div>
-                                    <div class="text-xs text-gray-500" id="linkedin-status">Not connected</div>
-                                </div>
-                            </div>
-                            <button onclick="connectSocial('linkedin')" class="w-full py-2 px-3 bg-white/10 hover:bg-white/20 rounded-lg text-sm text-white transition" id="linkedin-btn">
-                                Connect
-                            </button>
-                        </div>
                     </div>
                 </div>
             </div>
@@ -1924,6 +1842,91 @@
                             <button onclick="saveIntegrationsTop()" class="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition">
                                 <i class="fas fa-save mr-2"></i>Save Integrations
                             </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Social Media Connections (inside Settings -> Integrations) -->
+                    <div class="glass rounded-2xl p-6">
+                        <div class="flex items-center justify-between mb-4">
+                            <div>
+                                <h3 class="text-lg font-bold text-white">
+                                    <i class="fas fa-share-nodes mr-2 text-blue-400"></i>Social Media Connections
+                                </h3>
+                                <p class="text-gray-400 text-sm">Connect your social accounts for automated publishing</p>
+                            </div>
+                            <div class="flex gap-2">
+                                <button onclick="testClientTokens()" class="px-3 py-1.5 bg-green-500/20 hover:bg-green-500/30 text-green-300 rounded-lg text-xs transition" title="Test if client's OAuth tokens are working">
+                                    <i class="fas fa-vial mr-1"></i>Test Tokens
+                                </button>
+                                <button onclick="verifyOAuthCredentials()" class="px-3 py-1.5 bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 rounded-lg text-xs transition" title="Verify API credentials are configured correctly">
+                                    <i class="fas fa-check-circle mr-1"></i>Verify API Setup
+                                </button>
+                            </div>
+                        </div>
+                        <div id="socialConnections" class="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
+                            <!-- GBP -->
+                            <div class="bg-white/5 rounded-xl p-4 border border-white/10" data-platform="gbp">
+                                <div class="flex items-center gap-3 mb-3">
+                                    <div class="w-10 h-10 rounded-lg flex items-center justify-center" style="background: #4285F4;">
+                                        <i class="fab fa-google text-white"></i>
+                                    </div>
+                                    <div>
+                                        <div class="font-medium text-white text-sm">Google Business</div>
+                                        <div class="text-xs text-gray-500" id="gbp-status">Not connected</div>
+                                    </div>
+                                </div>
+                                <button onclick="connectSocial('gbp')" class="w-full py-2 px-3 bg-white/10 hover:bg-white/20 rounded-lg text-sm text-white transition" id="gbp-btn">
+                                    Connect
+                                </button>
+                            </div>
+                            
+                            <!-- Facebook -->
+                            <div class="bg-white/5 rounded-xl p-4 border border-white/10" data-platform="facebook">
+                                <div class="flex items-center gap-3 mb-3">
+                                    <div class="w-10 h-10 rounded-lg flex items-center justify-center" style="background: #1877F2;">
+                                        <i class="fab fa-facebook text-white"></i>
+                                    </div>
+                                    <div>
+                                        <div class="font-medium text-white text-sm">Facebook</div>
+                                        <div class="text-xs text-gray-500" id="facebook-status">Not connected</div>
+                                    </div>
+                                </div>
+                                <button onclick="connectSocial('facebook')" class="w-full py-2 px-3 bg-white/10 hover:bg-white/20 rounded-lg text-sm text-white transition" id="facebook-btn">
+                                    Connect
+                                </button>
+                            </div>
+                            
+                            <!-- Instagram -->
+                            <div class="bg-white/5 rounded-xl p-4 border border-white/10" data-platform="instagram">
+                                <div class="flex items-center gap-3 mb-3">
+                                    <div class="w-10 h-10 rounded-lg flex items-center justify-center" style="background: linear-gradient(45deg, #f09433, #e6683c, #dc2743, #cc2366, #bc1888);">
+                                        <i class="fab fa-instagram text-white"></i>
+                                    </div>
+                                    <div>
+                                        <div class="font-medium text-white text-sm">Instagram</div>
+                                        <div class="text-xs text-gray-500" id="instagram-status">Not connected</div>
+                                    </div>
+                                </div>
+                                <button onclick="connectSocial('instagram')" class="w-full py-2 px-3 bg-white/10 hover:bg-white/20 rounded-lg text-sm text-white transition" id="instagram-btn">
+                                    Connect
+                                </button>
+                            </div>
+                            
+                            <!-- LinkedIn -->
+                            <div class="bg-white/5 rounded-xl p-4 border border-white/10" data-platform="linkedin">
+                                <div class="flex items-center gap-3 mb-3">
+                                    <div class="w-10 h-10 rounded-lg flex items-center justify-center" style="background: #0A66C2;">
+                                        <i class="fab fa-linkedin text-white"></i>
+                                    </div>
+                                    <div>
+                                        <div class="font-medium text-white text-sm">LinkedIn</div>
+                                        <div class="text-xs text-gray-500" id="linkedin-status">Not connected</div>
+                                    </div>
+                                </div>
+                                <button onclick="connectSocial('linkedin')" class="w-full py-2 px-3 bg-white/10 hover:bg-white/20 rounded-lg text-sm text-white transition" id="linkedin-btn">
+                                    Connect
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
