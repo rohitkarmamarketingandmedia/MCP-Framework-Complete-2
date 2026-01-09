@@ -175,7 +175,7 @@ class RankTrackingService:
                 'type': 'domain_organic',
                 'key': api_key,
                 'display_limit': 500,
-                'export_columns': 'Ph,Po,Pp,Ur,Nq,Cp,Co',
+                'export_columns': 'Ph,Po,Pp,Ur,Nq,Cp,Co,Fk,Kd',  # Added Fk (SERP Features) and Kd (Keyword Difficulty)
                 'domain': domain,
                 'database': database
             }
@@ -230,13 +230,29 @@ class RankTrackingService:
                     parts = line.split(';')
                     if len(parts) >= 7:
                         kw = parts[0].strip('"').lower()
+                        
+                        # Parse SERP features (column 7 if present)
+                        serp_features = []
+                        if len(parts) > 7 and parts[7]:
+                            serp_features = self._parse_serp_features(parts[7].strip('"'))
+                        
+                        # Parse keyword difficulty (column 8 if present)
+                        kd = 0
+                        if len(parts) > 8 and parts[8]:
+                            try:
+                                kd = float(parts[8])
+                            except:
+                                kd = 0
+                        
                         domain_keywords[kw] = {
                             'position': int(parts[1]) if parts[1] else None,
                             'previous_position': int(parts[2]) if parts[2] else None,
                             'url': parts[3].strip('"') if parts[3] else None,
                             'search_volume': int(parts[4]) if parts[4] else 0,
                             'cpc': float(parts[5]) if parts[5] else 0.0,
-                            'competition': float(parts[6]) if parts[6] else 0.0
+                            'competition': float(parts[6]) if parts[6] else 0.0,
+                            'serp_features': serp_features,
+                            'keyword_difficulty': kd
                         }
             
             # Match requested keywords
@@ -250,7 +266,9 @@ class RankTrackingService:
                     'url': None,
                     'search_volume': 0,
                     'cpc': 0.0,
-                    'competition': 0.0
+                    'competition': 0.0,
+                    'serp_features': [],
+                    'keyword_difficulty': 0
                 }
                 
                 if kw_lower in domain_keywords:
@@ -288,6 +306,57 @@ class RankTrackingService:
         except Exception as e:
             result['error'] = str(e)
             return result
+    
+    def _parse_serp_features(self, features_str: str) -> List[Dict]:
+        """
+        Parse SEMrush SERP features string into structured list
+        
+        SEMrush returns features as comma-separated codes like:
+        "0,1,3,7,8,14" where each number represents a feature type
+        """
+        if not features_str:
+            return []
+        
+        # SEMrush SERP feature codes mapping
+        SERP_FEATURE_MAP = {
+            '0': {'code': 'featured_snippet', 'name': 'Featured Snippet', 'icon': '📄'},
+            '1': {'code': 'local_pack', 'name': 'Local Pack', 'icon': '📍'},
+            '2': {'code': 'reviews', 'name': 'Reviews', 'icon': '⭐'},
+            '3': {'code': 'sitelinks', 'name': 'Sitelinks', 'icon': '🔗'},
+            '4': {'code': 'image_pack', 'name': 'Image Pack', 'icon': '🖼️'},
+            '5': {'code': 'video', 'name': 'Video', 'icon': '🎬'},
+            '6': {'code': 'knowledge_panel', 'name': 'Knowledge Panel', 'icon': '📚'},
+            '7': {'code': 'top_stories', 'name': 'Top Stories', 'icon': '📰'},
+            '8': {'code': 'people_also_ask', 'name': 'People Also Ask', 'icon': '❓'},
+            '9': {'code': 'shopping', 'name': 'Shopping Results', 'icon': '🛒'},
+            '10': {'code': 'twitter', 'name': 'Twitter/X Results', 'icon': '🐦'},
+            '11': {'code': 'thumbnail', 'name': 'Thumbnail', 'icon': '🖼️'},
+            '12': {'code': 'instant_answer', 'name': 'Instant Answer', 'icon': '⚡'},
+            '13': {'code': 'jobs', 'name': 'Jobs', 'icon': '💼'},
+            '14': {'code': 'ads', 'name': 'Ads (Top)', 'icon': '💰'},
+            '15': {'code': 'ads_bottom', 'name': 'Ads (Bottom)', 'icon': '💰'},
+            '16': {'code': 'carousel', 'name': 'Carousel', 'icon': '🎠'},
+            '17': {'code': 'faq', 'name': 'FAQ Rich Result', 'icon': '📋'},
+        }
+        
+        features = []
+        try:
+            codes = features_str.replace('"', '').split(',')
+            for code in codes:
+                code = code.strip()
+                if code in SERP_FEATURE_MAP:
+                    features.append(SERP_FEATURE_MAP[code])
+                elif code:
+                    # Unknown feature code
+                    features.append({
+                        'code': f'unknown_{code}',
+                        'name': f'Feature {code}',
+                        'icon': '🔹'
+                    })
+        except Exception as e:
+            logger.debug(f"Error parsing SERP features '{features_str}': {e}")
+        
+        return features
     
     def get_ranking_history(
         self,

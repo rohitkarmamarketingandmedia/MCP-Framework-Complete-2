@@ -110,9 +110,9 @@ class AIService:
             system_prompt = system_prompt.replace('{tone}', tone)
             system_prompt = system_prompt.replace('{industry}', industry)
             
-            # Calculate tokens needed: ~1.5 tokens per word + overhead for JSON structure
-            # Minimum 1500 tokens for proper blog, max 2500 for longer content
-            estimated_tokens = max(1500, min(2500, int(word_count * 1.5) + 500))
+            # Calculate tokens needed: ~2 tokens per word + overhead for JSON structure
+            # Minimum 2000 tokens for proper blog with real content, max 3500 for longer
+            estimated_tokens = max(2000, min(3500, int(word_count * 2) + 800))
             
             fast_model = self.default_model  # gpt-3.5-turbo
             
@@ -126,7 +126,7 @@ class AIService:
             logger.info(f"Used content_writer agent config (model={fast_model}, tokens={estimated_tokens})")
         else:
             # Fallback to default behavior
-            estimated_tokens = max(1500, min(2500, int(word_count * 1.5) + 500))
+            estimated_tokens = max(2000, min(3500, int(word_count * 2) + 800))
             response = self._call_with_retry(prompt, max_tokens=estimated_tokens)
         
         if response.get('error'):
@@ -509,23 +509,25 @@ Return ONLY valid JSON (no markdown, no code blocks, no explanation):
     "h1": "Main H1 heading with {keyword} and {geo}",
     "meta_title": "55-60 char title starting with keyword",
     "meta_description": "150-160 char description with keyword and CTA",
-    "body": "<p>Introduction paragraph...</p><h2>First Section in {geo}</h2><p>Content...</p>...",
+    "body": "<p>Write a complete introduction paragraph here with real sentences about the topic. Do NOT use placeholder text like 'Content...' or 'Details here'. Write actual informative content that a reader would find valuable.</p><h2>First Section About {keyword} in {geo}</h2><p>Write 2-3 full paragraphs of real content for this section. Include specific information, tips, and advice.</p><h2>Second Section</h2><p>Continue with more detailed real content...</p>",
     "h2_headings": ["list", "of", "h2", "headings", "used"],
     "h3_headings": ["list", "of", "h3", "headings"],
     "secondary_keywords": ["related", "keywords", "used"],
     "faq_items": [
-        {{"question": "Question about {keyword}?", "answer": "Detailed 50-100 word answer..."}},
-        {{"question": "Another question?", "answer": "Another detailed answer..."}}
+        {{"question": "Question about {keyword}?", "answer": "Write a complete 50-100 word answer with real information."}},
+        {{"question": "Another question?", "answer": "Another complete detailed answer with real content."}}
     ],
     "word_count": {word_count}
 }}
 
 CRITICAL REMINDERS:
-1. Body must be {word_count}+ words - this is mandatory
-2. Include proper HTML tags: <p>, <h2>, <h3>, <ul>, <li>, <strong>
-3. Every H2 must mention {geo} or a nearby location
-4. Include internal links with actual <a href="..."> tags if provided above
-5. Return ONLY the JSON object, nothing else
+1. Body must be {word_count}+ words of REAL CONTENT - this is mandatory
+2. DO NOT use placeholder text like "Content...", "Details...", "Explanation here"
+3. Write complete sentences and paragraphs with actual helpful information
+4. Include proper HTML tags: <p>, <h2>, <h3>, <ul>, <li>, <strong>
+5. Every H2 must mention {geo} or a nearby location
+6. Include internal links with actual <a href="..."> tags if provided above
+7. Return ONLY the JSON object, nothing else
 """
     
     def _parse_blog_response(self, content: str) -> Dict[str, Any]:

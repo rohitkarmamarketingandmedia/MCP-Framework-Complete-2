@@ -1506,12 +1506,13 @@
                                         <th class="pb-3">Keyword</th>
                                         <th class="pb-3 text-center">Position</th>
                                         <th class="pb-3 text-center">Change</th>
+                                        <th class="pb-3 text-center">KD%</th>
                                         <th class="pb-3 text-right">Volume</th>
                                     </tr>
                                 </thead>
                                 <tbody id="rankingsTable">
                                     <tr>
-                                        <td colspan="4" class="py-8 text-center text-gray-500">
+                                        <td colspan="5" class="py-8 text-center text-gray-500">
                                             <i class="fas fa-search text-2xl mb-2"></i>
                                             <p>Click "Check Rankings" to scan Google</p>
                                         </td>
@@ -9774,9 +9775,21 @@
                 
                 return `
                     <tr class="border-b border-white/5 hover:bg-white/5">
-                        <td class="py-3 text-white">${kw.keyword}</td>
+                        <td class="py-3">
+                            <div class="text-white">${kw.keyword}</div>
+                            ${kw.serp_features && kw.serp_features.length > 0 ? `
+                                <div class="flex flex-wrap gap-1 mt-1">
+                                    ${kw.serp_features.map(f => `
+                                        <span class="text-xs px-1.5 py-0.5 bg-purple-500/20 text-purple-300 rounded" title="${f.name}">
+                                            ${f.icon || '🔹'}
+                                        </span>
+                                    `).join('')}
+                                </div>
+                            ` : ''}
+                        </td>
                         <td class="py-3 text-center font-bold ${posClass}">${pos}</td>
                         <td class="py-3 text-center">${changeHtml}</td>
+                        <td class="py-3 text-center text-gray-400">${kw.keyword_difficulty ? Math.round(kw.keyword_difficulty) + '%' : '--'}</td>
                         <td class="py-3 text-right text-gray-400">${kw.search_volume ? kw.search_volume.toLocaleString() : '--'}</td>
                     </tr>
                 `;
