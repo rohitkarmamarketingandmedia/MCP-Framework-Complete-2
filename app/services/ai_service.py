@@ -51,13 +51,16 @@ class AIService:
         word_count: int = 400,
         tone: str = 'professional',
         business_name: str = '',
-        include_faq: bool = False,
-        faq_count: int = 2,
+        include_faq: bool = True,  # Changed default to True for 100% SEO
+        faq_count: int = 5,  # Changed to 5-7 FAQs for SEO
         internal_links: List[Dict] = None,
-        usps: List[str] = None
+        usps: List[str] = None,
+        contact_name: str = None,
+        phone: str = None,
+        email: str = None
     ) -> Dict[str, Any]:
         """
-        Generate SEO-optimized blog post using content_writer agent config
+        Generate 100% SEO-optimized blog post
         
         Returns:
             {
@@ -66,10 +69,13 @@ class AIService:
                 'body': str,
                 'meta_title': str,
                 'meta_description': str,
+                'summary': str,
+                'key_takeaways': List[str],
                 'h2_headings': List[str],
                 'h3_headings': List[str],
                 'faq_items': List[Dict],
                 'secondary_keywords': List[str],
+                'cta': Dict,
                 'html': str
             }
         """
@@ -97,7 +103,10 @@ class AIService:
             include_faq=include_faq,
             faq_count=faq_count,
             internal_links=internal_links,
-            usps=usps
+            usps=usps,
+            contact_name=contact_name,
+            phone=phone,
+            email=email
         )
         
         # Enforce rate limiting
@@ -397,137 +406,161 @@ Example for HVAC business:
         include_faq: bool,
         faq_count: int,
         internal_links: List[Dict],
-        usps: List[str]
+        usps: List[str],
+        contact_name: str = None,
+        phone: str = None,
+        email: str = None
     ) -> str:
-        """Build the blog generation prompt - optimized for long-form SEO content"""
+        """Build the blog generation prompt - optimized for 100% SEO score"""
         
-        # Get current year
         from datetime import datetime
         current_year = datetime.utcnow().year
         
-        # Build internal links section with clear instructions
+        # Build internal links section
         links_section = ""
         if internal_links:
-            links_section = f"""
-INTERNAL LINKING (MANDATORY - Include ALL of these):
-You MUST include these internal links naturally within your content. Use the exact URLs provided.
-Each link should appear ONCE in the body content with natural anchor text.
-
-Links to include:
+            links_section = """
+INTERNAL LINKING (MANDATORY):
+Include these internal links naturally within your content using <a href="URL">anchor text</a> format:
 """
-            for link in internal_links[:8]:  # Max 8 links
+            for link in internal_links[:8]:
                 kw = link.get('keyword', link.get('title', ''))
                 url = link.get('url', '')
                 if kw and url:
-                    links_section += f'- Link to "{url}" using anchor text related to: {kw}\n'
-            
-            links_section += """
-Format links as: <a href="URL">anchor text</a>
-IMPORTANT: Actually include the <a href> tags in your body content. Do not just mention links.
-"""
+                    links_section += f'- Link to "{url}" for: {kw}\n'
         
         # Build USP section
         usp_section = ""
         if usps:
-            usp_section = f"""
-UNIQUE SELLING POINTS (weave these into content naturally):
-"""
+            usp_section = "\nUNIQUE SELLING POINTS (weave naturally into content):\n"
             for usp in usps[:5]:
                 usp_section += f"- {usp}\n"
         
-        # Build FAQ section
-        faq_section = ""
-        if include_faq:
-            faq_section = f"""
-FAQ SECTION (REQUIRED):
-Include exactly {faq_count} frequently asked questions at the end.
-- Questions should be what real customers in {geo} would ask about {keyword}
-- Each answer should be 50-100 words
-- Use <h3> for questions
-- Format as proper FAQ schema-ready content
-"""
+        # Build CTA contact info
+        cta_contact = contact_name or business_name or f"our {industry} team"
+        cta_company = business_name or f"our {industry} company"
+        cta_phone = f"call {phone}" if phone else ""
+        cta_email = f"email {email}" if email else ""
+        cta_methods = " or ".join(filter(None, [cta_phone, cta_email])) or "contact us"
         
-        return f"""You are an expert SEO content writer. Write a comprehensive, in-depth blog post.
+        return f"""You are an expert SEO content writer creating a blog post for a real client website.
 
-CURRENT DATE CONTEXT: The current year is {current_year}. All content should be timely and reference {current_year} where appropriate.
+BUSINESS INFO:
+- Company: {business_name or f'A {industry} company'}
+- Contact: {contact_name or 'Not provided'}
+- Phone: {phone or 'Not provided'}
+- Email: {email or 'Not provided'}
+- Location: {geo}
+- Industry: {industry}
 
-BUSINESS: {business_name or f'A {industry} company'} in {geo}
-PRIMARY KEYWORD: "{keyword}"
-TARGET LOCATION: {geo}
+TARGET KEYWORD: "{keyword}"
+WORD COUNT: {word_count} words minimum
 TONE: {tone}
+CURRENT YEAR: {current_year}
 
-===== WORD COUNT REQUIREMENT (CRITICAL) =====
-MINIMUM WORD COUNT: {word_count} words
-This is NON-NEGOTIABLE. The body content MUST be at least {word_count} words.
-Write detailed, comprehensive content. Include examples, explanations, and actionable advice.
-DO NOT write short, thin content. Expand every section thoroughly.
+===== REQUIRED BLOG STRUCTURE =====
 
-===== CONTENT STRUCTURE (REQUIRED) =====
-1. H1 HEADING: Must contain "{keyword}" AND "{geo}"
-   Example: "{keyword.title()} in {geo}: Complete Guide for {current_year}"
+1. INTRO (120-180 words) - MANDATORY FORMAT:
+   - Paragraph 1: What this topic is (no sales language)
+   - Paragraph 2: Who this information is for
+   - Paragraph 3: Why this matters to the reader
+   - Include "{keyword}" naturally in first 100 words
+   - Mention "{geo}" in intro
 
-2. INTRODUCTION (150+ words):
-   - Hook the reader
-   - Include primary keyword in first sentence
-   - Mention {geo} location
-   - Preview what the article covers
+2. CONTEXT/BACKGROUND SECTION (100-150 words):
+   - What this service/topic actually is
+   - Who it applies to in {geo}
+   - Local context if relevant
+   - NO assumptions or hype
 
-3. BODY SECTIONS (minimum 5 H2 sections, each 200+ words):
-   Each H2 heading MUST include a location reference ({geo}, nearby cities, or "local")
-   Examples of good H2s:
-   - "Why {geo} Residents Choose [Service]"
-   - "Top [Service] Options in {geo}"
-   - "What to Expect from {geo} [Industry] Professionals"
-   - "Cost of [Service] in the {geo} Area"
-   - "How to Find the Best [Service] Near {geo}"
+3. PRIMARY INFORMATIONAL SECTIONS (3-5 H2 sections, each 150-200 words):
+   Each section must:
+   - Answer a real question a human would ask
+   - Use varied, natural headings (avoid repeating "{keyword}" verbatim)
+   - Include H3 subheadings for detail
+   - Good H2 examples:
+     * "What to Consider Before [Action] in {geo}"
+     * "How {geo} [Professionals] Approach This"
+     * "Comparing Options for {geo} [Customers]"
 
-4. H3 SUBHEADINGS: Use under each H2 to break up content
-   Include keyword variations in H3s
+4. PRACTICAL CONSIDERATIONS (include 2-3 that apply):
+   - Cost breakdown or pricing factors
+   - Step-by-step process
+   - Pros and cons
+   - Who this is NOT for
+   - Common mistakes to avoid
 
-5. CONCLUSION (100+ words):
-   - Summarize key points
-   - Include call-to-action mentioning {geo}
-   - End with the primary keyword
+5. FAQ SECTION (MANDATORY - exactly 5-7 FAQs):
+   - Questions must be specific and natural
+   - Each answer: 40-70 words
+   - No fluff or marketing language
+   - Answer-first format (start with the actual answer)
+   - Format: <h3>Question?</h3><p>Answer...</p>
+
+6. CTA SECTION (MANDATORY - appears twice):
+   First CTA: Mid-content (subtle, helpful)
+   Final CTA: End of article (direct but not salesy)
+   
+   CTA must include:
+   - Contact name: {cta_contact}
+   - Company: {cta_company}
+   - Contact method: {cta_methods}
+   
+   CTA Example tone: "If you have questions about this or want guidance specific to your situation, reach out to {cta_contact} at {cta_company}. You can {cta_methods} to get straightforward, no-pressure advice."
 {links_section}
 {usp_section}
-{faq_section}
-===== SEO CHECKLIST (ALL REQUIRED) =====
-✓ Primary keyword "{keyword}" appears 8-15 times throughout
-✓ "{geo}" or location references appear 10+ times
+===== SEO REQUIREMENTS =====
+✓ "{keyword}" appears 8-15 times naturally throughout
+✓ "{geo}" appears 10+ times
 ✓ Keyword in first 100 words
-✓ Keyword in last 100 words
-✓ Meta title: 55-60 characters, keyword at START
-✓ Meta description: 150-160 characters with keyword and CTA
-✓ Use bullet points and numbered lists where appropriate
-✓ Include statistics or specific numbers where relevant
+✓ Keyword in last 100 words  
+✓ Meta title: 55-60 chars, keyword at START
+✓ Meta description: 150-160 chars with keyword
+✓ Use <ul>/<li> for lists, <strong> for emphasis
+✓ Include specific numbers/stats where relevant
 
-===== OUTPUT FORMAT =====
-Return ONLY valid JSON (no markdown, no code blocks, no explanation):
+===== OUTPUT FORMAT (MANDATORY JSON) =====
+Return ONLY this JSON structure - no markdown, no code blocks:
 
 {{
-    "title": "SEO-optimized page title with keyword",
-    "h1": "Main H1 heading with {keyword} and {geo}",
-    "meta_title": "55-60 char title starting with keyword",
-    "meta_description": "150-160 char description with keyword and CTA",
-    "body": "<p>Write a complete introduction paragraph here with real sentences about the topic. Do NOT use placeholder text like 'Content...' or 'Details here'. Write actual informative content that a reader would find valuable.</p><h2>First Section About {keyword} in {geo}</h2><p>Write 2-3 full paragraphs of real content for this section. Include specific information, tips, and advice.</p><h2>Second Section</h2><p>Continue with more detailed real content...</p>",
-    "h2_headings": ["list", "of", "h2", "headings", "used"],
+    "title": "SEO title with {keyword} and {geo}",
+    "h1": "H1 with {keyword} and {geo}",
+    "meta_title": "55-60 char title starting with {keyword}",
+    "meta_description": "150-160 char description with {keyword}",
+    "summary": "2-3 sentence summary for AI/chat responses",
+    "body": "<p>Full HTML content with all sections...</p>",
+    "h2_headings": ["list", "of", "h2", "headings"],
     "h3_headings": ["list", "of", "h3", "headings"],
-    "secondary_keywords": ["related", "keywords", "used"],
-    "faq_items": [
-        {{"question": "Question about {keyword}?", "answer": "Write a complete 50-100 word answer with real information."}},
-        {{"question": "Another question?", "answer": "Another complete detailed answer with real content."}}
+    "secondary_keywords": ["related", "keywords"],
+    "key_takeaways": [
+        "Takeaway 1 - actionable insight",
+        "Takeaway 2 - key fact",
+        "Takeaway 3 - important consideration"
     ],
+    "faq_items": [
+        {{"question": "Specific question about {keyword}?", "answer": "40-70 word answer starting with the actual answer, not fluff."}},
+        {{"question": "Another real question?", "answer": "Direct answer with useful information."}},
+        {{"question": "Third question?", "answer": "Helpful response."}},
+        {{"question": "Fourth question?", "answer": "Practical answer."}},
+        {{"question": "Fifth question?", "answer": "Clear response."}}
+    ],
+    "cta": {{
+        "contact_name": "{contact_name or ''}",
+        "company_name": "{business_name or ''}",
+        "phone": "{phone or ''}",
+        "email": "{email or ''}",
+        "cta_text": "Natural CTA text for the article"
+    }},
     "word_count": {word_count}
 }}
 
-CRITICAL REMINDERS:
-1. Body must be {word_count}+ words of REAL CONTENT - this is mandatory
-2. DO NOT use placeholder text like "Content...", "Details...", "Explanation here"
-3. Write complete sentences and paragraphs with actual helpful information
-4. Include proper HTML tags: <p>, <h2>, <h3>, <ul>, <li>, <strong>
-5. Every H2 must mention {geo} or a nearby location
-6. Include internal links with actual <a href="..."> tags if provided above
-7. Return ONLY the JSON object, nothing else
+CRITICAL RULES:
+1. Body MUST be {word_count}+ words of REAL content
+2. NEVER use placeholder text ("Content...", "Details here...")
+3. Write complete, helpful, authoritative content
+4. FAQs are MANDATORY with 5-7 specific questions
+5. CTA appears twice in body content
+6. Return ONLY valid JSON
 """
     
     def _parse_blog_response(self, content: str) -> Dict[str, Any]:
@@ -606,10 +639,13 @@ CRITICAL REMINDERS:
                 'body': extracted_body,
                 'meta_title': meta_title_match.group(1) if meta_title_match else '',
                 'meta_description': meta_desc_match.group(1) if meta_desc_match else '',
+                'summary': '',
+                'key_takeaways': [],
                 'h2_headings': [],
                 'h3_headings': [],
                 'faq_items': [],
                 'secondary_keywords': [],
+                'cta': {},
                 'html': extracted_body,
                 'parse_error': str(e)
             }

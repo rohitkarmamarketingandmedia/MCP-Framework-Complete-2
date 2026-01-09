@@ -79,7 +79,12 @@ def _generate_blog_background(task_id, app, client_id, keyword, word_count, incl
             from app.services.internal_linking_service import internal_linking_service
             service_pages = client.get_service_pages() or []
             
-            # Generate blog
+            # Get contact info for CTA
+            contact_name = getattr(client, 'contact_name', None) or getattr(client, 'owner_name', None)
+            phone = getattr(client, 'phone', None)
+            email = getattr(client, 'email', None)
+            
+            # Generate blog with 100% SEO optimization
             result = ai_service.generate_blog_post(
                 keyword=keyword,
                 geo=client.geo or '',
@@ -88,9 +93,12 @@ def _generate_blog_background(task_id, app, client_id, keyword, word_count, incl
                 tone=client.tone or 'professional',
                 business_name=client.business_name or '',
                 include_faq=include_faq,
-                faq_count=faq_count,
+                faq_count=max(faq_count, 5),  # Minimum 5 FAQs for 100% SEO
                 internal_links=service_pages,
-                usps=client.get_unique_selling_points()
+                usps=client.get_unique_selling_points(),
+                contact_name=contact_name,
+                phone=phone,
+                email=email
             )
             
             if result.get('error'):
@@ -317,6 +325,11 @@ def generate_content(current_user):
     if not internal_links:
         internal_links = client.get_service_pages() or []
     
+    # Get contact info for CTA
+    contact_name = getattr(client, 'contact_name', None) or getattr(client, 'owner_name', None)
+    phone = getattr(client, 'phone', None)
+    email = getattr(client, 'email', None)
+    
     params = {
         'keyword': data['keyword'],
         'geo': data['geo'],
@@ -324,10 +337,13 @@ def generate_content(current_user):
         'word_count': data.get('word_count', current_app.config['DEFAULT_BLOG_WORD_COUNT']),
         'tone': data.get('tone', current_app.config['DEFAULT_TONE']),
         'business_name': client.business_name or '',
-        'include_faq': data.get('include_faq', False),
-        'faq_count': data.get('faq_count', 2),
+        'include_faq': data.get('include_faq', True),  # Default True for 100% SEO
+        'faq_count': max(data.get('faq_count', 5), 5),  # Minimum 5 FAQs
         'internal_links': internal_links,
-        'usps': client.get_unique_selling_points() or []
+        'usps': client.get_unique_selling_points() or [],
+        'contact_name': contact_name,
+        'phone': phone,
+        'email': email
     }
     
     # Generate content
@@ -476,6 +492,11 @@ def bulk_generate(current_user):
     from app.services.internal_linking_service import internal_linking_service
     service_pages = client.get_service_pages() or []
     
+    # Get contact info for CTA
+    contact_name = getattr(client, 'contact_name', None) or getattr(client, 'owner_name', None)
+    phone = getattr(client, 'phone', None)
+    email = getattr(client, 'email', None)
+    
     results = []
     
     for topic in topics[:5]:  # Limit to 5 to avoid timeout
@@ -485,7 +506,7 @@ def bulk_generate(current_user):
             continue
         
         try:
-            # Build params from client data
+            # Build params from client data with 100% SEO optimization
             params = {
                 'keyword': keyword,
                 'geo': client.geo or '',
@@ -493,10 +514,13 @@ def bulk_generate(current_user):
                 'word_count': topic.get('word_count', current_app.config.get('DEFAULT_BLOG_WORD_COUNT', 1200)),
                 'tone': client.tone or 'professional',
                 'business_name': client.business_name or '',
-                'include_faq': topic.get('include_faq', True),
-                'faq_count': topic.get('faq_count', 5),
-                'internal_links': service_pages,  # Pass service pages to AI
-                'usps': client.get_unique_selling_points() or []
+                'include_faq': True,  # Always include FAQs for 100% SEO
+                'faq_count': max(topic.get('faq_count', 5), 5),  # Minimum 5 FAQs
+                'internal_links': service_pages,
+                'usps': client.get_unique_selling_points() or [],
+                'contact_name': contact_name,
+                'phone': phone,
+                'email': email
             }
             
             # Generate content
