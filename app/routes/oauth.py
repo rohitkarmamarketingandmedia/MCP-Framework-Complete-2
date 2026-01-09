@@ -723,3 +723,241 @@ def verify_credentials(current_user):
             'linkedin': f"{os.getenv('OAUTH_CALLBACK_URL', OAuthConfig.APP_URL)}/api/oauth/callback/linkedin"
         }
     })
+
+
+# ==========================================
+# TEST CLIENT TOKENS
+# ==========================================
+
+@oauth_bp.route('/test-client-tokens/<client_id>', methods=['GET'])
+@token_required
+def test_client_tokens(current_user, client_id):
+    """
+    Test all OAuth tokens for a specific client
+    
+    GET /api/oauth/test-client-tokens/<client_id>
+    
+    Actually calls each platform's API to verify tokens are valid
+    """
+    import requests
+    import os
+    from datetime import datetime
+    
+    client = data_service.get_client(client_id)
+    if not client:
+        return jsonify({'error': 'Client not found'}), 404
+    
+    results = {
+        'client_id': client_id,
+        'client_name': client.business_name,
+        'tested_at': datetime.utcnow().isoformat(),
+        'facebook': {
+            'has_token': False,
+            'token_valid': False,
+            'page_id': None,
+            'error': None,
+            'details': {}
+        },
+        'google': {
+            'has_token': False,
+            'token_valid': False,
+            'location_id': None,
+            'error': None,
+            'details': {}
+        },
+        'linkedin': {
+            'has_token': False,
+            'token_valid': False,
+            'org_id': None,
+            'error': None,
+            'details': {}
+        }
+    }
+    
+    # ===== TEST FACEBOOK TOKEN =====
+    fb_token = client.facebook_access_token
+    fb_page_id = client.facebook_page_id
+    
+    logger.info(f"Testing Facebook token for {client_id}: token_length={len(fb_token) if fb_token else 0}, page_id={fb_page_id}")
+    
+    if fb_token:
+        results['facebook']['has_token'] = True
+        results['facebook']['token_length'] = len(fb_token)
+        results['facebook']['page_id'] = fb_page_id
+        
+        try:
+            # Test token by getting token debug info
+            fb_app_id = os.getenv('FACEBOOK_APP_ID', '')
+            fb_app_secret = os.getenv('FACEBOOK_APP_SECRET', '')
+            
+            if fb_app_id and fb_app_secret:
+                # Debug the token
+                debug_url = "https://graph.facebook.com/debug_token"
+                debug_params = {
+                    'input_token': fb_token,
+                    'access_token': f"{fb_app_id}|{fb_app_secret}"
+                }
+                debug_response = requests.get(debug_url, params=debug_params, timeout=10)
+                debug_data = debug_response.json()
+                
+                logger.info(f"Facebook token debug response: {debug_data}")
+                
+                if 'data' in debug_data:
+                    token_data = debug_data['data']
+                    results['facebook']['details'] = {
+                        'is_valid': token_data.get('is_valid', False),
+                        'app_id': token_data.get('app_id'),
+                        'type': token_data.get('type'),
+                        'expires_at': token_data.get('expires_at'),
+                        'scopes': token_data.get('scopes', [])
+                    }
+                    
+                    # Check expiration
+                    expires_at = token_data.get('expires_at', 0)
+                    if expires_at:
+                        expires_dt = datetime.fromtimestamp(expires_at)
+                        results['facebook']['details']['expires_at_human'] = expires_dt.isoformat()
+                        results['facebook']['details']['is_expired'] = datetime.now() > expires_dt
+                    
+                    results['facebook']['token_valid'] = token_data.get('is_valid', False)
+                    
+                    if not token_data.get('is_valid'):
+                        error_info = token_data.get('error', {})
+                        results['facebook']['error'] = error_info.get('message', 'Token is invalid')
+                else:
+                    error_info = debug_data.get('error', {})
+                    results['facebook']['error'] = error_info.get('message', 'Could not debug token')
+            else:
+                # No app credentials to debug, try direct API call
+                test_url = f"https://graph.facebook.com/v18.0/me"
+                test_response = requests.get(test_url, params={'access_token': fb_token}, timeout=10)
+                test_data = test_response.json()
+                
+                if 'id' in test_data:
+                    results['facebook']['token_valid'] = True
+                    results['facebook']['details'] = {'user_id': test_data.get('id'), 'name': test_data.get('name')}
+                else:
+                    results['facebook']['error'] = test_data.get('error', {}).get('message', 'Token test failed')
+                    
+        except Exception as e:
+            logger.error(f"Facebook token test error: {e}")
+            results['facebook']['error'] = str(e)
+    else:
+        results['facebook']['error'] = 'No Facebook token stored for this client'
+    
+    # ===== TEST GOOGLE/GBP TOKEN =====
+    gbp_token = client.gbp_access_token
+    gbp_refresh = client.gbp_refresh_token
+    gbp_location = client.gbp_location_id
+    
+    logger.info(f"Testing GBP token for {client_id}: token_length={len(gbp_token) if gbp_token else 0}, refresh_length={len(gbp_refresh) if gbp_refresh else 0}, location={gbp_location}")
+    
+    if gbp_token or gbp_refresh:
+        results['google']['has_token'] = True
+        results['google']['token_length'] = len(gbp_token) if gbp_token else 0
+        results['google']['refresh_token_length'] = len(gbp_refresh) if gbp_refresh else 0
+        results['google']['location_id'] = gbp_location
+        
+        try:
+            # Try to use refresh token to get new access token
+            google_client_id = os.getenv('GOOGLE_CLIENT_ID', '')
+            google_client_secret = os.getenv('GOOGLE_CLIENT_SECRET', '')
+            
+            if gbp_refresh and google_client_id and google_client_secret:
+                # Try to refresh the token
+                refresh_url = "https://oauth2.googleapis.com/token"
+                refresh_data = {
+                    'client_id': google_client_id,
+                    'client_secret': google_client_secret,
+                    'refresh_token': gbp_refresh,
+                    'grant_type': 'refresh_token'
+                }
+                refresh_response = requests.post(refresh_url, data=refresh_data, timeout=10)
+                refresh_result = refresh_response.json()
+                
+                logger.info(f"GBP token refresh response: {refresh_response.status_code}")
+                
+                if 'access_token' in refresh_result:
+                    results['google']['token_valid'] = True
+                    results['google']['details'] = {
+                        'refresh_worked': True,
+                        'new_token_length': len(refresh_result['access_token']),
+                        'expires_in': refresh_result.get('expires_in')
+                    }
+                    
+                    # Update the stored access token
+                    new_token = refresh_result['access_token']
+                    client.gbp_access_token = new_token
+                    data_service.save_client(client)
+                    results['google']['details']['token_updated'] = True
+                    logger.info(f"Updated GBP access token for {client_id}")
+                else:
+                    error_msg = refresh_result.get('error_description', refresh_result.get('error', 'Refresh failed'))
+                    results['google']['error'] = error_msg
+                    results['google']['details'] = {'refresh_response': refresh_result}
+            elif gbp_token:
+                # Try using existing access token
+                test_url = "https://mybusinessaccountmanagement.googleapis.com/v1/accounts"
+                headers = {'Authorization': f'Bearer {gbp_token}'}
+                test_response = requests.get(test_url, headers=headers, timeout=10)
+                
+                if test_response.status_code == 200:
+                    results['google']['token_valid'] = True
+                    results['google']['details'] = {'api_test': 'success'}
+                else:
+                    results['google']['error'] = f"API returned {test_response.status_code}: {test_response.text[:200]}"
+            else:
+                results['google']['error'] = 'No refresh token - cannot test. Please reconnect.'
+                
+        except Exception as e:
+            logger.error(f"GBP token test error: {e}")
+            results['google']['error'] = str(e)
+    else:
+        results['google']['error'] = 'No GBP token stored for this client'
+    
+    # ===== TEST LINKEDIN TOKEN =====
+    li_token = client.linkedin_access_token
+    li_org = client.linkedin_org_id
+    
+    logger.info(f"Testing LinkedIn token for {client_id}: token_length={len(li_token) if li_token else 0}, org_id={li_org}")
+    
+    if li_token:
+        results['linkedin']['has_token'] = True
+        results['linkedin']['token_length'] = len(li_token)
+        results['linkedin']['org_id'] = li_org
+        
+        try:
+            # Test token by getting user profile
+            test_url = "https://api.linkedin.com/v2/me"
+            headers = {'Authorization': f'Bearer {li_token}'}
+            test_response = requests.get(test_url, headers=headers, timeout=10)
+            
+            if test_response.status_code == 200:
+                results['linkedin']['token_valid'] = True
+                profile_data = test_response.json()
+                results['linkedin']['details'] = {
+                    'profile_id': profile_data.get('id'),
+                    'first_name': profile_data.get('localizedFirstName'),
+                    'last_name': profile_data.get('localizedLastName')
+                }
+            else:
+                results['linkedin']['error'] = f"API returned {test_response.status_code}: {test_response.text[:200]}"
+                
+        except Exception as e:
+            logger.error(f"LinkedIn token test error: {e}")
+            results['linkedin']['error'] = str(e)
+    else:
+        results['linkedin']['error'] = 'No LinkedIn token stored for this client'
+    
+    # ===== SUMMARY =====
+    valid_count = sum(1 for p in ['facebook', 'google', 'linkedin'] if results[p]['token_valid'])
+    has_token_count = sum(1 for p in ['facebook', 'google', 'linkedin'] if results[p]['has_token'])
+    
+    results['summary'] = {
+        'tokens_stored': has_token_count,
+        'tokens_valid': valid_count,
+        'all_valid': valid_count == has_token_count and has_token_count > 0,
+        'needs_reconnect': [p for p in ['facebook', 'google', 'linkedin'] if results[p]['has_token'] and not results[p]['token_valid']]
+    }
+    
+    return jsonify(results)

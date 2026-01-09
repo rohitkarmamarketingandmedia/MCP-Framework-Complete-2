@@ -1734,9 +1734,14 @@
                             </h3>
                             <p class="text-gray-400 text-sm">Connect your social accounts for automated publishing</p>
                         </div>
-                        <button onclick="verifyOAuthCredentials()" class="px-3 py-1.5 bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 rounded-lg text-xs transition" title="Verify API credentials are configured correctly">
-                            <i class="fas fa-check-circle mr-1"></i>Verify API Setup
-                        </button>
+                        <div class="flex gap-2">
+                            <button onclick="testClientTokens()" class="px-3 py-1.5 bg-green-500/20 hover:bg-green-500/30 text-green-300 rounded-lg text-xs transition" title="Test if client's OAuth tokens are working">
+                                <i class="fas fa-vial mr-1"></i>Test Tokens
+                            </button>
+                            <button onclick="verifyOAuthCredentials()" class="px-3 py-1.5 bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 rounded-lg text-xs transition" title="Verify API credentials are configured correctly">
+                                <i class="fas fa-check-circle mr-1"></i>Verify API Setup
+                            </button>
+                        </div>
                     </div>
                     <div id="socialConnections" class="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
                         <!-- GBP -->
@@ -10792,6 +10797,118 @@
                 
             } catch (error) {
                 alert('Error verifying credentials: ' + error.message);
+            }
+        }
+        
+        async function testClientTokens() {
+            if (!currentClient) {
+                alert('Please select a client first');
+                return;
+            }
+            
+            try {
+                showToast('Testing OAuth tokens...', 'info');
+                
+                const response = await fetch(`${API_URL}/api/oauth/test-client-tokens/${currentClient.id}`, {
+                    headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
+                });
+                const data = await response.json();
+                
+                if (!response.ok) {
+                    alert('Error testing tokens: ' + (data.error || 'Unknown error'));
+                    return;
+                }
+                
+                // Build detailed result
+                let html = `
+                    <div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onclick="this.remove()">
+                        <div class="bg-gray-800 rounded-xl p-6 max-w-2xl w-full mx-4 max-h-[80vh] overflow-auto" onclick="event.stopPropagation()">
+                            <div class="flex justify-between items-center mb-4">
+                                <h3 class="text-xl font-bold text-white">🔬 Token Test Results</h3>
+                                <button onclick="this.closest('.fixed').remove()" class="text-gray-400 hover:text-white">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
+                            
+                            <div class="text-sm text-gray-400 mb-4">
+                                Client: <span class="text-white">${data.client_name}</span><br>
+                                Tested: ${new Date(data.tested_at).toLocaleString()}
+                            </div>
+                            
+                            <!-- Summary -->
+                            <div class="mb-4 p-3 rounded-lg ${data.summary.all_valid ? 'bg-green-500/20 border border-green-500/50' : 'bg-yellow-500/20 border border-yellow-500/50'}">
+                                <div class="font-medium ${data.summary.all_valid ? 'text-green-300' : 'text-yellow-300'}">
+                                    ${data.summary.all_valid ? '✅ All tokens are valid!' : '⚠️ Some tokens need attention'}
+                                </div>
+                                <div class="text-sm text-gray-400 mt-1">
+                                    ${data.summary.tokens_valid}/${data.summary.tokens_stored} tokens valid
+                                    ${data.summary.needs_reconnect.length > 0 ? `<br>Needs reconnect: ${data.summary.needs_reconnect.join(', ')}` : ''}
+                                </div>
+                            </div>
+                            
+                            <!-- Facebook -->
+                            <div class="mb-4 p-4 bg-white/5 rounded-lg border ${data.facebook.token_valid ? 'border-green-500/50' : 'border-red-500/50'}">
+                                <div class="flex items-center gap-2 mb-2">
+                                    <i class="fab fa-facebook text-blue-400"></i>
+                                    <span class="font-medium text-white">Facebook</span>
+                                    ${data.facebook.token_valid ? '<span class="text-green-400 text-sm">✓ Valid</span>' : '<span class="text-red-400 text-sm">✗ Invalid</span>'}
+                                </div>
+                                <div class="text-sm space-y-1">
+                                    <div class="text-gray-400">Has Token: ${data.facebook.has_token ? 'Yes (' + data.facebook.token_length + ' chars)' : 'No'}</div>
+                                    <div class="text-gray-400">Page ID: ${data.facebook.page_id || 'Not set'}</div>
+                                    ${data.facebook.error ? `<div class="text-red-400">Error: ${data.facebook.error}</div>` : ''}
+                                    ${data.facebook.details?.expires_at_human ? `<div class="text-gray-400">Expires: ${data.facebook.details.expires_at_human}</div>` : ''}
+                                    ${data.facebook.details?.is_expired ? `<div class="text-red-400 font-medium">⚠️ TOKEN EXPIRED - Please reconnect</div>` : ''}
+                                    ${data.facebook.details?.scopes ? `<div class="text-gray-500 text-xs">Scopes: ${data.facebook.details.scopes.join(', ')}</div>` : ''}
+                                </div>
+                            </div>
+                            
+                            <!-- Google/GBP -->
+                            <div class="mb-4 p-4 bg-white/5 rounded-lg border ${data.google.token_valid ? 'border-green-500/50' : 'border-red-500/50'}">
+                                <div class="flex items-center gap-2 mb-2">
+                                    <i class="fab fa-google text-red-400"></i>
+                                    <span class="font-medium text-white">Google Business Profile</span>
+                                    ${data.google.token_valid ? '<span class="text-green-400 text-sm">✓ Valid</span>' : '<span class="text-red-400 text-sm">✗ Invalid</span>'}
+                                </div>
+                                <div class="text-sm space-y-1">
+                                    <div class="text-gray-400">Has Token: ${data.google.has_token ? 'Yes' : 'No'}</div>
+                                    <div class="text-gray-400">Access Token: ${data.google.token_length || 0} chars</div>
+                                    <div class="text-gray-400">Refresh Token: ${data.google.refresh_token_length || 0} chars</div>
+                                    <div class="text-gray-400">Location ID: ${data.google.location_id || 'Not set'}</div>
+                                    ${data.google.error ? `<div class="text-red-400">Error: ${data.google.error}</div>` : ''}
+                                    ${data.google.details?.refresh_worked ? `<div class="text-green-400">✓ Refresh token working</div>` : ''}
+                                    ${data.google.details?.token_updated ? `<div class="text-green-400">✓ Access token refreshed</div>` : ''}
+                                </div>
+                            </div>
+                            
+                            <!-- LinkedIn -->
+                            <div class="mb-4 p-4 bg-white/5 rounded-lg border ${data.linkedin.token_valid ? 'border-green-500/50' : 'border-red-500/50'}">
+                                <div class="flex items-center gap-2 mb-2">
+                                    <i class="fab fa-linkedin text-blue-500"></i>
+                                    <span class="font-medium text-white">LinkedIn</span>
+                                    ${data.linkedin.token_valid ? '<span class="text-green-400 text-sm">✓ Valid</span>' : '<span class="text-red-400 text-sm">✗ Invalid</span>'}
+                                </div>
+                                <div class="text-sm space-y-1">
+                                    <div class="text-gray-400">Has Token: ${data.linkedin.has_token ? 'Yes (' + data.linkedin.token_length + ' chars)' : 'No'}</div>
+                                    <div class="text-gray-400">Org ID: ${data.linkedin.org_id || 'Not set'}</div>
+                                    ${data.linkedin.error ? `<div class="text-red-400">Error: ${data.linkedin.error}</div>` : ''}
+                                    ${data.linkedin.details?.profile_id ? `<div class="text-gray-400">Profile: ${data.linkedin.details.first_name} ${data.linkedin.details.last_name}</div>` : ''}
+                                </div>
+                            </div>
+                            
+                            <div class="flex justify-end gap-2 mt-4">
+                                <button onclick="this.closest('.fixed').remove()" class="px-4 py-2 bg-gray-600 hover:bg-gray-500 text-white rounded-lg transition">
+                                    Close
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
+                document.body.insertAdjacentHTML('beforeend', html);
+                
+            } catch (error) {
+                alert('Error testing tokens: ' + error.message);
             }
         }
         
