@@ -120,9 +120,8 @@ class AIService:
             system_prompt = system_prompt.replace('{industry}', industry)
             
             # Calculate tokens needed: ~2.5 tokens per word + overhead for JSON/HTML structure
-            # Need much more for full SEO blog with FAQs, CTAs, etc.
-            # Minimum 3000 tokens, max 4500 for comprehensive content
-            estimated_tokens = max(3000, min(4500, int(word_count * 2.5) + 1000))
+            # GPT-3.5-turbo max is 4096 tokens, so cap at 4000 to be safe
+            estimated_tokens = max(2500, min(4000, int(word_count * 2.5) + 800))
             
             fast_model = self.default_model  # gpt-3.5-turbo
             
@@ -135,8 +134,8 @@ class AIService:
             )
             logger.info(f"Used content_writer agent config (model={fast_model}, tokens={estimated_tokens})")
         else:
-            # Fallback to default behavior - also increase tokens
-            estimated_tokens = max(3000, min(4500, int(word_count * 2.5) + 1000))
+            # Fallback to default behavior - cap at 4000 for GPT-3.5
+            estimated_tokens = max(2500, min(4000, int(word_count * 2.5) + 800))
             response = self._call_with_retry(prompt, max_tokens=estimated_tokens)
         
         if response.get('error'):
