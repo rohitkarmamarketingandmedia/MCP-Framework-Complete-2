@@ -221,6 +221,12 @@ class RankTrackingService:
             
             logger.info(f"SEMrush API success: got {len(response.text)} bytes")
             
+            # Log a sample of the raw response to debug SERP features
+            sample_lines = response.text.strip().split('\n')[:3]
+            logger.info(f"SEMrush response header: {sample_lines[0] if sample_lines else 'empty'}")
+            if len(sample_lines) > 1:
+                logger.info(f"SEMrush first data row (sample): {sample_lines[1][:200]}")
+            
             # Parse response into lookup dict
             domain_keywords = {}
             lines = response.text.strip().split('\n')
@@ -235,6 +241,8 @@ class RankTrackingService:
                         serp_features = []
                         if len(parts) > 7 and parts[7]:
                             serp_features = self._parse_serp_features(parts[7].strip('"'))
+                            if serp_features:
+                                logger.debug(f"SERP features for '{kw}': {[f['name'] for f in serp_features]}")
                         
                         # Parse keyword difficulty (column 8 if present)
                         kd = 0
@@ -254,6 +262,10 @@ class RankTrackingService:
                             'serp_features': serp_features,
                             'keyword_difficulty': kd
                         }
+            
+            # Log stats about parsed keywords
+            kws_with_features = sum(1 for kw in domain_keywords.values() if kw.get('serp_features'))
+            logger.info(f"SEMrush parsed {len(domain_keywords)} keywords, {kws_with_features} have SERP features")
             
             # Match requested keywords
             for keyword in keywords:
