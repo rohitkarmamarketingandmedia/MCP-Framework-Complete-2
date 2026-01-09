@@ -518,7 +518,7 @@ class DBSocialPost(db.Model):
     
     media_urls: Mapped[str] = mapped_column(Text, default='[]')  # JSON
     link_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
-    cta_type: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    cta_type: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)  # CTA text can be long
     
     status: Mapped[str] = mapped_column(String(20), default=ContentStatus.DRAFT)
     scheduled_for: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)

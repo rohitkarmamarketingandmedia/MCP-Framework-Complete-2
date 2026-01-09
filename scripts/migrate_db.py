@@ -144,6 +144,18 @@ def run_migrations():
         
         total_added = 0
         
+        # First, run column size migrations (ALTER COLUMN)
+        logger.info("\nRunning column size migrations...")
+        try:
+            # Increase social_posts.cta_type from VARCHAR(50) to VARCHAR(500)
+            db.session.execute(text('ALTER TABLE social_posts ALTER COLUMN cta_type TYPE VARCHAR(500)'))
+            db.session.commit()
+            logger.info("  ✓ Resized: social_posts.cta_type to VARCHAR(500)")
+        except Exception as e:
+            db.session.rollback()
+            if 'does not exist' not in str(e).lower():
+                logger.debug(f"  Column resize note: {e}")
+        
         # Migrate clients table
         logger.info("\nMigrating 'clients' table...")
         added = migrate_table('clients', CLIENT_COLUMNS)
