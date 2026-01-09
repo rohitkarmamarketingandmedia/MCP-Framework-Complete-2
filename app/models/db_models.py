@@ -166,8 +166,6 @@ class DBClient(db.Model):
     gbp_account_id: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     gbp_location_id: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     gbp_access_token: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    gbp_refresh_token: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    gbp_connected_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     
     # Facebook Integration
     facebook_page_id: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
@@ -378,9 +376,7 @@ class DBClient(db.Model):
             'social_connections': {
                 'gbp': {
                     'connected': bool(self.gbp_location_id and self.gbp_access_token),
-                    'location_id': self.gbp_location_id,
-                    'connected_at': self.gbp_connected_at.isoformat() if self.gbp_connected_at else None,
-                    'has_refresh_token': bool(self.gbp_refresh_token) if hasattr(self, 'gbp_refresh_token') else False
+                    'location_id': self.gbp_location_id
                 },
                 'facebook': {
                     'connected': bool(self.facebook_page_id and self.facebook_access_token),
