@@ -119,9 +119,10 @@ class AIService:
             system_prompt = system_prompt.replace('{tone}', tone)
             system_prompt = system_prompt.replace('{industry}', industry)
             
-            # Calculate tokens needed: ~2 tokens per word + overhead for JSON structure
-            # Minimum 2000 tokens for proper blog with real content, max 3500 for longer
-            estimated_tokens = max(2000, min(3500, int(word_count * 2) + 800))
+            # Calculate tokens needed: ~2.5 tokens per word + overhead for JSON/HTML structure
+            # Need much more for full SEO blog with FAQs, CTAs, etc.
+            # Minimum 3000 tokens, max 4500 for comprehensive content
+            estimated_tokens = max(3000, min(4500, int(word_count * 2.5) + 1000))
             
             fast_model = self.default_model  # gpt-3.5-turbo
             
@@ -134,8 +135,8 @@ class AIService:
             )
             logger.info(f"Used content_writer agent config (model={fast_model}, tokens={estimated_tokens})")
         else:
-            # Fallback to default behavior
-            estimated_tokens = max(2000, min(3500, int(word_count * 2) + 800))
+            # Fallback to default behavior - also increase tokens
+            estimated_tokens = max(3000, min(4500, int(word_count * 2.5) + 1000))
             response = self._call_with_retry(prompt, max_tokens=estimated_tokens)
         
         if response.get('error'):
@@ -158,10 +159,21 @@ class AIService:
         placeholder_patterns = [
             'Response...', 'Insight...', 'Explanation...', 'Advice...', 
             'Information...', 'Clarification...', 'CTA section...', 
-            'Content...', 'Details...', 'Details here', 'Content here'
+            'Content...', 'Details...', 'Details here', 'Content here',
+            'Full HTML content with all sections', 'WRITE', 'DO NOT put placeholder',
+            '[specific symptom', '[factor 1]', '[qualification 1]', '[shorter time]'
         ]
         
         body_content = result.get('body', '')
+        
+        # Check if body is too short (likely placeholder)
+        if len(body_content) < 500:
+            logger.error(f"Blog body too short: {len(body_content)} chars")
+            return {
+                'error': 'AI returned incomplete content. Please try again.',
+                'raw_response': response.get('content', '')[:500]
+            }
+        
         has_placeholders = any(p.lower() in body_content.lower() for p in placeholder_patterns)
         
         # Check FAQs for placeholders
@@ -554,7 +566,7 @@ Return ONLY this JSON structure - no markdown, no code blocks:
     "meta_title": "55-60 char title starting with {keyword}",
     "meta_description": "150-160 char description with {keyword}",
     "summary": "2-3 sentence summary for AI/chat responses",
-    "body": "<p>Full HTML content with all sections...</p>",
+    "body": "WRITE {word_count}+ WORDS OF REAL HTML CONTENT HERE - Include all sections: intro, context, 3-5 H2 sections with real paragraphs, practical considerations, FAQ section with H3 questions and paragraph answers, and CTA sections. Use proper HTML tags: <p>, <h2>, <h3>, <ul>, <li>, <strong>. DO NOT put placeholder text here.",
     "h2_headings": ["list", "of", "h2", "headings"],
     "h3_headings": ["list", "of", "h3", "headings"],
     "secondary_keywords": ["related", "keywords"],
