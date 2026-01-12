@@ -126,16 +126,14 @@ class AIService:
         # Enforce rate limiting
         self._rate_limit_delay()
         
-        # For long-form content, we need a model with higher token limits
-        # GPT-3.5-turbo is limited to 4096 tokens - not enough for 1000+ word blogs
-        # Use GPT-4-turbo or GPT-4 for better results
-        content_model = os.environ.get('BLOG_AI_MODEL', 'gpt-4-turbo-preview')
+        # Use GPT-4o (faster than GPT-4-turbo) or fallback to GPT-3.5-turbo-16k
+        # GPT-4o is optimized for speed while maintaining quality
+        content_model = os.environ.get('BLOG_AI_MODEL', 'gpt-4o')
         
         # Calculate tokens: ~1.3 tokens per word for output + JSON overhead
-        # For 1000 words, we need at least 2500-3000 tokens
-        # Add buffer for JSON structure, headings, FAQs, schema
-        min_tokens_for_content = int(word_count * 1.5) + 1500  # Extra for JSON/HTML
-        estimated_tokens = max(3500, min(8000, min_tokens_for_content))
+        # For 1200 words, we need approximately 3000-4000 tokens
+        min_tokens_for_content = int(word_count * 1.5) + 1500
+        estimated_tokens = max(3500, min(6000, min_tokens_for_content))
         
         logger.info(f"Blog generation: word_count={word_count}, estimated_tokens={estimated_tokens}, model={content_model}")
         
@@ -920,7 +918,7 @@ Write DETAILED, COMPREHENSIVE content for each section.
                     'max_tokens': max_tokens,
                     'temperature': temperature
                 },
-                timeout=90
+                timeout=180  # 3 minutes for long content generation
             )
             
             if response.status_code == 429:
@@ -935,7 +933,7 @@ Write DETAILED, COMPREHENSIVE content for each section.
             }
             
         except requests.exceptions.Timeout:
-            return {'error': 'Request timed out after 120 seconds'}
+            return {'error': 'Request timed out after 180 seconds. Try a shorter word count or try again.'}
         except requests.RequestException as e:
             error_detail = str(e)
             if hasattr(e, 'response') and e.response is not None:

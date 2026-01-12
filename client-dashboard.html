@@ -8042,11 +8042,11 @@
                 const startResult = await startResponse.json();
                 const taskId = startResult.task_id;
                 
-                document.getElementById('blogProgressText').textContent = 'Generating 1,500+ word SEO blog post with FAQs and internal links...';
+                document.getElementById('blogProgressText').textContent = 'Generating 1,200+ word SEO blog post with FAQs and internal links...';
                 
-                // Poll for completion
+                // Poll for completion - 8 minutes max for GPT-4 content
                 let attempts = 0;
-                const maxAttempts = 150; // 5 minutes max (2 sec intervals)
+                const maxAttempts = 240; // 8 minutes max (2 sec intervals)
                 
                 while (attempts < maxAttempts) {
                     await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2 seconds
@@ -8142,7 +8142,7 @@
                     attempts++;
                 }
                 
-                throw new Error('Generation timed out after 5 minutes. Please try again with a shorter word count.');
+                throw new Error('Generation timed out after 8 minutes. The AI may be busy - please try again.');
                 
             } catch (error) {
                 console.error('Blog generation error:', error);
