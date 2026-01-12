@@ -126,6 +126,19 @@ class AIService:
         # Enforce rate limiting
         self._rate_limit_delay()
         
+        # For long-form content, we need a model with higher token limits
+        # GPT-3.5-turbo is limited to 4096 tokens - not enough for 1000+ word blogs
+        # Use GPT-4-turbo or GPT-4 for better results
+        content_model = os.environ.get('BLOG_AI_MODEL', 'gpt-4-turbo-preview')
+        
+        # Calculate tokens: ~1.3 tokens per word for output + JSON overhead
+        # For 1000 words, we need at least 2500-3000 tokens
+        # Add buffer for JSON structure, headings, FAQs, schema
+        min_tokens_for_content = int(word_count * 1.5) + 1500  # Extra for JSON/HTML
+        estimated_tokens = max(3500, min(8000, min_tokens_for_content))
+        
+        logger.info(f"Blog generation: word_count={word_count}, estimated_tokens={estimated_tokens}, model={content_model}")
+        
         # Get agent settings or use defaults
         if agent_config:
             # Use agent's system prompt with variable substitution
@@ -133,24 +146,16 @@ class AIService:
             system_prompt = system_prompt.replace('{tone}', tone)
             system_prompt = system_prompt.replace('{industry}', industry)
             
-            # Calculate tokens needed: ~2.5 tokens per word + overhead for JSON/HTML structure
-            # GPT-3.5-turbo max is 4096 tokens, so cap at 4000 to be safe
-            estimated_tokens = max(2500, min(4000, int(word_count * 2.5) + 800))
-            
-            fast_model = self.default_model  # gpt-3.5-turbo
-            
             response = self._call_with_retry(
                 prompt, 
                 max_tokens=estimated_tokens,
                 system_prompt=system_prompt,
-                model=fast_model,
-                temperature=agent_config.temperature
+                model=content_model,
+                temperature=0.7
             )
-            logger.info(f"Used content_writer agent config (model={fast_model}, tokens={estimated_tokens})")
+            logger.info(f"Used content_writer agent config (model={content_model}, tokens={estimated_tokens})")
         else:
-            # Fallback to default behavior - cap at 4000 for GPT-3.5
-            estimated_tokens = max(2500, min(4000, int(word_count * 2.5) + 800))
-            response = self._call_with_retry(prompt, max_tokens=estimated_tokens)
+            response = self._call_with_retry(prompt, max_tokens=estimated_tokens, model=content_model)
         
         if response.get('error'):
             logger.error(f"Blog generation failed: {response['error']}")
@@ -167,6 +172,34 @@ class AIService:
                 'raw_response': response.get('content', '')[:500]
             }
         
+        body_content = result.get('body', '')
+        
+        # ===== WORD COUNT VALIDATION =====
+        # Count actual words in the body content (strip HTML tags)
+        import re
+        text_only = re.sub(r'<[^>]+>', ' ', body_content)
+        text_only = re.sub(r'\s+', ' ', text_only).strip()
+        actual_word_count = len(text_only.split())
+        result['actual_word_count'] = actual_word_count
+        
+        logger.info(f"Blog word count: requested={word_count}, actual={actual_word_count}")
+        
+        # Check if word count is too low (less than 70% of requested)
+        min_acceptable = int(word_count * 0.7)
+        if actual_word_count < min_acceptable:
+            logger.warning(f"Blog word count too low: {actual_word_count} < {min_acceptable} (70% of {word_count})")
+            # Don't fail, but log warning - the content might still be usable
+        
+        # Check if body is too short in characters (likely truncated)
+        min_chars = word_count * 5  # Average 5 chars per word
+        if len(body_content) < min_chars:
+            logger.error(f"Blog body too short: {len(body_content)} chars (expected {min_chars}+)")
+            return {
+                'error': f'AI returned incomplete content ({actual_word_count} words instead of {word_count}). Please try again.',
+                'raw_response': response.get('content', '')[:500],
+                'actual_word_count': actual_word_count
+            }
+        
         # ===== PLACEHOLDER DETECTION =====
         # Check for placeholder text in body and FAQs
         placeholder_patterns = [
@@ -174,18 +207,9 @@ class AIService:
             'Information...', 'Clarification...', 'CTA section...', 
             'Content...', 'Details...', 'Details here', 'Content here',
             'Full HTML content with all sections', 'WRITE', 'DO NOT put placeholder',
-            '[specific symptom', '[factor 1]', '[qualification 1]', '[shorter time]'
+            '[specific symptom', '[factor 1]', '[qualification 1]', '[shorter time]',
+            'MANDATORY:', '[COUNT YOUR WORDS', '[60-80 word'
         ]
-        
-        body_content = result.get('body', '')
-        
-        # Check if body is too short (likely placeholder)
-        if len(body_content) < 500:
-            logger.error(f"Blog body too short: {len(body_content)} chars")
-            return {
-                'error': 'AI returned incomplete content. Please try again.',
-                'raw_response': response.get('content', '')[:500]
-            }
         
         has_placeholders = any(p.lower() in body_content.lower() for p in placeholder_patterns)
         
@@ -195,7 +219,7 @@ class AIService:
             answer = faq.get('answer', '')
             if len(answer) < 20 or any(p.lower() in answer.lower() for p in placeholder_patterns):
                 has_placeholders = True
-                logger.warning(f"FAQ has placeholder or too short: {answer[:50]}")
+                logger.warning(f"FAQ has placeholder or too short: {answer[:50]}") 
         
         if has_placeholders:
             logger.error("Blog contains placeholder text - AI did not generate real content")
@@ -516,6 +540,24 @@ Example for HVAC business:
 
         return f"""You are an expert SEO content writer. Generate a blog post that will score 100% on SEO analysis tools.
 
+####################################################################
+#                    CRITICAL: WORD COUNT REQUIREMENT              #
+####################################################################
+#                                                                  #
+#   MINIMUM WORD COUNT: {word_count} WORDS                         #
+#                                                                  #
+#   Your body content MUST contain AT LEAST {word_count} words.    #
+#   This is NON-NEGOTIABLE. Content under {word_count} words       #
+#   will be REJECTED.                                              #
+#                                                                  #
+#   To achieve {word_count}+ words:                                #
+#   - Write 5-6 detailed H2 sections (180-220 words each)          #
+#   - Include 2-3 H3 subsections per H2                            #
+#   - Write comprehensive FAQ answers (60-80 words each)           #
+#   - Include detailed intro (120+ words) and conclusion (100+)    #
+#                                                                  #
+####################################################################
+
 ====================================================================
                     100% SEO SCORE REQUIREMENTS
 ====================================================================
@@ -524,7 +566,7 @@ PRIMARY KEYWORD: "{keyword}"
 LOCATION: {location}
 BUSINESS: {business_name}
 INDUSTRY: {industry}
-WORD COUNT: {word_count}+ words (MINIMUM - more is better)
+MINIMUM WORD COUNT: {word_count} words (MANDATORY - will be verified)
 TONE: {tone}
 YEAR: {current_year}
 
@@ -642,30 +684,31 @@ Return ONLY this JSON (no markdown code blocks):
 {{
     "title": "{keyword} in {location} | {business_name}",
     "h1": "{keyword} Services in {location} - Expert Solutions",
-    "meta_title": "[55-60 chars EXACTLY, {keyword} at START]",
-    "meta_description": "[150-155 chars EXACTLY with {keyword} and {location}]",
-    "body": "[FULL HTML CONTENT - {word_count}+ words with ALL internal links included as <a href> tags]",
+    "meta_title": "[EXACTLY 55-60 characters, {keyword} at START]",
+    "meta_description": "[EXACTLY 150-155 characters with {keyword} and {location}]",
+    "body": "[MANDATORY: Write {word_count}+ WORDS of HTML content. Include: 120+ word intro, 5-6 H2 sections (180+ words each), H3 subsections, bullet lists, 2 CTAs, FAQ section. This field must be LONG and DETAILED.]",
     "h2_headings": ["H2 1", "H2 2", "H2 3", "H2 4", "H2 5", "H2 6"],
-    "h3_headings": ["H3 1", "H3 2", "H3 3", "etc"],
+    "h3_headings": ["H3 1", "H3 2", "H3 3", "H3 4", "H3 5", "H3 6", "H3 7", "H3 8"],
     "word_count": {word_count},
+    "actual_word_count": "[COUNT YOUR WORDS - must be {word_count}+]",
     "keyword_count": 15,
     "internal_links_used": ["url1", "url2", "url3"],
     "faq_items": [
-        {{"question": "Q1?", "answer": "50-80 word answer"}},
-        {{"question": "Q2?", "answer": "50-80 word answer"}},
-        {{"question": "Q3?", "answer": "50-80 word answer"}},
-        {{"question": "Q4?", "answer": "50-80 word answer"}},
-        {{"question": "Q5?", "answer": "50-80 word answer"}}
+        {{"question": "Detailed question 1 about {keyword}?", "answer": "[60-80 word comprehensive answer with specific details]"}},
+        {{"question": "Detailed question 2 about {keyword} in {location}?", "answer": "[60-80 word comprehensive answer]"}},
+        {{"question": "Detailed question 3 about cost/pricing?", "answer": "[60-80 word comprehensive answer]"}},
+        {{"question": "Detailed question 4 about process/timeline?", "answer": "[60-80 word comprehensive answer]"}},
+        {{"question": "Detailed question 5 about choosing provider?", "answer": "[60-80 word comprehensive answer]"}}
     ],
     "faq_schema": {{
         "@context": "https://schema.org",
         "@type": "FAQPage",
         "mainEntity": [
-            {{"@type": "Question", "name": "Q1?", "acceptedAnswer": {{"@type": "Answer", "text": "A1"}}}},
-            {{"@type": "Question", "name": "Q2?", "acceptedAnswer": {{"@type": "Answer", "text": "A2"}}}},
-            {{"@type": "Question", "name": "Q3?", "acceptedAnswer": {{"@type": "Answer", "text": "A3"}}}},
-            {{"@type": "Question", "name": "Q4?", "acceptedAnswer": {{"@type": "Answer", "text": "A4"}}}},
-            {{"@type": "Question", "name": "Q5?", "acceptedAnswer": {{"@type": "Answer", "text": "A5"}}}}
+            {{"@type": "Question", "name": "Q1?", "acceptedAnswer": {{"@type": "Answer", "text": "Full answer 1"}}}},
+            {{"@type": "Question", "name": "Q2?", "acceptedAnswer": {{"@type": "Answer", "text": "Full answer 2"}}}},
+            {{"@type": "Question", "name": "Q3?", "acceptedAnswer": {{"@type": "Answer", "text": "Full answer 3"}}}},
+            {{"@type": "Question", "name": "Q4?", "acceptedAnswer": {{"@type": "Answer", "text": "Full answer 4"}}}},
+            {{"@type": "Question", "name": "Q5?", "acceptedAnswer": {{"@type": "Answer", "text": "Full answer 5"}}}}
         ]
     }},
     "cta": {{
@@ -678,22 +721,26 @@ Return ONLY this JSON (no markdown code blocks):
     "seo_score": 100
 }}
 
-====================================================================
-                    FINAL VERIFICATION
-====================================================================
+####################################################################
+#                    FINAL VERIFICATION CHECKLIST                  #
+####################################################################
 
-Before outputting, verify:
-□ Meta title is 55-60 characters with keyword at start
-□ Meta description is 150-155 characters
-□ Body has 5+ H2 sections
-□ Each H2 has 2+ H3 subsections  
-□ "{keyword}" appears 12-18 times
-□ "{location}" appears 8-12 times
-□ ALL internal links from the list above are included
-□ 5-6 FAQs with 50-80 word answers
-□ 2 CTAs with contact info
-□ Word count is {word_count}+
-□ Valid JSON output only
+BEFORE OUTPUTTING, YOU MUST VERIFY:
+
+□ WORD COUNT: Body contains {word_count}+ words (COUNT THEM!)
+□ META TITLE: Exactly 55-60 characters, keyword "{keyword}" at start
+□ META DESC: Exactly 150-155 characters with keyword and location
+□ H2 SECTIONS: At least 5-6 H2 headings (each section 180+ words)
+□ H3 SECTIONS: At least 2 H3 per H2 section (10+ total H3s)
+□ KEYWORD DENSITY: "{keyword}" appears 12-18 times
+□ LOCATION: "{location}" appears 8-12 times
+□ INTERNAL LINKS: ALL links from the list above are included
+□ FAQs: 5-6 FAQs with 60-80 word answers each
+□ CTAs: 2 CTAs with contact info (mid-article + end)
+□ OUTPUT: Valid JSON only, no markdown code blocks
+
+REMEMBER: Content under {word_count} words will be REJECTED!
+Write DETAILED, COMPREHENSIVE content for each section.
 """
     
     def _get_related_posts(self, client_id: str, current_keyword: str, limit: int = 4) -> List[Dict]:
