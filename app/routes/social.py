@@ -8,6 +8,7 @@ from app.services.ai_service import AIService
 from app.services.social_service import SocialService
 from app.services.db_service import DataService
 from app.models.db_models import DBSocialPost, ContentStatus
+from app.database import db
 from datetime import datetime
 import json
 import logging
@@ -18,6 +19,29 @@ social_bp = Blueprint('social', __name__)
 ai_service = AIService()
 social_service = SocialService()
 data_service = DataService()
+
+
+def refresh_gbp_token_if_needed(client):
+    """
+    Try to refresh GBP token if we have a refresh token.
+    Google access tokens expire after 1 hour, but refresh tokens last longer.
+    
+    Returns True if token was refreshed, False otherwise.
+    """
+    if not hasattr(client, 'gbp_refresh_token') or not client.gbp_refresh_token:
+        logger.debug(f"No GBP refresh token for client {client.id}")
+        return False
+    
+    try:
+        from app.services.oauth_service import oauth_service
+        new_tokens = oauth_service.refresh_token('google', client.gbp_refresh_token)
+        client.gbp_access_token = new_tokens['access_token']
+        db.session.commit()
+        logger.info(f"Auto-refreshed GBP token for {client.id}")
+        return True
+    except Exception as e:
+        logger.error(f"Failed to refresh GBP token for {client.id}: {e}")
+        return False
 
 
 @social_bp.route('/generate', methods=['POST'])
@@ -765,10 +789,18 @@ def publish_now(current_user, client_id):
                 results['linkedin'] = result
                 
             elif platform in ['gbp', 'google']:
-                if not client.gbp_location_id or not client.gbp_access_token:
-                    results['gbp'] = {'success': False, 'error': 'Not connected'}
+                if not client.gbp_location_id:
+                    results['gbp'] = {'success': False, 'error': 'GBP location not configured'}
                     continue
-                    
+                
+                # Check if we have a valid token, try to refresh if not
+                if not client.gbp_access_token:
+                    if not refresh_gbp_token_if_needed(client):
+                        results['gbp'] = {'success': False, 'error': 'GBP not connected - please reconnect Google Business'}
+                        continue
+                    # Reload client to get updated token
+                    db.session.refresh(client)
+                
                 result = social_service.publish_to_gbp(
                     location_id=client.gbp_location_id,
                     text=content,
@@ -776,6 +808,20 @@ def publish_now(current_user, client_id):
                     access_token=client.gbp_access_token,
                     account_id=client.gbp_account_id
                 )
+                
+                # If token expired, try to refresh and retry once
+                if not result.get('success') and 'token expired' in str(result.get('error', '')).lower():
+                    logger.info(f"GBP token expired for {client.id}, attempting refresh...")
+                    if refresh_gbp_token_if_needed(client):
+                        db.session.refresh(client)
+                        result = social_service.publish_to_gbp(
+                            location_id=client.gbp_location_id,
+                            text=content,
+                            image_url=image_url,
+                            access_token=client.gbp_access_token,
+                            account_id=client.gbp_account_id
+                        )
+                
                 results['gbp'] = result
                 
         except Exception as e:
