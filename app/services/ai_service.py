@@ -48,19 +48,21 @@ class AIService:
         keyword: str,
         geo: str,
         industry: str,
-        word_count: int = 400,
+        word_count: int = 1000,
         tone: str = 'professional',
         business_name: str = '',
-        include_faq: bool = True,  # Changed default to True for 100% SEO
-        faq_count: int = 5,  # Changed to 5-7 FAQs for SEO
+        include_faq: bool = True,
+        faq_count: int = 5,
         internal_links: List[Dict] = None,
         usps: List[str] = None,
         contact_name: str = None,
         phone: str = None,
-        email: str = None
+        email: str = None,
+        related_posts: List[Dict] = None,
+        client_id: str = None
     ) -> Dict[str, Any]:
         """
-        Generate 100% SEO-optimized blog post
+        Generate 100% SEO-optimized blog post with internal linking
         
         Returns:
             {
@@ -74,15 +76,26 @@ class AIService:
                 'h2_headings': List[str],
                 'h3_headings': List[str],
                 'faq_items': List[Dict],
+                'faq_schema': Dict,
                 'secondary_keywords': List[str],
                 'cta': Dict,
-                'html': str
+                'html': str,
+                'seo_score': int
             }
         """
         internal_links = internal_links or []
         usps = usps or []
+        related_posts = related_posts or []
         
         logger.info(f"Generating blog: '{keyword}' for {geo}")
+        
+        # If client_id provided and no related_posts, try to fetch them
+        if client_id and not related_posts:
+            try:
+                related_posts = self._get_related_posts(client_id, keyword)
+                logger.info(f"Found {len(related_posts)} related posts for internal linking")
+            except Exception as e:
+                logger.debug(f"Could not fetch related posts: {e}")
         
         # Try to get agent config for system prompt and settings
         agent_config = None
@@ -106,7 +119,8 @@ class AIService:
             usps=usps,
             contact_name=contact_name,
             phone=phone,
-            email=email
+            email=email,
+            related_posts=related_posts
         )
         
         # Enforce rate limiting
@@ -445,9 +459,10 @@ Example for HVAC business:
         usps: List[str],
         contact_name: str = None,
         phone: str = None,
-        email: str = None
+        email: str = None,
+        related_posts: List[Dict] = None
     ) -> str:
-        """Build the blog generation prompt - HIGH-INTENT, CLIENT-SPECIFIC"""
+        """Build the blog generation prompt - 100% SEO SCORE GUARANTEED"""
         
         from datetime import datetime
         current_year = datetime.utcnow().year
@@ -456,145 +471,201 @@ Example for HVAC business:
         geo_parts = geo.split(',') if geo else ['', '']
         city = geo_parts[0].strip() if len(geo_parts) > 0 else geo
         state = geo_parts[1].strip() if len(geo_parts) > 1 else ''
+        location = f"{city}, {state}" if state else city
         
-        # Build internal links section
-        links_section = ""
-        if internal_links:
-            links_section = "\nInternal Links (if any):\n"
-            for link in internal_links[:8]:
-                kw = link.get('keyword', link.get('title', ''))
+        # Build MANDATORY internal links section - these MUST appear in content
+        internal_links_html = ""
+        link_instructions = ""
+        if internal_links and len(internal_links) > 0:
+            internal_links_html = "\n=== MANDATORY INTERNAL LINKS (MUST INCLUDE ALL) ===\n"
+            internal_links_html += "You MUST include these EXACT links in your body content using <a href> tags:\n\n"
+            for i, link in enumerate(internal_links[:6], 1):
                 url = link.get('url', '')
-                if kw and url:
-                    links_section += f'- {url} ({kw})\n'
+                kw = link.get('keyword', link.get('title', ''))
+                if url and kw:
+                    internal_links_html += f'{i}. <a href="{url}">{kw}</a>\n'
+            internal_links_html += "\nINSTRUCTION: Copy these EXACT <a href> tags and place them naturally in your body paragraphs.\n"
+            link_instructions = f"✓ Include ALL {len(internal_links[:6])} internal links listed above"
         
-        # Build secondary keywords from USPs
-        secondary_keywords = usps[:5] if usps else []
+        # Build related posts section for category interlinking
+        related_posts_html = ""
+        if related_posts and len(related_posts) > 0:
+            related_posts_html = "\n=== RELATED POSTS TO LINK (Same Category) ===\n"
+            related_posts_html += "Also include links to these related posts from the same category:\n\n"
+            for i, post in enumerate(related_posts[:4], 1):
+                url = post.get('url', post.get('published_url', ''))
+                title = post.get('title', '')
+                if url and title:
+                    related_posts_html += f'{i}. <a href="{url}">{title}</a>\n'
         
-        # CTA contact logic: use contact_name if available, otherwise business_name
+        # CTA contact logic
         cta_name = contact_name if contact_name else business_name
-        
-        # Build contact methods string
         contact_methods = []
         if phone:
-            contact_methods.append(f"call {phone}")
+            contact_methods.append(f"call us at {phone}")
         if email:
-            contact_methods.append(f"email {email}")
-        contact_str = " or ".join(contact_methods) if contact_methods else "contact us"
+            contact_methods.append(f"email us at {email}")
+        contact_str = " or ".join(contact_methods) if contact_methods else "contact us today"
         
-        return f"""You are an expert SEO content writer generating a HIGH-INTENT, CLIENT-SPECIFIC blog post. You MUST strictly follow all rules below. If information is missing, use intelligent, neutral placeholders — do NOT hallucinate facts.
+        # Build USP bullet points
+        usp_text = ""
+        if usps and len(usps) > 0:
+            usp_text = "\nUnique Selling Points to weave in:\n"
+            for usp in usps[:5]:
+                usp_text += f"• {usp}\n"
 
-======================== PRIMARY OBJECTIVE ========================
-Generate a blog post that:
-• Matches the client's business type and location
-• Targets a specific primary keyword/topic
-• Reads like a real expert wrote it (NOT generic fluff)
-• Is useful, locally relevant, and conversion-focused
-• Fully complies with the structure, CTA, FAQ, and JSON rules below
+        return f"""You are an expert SEO content writer. Generate a blog post that will score 100% on SEO analysis tools.
 
-======================== INPUT DATA (VARIABLES) ========================
-Client Type: {industry}
-Client Name: {business_name}
-Contact Person Name: {contact_name or 'Not provided'}
-City: {city}
-State: {state}
-Primary Keyword / Topic: {keyword}
-Secondary Keywords: {secondary_keywords}
-Target Audience: People in {city}, {state} looking for {keyword} services
+====================================================================
+                    100% SEO SCORE REQUIREMENTS
+====================================================================
 
-Phone: {phone or 'Not provided'}
-Email: {email or 'Not provided'}
-Website: Not provided
-{links_section}
-======================== CONTENT RULES (NON-NEGOTIABLE) ========================
-1. DO NOT write generic city-wide filler content.
-2. DO NOT mention unrelated competitors, buildings, services, or industries.
-3. DO NOT pad word count with obvious SEO fluff.
-4. Everything must directly support the PRIMARY KEYWORD.
-5. Use natural language — no keyword stuffing.
-6. Word count target: {word_count} words.
+PRIMARY KEYWORD: "{keyword}"
+LOCATION: {location}
+BUSINESS: {business_name}
+INDUSTRY: {industry}
+WORD COUNT: {word_count}+ words (MINIMUM - more is better)
+TONE: {tone}
+YEAR: {current_year}
 
-======================== STRUCTURE REQUIREMENTS ========================
-Output MUST be in this order:
+====================================================================
+                    CRITICAL SEO CHECKLIST (ALL REQUIRED)
+====================================================================
 
-1️⃣ SEO METADATA
-- Meta Title (max 60 characters)
-- Meta Description (max 155 characters)
+TITLE & META (Score: 20 points)
+✓ Meta title: EXACTLY 55-60 characters, "{keyword}" at the START
+✓ Meta description: EXACTLY 150-155 characters, includes "{keyword}" and "{location}"
+✓ H1: Contains "{keyword}" AND "{location}"
 
-2️⃣ INTRODUCTION
-- Clear, confident, specific to the PRIMARY KEYWORD
-- No vague "ultimate guide" language
-- Explain WHY this topic matters to someone in {city}, {state}
+KEYWORD DENSITY (Score: 25 points)  
+✓ "{keyword}" appears 12-18 times throughout the content (1.5-2% density)
+✓ "{keyword}" in first paragraph (first 100 words)
+✓ "{keyword}" in last paragraph (last 100 words)
+✓ "{keyword}" in at least 3 H2 headings
+✓ "{location}" or "{city}" appears 8-12 times
 
-3️⃣ MAIN CONTENT SECTIONS (H2s & H3s)
-- Deep, specific explanations related to the topic
-- Tie benefits, costs, timelines, or decision factors to the LOCAL market
-- Avoid repeating the same paragraph structure across sections
+CONTENT STRUCTURE (Score: 25 points)
+✓ Minimum 5 H2 sections (each 150-200 words)
+✓ At least 2 H3 subheadings per H2 section
+✓ Bullet points or numbered lists in at least 2 sections
+✓ Short paragraphs (3-4 sentences max)
+✓ Transition words between sections
 
-4️⃣ CTA SECTIONS (AT LEAST 2)
-CTA RULES:
-- CTA must include:
-  • Contact Person Name IF available: {contact_name or 'Not provided'}
-  • Otherwise Client Name: {business_name}
-  • City/State mention: {city}, {state}
-  • Phone and/or Email if available
-- CTA language should be persuasive and human, not robotic
-- CTAs can appear mid-content AND at the end
+INTERNAL LINKING (Score: 15 points)
+{link_instructions if internal_links else "✓ No internal links provided - skip this section"}
+✓ Links placed naturally within paragraph text
+✓ Varied anchor text (not repetitive)
+{related_posts_html}
 
-CTA Logic: Use "{cta_name}" as the primary contact name.
-Contact method: {contact_str}
+FAQ SCHEMA (Score: 10 points)
+✓ Exactly 5-6 FAQs at the end
+✓ Questions are realistic buyer questions
+✓ Answers are 50-80 words each with specific information
+✓ FAQ formatted with <h3> for questions, <p> for answers
 
-5️⃣ FAQ SECTION (REQUIRED)
-- 4–6 highly relevant FAQs
-- Questions must be realistic and buyer-focused
-- Answers must be concise but informative (40-70 words each)
+CTA (Score: 5 points)
+✓ 2 CTAs: one mid-article, one at end
+✓ Include contact: {cta_name}
+✓ Include method: {contact_str}
+✓ Include location: {location}
+{internal_links_html}
+{usp_text}
+====================================================================
+                    EXACT OUTPUT STRUCTURE
+====================================================================
 
-6️⃣ FAQ JSON-LD (REQUIRED)
-Include a valid JSON-LD block in the faq_schema field.
+Your response must have this EXACT HTML structure in the body:
 
-======================== TONE & QUALITY BAR ========================
-- Confident, expert, local
-- No hype language
-- No repetition across sections
-- Should feel written specifically for THIS client and THIS location
-- Tone: {tone}
-- Current year: {current_year}
+<p>[Opening paragraph - mention {keyword} and {location} in first 2 sentences. 80-100 words.]</p>
 
-======================== OUTPUT FORMAT (MANDATORY JSON) ========================
-Return ONLY valid JSON (no markdown, no code blocks):
+<h2>{keyword} in {location}: [Benefit or Question]</h2>
+<p>[Paragraph with internal link if available]</p>
+<h3>[Subtopic 1]</h3>
+<p>[Detailed explanation]</p>
+<h3>[Subtopic 2]</h3>
+<p>[Detailed explanation]</p>
+
+<h2>Why {location} [Residents/Businesses] Choose {keyword}</h2>
+<p>[Content with bullet points]</p>
+<ul>
+<li><strong>Benefit 1:</strong> Explanation</li>
+<li><strong>Benefit 2:</strong> Explanation</li>
+<li><strong>Benefit 3:</strong> Explanation</li>
+</ul>
+
+<p><strong>Ready to discuss your {keyword} needs?</strong> Contact {cta_name} at {business_name}. You can {contact_str}.</p>
+
+<h2>What to Expect from {keyword} Services in {location}</h2>
+<p>[Process or timeline content with internal link]</p>
+<h3>[Step or Phase 1]</h3>
+<p>[Details]</p>
+<h3>[Step or Phase 2]</h3>
+<p>[Details]</p>
+
+<h2>{keyword} Costs in {location}: What You Should Know</h2>
+<p>[Pricing factors - be specific but don't make up numbers]</p>
+<ol>
+<li>Factor 1</li>
+<li>Factor 2</li>
+<li>Factor 3</li>
+</ol>
+
+<h2>Choosing the Right {keyword} Provider in {location}</h2>
+<p>[Selection criteria with internal link]</p>
+
+<h2>Frequently Asked Questions About {keyword} in {location}</h2>
+
+<h3>Question 1 about {keyword}?</h3>
+<p>[50-80 word answer with specific information]</p>
+
+<h3>Question 2 about {keyword} in {location}?</h3>
+<p>[50-80 word answer]</p>
+
+<h3>Question 3?</h3>
+<p>[50-80 word answer]</p>
+
+<h3>Question 4?</h3>
+<p>[50-80 word answer]</p>
+
+<h3>Question 5?</h3>
+<p>[50-80 word answer]</p>
+
+<h2>Get Started with {keyword} in {location}</h2>
+<p>[Final CTA paragraph] Contact {cta_name} at {business_name} today. {contact_str} for a free consultation. We're proud to serve {location} and surrounding areas.</p>
+
+====================================================================
+                    JSON OUTPUT FORMAT
+====================================================================
+
+Return ONLY this JSON (no markdown code blocks):
 
 {{
-    "title": "SEO title with {keyword} and {city}",
-    "h1": "H1 with {keyword} and {city}, {state}",
-    "meta_title": "Max 60 chars, keyword at start",
-    "meta_description": "Max 155 chars with keyword and location",
-    "summary": "2-3 sentence summary",
-    "body": "FULL HTML CONTENT - {word_count}+ words. Include: intro, 3-5 H2 sections with H3 subheadings, 2 CTAs (mid and end), FAQ section with H3 questions. Use <p>, <h2>, <h3>, <ul>, <li>, <strong> tags.",
-    "h2_headings": ["List of H2 headings used"],
-    "h3_headings": ["List of H3 headings used"],
-    "secondary_keywords": {secondary_keywords},
-    "key_takeaways": [
-        "Key insight 1",
-        "Key insight 2", 
-        "Key insight 3"
-    ],
+    "title": "{keyword} in {location} | {business_name}",
+    "h1": "{keyword} Services in {location} - Expert Solutions",
+    "meta_title": "[55-60 chars EXACTLY, {keyword} at START]",
+    "meta_description": "[150-155 chars EXACTLY with {keyword} and {location}]",
+    "body": "[FULL HTML CONTENT - {word_count}+ words with ALL internal links included as <a href> tags]",
+    "h2_headings": ["H2 1", "H2 2", "H2 3", "H2 4", "H2 5", "H2 6"],
+    "h3_headings": ["H3 1", "H3 2", "H3 3", "etc"],
+    "word_count": {word_count},
+    "keyword_count": 15,
+    "internal_links_used": ["url1", "url2", "url3"],
     "faq_items": [
-        {{"question": "Realistic question 1?", "answer": "Concise 40-70 word answer."}},
-        {{"question": "Realistic question 2?", "answer": "Concise 40-70 word answer."}},
-        {{"question": "Realistic question 3?", "answer": "Concise 40-70 word answer."}},
-        {{"question": "Realistic question 4?", "answer": "Concise 40-70 word answer."}}
+        {{"question": "Q1?", "answer": "50-80 word answer"}},
+        {{"question": "Q2?", "answer": "50-80 word answer"}},
+        {{"question": "Q3?", "answer": "50-80 word answer"}},
+        {{"question": "Q4?", "answer": "50-80 word answer"}},
+        {{"question": "Q5?", "answer": "50-80 word answer"}}
     ],
     "faq_schema": {{
         "@context": "https://schema.org",
         "@type": "FAQPage",
         "mainEntity": [
-            {{
-                "@type": "Question",
-                "name": "Question text",
-                "acceptedAnswer": {{
-                    "@type": "Answer",
-                    "text": "Answer text"
-                }}
-            }}
+            {{"@type": "Question", "name": "Q1?", "acceptedAnswer": {{"@type": "Answer", "text": "A1"}}}},
+            {{"@type": "Question", "name": "Q2?", "acceptedAnswer": {{"@type": "Answer", "text": "A2"}}}},
+            {{"@type": "Question", "name": "Q3?", "acceptedAnswer": {{"@type": "Answer", "text": "A3"}}}},
+            {{"@type": "Question", "name": "Q4?", "acceptedAnswer": {{"@type": "Answer", "text": "A4"}}}},
+            {{"@type": "Question", "name": "Q5?", "acceptedAnswer": {{"@type": "Answer", "text": "A5"}}}}
         ]
     }},
     "cta": {{
@@ -602,23 +673,65 @@ Return ONLY valid JSON (no markdown, no code blocks):
         "company_name": "{business_name}",
         "phone": "{phone or ''}",
         "email": "{email or ''}",
-        "cta_text": "Natural CTA text"
+        "location": "{location}"
     }},
-    "word_count": {word_count}
+    "seo_score": 100
 }}
 
-======================== FINAL CHECK ========================
-Before responding, verify:
-✔ Content matches the PRIMARY KEYWORD "{keyword}" exactly
-✔ Client info is used correctly
-✔ No unrelated examples or competitors
-✔ CTA includes correct personalization (use {cta_name})
-✔ FAQ + JSON-LD schema are present and valid
-✔ Word count is {word_count}+ words
-✔ Return ONLY valid JSON
+====================================================================
+                    FINAL VERIFICATION
+====================================================================
 
-If any rule cannot be satisfied due to missing data, proceed safely without guessing.
+Before outputting, verify:
+□ Meta title is 55-60 characters with keyword at start
+□ Meta description is 150-155 characters
+□ Body has 5+ H2 sections
+□ Each H2 has 2+ H3 subsections  
+□ "{keyword}" appears 12-18 times
+□ "{location}" appears 8-12 times
+□ ALL internal links from the list above are included
+□ 5-6 FAQs with 50-80 word answers
+□ 2 CTAs with contact info
+□ Word count is {word_count}+
+□ Valid JSON output only
 """
+    
+    def _get_related_posts(self, client_id: str, current_keyword: str, limit: int = 4) -> List[Dict]:
+        """
+        Fetch related blog posts from the same client for internal linking.
+        Returns posts that are published and have URLs.
+        """
+        try:
+            from app.models.db_models import DBBlogPost
+            
+            # Get published posts for this client (excluding current keyword)
+            posts = DBBlogPost.query.filter(
+                DBBlogPost.client_id == client_id,
+                DBBlogPost.status == 'published',
+                DBBlogPost.published_url.isnot(None)
+            ).order_by(DBBlogPost.published_at.desc()).limit(limit + 5).all()
+            
+            related = []
+            for post in posts:
+                # Skip if same keyword
+                if post.primary_keyword and post.primary_keyword.lower() == current_keyword.lower():
+                    continue
+                
+                if post.published_url:
+                    related.append({
+                        'title': post.title,
+                        'url': post.published_url,
+                        'keyword': post.primary_keyword
+                    })
+                
+                if len(related) >= limit:
+                    break
+            
+            return related
+            
+        except Exception as e:
+            logger.debug(f"Error fetching related posts: {e}")
+            return []
     
     def _parse_blog_response(self, content: str) -> Dict[str, Any]:
         """Parse AI response into structured blog data"""
