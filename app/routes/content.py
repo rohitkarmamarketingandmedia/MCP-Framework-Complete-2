@@ -83,9 +83,8 @@ def _generate_blog_background(task_id, app, client_id, keyword, word_count, incl
             contact_name = getattr(client, 'contact_name', None) or getattr(client, 'owner_name', None)
             phone = getattr(client, 'phone', None)
             email = getattr(client, 'email', None)
-            website = getattr(client, 'website_url', None)
             
-            # Generate blog with HIGH-INTENT, CLIENT-SPECIFIC optimization
+            # Generate blog with 100% SEO optimization
             result = ai_service.generate_blog_post(
                 keyword=keyword,
                 geo=client.geo or '',
@@ -94,13 +93,12 @@ def _generate_blog_background(task_id, app, client_id, keyword, word_count, incl
                 tone=client.tone or 'professional',
                 business_name=client.business_name or '',
                 include_faq=include_faq,
-                faq_count=max(faq_count, 4),  # Minimum 4 FAQs
+                faq_count=max(faq_count, 5),  # Minimum 5 FAQs for 100% SEO
                 internal_links=service_pages,
                 usps=client.get_unique_selling_points(),
                 contact_name=contact_name,
                 phone=phone,
-                email=email,
-                website=website
+                email=email
             )
             
             if result.get('error'):
@@ -331,7 +329,6 @@ def generate_content(current_user):
     contact_name = getattr(client, 'contact_name', None) or getattr(client, 'owner_name', None)
     phone = getattr(client, 'phone', None)
     email = getattr(client, 'email', None)
-    website = getattr(client, 'website_url', None)
     
     params = {
         'keyword': data['keyword'],
@@ -340,14 +337,13 @@ def generate_content(current_user):
         'word_count': data.get('word_count', current_app.config['DEFAULT_BLOG_WORD_COUNT']),
         'tone': data.get('tone', current_app.config['DEFAULT_TONE']),
         'business_name': client.business_name or '',
-        'include_faq': data.get('include_faq', True),
-        'faq_count': max(data.get('faq_count', 4), 4),  # Minimum 4 FAQs
+        'include_faq': data.get('include_faq', True),  # Default True for 100% SEO
+        'faq_count': max(data.get('faq_count', 5), 5),  # Minimum 5 FAQs
         'internal_links': internal_links,
         'usps': client.get_unique_selling_points() or [],
         'contact_name': contact_name,
         'phone': phone,
-        'email': email,
-        'website': website
+        'email': email
     }
     
     # Generate content
@@ -500,7 +496,6 @@ def bulk_generate(current_user):
     contact_name = getattr(client, 'contact_name', None) or getattr(client, 'owner_name', None)
     phone = getattr(client, 'phone', None)
     email = getattr(client, 'email', None)
-    website = getattr(client, 'website_url', None)
     
     results = []
     
@@ -511,22 +506,21 @@ def bulk_generate(current_user):
             continue
         
         try:
-            # Build params from client data with HIGH-INTENT optimization
+            # Build params from client data with 100% SEO optimization
             params = {
                 'keyword': keyword,
                 'geo': client.geo or '',
                 'industry': client.industry or '',
-                'word_count': topic.get('word_count', current_app.config.get('DEFAULT_BLOG_WORD_COUNT', 1000)),
+                'word_count': topic.get('word_count', current_app.config.get('DEFAULT_BLOG_WORD_COUNT', 1200)),
                 'tone': client.tone or 'professional',
                 'business_name': client.business_name or '',
-                'include_faq': True,
-                'faq_count': max(topic.get('faq_count', 4), 4),  # Minimum 4 FAQs
+                'include_faq': True,  # Always include FAQs for 100% SEO
+                'faq_count': max(topic.get('faq_count', 5), 5),  # Minimum 5 FAQs
                 'internal_links': service_pages,
                 'usps': client.get_unique_selling_points() or [],
                 'contact_name': contact_name,
                 'phone': phone,
-                'email': email,
-                'website': website
+                'email': email
             }
             
             # Generate content
