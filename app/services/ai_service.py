@@ -126,34 +126,51 @@ class AIService:
         # Enforce rate limiting
         self._rate_limit_delay()
         
-        # Use GPT-4o (faster than GPT-4-turbo) or fallback to GPT-3.5-turbo-16k
-        # GPT-4o is optimized for speed while maintaining quality
-        content_model = os.environ.get('BLOG_AI_MODEL', 'gpt-4o')
+        # Model priority: GPT-3.5-turbo-16k is fast and reliable for long content
+        # User can override with BLOG_AI_MODEL env var (e.g., gpt-4o, gpt-4)
+        primary_model = os.environ.get('BLOG_AI_MODEL', 'gpt-3.5-turbo-16k')
+        fallback_model = 'gpt-3.5-turbo'
         
-        # Calculate tokens: ~1.3 tokens per word for output + JSON overhead
-        # For 1200 words, we need approximately 3000-4000 tokens
+        # Calculate tokens needed for content
         min_tokens_for_content = int(word_count * 1.5) + 1500
         estimated_tokens = max(3500, min(6000, min_tokens_for_content))
         
-        logger.info(f"Blog generation: word_count={word_count}, estimated_tokens={estimated_tokens}, model={content_model}")
+        logger.info(f"Blog generation: word_count={word_count}, tokens={estimated_tokens}, model={primary_model}")
+        
+        # Try primary model first
+        response = None
+        model_used = primary_model
         
         # Get agent settings or use defaults
+        system_prompt = 'You are an expert SEO content writer. Always respond with valid JSON. Never use markdown code blocks.'
         if agent_config:
-            # Use agent's system prompt with variable substitution
             system_prompt = agent_config.system_prompt
             system_prompt = system_prompt.replace('{tone}', tone)
             system_prompt = system_prompt.replace('{industry}', industry)
-            
+        
+        # Try primary model
+        logger.info(f"Trying primary model: {primary_model}")
+        response = self._call_with_retry(
+            prompt, 
+            max_tokens=estimated_tokens,
+            system_prompt=system_prompt,
+            model=primary_model,
+            temperature=0.7
+        )
+        
+        # If primary model fails, try fallback
+        if response.get('error'):
+            logger.warning(f"Primary model {primary_model} failed: {response['error']}, trying fallback {fallback_model}")
+            model_used = fallback_model
             response = self._call_with_retry(
                 prompt, 
                 max_tokens=estimated_tokens,
                 system_prompt=system_prompt,
-                model=content_model,
+                model=fallback_model,
                 temperature=0.7
             )
-            logger.info(f"Used content_writer agent config (model={content_model}, tokens={estimated_tokens})")
-        else:
-            response = self._call_with_retry(prompt, max_tokens=estimated_tokens, model=content_model)
+        
+        logger.info(f"Blog generation completed with model={model_used}")
         
         if response.get('error'):
             logger.error(f"Blog generation failed: {response['error']}")
@@ -532,214 +549,60 @@ Example for HVAC business:
         # Build USP bullet points
         usp_text = ""
         if usps and len(usps) > 0:
-            usp_text = "\nUnique Selling Points to weave in:\n"
-            for usp in usps[:5]:
-                usp_text += f"• {usp}\n"
+            usp_text = "Unique Selling Points: " + ", ".join(usps[:3])
 
-        return f"""You are an expert SEO content writer. Generate a blog post that will score 100% on SEO analysis tools.
+        # Build internal links for prompt
+        links_text = ""
+        if internal_links:
+            links_text = "Internal links to include:\n"
+            for link in internal_links[:5]:
+                url = link.get('url', '')
+                kw = link.get('keyword', link.get('title', ''))
+                if url and kw:
+                    links_text += f'- <a href="{url}">{kw}</a>\n'
 
-####################################################################
-#                    CRITICAL: WORD COUNT REQUIREMENT              #
-####################################################################
-#                                                                  #
-#   MINIMUM WORD COUNT: {word_count} WORDS                         #
-#                                                                  #
-#   Your body content MUST contain AT LEAST {word_count} words.    #
-#   This is NON-NEGOTIABLE. Content under {word_count} words       #
-#   will be REJECTED.                                              #
-#                                                                  #
-#   To achieve {word_count}+ words:                                #
-#   - Write 5-6 detailed H2 sections (180-220 words each)          #
-#   - Include 2-3 H3 subsections per H2                            #
-#   - Write comprehensive FAQ answers (60-80 words each)           #
-#   - Include detailed intro (120+ words) and conclusion (100+)    #
-#                                                                  #
-####################################################################
+        return f"""Write a {word_count}-word SEO blog post about "{keyword}" for {business_name} in {location}.
 
-====================================================================
-                    100% SEO SCORE REQUIREMENTS
-====================================================================
-
-PRIMARY KEYWORD: "{keyword}"
-LOCATION: {location}
-BUSINESS: {business_name}
-INDUSTRY: {industry}
-MINIMUM WORD COUNT: {word_count} words (MANDATORY - will be verified)
-TONE: {tone}
-YEAR: {current_year}
-
-====================================================================
-                    CRITICAL SEO CHECKLIST (ALL REQUIRED)
-====================================================================
-
-TITLE & META (Score: 20 points)
-✓ Meta title: EXACTLY 55-60 characters, "{keyword}" at the START
-✓ Meta description: EXACTLY 150-155 characters, includes "{keyword}" and "{location}"
-✓ H1: Contains "{keyword}" AND "{location}"
-
-KEYWORD DENSITY (Score: 25 points)  
-✓ "{keyword}" appears 12-18 times throughout the content (1.5-2% density)
-✓ "{keyword}" in first paragraph (first 100 words)
-✓ "{keyword}" in last paragraph (last 100 words)
-✓ "{keyword}" in at least 3 H2 headings
-✓ "{location}" or "{city}" appears 8-12 times
-
-CONTENT STRUCTURE (Score: 25 points)
-✓ Minimum 5 H2 sections (each 150-200 words)
-✓ At least 2 H3 subheadings per H2 section
-✓ Bullet points or numbered lists in at least 2 sections
-✓ Short paragraphs (3-4 sentences max)
-✓ Transition words between sections
-
-INTERNAL LINKING (Score: 15 points)
-{link_instructions if internal_links else "✓ No internal links provided - skip this section"}
-✓ Links placed naturally within paragraph text
-✓ Varied anchor text (not repetitive)
-{related_posts_html}
-
-FAQ SCHEMA (Score: 10 points)
-✓ Exactly 5-6 FAQs at the end
-✓ Questions are realistic buyer questions
-✓ Answers are 50-80 words each with specific information
-✓ FAQ formatted with <h3> for questions, <p> for answers
-
-CTA (Score: 5 points)
-✓ 2 CTAs: one mid-article, one at end
-✓ Include contact: {cta_name}
-✓ Include method: {contact_str}
-✓ Include location: {location}
-{internal_links_html}
+REQUIREMENTS:
+- Word count: {word_count} words minimum
+- Keyword "{keyword}" must appear 10-15 times
+- Location "{location}" must appear 5-8 times
+- Include 5 H2 sections with H3 subsections
+- Include 5 FAQs at the end
+- Include 2 CTAs mentioning {cta_name} and {contact_str}
+- Tone: {tone}
 {usp_text}
-====================================================================
-                    EXACT OUTPUT STRUCTURE
-====================================================================
+{links_text}
 
-Your response must have this EXACT HTML structure in the body:
-
-<p>[Opening paragraph - mention {keyword} and {location} in first 2 sentences. 80-100 words.]</p>
-
-<h2>{keyword} in {location}: [Benefit or Question]</h2>
-<p>[Paragraph with internal link if available]</p>
-<h3>[Subtopic 1]</h3>
-<p>[Detailed explanation]</p>
-<h3>[Subtopic 2]</h3>
-<p>[Detailed explanation]</p>
-
-<h2>Why {location} [Residents/Businesses] Choose {keyword}</h2>
-<p>[Content with bullet points]</p>
-<ul>
-<li><strong>Benefit 1:</strong> Explanation</li>
-<li><strong>Benefit 2:</strong> Explanation</li>
-<li><strong>Benefit 3:</strong> Explanation</li>
-</ul>
-
-<p><strong>Ready to discuss your {keyword} needs?</strong> Contact {cta_name} at {business_name}. You can {contact_str}.</p>
-
-<h2>What to Expect from {keyword} Services in {location}</h2>
-<p>[Process or timeline content with internal link]</p>
-<h3>[Step or Phase 1]</h3>
-<p>[Details]</p>
-<h3>[Step or Phase 2]</h3>
-<p>[Details]</p>
-
-<h2>{keyword} Costs in {location}: What You Should Know</h2>
-<p>[Pricing factors - be specific but don't make up numbers]</p>
-<ol>
-<li>Factor 1</li>
-<li>Factor 2</li>
-<li>Factor 3</li>
-</ol>
-
-<h2>Choosing the Right {keyword} Provider in {location}</h2>
-<p>[Selection criteria with internal link]</p>
-
-<h2>Frequently Asked Questions About {keyword} in {location}</h2>
-
-<h3>Question 1 about {keyword}?</h3>
-<p>[50-80 word answer with specific information]</p>
-
-<h3>Question 2 about {keyword} in {location}?</h3>
-<p>[50-80 word answer]</p>
-
-<h3>Question 3?</h3>
-<p>[50-80 word answer]</p>
-
-<h3>Question 4?</h3>
-<p>[50-80 word answer]</p>
-
-<h3>Question 5?</h3>
-<p>[50-80 word answer]</p>
-
-<h2>Get Started with {keyword} in {location}</h2>
-<p>[Final CTA paragraph] Contact {cta_name} at {business_name} today. {contact_str} for a free consultation. We're proud to serve {location} and surrounding areas.</p>
-
-====================================================================
-                    JSON OUTPUT FORMAT
-====================================================================
-
-Return ONLY this JSON (no markdown code blocks):
-
+OUTPUT FORMAT - Return ONLY valid JSON (no markdown):
 {{
-    "title": "{keyword} in {location} | {business_name}",
-    "h1": "{keyword} Services in {location} - Expert Solutions",
-    "meta_title": "[EXACTLY 55-60 characters, {keyword} at START]",
-    "meta_description": "[EXACTLY 150-155 characters with {keyword} and {location}]",
-    "body": "[MANDATORY: Write {word_count}+ WORDS of HTML content. Include: 120+ word intro, 5-6 H2 sections (180+ words each), H3 subsections, bullet lists, 2 CTAs, FAQ section. This field must be LONG and DETAILED.]",
-    "h2_headings": ["H2 1", "H2 2", "H2 3", "H2 4", "H2 5", "H2 6"],
-    "h3_headings": ["H3 1", "H3 2", "H3 3", "H3 4", "H3 5", "H3 6", "H3 7", "H3 8"],
-    "word_count": {word_count},
-    "actual_word_count": "[COUNT YOUR WORDS - must be {word_count}+]",
-    "keyword_count": 15,
-    "internal_links_used": ["url1", "url2", "url3"],
+    "title": "SEO title with keyword and location",
+    "meta_title": "55-60 character title starting with {keyword}",
+    "meta_description": "150-155 character description with keyword",
+    "body": "<p>Full {word_count}+ word HTML content with H2s, H3s, lists, FAQs, CTAs</p>",
+    "h2_headings": ["heading1", "heading2", "heading3", "heading4", "heading5"],
     "faq_items": [
-        {{"question": "Detailed question 1 about {keyword}?", "answer": "[60-80 word comprehensive answer with specific details]"}},
-        {{"question": "Detailed question 2 about {keyword} in {location}?", "answer": "[60-80 word comprehensive answer]"}},
-        {{"question": "Detailed question 3 about cost/pricing?", "answer": "[60-80 word comprehensive answer]"}},
-        {{"question": "Detailed question 4 about process/timeline?", "answer": "[60-80 word comprehensive answer]"}},
-        {{"question": "Detailed question 5 about choosing provider?", "answer": "[60-80 word comprehensive answer]"}}
+        {{"question": "Q1?", "answer": "60-word answer"}},
+        {{"question": "Q2?", "answer": "60-word answer"}},
+        {{"question": "Q3?", "answer": "60-word answer"}},
+        {{"question": "Q4?", "answer": "60-word answer"}},
+        {{"question": "Q5?", "answer": "60-word answer"}}
     ],
     "faq_schema": {{
         "@context": "https://schema.org",
         "@type": "FAQPage",
-        "mainEntity": [
-            {{"@type": "Question", "name": "Q1?", "acceptedAnswer": {{"@type": "Answer", "text": "Full answer 1"}}}},
-            {{"@type": "Question", "name": "Q2?", "acceptedAnswer": {{"@type": "Answer", "text": "Full answer 2"}}}},
-            {{"@type": "Question", "name": "Q3?", "acceptedAnswer": {{"@type": "Answer", "text": "Full answer 3"}}}},
-            {{"@type": "Question", "name": "Q4?", "acceptedAnswer": {{"@type": "Answer", "text": "Full answer 4"}}}},
-            {{"@type": "Question", "name": "Q5?", "acceptedAnswer": {{"@type": "Answer", "text": "Full answer 5"}}}}
-        ]
+        "mainEntity": []
     }},
     "cta": {{
         "contact_name": "{cta_name}",
         "company_name": "{business_name}",
         "phone": "{phone or ''}",
-        "email": "{email or ''}",
-        "location": "{location}"
+        "email": "{email or ''}"
     }},
-    "seo_score": 100
+    "word_count": {word_count}
 }}
 
-####################################################################
-#                    FINAL VERIFICATION CHECKLIST                  #
-####################################################################
-
-BEFORE OUTPUTTING, YOU MUST VERIFY:
-
-□ WORD COUNT: Body contains {word_count}+ words (COUNT THEM!)
-□ META TITLE: Exactly 55-60 characters, keyword "{keyword}" at start
-□ META DESC: Exactly 150-155 characters with keyword and location
-□ H2 SECTIONS: At least 5-6 H2 headings (each section 180+ words)
-□ H3 SECTIONS: At least 2 H3 per H2 section (10+ total H3s)
-□ KEYWORD DENSITY: "{keyword}" appears 12-18 times
-□ LOCATION: "{location}" appears 8-12 times
-□ INTERNAL LINKS: ALL links from the list above are included
-□ FAQs: 5-6 FAQs with 60-80 word answers each
-□ CTAs: 2 CTAs with contact info (mid-article + end)
-□ OUTPUT: Valid JSON only, no markdown code blocks
-
-REMEMBER: Content under {word_count} words will be REJECTED!
-Write DETAILED, COMPREHENSIVE content for each section.
-"""
+IMPORTANT: The "body" field must contain {word_count}+ words of real HTML content with proper <h2>, <h3>, <p>, <ul>, <li> tags. Write comprehensive, detailed paragraphs for each section."""
     
     def _get_related_posts(self, client_id: str, current_keyword: str, limit: int = 4) -> List[Dict]:
         """
