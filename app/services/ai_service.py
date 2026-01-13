@@ -5,6 +5,7 @@ OpenAI and Anthropic API integration for content generation
 import os
 import json
 import time
+import re
 import logging
 from typing import Dict, List, Any, Optional
 import requests
