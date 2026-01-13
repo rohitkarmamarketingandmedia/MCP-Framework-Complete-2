@@ -547,10 +547,35 @@ Example for HVAC business:
         from datetime import datetime
         current_year = datetime.utcnow().year
         
+        # Helper function to convert to Title Case properly
+        def to_title_case(text):
+            """Convert text to Title Case, handling common words"""
+            if not text:
+                return text
+            # Words that should stay lowercase (unless first word)
+            lowercase_words = {'a', 'an', 'the', 'and', 'but', 'or', 'for', 'nor', 
+                             'on', 'at', 'to', 'by', 'in', 'of', 'with', 'as'}
+            words = text.split()
+            result = []
+            for i, word in enumerate(words):
+                if i == 0 or word.lower() not in lowercase_words:
+                    result.append(word.capitalize())
+                else:
+                    result.append(word.lower())
+            return ' '.join(result)
+        
+        # Convert keyword to Title Case for display
+        keyword_display = to_title_case(keyword)
+        
         # Parse geo into city/state
         geo_parts = geo.split(',') if geo else ['', '']
         city = geo_parts[0].strip() if len(geo_parts) > 0 else geo
         state = geo_parts[1].strip() if len(geo_parts) > 1 else ''
+        
+        # Convert city to Title Case
+        city = to_title_case(city)
+        state = state.upper() if len(state) == 2 else to_title_case(state)  # Keep state abbreviations uppercase
+        
         location = f"{city}, {state}" if state else city
         
         # Build MANDATORY internal links section - these MUST appear in content
@@ -628,25 +653,27 @@ DO NOT skip the internal links. They are required for SEO.
         # For 1500 words: each section ~200 words
         # For 2000 words: each section ~280 words
         # For 2500 words: each section ~350 words
-        section_words = max(150, word_count // 7)
-        intro_words = max(200, word_count // 6)
-        benefits_words = max(250, word_count // 5)
+        section_words = max(180, word_count // 6)
+        intro_words = max(250, word_count // 5)
+        benefits_words = max(300, word_count // 4)
 
-        return f"""Write a {word_count}-word informational article about "{keyword}" for a {industry or 'local business'} in {location}.
+        return f"""Write a {word_count}-word informational article about "{keyword_display}" for a {industry or 'local business'} in {location}.
 
 BUSINESS: {business_name}
 CONTACT: {cta_name} - {contact_str}
 {usp_text}
 {links_text}
 
+IMPORTANT: Use Title Case for all headings (e.g., "{keyword_display}" not "{keyword.lower()}")
+
 ARTICLE STRUCTURE - Use proper HTML heading hierarchy:
 
-<h1>{keyword} in {location} - Your Complete Guide</h1>
+<h1>{keyword_display} in {location} - Your Complete Guide</h1>
 
-<h2>Introduction to {keyword}</h2>
+<h2>Introduction to {keyword_display}</h2>
 <p>({intro_words}+ words) What this service involves, why residents of {location} need it.</p>
 
-<h2>Key Benefits of Professional {keyword}</h2>
+<h2>Key Benefits of Professional {keyword_display}</h2>
 <h3>Benefit 1: [Specific Benefit]</h3>
 <p>Explanation...</p>
 <h3>Benefit 2: [Specific Benefit]</h3>
@@ -655,19 +682,19 @@ ARTICLE STRUCTURE - Use proper HTML heading hierarchy:
 <p>Explanation...</p>
 (Total {benefits_words}+ words for this section)
 
-<h2>The {keyword} Process Explained</h2>
+<h2>The {keyword_display} Process Explained</h2>
 <p>({section_words}+ words) Step-by-step process, what to expect.</p>
 
-<h2>Cost Factors for {keyword} in {location}</h2>
+<h2>Cost Factors for {keyword_display} in {location}</h2>
 <p>({section_words}+ words) Pricing factors, value of professional service.</p>
 
-<h2>How to Choose the Right {keyword} Provider</h2>
+<h2>How to Choose the Right {keyword_display} Provider</h2>
 <p>({section_words}+ words) What to look for, why {business_name} is the right choice.</p>
 
 <h2>Ready to Get Started?</h2>
-<p>(80+ words) Call to action, contact {business_name}.</p>
+<p>(100+ words) Strong call to action, contact {business_name}.</p>
 
-TOTAL BODY CONTENT MUST BE {word_count}+ WORDS.
+TOTAL BODY CONTENT MUST BE {word_count}+ WORDS. Write comprehensive, detailed content.
 
 HTML REQUIREMENTS FOR SEO:
 1. Include exactly ONE <h1> tag at the start
@@ -678,17 +705,17 @@ HTML REQUIREMENTS FOR SEO:
 
 OUTPUT FORMAT (valid JSON only, no markdown):
 {{
-    "title": "{keyword} in {location} - Your Complete Guide | {business_name}",
-    "meta_title": "{keyword} {location} | Expert {industry or 'Service'} | {business_name}",
-    "meta_description": "Looking for professional {keyword} in {location}? {business_name} offers expert service. Call today for a free consultation. Trusted local experts.",
+    "title": "{keyword_display} in {location} - Your Complete Guide | {business_name}",
+    "meta_title": "{keyword_display} {location} | Expert {industry or 'Service'} | {business_name}",
+    "meta_description": "Looking for professional {keyword_display.lower()} in {location}? {business_name} offers expert service. Call today for a free consultation. Trusted local experts.",
     "body": "<h1>...</h1><h2>...</h2><p>...</p>... (Full HTML with h1, h2, h3 tags, {word_count}+ words)",
     "h2_headings": ["Introduction", "Key Benefits", "Process Explained", "Cost Factors", "Choosing a Provider", "Get Started"],
     "faq_items": [
-        {{"question": "How much does {keyword} cost in {location}?", "answer": "Costs in {location} typically range based on scope, property size, and specific requirements. {business_name} provides free estimates for accurate pricing tailored to your needs."}},
-        {{"question": "How do I know if I need {keyword} service?", "answer": "Common signs include [specific symptoms]. If you notice any issues, contact {business_name} for a professional assessment."}},
-        {{"question": "How long does {keyword} take?", "answer": "Most {keyword} projects take [timeframe] depending on complexity. {business_name} provides accurate timelines during consultation."}},
-        {{"question": "Why choose {business_name} for {keyword}?", "answer": "{business_name} offers experienced professionals, quality service, and customer satisfaction. Contact us today to learn more."}},
-        {{"question": "Do you offer free estimates for {keyword}?", "answer": "Yes! {business_name} provides free, no-obligation estimates for all {keyword} services in {location}. Call us today."}}
+        {{"question": "How much does {keyword_display.lower()} cost in {location}?", "answer": "Costs in {location} typically range based on scope, property size, and specific requirements. {business_name} provides free estimates for accurate pricing tailored to your needs."}},
+        {{"question": "How do I know if I need {keyword_display.lower()} service?", "answer": "Common signs include [specific symptoms]. If you notice any issues, contact {business_name} for a professional assessment."}},
+        {{"question": "How long does {keyword_display.lower()} take?", "answer": "Most projects take [timeframe] depending on complexity. {business_name} provides accurate timelines during consultation."}},
+        {{"question": "Why choose {business_name} for {keyword_display.lower()}?", "answer": "{business_name} offers experienced professionals, quality service, and customer satisfaction. Contact us today to learn more."}},
+        {{"question": "Do you offer free estimates for {keyword_display.lower()}?", "answer": "Yes! {business_name} provides free, no-obligation estimates for all services in {location}. Call us today."}}
     ],
     "faq_schema": {{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": []}},
     "cta": {{"contact_name": "{cta_name}", "company_name": "{business_name}", "phone": "{phone or ''}", "email": "{email or ''}"}}
