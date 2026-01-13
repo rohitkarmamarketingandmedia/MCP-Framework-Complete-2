@@ -562,17 +562,6 @@ Example for HVAC business:
             internal_links_html += "\nINSTRUCTION: Copy these EXACT <a href> tags and place them naturally in your body paragraphs.\n"
             link_instructions = f"✓ Include ALL {len(internal_links[:6])} internal links listed above"
         
-        # Build related posts section for category interlinking
-        related_posts_html = ""
-        if related_posts and len(related_posts) > 0:
-            related_posts_html = "\n=== RELATED POSTS TO LINK (Same Category) ===\n"
-            related_posts_html += "Also include links to these related posts from the same category:\n\n"
-            for i, post in enumerate(related_posts[:4], 1):
-                url = post.get('url', post.get('published_url', ''))
-                title = post.get('title', '')
-                if url and title:
-                    related_posts_html += f'{i}. <a href="{url}">{title}</a>\n'
-        
         # CTA contact logic
         cta_name = contact_name if contact_name else business_name
         contact_methods = []
@@ -585,19 +574,44 @@ Example for HVAC business:
         # Build USP bullet points
         usp_text = ""
         if usps and len(usps) > 0:
-            usp_text = ""
-        if usps and len(usps) > 0:
             usp_text = "\nHighlight these unique benefits: " + ", ".join(usps[:3])
 
-        # Build internal links for prompt
-        links_text = ""
+        # Combine all internal links (service pages + related posts)
+        all_links = []
+        
+        # Add service pages
         if internal_links:
-            links_text = "\nInclude these links naturally in the content:\n"
-            for link in internal_links[:5]:
+            for link in internal_links[:4]:
                 url = link.get('url', '')
                 kw = link.get('keyword', link.get('title', ''))
-                if url and kw:
-                    links_text += f'- <a href="{url}">{kw}</a>\n'
+                if url and kw and not any(l['url'] == url for l in all_links):
+                    all_links.append({'url': url, 'keyword': kw, 'title': link.get('title', kw)})
+        
+        # Add related posts
+        if related_posts:
+            for post in related_posts[:4]:
+                url = post.get('url', post.get('published_url', ''))
+                title = post.get('title', '')
+                kw = post.get('keyword', title)
+                if url and title and not any(l['url'] == url for l in all_links):
+                    all_links.append({'url': url, 'keyword': kw, 'title': title})
+        
+        # Build links text for prompt - CRITICAL for SEO score
+        links_text = ""
+        if all_links:
+            links_text = f"""
+INTERNAL LINKS - YOU MUST INCLUDE THESE IN YOUR ARTICLE:
+Include at least {min(len(all_links), 3)} of these links naturally within your article body.
+Place them in relevant paragraphs where the topic relates to the link.
+
+"""
+            for i, link in enumerate(all_links[:6], 1):
+                links_text += f'{i}. <a href="{link["url"]}">{link["title"]}</a>\n'
+            links_text += """
+IMPORTANT: Copy the exact <a href="...">...</a> tags above and embed them in your paragraphs.
+"""
+        
+        logger.info(f"Blog prompt includes {len(all_links)} internal links")
 
         # Scale section lengths based on word count
         # For 1500 words: each section ~200 words
@@ -674,41 +688,104 @@ WORD COUNT CHECK: Your response body MUST contain at least {word_count} words.
 Count your words before responding. If under {word_count}, add more detail to each section.
 A {word_count}-word article needs approximately {word_count // 6} words per section."""
     
-    def _get_related_posts(self, client_id: str, current_keyword: str, limit: int = 4) -> List[Dict]:
+    def _get_related_posts(self, client_id: str, current_keyword: str, limit: int = 6) -> List[Dict]:
         """
-        Fetch related blog posts from the same client for internal linking.
-        Returns posts that are published and have URLs.
+        Fetch related content from the same client for internal linking.
+        Includes: published blog posts AND service pages.
+        Returns list of {title, url, keyword} for internal linking.
         """
+        related = []
+        
         try:
-            from app.models.db_models import DBBlogPost
+            from app.models.db_models import DBBlogPost, DBClient, DBServicePage
             
-            # Get published posts for this client (excluding current keyword)
+            # Get client for website URL
+            client = DBClient.query.get(client_id)
+            base_url = ''
+            if client and client.website_url:
+                base_url = client.website_url.rstrip('/')
+            
+            # 1. Get published blog posts with URLs
             posts = DBBlogPost.query.filter(
                 DBBlogPost.client_id == client_id,
                 DBBlogPost.status == 'published',
                 DBBlogPost.published_url.isnot(None)
             ).order_by(DBBlogPost.published_at.desc()).limit(limit + 5).all()
             
-            related = []
             for post in posts:
-                # Skip if same keyword
                 if post.primary_keyword and post.primary_keyword.lower() == current_keyword.lower():
                     continue
                 
                 if post.published_url:
+                    url = post.published_url
+                    # Make URL absolute if it's relative
+                    if not url.startswith('http') and base_url:
+                        url = f"{base_url}{url}" if url.startswith('/') else f"{base_url}/{url}"
+                    
                     related.append({
                         'title': post.title,
-                        'url': post.published_url,
-                        'keyword': post.primary_keyword
+                        'url': url,
+                        'keyword': post.primary_keyword or post.title
                     })
                 
                 if len(related) >= limit:
                     break
             
-            return related
+            # 2. Get service pages from DBServicePage table
+            if len(related) < limit:
+                service_pages = DBServicePage.query.filter(
+                    DBServicePage.client_id == client_id,
+                    DBServicePage.status == 'published',
+                    DBServicePage.published_url.isnot(None)
+                ).limit(limit - len(related) + 3).all()
+                
+                for page in service_pages:
+                    if page.primary_keyword and page.primary_keyword.lower() == current_keyword.lower():
+                        continue
+                    
+                    if page.published_url:
+                        url = page.published_url
+                        if not url.startswith('http') and base_url:
+                            url = f"{base_url}{url}" if url.startswith('/') else f"{base_url}/{url}"
+                        
+                        related.append({
+                            'title': page.title or page.primary_keyword,
+                            'url': url,
+                            'keyword': page.primary_keyword or page.title
+                        })
+                    
+                    if len(related) >= limit:
+                        break
+            
+            # 3. Also get from client.service_pages JSON field (legacy)
+            if len(related) < limit and client:
+                stored_pages = client.get_service_pages() or []
+                for page in stored_pages:
+                    kw = page.get('keyword', page.get('title', ''))
+                    if kw.lower() == current_keyword.lower():
+                        continue
+                    
+                    url = page.get('url', '')
+                    if url:
+                        if not url.startswith('http') and base_url:
+                            url = f"{base_url}{url}" if url.startswith('/') else f"{base_url}/{url}"
+                        
+                        # Avoid duplicates
+                        if not any(r['url'] == url for r in related):
+                            related.append({
+                                'title': page.get('title', kw),
+                                'url': url,
+                                'keyword': kw
+                            })
+                    
+                    if len(related) >= limit:
+                        break
+            
+            logger.info(f"Found {len(related)} internal links for client {client_id}")
+            return related[:limit]
             
         except Exception as e:
-            logger.debug(f"Error fetching related posts: {e}")
+            logger.warning(f"Error fetching related posts: {e}")
             return []
     
     def _parse_blog_response(self, content: str) -> Dict[str, Any]:
