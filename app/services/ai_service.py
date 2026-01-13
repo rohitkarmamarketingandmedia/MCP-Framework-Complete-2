@@ -733,30 +733,31 @@ A {word_count}-word article needs approximately {word_count // 6} words per sect
             
             # 2. Get published blog posts from database
             if len(related) < limit:
-            posts = DBBlogPost.query.filter(
-                DBBlogPost.client_id == client_id,
-                DBBlogPost.status == 'published',
-                DBBlogPost.published_url.isnot(None)
-            ).order_by(DBBlogPost.published_at.desc()).limit(limit + 5).all()
-            
-            for post in posts:
-                if post.primary_keyword and post.primary_keyword.lower() == current_keyword.lower():
-                    continue
+                posts = DBBlogPost.query.filter(
+                    DBBlogPost.client_id == client_id,
+                    DBBlogPost.status == 'published',
+                    DBBlogPost.published_url.isnot(None)
+                ).order_by(DBBlogPost.published_at.desc()).limit(limit + 5).all()
                 
-                if post.published_url:
-                    url = post.published_url
-                    # Make URL absolute if it's relative
-                    if not url.startswith('http') and base_url:
-                        url = f"{base_url}{url}" if url.startswith('/') else f"{base_url}/{url}"
+                for post in posts:
+                    if post.primary_keyword and post.primary_keyword.lower() == current_keyword.lower():
+                        continue
                     
-                    related.append({
-                        'title': post.title,
-                        'url': url,
-                        'keyword': post.primary_keyword or post.title
-                    })
-                
-                if len(related) >= limit:
-                    break
+                    if post.published_url:
+                        url = post.published_url
+                        # Make URL absolute if it's relative
+                        if not url.startswith('http') and base_url:
+                            url = f"{base_url}{url}" if url.startswith('/') else f"{base_url}/{url}"
+                        
+                        if not any(r['url'] == url for r in related):
+                            related.append({
+                                'title': post.title,
+                                'url': url,
+                                'keyword': post.primary_keyword or post.title
+                            })
+                    
+                    if len(related) >= limit:
+                        break
             
             # 2. Get service pages from DBServicePage table
             if len(related) < limit:
