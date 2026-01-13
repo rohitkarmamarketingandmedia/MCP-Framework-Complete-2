@@ -126,14 +126,24 @@ class AIService:
         # Enforce rate limiting
         self._rate_limit_delay()
         
-        # Model priority: GPT-3.5-turbo-16k is fast and reliable for long content
-        # User can override with BLOG_AI_MODEL env var (e.g., gpt-4o, gpt-4)
+        # Model selection with appropriate token limits
+        # gpt-3.5-turbo: 4096 max tokens
+        # gpt-3.5-turbo-16k: 16384 max tokens  
+        # gpt-4o: 4096 max tokens (output)
         primary_model = os.environ.get('BLOG_AI_MODEL', 'gpt-3.5-turbo-16k')
         fallback_model = 'gpt-3.5-turbo'
         
-        # Calculate tokens needed for content
-        min_tokens_for_content = int(word_count * 1.5) + 1500
-        estimated_tokens = max(3500, min(6000, min_tokens_for_content))
+        # Calculate tokens based on model limits
+        # For 800 word content, we need ~1200 tokens output + JSON overhead
+        if '16k' in primary_model:
+            max_allowed_tokens = 8000
+        elif 'gpt-4' in primary_model:
+            max_allowed_tokens = 4000
+        else:
+            max_allowed_tokens = 3800  # Safe limit for gpt-3.5-turbo
+        
+        min_tokens_for_content = int(word_count * 1.5) + 800
+        estimated_tokens = min(max_allowed_tokens, max(2000, min_tokens_for_content))
         
         logger.info(f"Blog generation: word_count={word_count}, tokens={estimated_tokens}, model={primary_model}")
         
@@ -158,13 +168,14 @@ class AIService:
             temperature=0.7
         )
         
-        # If primary model fails, try fallback
+        # If primary model fails, try fallback with safe token limit
         if response.get('error'):
             logger.warning(f"Primary model {primary_model} failed: {response['error']}, trying fallback {fallback_model}")
             model_used = fallback_model
+            fallback_tokens = min(3800, estimated_tokens)  # Safe limit for gpt-3.5-turbo
             response = self._call_with_retry(
                 prompt, 
-                max_tokens=estimated_tokens,
+                max_tokens=fallback_tokens,
                 system_prompt=system_prompt,
                 model=fallback_model,
                 temperature=0.7
