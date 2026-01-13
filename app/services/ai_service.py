@@ -126,25 +126,25 @@ class AIService:
         # Enforce rate limiting
         self._rate_limit_delay()
         
-        # Model selection with appropriate token limits
-        # gpt-4o-mini: Best balance of quality, speed, and cost - follows instructions well
-        # gpt-4o: Higher quality but slower and more expensive
-        # gpt-3.5-turbo-16k: Fast but doesn't follow word count instructions well
-        primary_model = os.environ.get('BLOG_AI_MODEL', 'gpt-4o-mini')
+        # Model selection - gpt-4o works best for following instructions
+        # Fallback to gpt-3.5-turbo-16k for reliability
+        primary_model = os.environ.get('BLOG_AI_MODEL', 'gpt-4o')
         fallback_model = 'gpt-3.5-turbo-16k'
         
-        # Calculate tokens based on model and word count
-        # ~1.5 tokens per word + JSON overhead (~500 tokens)
+        # Calculate tokens based on word count
+        # ~1.5 tokens per word + JSON overhead (~800 tokens)
         tokens_needed = int(word_count * 1.5) + 800
         
-        # Set limits based on model
-        if 'gpt-4o' in primary_model or 'gpt-4' in primary_model:
-            # GPT-4 models have 16K output limit but we cap lower for speed
-            max_allowed_tokens = min(8000, tokens_needed + 1000)
+        # Set limits based on model - be conservative to avoid errors
+        if 'gpt-4o' in primary_model:
+            # GPT-4o has 16K output limit
+            max_allowed_tokens = min(6000, tokens_needed + 500)
+        elif 'gpt-4' in primary_model:
+            max_allowed_tokens = min(4000, tokens_needed + 500)
         elif '16k' in primary_model:
-            max_allowed_tokens = min(12000, tokens_needed + 1000)
+            max_allowed_tokens = min(8000, tokens_needed + 500)
         else:
-            max_allowed_tokens = min(4000, tokens_needed)
+            max_allowed_tokens = min(3800, tokens_needed)
         
         # Ensure minimum tokens for reasonable content
         estimated_tokens = max(3000, max_allowed_tokens)
