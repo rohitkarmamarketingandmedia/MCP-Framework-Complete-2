@@ -597,73 +597,53 @@ WRITING REQUIREMENTS:
 2. Include specific details relevant to {location} (climate, local factors, etc.)
 3. Use natural, conversational language
 4. Every paragraph must have real, useful information
-5. NO placeholder text like "Answer to question 1" - write REAL answers
+5. NO placeholder text - write REAL content
 
-CONTENT TO WRITE (create actual helpful content for each):
+SECTIONS TO WRITE IN THE BODY (create actual helpful content for each):
 
-SECTION 1 - INTRODUCTION:
-Write 2-3 paragraphs (100+ words) introducing {keyword} and why it matters for {location} residents. Mention local climate considerations.
+SECTION 1 - INTRODUCTION (H2: Understanding {keyword}):
+Write 2-3 paragraphs (150+ words) introducing {keyword} and why it matters for {location} residents. Mention local climate considerations.
 
-SECTION 2 - UNDERSTANDING {keyword.upper()}:
-Write 2 paragraphs (100+ words) explaining what {keyword} involves, the different types/options available, and how it benefits property owners.
+SECTION 2 - KEY BENEFITS (H2: Benefits of {keyword} in {location}):
+Write an intro paragraph, then list 5 specific benefits with detailed explanations. Each benefit needs 2-3 sentences explaining WHY it matters.
 
-SECTION 3 - KEY BENEFITS:
-Write an intro paragraph, then list 5 specific benefits with detailed explanations (not just bullet points - each benefit needs 2-3 sentences explaining WHY it matters).
+SECTION 3 - THE PROCESS (H2: How {keyword} Works):
+Explain step-by-step what customers can expect. Include timeline expectations. Write 100+ words.
 
-SECTION 4 - THE PROCESS:
-Explain step-by-step what customers can expect when they hire a professional for {keyword}. Include timeline expectations.
+SECTION 4 - COST CONSIDERATIONS (H2: {keyword} Cost Factors):
+Discuss factors that affect pricing for {keyword} in {location}. Be helpful without giving specific prices. Write 80+ words.
 
-SECTION 5 - COST CONSIDERATIONS:
-Discuss factors that affect pricing for {keyword} in {location}. Be helpful without giving specific prices.
+SECTION 5 - CHOOSING A PROVIDER (H2: Choosing the Right {keyword} Provider):
+What should {location} residents look for? Write 80+ words. End with call-to-action for {business_name}.
 
-SECTION 6 - CHOOSING THE RIGHT PROVIDER:
-What should {location} residents look for? Include a call-to-action for {business_name}.
+SECTION 6 - CONCLUSION (H2: Get Started with {keyword} Today):
+Summarize key points (50+ words) and include strong call-to-action: Contact {cta_name} at {business_name}. {contact_str}
 
-SECTION 7 - FIVE REAL FAQs:
-Write 5 SPECIFIC questions that real customers ask, with DETAILED answers (40-60 words each):
-
-FAQ 1: "How often should [specific maintenance question for {keyword}]?"
-- Write a real, helpful answer with specific timeframes and recommendations
-
-FAQ 2: "What are the signs that I need [specific service related to {keyword}]?"  
-- List actual warning signs customers should watch for
-
-FAQ 3: "How much does {keyword} typically cost in {location}?"
-- Discuss price ranges and factors without exact numbers
-
-FAQ 4: "How long does [the {keyword} process] take?"
-- Give realistic timeframes for different scenarios
-
-FAQ 5: "Should I attempt DIY or hire a professional for {keyword}?"
-- Explain the risks of DIY and benefits of professional service
-
-SECTION 8 - CONCLUSION:
-Summarize key points and include strong call-to-action for {business_name}.
+NOTE: Do NOT include FAQs in the body - they are handled separately in faq_items.
 
 OUTPUT FORMAT - Return valid JSON only (no markdown):
 {{
-    "title": "{keyword} Services in {location} - Expert Guide | {business_name}",
-    "meta_title": "{keyword} in {location} | Trusted Local Experts | {business_name}",
+    "title": "{keyword} Services in {location} | {business_name}",
+    "meta_title": "{keyword} in {location} | Expert Service | {business_name}",
     "meta_description": "Need {keyword} in {location}? Learn about costs, benefits, and how to choose the right provider. Contact {business_name} for expert service.",
-    "body": "<FULL HTML CONTENT - Must be 800+ words of REAL, HELPFUL content. Use <h2>, <p>, <ul>, <li>, <strong> tags. NO PLACEHOLDER TEXT.>",
-    "h2_headings": ["Understanding {keyword}", "Key Benefits", "The Process", "Cost Considerations", "Choosing a Provider", "Frequently Asked Questions", "Ready to Get Started"],
+    "body": "<HTML content with the 6 sections above. Use <h2>, <p>, <ul>, <li>, <strong> tags. NO FAQs here - they go in faq_items. Must be 600+ words.>",
+    "h2_headings": ["Understanding {keyword}", "Benefits", "How it Works", "Cost Factors", "Choosing a Provider", "Get Started Today"],
     "faq_items": [
-        {{"question": "Real specific question 1?", "answer": "Detailed 40-60 word answer with actual helpful information"}},
-        {{"question": "Real specific question 2?", "answer": "Detailed 40-60 word answer with actual helpful information"}},
-        {{"question": "Real specific question 3?", "answer": "Detailed 40-60 word answer with actual helpful information"}},
-        {{"question": "Real specific question 4?", "answer": "Detailed 40-60 word answer with actual helpful information"}},
-        {{"question": "Real specific question 5?", "answer": "Detailed 40-60 word answer with actual helpful information"}}
+        {{"question": "How often should {keyword} maintenance be performed?", "answer": "Write a detailed 40-50 word answer with specific timeframes and recommendations for {location} residents."}},
+        {{"question": "What are the signs that I need {keyword} service?", "answer": "Write a detailed 40-50 word answer listing specific warning signs homeowners should watch for."}},
+        {{"question": "How much does {keyword} typically cost in {location}?", "answer": "Write a detailed 40-50 word answer discussing price factors without exact numbers."}},
+        {{"question": "How long does the {keyword} process take?", "answer": "Write a detailed 40-50 word answer with realistic timeframes for different scenarios."}},
+        {{"question": "Should I attempt DIY or hire a professional for {keyword}?", "answer": "Write a detailed 40-50 word answer explaining risks of DIY and benefits of professional service."}}
     ],
     "faq_schema": {{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": []}},
     "cta": {{"contact_name": "{cta_name}", "company_name": "{business_name}", "phone": "{phone or ''}", "email": "{email or ''}"}}
 }}
 
-CRITICAL RULES:
-- DO NOT use placeholder text like "Question 1 about..." or "Answer to question..."
-- DO NOT copy the template structure literally
-- WRITE real, specific, helpful content that would actually help someone researching {keyword}
-- Each FAQ answer must be a complete, informative response (40-60 words)
-- Total content must be 800+ words of REAL information"""
+CRITICAL: 
+- The "body" must NOT contain any FAQ section - FAQs go only in faq_items array
+- Write real, helpful answers for each FAQ (40-50 words each)
+- Body content should be 600+ words covering the 6 sections above
+- Do NOT use placeholder text anywhere"""
     
     def _get_related_posts(self, client_id: str, current_keyword: str, limit: int = 4) -> List[Dict]:
         """
