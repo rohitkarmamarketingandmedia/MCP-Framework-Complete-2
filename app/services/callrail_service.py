@@ -547,7 +547,13 @@ class CallRailService:
         if not call.get('answered'):
             return 'missed'
         
-        duration = call.get('duration', 0)
+        duration = call.get('duration') or 0
+        
+        # Ensure duration is a number
+        try:
+            duration = int(duration)
+        except (ValueError, TypeError):
+            duration = 0
         
         if duration > 180:  # > 3 minutes
             return 'hot'

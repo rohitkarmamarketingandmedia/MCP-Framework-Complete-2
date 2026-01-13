@@ -132,30 +132,26 @@ class AIService:
         primary_model = os.environ.get('BLOG_AI_MODEL', 'gpt-4o')
         fallback_model = 'gpt-3.5-turbo-16k'
         
-        # Calculate tokens - need ~2.5 tokens per word for JSON output with HTML
-        # Add extra buffer for JSON structure and FAQ content
-        tokens_needed = int(word_count * 2.5) + 2000
+        # Calculate tokens for primary model (gpt-4o supports up to 16K output)
+        tokens_for_primary = min(8000, int(word_count * 2) + 1500)
+        # Fallback model (gpt-3.5-turbo-16k) has 4096 output limit
+        tokens_for_fallback = min(4000, int(word_count * 1.3) + 500)
         
-        # Set generous limits based on model - GPT-4o can output up to 16K tokens
-        if 'gpt-4o' in primary_model:
-            max_allowed_tokens = min(10000, max(5000, tokens_needed))
-        elif 'gpt-4' in primary_model:
-            max_allowed_tokens = min(4096, tokens_needed)
-        elif '16k' in primary_model:
-            max_allowed_tokens = min(14000, max(8000, tokens_needed))
-        else:
-            max_allowed_tokens = min(4000, tokens_needed)
-        
-        estimated_tokens = max_allowed_tokens
-        
-        logger.info(f"Blog generation: word_count={word_count}, tokens={estimated_tokens}, model={primary_model}")
+        logger.info(f"Blog generation: word_count={word_count}, primary_tokens={tokens_for_primary}, fallback_tokens={tokens_for_fallback}, model={primary_model}")
         
         # Try primary model first
         response = None
         model_used = primary_model
         
-        # Get agent settings or use defaults
-        system_prompt = 'You are an expert SEO content writer. Always respond with valid JSON. Never use markdown code blocks.'
+        # System prompt - clear and professional to avoid refusals
+        system_prompt = '''You are a professional SEO content writer creating helpful, informative blog posts for local service businesses. Your content helps homeowners make informed decisions about home services.
+
+Rules:
+1. Always respond with valid JSON only - no markdown code blocks
+2. Write helpful, accurate information about the service
+3. Include the location and business name naturally
+4. Focus on educating readers about the service'''
+        
         if agent_config:
             system_prompt = agent_config.system_prompt
             system_prompt = system_prompt.replace('{tone}', tone)
@@ -165,7 +161,7 @@ class AIService:
         logger.info(f"Trying primary model: {primary_model}")
         response = self._call_with_retry(
             prompt, 
-            max_tokens=estimated_tokens,
+            max_tokens=tokens_for_primary,
             system_prompt=system_prompt,
             model=primary_model,
             temperature=0.7
@@ -175,11 +171,10 @@ class AIService:
         if response.get('error'):
             logger.warning(f"Primary model {primary_model} failed: {response['error']}, trying fallback {fallback_model}")
             model_used = fallback_model
-            # gpt-3.5-turbo-16k can handle more tokens
-            fallback_tokens = min(8000, estimated_tokens)
+            # Use the pre-calculated fallback tokens (respects 4096 limit)
             response = self._call_with_retry(
                 prompt, 
-                max_tokens=fallback_tokens,
+                max_tokens=tokens_for_fallback,
                 system_prompt=system_prompt,
                 model=fallback_model,
                 temperature=0.7
@@ -598,16 +593,19 @@ Example for HVAC business:
         intro_words = max(200, word_count // 6)
         benefits_words = max(250, word_count // 5)
 
-        return f"""Write a {word_count}-word blog post about {keyword} for {location} residents.
+        return f"""Create an informative, helpful blog article about {keyword} services for homeowners in {location}.
 
-TARGET: {word_count} WORDS MINIMUM - This is a strict requirement.
+This is for a legitimate local {industry or 'home services'} business website. The content should educate readers about {keyword}.
 
-BUSINESS: {business_name}
-CONTACT: {cta_name} - {contact_str}
+TARGET WORD COUNT: {word_count} words minimum.
+
+BUSINESS INFO:
+- Company: {business_name}
+- Contact: {cta_name} - {contact_str}
 {usp_text}
 {links_text}
 
-CONTENT STRUCTURE - Write comprehensive content for EACH section:
+ARTICLE STRUCTURE - Write detailed, helpful content for each section:
 
 <h2>Understanding {keyword} in {location}</h2>
 Write {intro_words}+ words introducing {keyword}. Cover:
