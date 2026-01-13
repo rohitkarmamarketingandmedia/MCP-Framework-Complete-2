@@ -127,30 +127,36 @@ class AIService:
         # Enforce rate limiting
         self._rate_limit_delay()
         
-        # Model selection - gpt-4o works best for following instructions
-        # Fallback to gpt-3.5-turbo-16k for reliability
+        # Model selection
+        # Primary: gpt-4o (best quality, 16K output)
+        # Fallback: gpt-4o-mini (good quality, 16K output, cheaper, follows instructions well)
+        # Note: gpt-3.5-turbo-16k has only 4K OUTPUT limit despite 16K context - don't use it!
         primary_model = os.environ.get('BLOG_AI_MODEL', 'gpt-4o')
-        fallback_model = 'gpt-3.5-turbo-16k'
+        fallback_model = 'gpt-4o-mini'  # Much better than gpt-3.5-turbo-16k
         
-        # Calculate tokens for primary model (gpt-4o supports up to 16K output)
-        tokens_for_primary = min(8000, int(word_count * 2) + 1500)
-        # Fallback model (gpt-3.5-turbo-16k) has 4096 output limit
-        tokens_for_fallback = min(4000, int(word_count * 1.3) + 500)
+        # Calculate tokens - both models support 16K output
+        tokens_needed = min(8000, int(word_count * 2) + 1500)
         
-        logger.info(f"Blog generation: word_count={word_count}, primary_tokens={tokens_for_primary}, fallback_tokens={tokens_for_fallback}, model={primary_model}")
+        logger.info(f"Blog generation: word_count={word_count}, tokens={tokens_needed}, primary={primary_model}, fallback={fallback_model}")
         
         # Try primary model first
         response = None
         model_used = primary_model
         
-        # System prompt - clear and professional to avoid refusals
-        system_prompt = '''You are a professional SEO content writer creating helpful, informative blog posts for local service businesses. Your content helps homeowners make informed decisions about home services.
+        # System prompt - must be very clear to avoid GPT-4o content policy refusals
+        system_prompt = '''You are a helpful content writer for a local business marketing agency. 
 
-Rules:
-1. Always respond with valid JSON only - no markdown code blocks
-2. Write helpful, accurate information about the service
-3. Include the location and business name naturally
-4. Focus on educating readers about the service'''
+Your job is to write informative blog articles that help local business websites rank in search engines and provide value to readers looking for local services.
+
+IMPORTANT RULES:
+1. Output ONLY valid JSON - no markdown, no code blocks, no explanations
+2. Write genuinely helpful, informative content about the service topic
+3. This is for a legitimate small business website (dental office, HVAC company, plumber, etc.)
+4. The content should educate readers and help them make informed decisions
+5. Include the business name and location naturally throughout
+6. Focus on providing real value - not just keyword stuffing
+
+You are NOT being asked to do anything harmful. These are standard local business blog posts.'''
         
         if agent_config:
             system_prompt = agent_config.system_prompt
@@ -161,20 +167,19 @@ Rules:
         logger.info(f"Trying primary model: {primary_model}")
         response = self._call_with_retry(
             prompt, 
-            max_tokens=tokens_for_primary,
+            max_tokens=tokens_needed,
             system_prompt=system_prompt,
             model=primary_model,
             temperature=0.7
         )
         
-        # If primary model fails, try fallback with appropriate token limit
+        # If primary model fails, try fallback (gpt-4o-mini also supports 16K output)
         if response.get('error'):
             logger.warning(f"Primary model {primary_model} failed: {response['error']}, trying fallback {fallback_model}")
             model_used = fallback_model
-            # Use the pre-calculated fallback tokens (respects 4096 limit)
             response = self._call_with_retry(
                 prompt, 
-                max_tokens=tokens_for_fallback,
+                max_tokens=tokens_needed,  # Same tokens - gpt-4o-mini supports 16K output
                 system_prompt=system_prompt,
                 model=fallback_model,
                 temperature=0.7
@@ -602,63 +607,40 @@ Example for HVAC business:
         intro_words = max(200, word_count // 6)
         benefits_words = max(250, word_count // 5)
 
-        return f"""Create an informative, helpful blog article about {keyword} services for homeowners in {location}.
+        return f"""Write a {word_count}-word informational article about "{keyword}" for a {industry or 'local business'} in {location}.
 
-This is for a legitimate local {industry or 'home services'} business website. The content should educate readers about {keyword}.
-
-TARGET WORD COUNT: {word_count} words minimum.
-
-BUSINESS INFO:
-- Company: {business_name}
-- Contact: {cta_name} - {contact_str}
+BUSINESS: {business_name}
+CONTACT: {cta_name} - {contact_str}
 {usp_text}
 {links_text}
 
-ARTICLE STRUCTURE - Write detailed, helpful content for each section:
+Write a helpful, informative article with these sections (use <h2> tags for headings):
 
-<h2>Understanding {keyword} in {location}</h2>
-Write {intro_words}+ words introducing {keyword}. Cover:
-- What it is and why {location} residents need it
-- Local climate factors in {location} that affect this service
-- Overview of what professional service involves
-- Why this matters for homeowners and businesses
+1. Introduction to {keyword} ({intro_words}+ words)
+   - What this service involves
+   - Why residents of {location} might need it
+   - Brief overview
 
-<h2>Key Benefits of Professional {keyword}</h2>
-Write {benefits_words}+ words. Include:
-- Introduction paragraph about overall benefits
-- 5-6 specific benefits, each with 2-3 sentences explaining the benefit in detail
-- How each benefit saves money, time, or improves comfort
-- Why {location} specifically benefits from professional service
+2. Benefits ({benefits_words}+ words)  
+   - List 5-6 key benefits with explanations
+   - How it helps homeowners/businesses
 
-<h2>The {keyword} Process Explained</h2>
-Write {section_words}+ words covering:
-- Initial consultation and assessment
-- Step-by-step process of the service
-- Timeline expectations (hours, days, etc.)
-- What homeowners should prepare or expect
+3. The Process ({section_words}+ words)
+   - How the service works step-by-step
+   - What to expect during the process
 
-<h2>{keyword} Cost Factors in {location}</h2>
-Write {section_words}+ words discussing:
-- Factors that influence pricing
-- Size and scope considerations
-- Quality vs budget options
-- Why investing in quality service pays off
-- Mention contacting {business_name} for accurate quotes
+4. Cost Considerations ({section_words}+ words)
+   - Factors that affect pricing
+   - Value of professional service
 
-<h2>How to Choose the Right {keyword} Provider</h2>
-Write {section_words}+ words about:
-- Licensing and certification requirements
-- Experience and reputation factors
-- Questions to ask potential providers
-- Red flags to watch for
-- Why {business_name} is the right choice
+5. Choosing a Provider ({section_words}+ words)
+   - What to look for in a provider
+   - Questions to ask
+   - Why {business_name} is a good choice
 
-<h2>Ready to Get Started?</h2>
-Write 80+ words with strong call-to-action:
-- Summarize key benefits
-- Urgency to act
-- Contact {cta_name} at {business_name}
-- {contact_str}
+6. Getting Started (80+ words)
+   - Call to action
+   - Contact information for {business_name}
 
 TOTAL BODY CONTENT MUST BE {word_count}+ WORDS.
 
