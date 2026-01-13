@@ -21,32 +21,93 @@ ai_service = AIService()
 seo_service = SEOService()
 data_service = DataService()
 
-# In-memory task storage for background blog generation
-_blog_tasks = {}
-_MAX_TASKS = 100  # Prevent unbounded growth
+# Use database-backed task storage to work with multiple Gunicorn workers
+def _get_task(task_id):
+    """Get task from database"""
+    try:
+        from app.database import db
+        from sqlalchemy import text
+        result = db.session.execute(
+            text("SELECT task_data FROM blog_tasks WHERE task_id = :tid"),
+            {"tid": task_id}
+        ).fetchone()
+        if result:
+            return json.loads(result[0])
+        return None
+    except Exception as e:
+        logger.error(f"Error getting task {task_id}: {e}")
+        return None
+
+def _set_task(task_id, task_data):
+    """Save task to database"""
+    try:
+        from app.database import db
+        from sqlalchemy import text
+        
+        task_json = json.dumps(task_data)
+        
+        # Try update first, then insert
+        result = db.session.execute(
+            text("UPDATE blog_tasks SET task_data = :data, updated_at = NOW() WHERE task_id = :tid"),
+            {"tid": task_id, "data": task_json}
+        )
+        
+        if result.rowcount == 0:
+            # Insert new
+            db.session.execute(
+                text("INSERT INTO blog_tasks (task_id, task_data, created_at, updated_at) VALUES (:tid, :data, NOW(), NOW())"),
+                {"tid": task_id, "data": task_json}
+            )
+        
+        db.session.commit()
+        return True
+    except Exception as e:
+        logger.error(f"Error setting task {task_id}: {e}")
+        try:
+            db.session.rollback()
+        except:
+            pass
+        return False
+
+def _ensure_tasks_table():
+    """Create blog_tasks table if it doesn't exist"""
+    try:
+        from app.database import db
+        from sqlalchemy import text
+        db.session.execute(text("""
+            CREATE TABLE IF NOT EXISTS blog_tasks (
+                task_id VARCHAR(100) PRIMARY KEY,
+                task_data TEXT,
+                created_at TIMESTAMP DEFAULT NOW(),
+                updated_at TIMESTAMP DEFAULT NOW()
+            )
+        """))
+        db.session.commit()
+    except Exception as e:
+        logger.debug(f"Tasks table check: {e}")
+        try:
+            db.session.rollback()
+        except:
+            pass
 
 
 def _cleanup_old_tasks():
     """Remove completed/errored tasks older than 10 minutes"""
-    if len(_blog_tasks) < _MAX_TASKS:
-        return
-    
-    cutoff = datetime.utcnow().timestamp() - 600  # 10 minutes
-    to_delete = []
-    for task_id, task in _blog_tasks.items():
-        if task.get('status') in ['complete', 'error']:
-            created = task.get('created_at', '')
-            if created:
-                try:
-                    task_time = datetime.fromisoformat(created).timestamp()
-                    if task_time < cutoff:
-                        to_delete.append(task_id)
-                except (ValueError, AttributeError, TypeError):
-                    # If we can't parse the timestamp, mark for deletion
-                    to_delete.append(task_id)
-    
-    for task_id in to_delete[:50]:  # Remove at most 50 at a time
-        _blog_tasks.pop(task_id, None)
+    try:
+        from app.database import db
+        from sqlalchemy import text
+        db.session.execute(text("""
+            DELETE FROM blog_tasks 
+            WHERE updated_at < NOW() - INTERVAL '10 minutes'
+            AND task_data::jsonb->>'status' IN ('complete', 'error')
+        """))
+        db.session.commit()
+    except Exception as e:
+        logger.debug(f"Task cleanup: {e}")
+        try:
+            db.session.rollback()
+        except:
+            pass
 
 
 @content_bp.route('/check', methods=['GET'])
@@ -122,13 +183,12 @@ def _generate_blog_background(task_id, app, client_id, keyword, word_count, incl
     with app.app_context():
         try:
             logger.info(f"[TASK {task_id}] Starting blog generation for keyword: {keyword}")
-            _blog_tasks[task_id]['status'] = 'generating'
-            _blog_tasks[task_id]['started_at'] = datetime.utcnow().isoformat()
+            _set_task(task_id, {'status': 'generating', 'keyword': keyword, 'started_at': datetime.utcnow().isoformat()})
             
             # Get client
             client = data_service.get_client(client_id)
             if not client:
-                _blog_tasks[task_id] = {'status': 'error', 'error': 'Client not found'}
+                _set_task(task_id, {'status': 'error', 'error': 'Client not found'})
                 return
             
             from app.services.internal_linking_service import internal_linking_service
@@ -163,7 +223,7 @@ def _generate_blog_background(task_id, app, client_id, keyword, word_count, incl
             
             if result.get('error'):
                 logger.error(f"[TASK {task_id}] AI error: {result['error']}")
-                _blog_tasks[task_id] = {'status': 'error', 'error': result['error']}
+                _set_task(task_id, {'status': 'error', 'error': result['error']})
                 return
             
             # Validate the result - make sure body is actual HTML not JSON
@@ -246,7 +306,7 @@ def _generate_blog_background(task_id, app, client_id, keyword, word_count, incl
             
             data_service.save_blog_post(blog_post)
             
-            _blog_tasks[task_id] = {
+            _set_task(task_id, {
                 'status': 'complete',
                 'blog_id': blog_post.id,
                 'title': blog_post.title,
@@ -254,14 +314,14 @@ def _generate_blog_background(task_id, app, client_id, keyword, word_count, incl
                 'links_added': links_added,
                 'seo_score': seo_score,
                 'seo_recommendations': seo_score_result.get('recommendations', [])
-            }
+            })
             logger.info(f"[TASK {task_id}] Blog generation complete: {blog_post.id}")
             
         except Exception as e:
             import traceback
             error_trace = traceback.format_exc()
             logger.error(f"[TASK {task_id}] Background blog generation error: {e}\n{error_trace}")
-            _blog_tasks[task_id] = {'status': 'error', 'error': str(e), 'trace': error_trace[:500]}
+            _set_task(task_id, {'status': 'error', 'error': str(e), 'trace': error_trace[:500]})
 
 
 @content_bp.route('/blog/generate-async', methods=['POST'])
@@ -291,16 +351,19 @@ def generate_blog_async(current_user):
     if not current_user.has_access_to_client(data['client_id']):
         return jsonify({'error': 'Access denied'}), 403
     
-    # Clean up old tasks to prevent memory leak
+    # Ensure tasks table exists
+    _ensure_tasks_table()
+    
+    # Clean up old tasks
     _cleanup_old_tasks()
     
-    # Create task
+    # Create task in database
     task_id = str(uuid.uuid4())
-    _blog_tasks[task_id] = {
+    _set_task(task_id, {
         'status': 'pending',
         'created_at': datetime.utcnow().isoformat(),
         'keyword': data['keyword']
-    }
+    })
     
     # Start background thread
     from flask import current_app
@@ -313,7 +376,7 @@ def generate_blog_async(current_user):
             app,
             data['client_id'],
             data['keyword'],
-            data.get('word_count', 1500),
+            data.get('word_count', 800),
             data.get('include_faq', True),
             data.get('faq_count', 5),
             current_user.id
@@ -333,10 +396,10 @@ def generate_blog_async(current_user):
 @token_required
 def check_blog_task(current_user, task_id):
     """Check status of async blog generation task"""
-    task = _blog_tasks.get(task_id)
+    task = _get_task(task_id)
     
     if not task:
-        return jsonify({'error': 'Task not found'}), 404
+        return jsonify({'error': 'Task not found', 'task_id': task_id}), 404
     
     return jsonify(task)
 
