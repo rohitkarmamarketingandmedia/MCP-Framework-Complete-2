@@ -193,8 +193,16 @@ class AIService:
             logger.error(f"Blog generation failed: {response['error']}")
             return response
         
+        # Log raw response for debugging
+        raw_content = response.get('content', '')
+        logger.info(f"Raw API response length: {len(raw_content)} chars")
+        if len(raw_content) < 200:
+            logger.warning(f"Short raw response: {raw_content}")
+        else:
+            logger.debug(f"Raw response preview: {raw_content[:200]}...")
+        
         # Parse the response
-        result = self._parse_blog_response(response.get('content', ''))
+        result = self._parse_blog_response(raw_content)
         
         # Validate we got actual content
         if not result.get('title') and not result.get('body'):
@@ -208,7 +216,6 @@ class AIService:
         
         # ===== WORD COUNT VALIDATION =====
         # Count actual words in the body content (strip HTML tags)
-        import re
         text_only = re.sub(r'<[^>]+>', ' ', body_content)
         text_only = re.sub(r'\s+', ' ', text_only).strip()
         actual_word_count = len(text_only.split())
@@ -716,7 +723,17 @@ CRITICAL REQUIREMENTS:
     def _parse_blog_response(self, content: str) -> Dict[str, Any]:
         """Parse AI response into structured blog data"""
         try:
+            # Check for empty content first
+            if not content or len(content.strip()) < 50:
+                logger.error(f"_parse_blog_response received empty/short content: '{content}'")
+                return {
+                    'title': '',
+                    'body': '',
+                    'error': 'Empty response from AI'
+                }
+            
             original_content = content
+            logger.debug(f"Parsing blog response: {len(content)} chars")
             
             # Clean markdown if present
             if '```' in content:
@@ -837,6 +854,9 @@ CRITICAL REQUIREMENTS:
         if system_prompt is None:
             system_prompt = 'You are an expert SEO content writer. Always respond with valid JSON when requested. Never wrap JSON in markdown code blocks.'
         
+        actual_model = model or self.default_model
+        logger.info(f"OpenAI API call: model={actual_model}, max_tokens={max_tokens}")
+        
         try:
             response = requests.post(
                 'https://api.openai.com/v1/chat/completions',
@@ -845,7 +865,7 @@ CRITICAL REQUIREMENTS:
                     'Content-Type': 'application/json'
                 },
                 json={
-                    'model': model or self.default_model,
+                    'model': actual_model,
                     'messages': [
                         {'role': 'system', 'content': system_prompt},
                         {'role': 'user', 'content': prompt}
@@ -856,27 +876,64 @@ CRITICAL REQUIREMENTS:
                 timeout=180  # 3 minutes for long content generation
             )
             
-            if response.status_code == 429:
-                return {'error': 'Rate limit exceeded (429)'}
+            logger.info(f"OpenAI API response status: {response.status_code}")
             
-            response.raise_for_status()
+            if response.status_code == 429:
+                return {'error': 'Rate limit exceeded (429). Please wait a minute and try again.'}
+            
+            if response.status_code != 200:
+                error_text = response.text[:500]
+                logger.error(f"OpenAI API error response: {error_text}")
+                return {'error': f'OpenAI API error ({response.status_code}): {error_text}'}
+            
             data = response.json()
             
+            # Check for API errors in response
+            if 'error' in data:
+                error_msg = data['error'].get('message', str(data['error']))
+                logger.error(f"OpenAI API returned error: {error_msg}")
+                return {'error': f'OpenAI API error: {error_msg}'}
+            
+            # Check for valid response structure
+            if 'choices' not in data or len(data['choices']) == 0:
+                logger.error(f"OpenAI API returned no choices: {data}")
+                return {'error': 'OpenAI API returned empty response'}
+            
+            content = data['choices'][0].get('message', {}).get('content', '')
+            
+            # Check finish reason
+            finish_reason = data['choices'][0].get('finish_reason', '')
+            if finish_reason == 'length':
+                logger.warning(f"OpenAI response was truncated (finish_reason=length)")
+            
+            # Log content length for debugging
+            logger.info(f"OpenAI API success: content length={len(content)}, finish_reason={finish_reason}")
+            
+            if not content or len(content) < 50:
+                logger.error(f"OpenAI returned very short content: '{content[:100]}'")
+                return {'error': 'OpenAI returned empty or very short content. Try again.'}
+            
             return {
-                'content': data['choices'][0]['message']['content'],
-                'usage': data.get('usage', {})
+                'content': content,
+                'usage': data.get('usage', {}),
+                'finish_reason': finish_reason
             }
             
         except requests.exceptions.Timeout:
+            logger.error("OpenAI API timeout after 180 seconds")
             return {'error': 'Request timed out after 180 seconds. Try a shorter word count or try again.'}
         except requests.RequestException as e:
             error_detail = str(e)
             if hasattr(e, 'response') and e.response is not None:
                 try:
                     error_detail = e.response.json().get('error', {}).get('message', str(e))
-                except Exception as e:
+                except Exception:
                     error_detail = e.response.text[:200]
+            logger.error(f"OpenAI API request error: {error_detail}")
             return {'error': f'OpenAI API error: {error_detail}'}
+        except Exception as e:
+            logger.error(f"OpenAI API unexpected error: {e}")
+            return {'error': f'Unexpected error calling OpenAI: {str(e)}'}
     
     def _call_anthropic(self, prompt: str, max_tokens: int = 2000, system_prompt: str = None, model: str = None, temperature: float = 0.7) -> Dict[str, Any]:
         """Call Anthropic Claude API (fallback)"""
