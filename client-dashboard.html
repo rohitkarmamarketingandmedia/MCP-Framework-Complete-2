@@ -5385,8 +5385,8 @@
             container.innerHTML = '<div class="text-center py-8"><i class="fas fa-spinner fa-spin text-2xl text-green-400"></i><p class="text-gray-400 mt-2">Loading calls...</p></div>';
             
             try {
-                // First try the direct calls endpoint
-                const response = await fetch(`${API_URL}/api/intelligence/calls/${currentClient.id}?days=30`, {
+                // First try the direct calls endpoint - get 90 days of calls
+                const response = await fetch(`${API_URL}/api/intelligence/calls/${currentClient.id}?days=90`, {
                     headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
                 });
                 

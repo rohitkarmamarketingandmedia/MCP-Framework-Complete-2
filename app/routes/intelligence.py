@@ -59,7 +59,7 @@ def get_client_calls(current_user, client_id):
                 'total': 0
             })
         
-        logger.info(f"Fetching CallRail calls for company {callrail_company_id}, account {callrail_account_id or 'global'}")
+        logger.info(f"Fetching CallRail calls for company {callrail_company_id}, account {callrail_account_id or 'global'}, days={days}")
         
         # Get calls from CallRail
         callrail = get_callrail_service()
@@ -68,7 +68,8 @@ def get_client_calls(current_user, client_id):
             account_id=callrail_account_id,  # Pass per-client account ID
             limit=100,
             include_recordings=True,
-            include_transcripts=True
+            include_transcripts=True,
+            days=days  # Pass days parameter
         )
         
         logger.info(f"Got {len(calls)} calls from CallRail")
