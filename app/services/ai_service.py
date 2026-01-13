@@ -691,7 +691,11 @@ A {word_count}-word article needs approximately {word_count // 6} words per sect
     def _get_related_posts(self, client_id: str, current_keyword: str, limit: int = 6) -> List[Dict]:
         """
         Fetch related content from the same client for internal linking.
-        Includes: published blog posts AND service pages.
+        Sources (in order):
+        1. Scrape client's blog page for existing blog URLs
+        2. Published blog posts from database
+        3. Service pages from database
+        4. Client service_pages JSON field
         Returns list of {title, url, keyword} for internal linking.
         """
         related = []
@@ -702,10 +706,33 @@ A {word_count}-word article needs approximately {word_count // 6} words per sect
             # Get client for website URL
             client = DBClient.query.get(client_id)
             base_url = ''
+            blog_url = ''
             if client and client.website_url:
                 base_url = client.website_url.rstrip('/')
+                # Check if website_url is a blog page
+                if '/blog' in client.website_url.lower():
+                    blog_url = client.website_url
+                else:
+                    blog_url = f"{base_url}/blog/"
             
-            # 1. Get published blog posts with URLs
+            # 1. SCRAPE CLIENT'S BLOG PAGE FOR EXISTING POSTS
+            if base_url and len(related) < limit:
+                try:
+                    scraped_links = self._scrape_blog_urls(blog_url, base_url, limit)
+                    for link in scraped_links:
+                        # Skip if matches current keyword
+                        if current_keyword.lower() in link.get('title', '').lower():
+                            continue
+                        if not any(r['url'] == link['url'] for r in related):
+                            related.append(link)
+                        if len(related) >= limit:
+                            break
+                    logger.info(f"Scraped {len(scraped_links)} blog URLs from {blog_url}")
+                except Exception as e:
+                    logger.warning(f"Could not scrape blog URLs: {e}")
+            
+            # 2. Get published blog posts from database
+            if len(related) < limit:
             posts = DBBlogPost.query.filter(
                 DBBlogPost.client_id == client_id,
                 DBBlogPost.status == 'published',
@@ -786,6 +813,112 @@ A {word_count}-word article needs approximately {word_count // 6} words per sect
             
         except Exception as e:
             logger.warning(f"Error fetching related posts: {e}")
+            return []
+    
+    def _scrape_blog_urls(self, blog_url: str, base_url: str, limit: int = 6) -> List[Dict]:
+        """
+        Scrape a client's blog page to find existing blog post URLs for internal linking.
+        
+        Args:
+            blog_url: URL of the blog listing page (e.g., https://example.com/blog/)
+            base_url: Base URL of the website for making relative URLs absolute
+            limit: Maximum number of URLs to return
+            
+        Returns:
+            List of {title, url, keyword} dictionaries
+        """
+        import requests
+        from bs4 import BeautifulSoup
+        from urllib.parse import urljoin, urlparse
+        
+        blog_links = []
+        
+        try:
+            # Request the blog page
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (compatible; MCPBot/1.0; +https://karmamarketingandmedia.com)'
+            }
+            response = requests.get(blog_url, headers=headers, timeout=10)
+            response.raise_for_status()
+            
+            soup = BeautifulSoup(response.text, 'html.parser')
+            
+            # Parse the base URL to get the domain
+            parsed_base = urlparse(base_url)
+            domain = parsed_base.netloc
+            
+            # Find blog post links - common patterns
+            # Look for links that contain /blog/, /post/, /article/, or are within article elements
+            potential_links = []
+            
+            # Strategy 1: Links inside article, .post, .blog-post, .entry elements
+            for container in soup.select('article, .post, .blog-post, .entry, .blog-item, .post-item'):
+                for a in container.find_all('a', href=True):
+                    href = a.get('href', '')
+                    title = a.get_text(strip=True)
+                    if href and title and len(title) > 10:
+                        potential_links.append((href, title))
+            
+            # Strategy 2: Links with blog-related paths
+            for a in soup.find_all('a', href=True):
+                href = a.get('href', '')
+                title = a.get_text(strip=True)
+                
+                # Skip if no title or too short
+                if not title or len(title) < 10:
+                    continue
+                
+                # Skip navigation, social, etc.
+                if any(skip in href.lower() for skip in ['#', 'javascript:', 'mailto:', 'tel:', 'facebook', 'twitter', 'instagram', 'linkedin', 'youtube']):
+                    continue
+                
+                # Look for blog-like URLs
+                if any(pattern in href.lower() for pattern in ['/blog/', '/post/', '/article/', '/news/']):
+                    # Make sure it's not the blog listing page itself
+                    if href.rstrip('/') != blog_url.rstrip('/'):
+                        potential_links.append((href, title))
+            
+            # Process and deduplicate links
+            seen_urls = set()
+            for href, title in potential_links:
+                # Make URL absolute
+                full_url = urljoin(base_url, href)
+                
+                # Ensure it's on the same domain
+                parsed_url = urlparse(full_url)
+                if parsed_url.netloc != domain:
+                    continue
+                
+                # Skip if already seen
+                if full_url in seen_urls:
+                    continue
+                seen_urls.add(full_url)
+                
+                # Clean up title
+                title = ' '.join(title.split())  # Normalize whitespace
+                if len(title) > 100:
+                    title = title[:97] + '...'
+                
+                # Extract keyword from title (simplified)
+                keyword = title.split('|')[0].split('-')[0].strip()
+                
+                blog_links.append({
+                    'title': title,
+                    'url': full_url,
+                    'keyword': keyword
+                })
+                
+                if len(blog_links) >= limit:
+                    break
+            
+            logger.info(f"Scraped {len(blog_links)} blog URLs from {blog_url}")
+            return blog_links
+            
+        except requests.RequestException as e:
+            logger.warning(f"Failed to scrape blog page {blog_url}: {e}")
+            return []
+        except Exception as e:
+            logger.warning(f"Error parsing blog page {blog_url}: {e}")
             return []
     
     def _parse_blog_response(self, content: str) -> Dict[str, Any]:
