@@ -230,12 +230,20 @@ class AIService:
         # ===== PLACEHOLDER DETECTION =====
         # Check for placeholder text in body and FAQs
         placeholder_patterns = [
+            'Question 1 about', 'Question 2 about', 'Question 3 about', 
+            'Question 4 about', 'Question 5 about',
+            'Answer to question 1', 'Answer to question 2', 'Answer to question 3',
+            'Answer to question 4', 'Answer to question 5',
+            'Answer 1', 'Answer 2', 'Answer 3', 'Answer 4', 'Answer 5',
             'Response...', 'Insight...', 'Explanation...', 'Advice...', 
             'Information...', 'Clarification...', 'CTA section...', 
             'Content...', 'Details...', 'Details here', 'Content here',
-            'Full HTML content with all sections', 'WRITE', 'DO NOT put placeholder',
-            '[specific symptom', '[factor 1]', '[qualification 1]', '[shorter time]',
-            'MANDATORY:', '[COUNT YOUR WORDS', '[60-80 word'
+            'Full HTML content', 'WRITE', 'DO NOT put placeholder',
+            '[specific', '[factor', '[qualification', '[shorter time]',
+            'MANDATORY:', '[COUNT YOUR WORDS', '[60-80 word',
+            'Write 100+ words', 'Write 80+ words', 'Write 40+ words',
+            '40-60 word answer', 'Real specific question',
+            '<FULL HTML', '<THE FULL HTML'
         ]
         
         has_placeholders = any(p.lower() in body_content.lower() for p in placeholder_patterns)
@@ -561,92 +569,101 @@ Example for HVAC business:
         # Build USP bullet points
         usp_text = ""
         if usps and len(usps) > 0:
-            usp_text = "Unique Selling Points: " + ", ".join(usps[:3])
+            usp_text = ""
+        if usps and len(usps) > 0:
+            usp_text = "\nHighlight these unique benefits: " + ", ".join(usps[:3])
 
         # Build internal links for prompt
         links_text = ""
         if internal_links:
-            links_text = "Internal links to include:\n"
+            links_text = "\nInclude these links naturally in the content:\n"
             for link in internal_links[:5]:
                 url = link.get('url', '')
                 kw = link.get('keyword', link.get('title', ''))
                 if url and kw:
                     links_text += f'- <a href="{url}">{kw}</a>\n'
 
-        # Calculate minimum word target
-        min_words = max(800, word_count)
+        return f"""Write a comprehensive, helpful blog post about {keyword} for homeowners and businesses in {location}.
 
-        return f"""You are writing a {min_words}+ word SEO blog post. This is CRITICAL - the content MUST be at least {min_words} words.
-
-TOPIC: {keyword}
-BUSINESS: {business_name}  
-LOCATION: {location}
+BUSINESS INFO:
+- Company: {business_name}
+- Contact: {cta_name}
+- How to reach: {contact_str}
 {usp_text}
 {links_text}
 
-REQUIRED CONTENT STRUCTURE - Each section must have the MINIMUM words shown:
+WRITING REQUIREMENTS:
+1. Write like a knowledgeable local expert, not a generic AI
+2. Include specific details relevant to {location} (climate, local factors, etc.)
+3. Use natural, conversational language
+4. Every paragraph must have real, useful information
+5. NO placeholder text like "Answer to question 1" - write REAL answers
 
-<h2>What is {keyword}?</h2>
-<p>Write 100+ words explaining what {keyword} is and why it matters for {location} residents.</p>
+CONTENT TO WRITE (create actual helpful content for each):
 
-<h2>Top Benefits of {keyword} in {location}</h2>
-<p>Write 80+ words introduction, then:</p>
-<ul>
-<li><strong>Benefit 1:</strong> 30+ word explanation</li>
-<li><strong>Benefit 2:</strong> 30+ word explanation</li>
-<li><strong>Benefit 3:</strong> 30+ word explanation</li>
-<li><strong>Benefit 4:</strong> 30+ word explanation</li>
-<li><strong>Benefit 5:</strong> 30+ word explanation</li>
-</ul>
+SECTION 1 - INTRODUCTION:
+Write 2-3 paragraphs (100+ words) introducing {keyword} and why it matters for {location} residents. Mention local climate considerations.
 
-<h2>How {keyword} Works</h2>
-<p>Write 100+ words explaining the process step by step.</p>
+SECTION 2 - UNDERSTANDING {keyword.upper()}:
+Write 2 paragraphs (100+ words) explaining what {keyword} involves, the different types/options available, and how it benefits property owners.
 
-<h2>Choosing the Right {keyword} Provider in {location}</h2>
-<p>Write 100+ words about selection criteria. End with: Contact {cta_name} at {business_name} today. {contact_str}</p>
+SECTION 3 - KEY BENEFITS:
+Write an intro paragraph, then list 5 specific benefits with detailed explanations (not just bullet points - each benefit needs 2-3 sentences explaining WHY it matters).
 
-<h2>{keyword} Cost Factors in {location}</h2>
-<p>Write 80+ words about pricing considerations.</p>
+SECTION 4 - THE PROCESS:
+Explain step-by-step what customers can expect when they hire a professional for {keyword}. Include timeline expectations.
 
-<h2>Frequently Asked Questions About {keyword}</h2>
-<h3>Question 1 about {keyword}?</h3>
-<p>Write 40+ word answer with specific details.</p>
-<h3>Question 2 about {keyword} in {location}?</h3>
-<p>Write 40+ word answer.</p>
-<h3>Question 3 about cost?</h3>
-<p>Write 40+ word answer.</p>
-<h3>Question 4 about timing?</h3>
-<p>Write 40+ word answer.</p>
-<h3>Question 5 about choosing a provider?</h3>
-<p>Write 40+ word answer.</p>
+SECTION 5 - COST CONSIDERATIONS:
+Discuss factors that affect pricing for {keyword} in {location}. Be helpful without giving specific prices.
 
-<h2>Get Professional {keyword} in {location}</h2>
-<p>Write 50+ word conclusion with CTA: Contact {cta_name} at {business_name}. {contact_str}</p>
+SECTION 6 - CHOOSING THE RIGHT PROVIDER:
+What should {location} residents look for? Include a call-to-action for {business_name}.
 
-RETURN THIS EXACT JSON FORMAT (no markdown, no code blocks):
+SECTION 7 - FIVE REAL FAQs:
+Write 5 SPECIFIC questions that real customers ask, with DETAILED answers (40-60 words each):
+
+FAQ 1: "How often should [specific maintenance question for {keyword}]?"
+- Write a real, helpful answer with specific timeframes and recommendations
+
+FAQ 2: "What are the signs that I need [specific service related to {keyword}]?"  
+- List actual warning signs customers should watch for
+
+FAQ 3: "How much does {keyword} typically cost in {location}?"
+- Discuss price ranges and factors without exact numbers
+
+FAQ 4: "How long does [the {keyword} process] take?"
+- Give realistic timeframes for different scenarios
+
+FAQ 5: "Should I attempt DIY or hire a professional for {keyword}?"
+- Explain the risks of DIY and benefits of professional service
+
+SECTION 8 - CONCLUSION:
+Summarize key points and include strong call-to-action for {business_name}.
+
+OUTPUT FORMAT - Return valid JSON only (no markdown):
 {{
-    "title": "{keyword} in {location} | {business_name}",
-    "meta_title": "{keyword} in {location} - Professional Service | {business_name}",
-    "meta_description": "Looking for {keyword} in {location}? {business_name} provides expert services. {contact_str}",
-    "body": "<THE FULL HTML CONTENT WITH ALL SECTIONS ABOVE - MUST BE {min_words}+ WORDS>",
-    "h2_headings": ["What is {keyword}?", "Top Benefits", "How it Works", "Choosing Provider", "Cost Factors", "FAQ", "Get Professional {keyword}"],
+    "title": "{keyword} Services in {location} - Expert Guide | {business_name}",
+    "meta_title": "{keyword} in {location} | Trusted Local Experts | {business_name}",
+    "meta_description": "Need {keyword} in {location}? Learn about costs, benefits, and how to choose the right provider. Contact {business_name} for expert service.",
+    "body": "<FULL HTML CONTENT - Must be 800+ words of REAL, HELPFUL content. Use <h2>, <p>, <ul>, <li>, <strong> tags. NO PLACEHOLDER TEXT.>",
+    "h2_headings": ["Understanding {keyword}", "Key Benefits", "The Process", "Cost Considerations", "Choosing a Provider", "Frequently Asked Questions", "Ready to Get Started"],
     "faq_items": [
-        {{"question": "Full question 1?", "answer": "Full 40+ word answer"}},
-        {{"question": "Full question 2?", "answer": "Full 40+ word answer"}},
-        {{"question": "Full question 3?", "answer": "Full 40+ word answer"}},
-        {{"question": "Full question 4?", "answer": "Full 40+ word answer"}},
-        {{"question": "Full question 5?", "answer": "Full 40+ word answer"}}
+        {{"question": "Real specific question 1?", "answer": "Detailed 40-60 word answer with actual helpful information"}},
+        {{"question": "Real specific question 2?", "answer": "Detailed 40-60 word answer with actual helpful information"}},
+        {{"question": "Real specific question 3?", "answer": "Detailed 40-60 word answer with actual helpful information"}},
+        {{"question": "Real specific question 4?", "answer": "Detailed 40-60 word answer with actual helpful information"}},
+        {{"question": "Real specific question 5?", "answer": "Detailed 40-60 word answer with actual helpful information"}}
     ],
     "faq_schema": {{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": []}},
     "cta": {{"contact_name": "{cta_name}", "company_name": "{business_name}", "phone": "{phone or ''}", "email": "{email or ''}"}}
 }}
 
-IMPORTANT: 
-- The "body" field MUST contain {min_words}+ words of actual HTML content
-- Include ALL sections shown above
-- Each FAQ answer must be 40+ words
-- Do NOT use placeholder text - write real, helpful content
-- Mention {keyword} at least 10 times and {location} at least 5 times"""
+CRITICAL RULES:
+- DO NOT use placeholder text like "Question 1 about..." or "Answer to question..."
+- DO NOT copy the template structure literally
+- WRITE real, specific, helpful content that would actually help someone researching {keyword}
+- Each FAQ answer must be a complete, informative response (40-60 words)
+- Total content must be 800+ words of REAL information"""
     
     def _get_related_posts(self, client_id: str, current_keyword: str, limit: int = 4) -> List[Dict]:
         """
