@@ -132,23 +132,21 @@ class AIService:
         primary_model = os.environ.get('BLOG_AI_MODEL', 'gpt-4o')
         fallback_model = 'gpt-3.5-turbo-16k'
         
-        # Calculate tokens based on word count
-        # ~1.5 tokens per word + JSON overhead (~800 tokens)
-        tokens_needed = int(word_count * 1.5) + 800
+        # Calculate tokens - need ~2.5 tokens per word for JSON output with HTML
+        # Add extra buffer for JSON structure and FAQ content
+        tokens_needed = int(word_count * 2.5) + 2000
         
-        # Set limits based on model - be conservative to avoid errors
+        # Set generous limits based on model - GPT-4o can output up to 16K tokens
         if 'gpt-4o' in primary_model:
-            # GPT-4o has 16K output limit
-            max_allowed_tokens = min(6000, tokens_needed + 500)
+            max_allowed_tokens = min(10000, max(5000, tokens_needed))
         elif 'gpt-4' in primary_model:
-            max_allowed_tokens = min(4000, tokens_needed + 500)
+            max_allowed_tokens = min(4096, tokens_needed)
         elif '16k' in primary_model:
-            max_allowed_tokens = min(8000, tokens_needed + 500)
+            max_allowed_tokens = min(14000, max(8000, tokens_needed))
         else:
-            max_allowed_tokens = min(3800, tokens_needed)
+            max_allowed_tokens = min(4000, tokens_needed)
         
-        # Ensure minimum tokens for reasonable content
-        estimated_tokens = max(3000, max_allowed_tokens)
+        estimated_tokens = max_allowed_tokens
         
         logger.info(f"Blog generation: word_count={word_count}, tokens={estimated_tokens}, model={primary_model}")
         
@@ -676,12 +674,16 @@ OUTPUT FORMAT (valid JSON only, no markdown):
 }}
 
 CRITICAL REQUIREMENTS:
-1. Body content MUST be {word_count}+ words - count carefully
-2. Each section must have substantial, helpful content
+1. Body content MUST be {word_count}+ words - THIS IS MANDATORY
+2. Each section must have substantial, helpful content - NOT short paragraphs
 3. Include {keyword} naturally throughout (10-15 times)
 4. Mention {location} multiple times (5-8 times)
 5. NO placeholder text - write real, valuable content
-6. FAQs should have complete, helpful answers (40-50 words each)"""
+6. FAQs should have complete, helpful answers (40-50 words each)
+
+WORD COUNT CHECK: Your response body MUST contain at least {word_count} words. 
+Count your words before responding. If under {word_count}, add more detail to each section.
+A {word_count}-word article needs approximately {word_count // 6} words per section."""
     
     def _get_related_posts(self, client_id: str, current_keyword: str, limit: int = 4) -> List[Dict]:
         """
