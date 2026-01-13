@@ -95,8 +95,13 @@ class AIService:
             try:
                 related_posts = self._get_related_posts(client_id, keyword)
                 logger.info(f"Found {len(related_posts)} related posts for internal linking")
+                if related_posts:
+                    for i, rp in enumerate(related_posts[:3]):
+                        logger.info(f"  Link {i+1}: {rp.get('title', '')[:40]} -> {rp.get('url', '')[:50]}")
             except Exception as e:
-                logger.debug(f"Could not fetch related posts: {e}")
+                logger.warning(f"Could not fetch related posts: {e}")
+                import traceback
+                logger.debug(traceback.format_exc())
         
         # Try to get agent config for system prompt and settings
         agent_config = None
@@ -600,18 +605,24 @@ Example for HVAC business:
         links_text = ""
         if all_links:
             links_text = f"""
-INTERNAL LINKS - YOU MUST INCLUDE THESE IN YOUR ARTICLE:
-Include at least {min(len(all_links), 3)} of these links naturally within your article body.
-Place them in relevant paragraphs where the topic relates to the link.
+=== INTERNAL LINKS - MANDATORY ===
+You MUST include at least 3 of these links in your article body.
+Copy the EXACT <a href="...">...</a> HTML and paste it into relevant paragraphs.
 
+LINKS TO INCLUDE:
 """
             for i, link in enumerate(all_links[:6], 1):
                 links_text += f'{i}. <a href="{link["url"]}">{link["title"]}</a>\n'
             links_text += """
-IMPORTANT: Copy the exact <a href="...">...</a> tags above and embed them in your paragraphs.
+Example usage: "For more information about related services, check out our <a href="URL">Title</a> page."
+
+DO NOT skip the internal links. They are required for SEO.
+===================================
 """
         
         logger.info(f"Blog prompt includes {len(all_links)} internal links")
+        if all_links:
+            logger.info(f"Links text preview: {links_text[:200]}...")
 
         # Scale section lengths based on word count
         # For 1500 words: each section ~200 words
@@ -977,6 +988,17 @@ CRITICAL SEO REQUIREMENTS:
             
             # Robust body extraction - handle various response formats
             body_content = data.get('body', '')
+            
+            # Clean up escaped characters from JSON
+            if isinstance(body_content, str):
+                # Remove escaped newlines and backslashes
+                body_content = body_content.replace('\\n', '\n')
+                body_content = body_content.replace('\\/', '/')
+                body_content = body_content.replace('\\"', '"')
+                # Remove stray backslashes that appear before tags
+                body_content = re.sub(r'\\+([<>])', r'\1', body_content)
+                # Remove any remaining stray backslashes
+                body_content = body_content.replace('\\', '')
             
             # If body is not a string, try to convert or extract
             if not isinstance(body_content, str):
