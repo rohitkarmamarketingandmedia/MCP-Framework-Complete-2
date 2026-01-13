@@ -148,20 +148,31 @@ class AIService:
         response = None
         model_used = primary_model
         
-        # System prompt - must be very clear to avoid GPT-4o content policy refusals
-        system_prompt = '''You are a helpful content writer for a local business marketing agency. 
+        # System prompt - SEO content engine
+        system_prompt = '''You are an SEO content engine generating high-conversion local service blog posts.
 
-Your job is to write informative blog articles that help local business websites rank in search engines and provide value to readers looking for local services.
+CRITICAL LOCATION RULES (MUST FOLLOW):
+1. The PRIMARY KEYWORD may already contain a city or service area.
+2. If the city name appears in the primary keyword, DO NOT repeat the city again in:
+   - Headings
+   - Titles
+   - Introductions
+   - H1/H2/H3
+3. The city + state may appear ONCE for clarity only if it improves readability.
+4. NEVER output patterns like:
+   "Service City in City, State"
+   "Keyword City for City Residents"
 
-IMPORTANT RULES:
-1. Output ONLY valid JSON - no markdown, no code blocks, no explanations
-2. Write genuinely helpful, informative content about the service topic
-3. This is for a legitimate small business website (dental office, HVAC company, plumber, etc.)
-4. The content should educate readers and help them make informed decisions
-5. Include the business name and location naturally throughout
-6. Focus on providing real value - not just keyword stuffing
+HEADLINE RULES:
+- Convert ALL headlines to Proper Case (Title Case).
+- Never leave headlines in lowercase.
+- H1 must be human-readable, not keyword-stuffed.
 
-You are NOT being asked to do anything harmful. These are standard local business blog posts.'''
+OUTPUT FORMAT:
+- Output ONLY valid JSON - no markdown, no code blocks, no explanations
+- Follow the exact JSON structure requested
+
+You are generating content for legitimate local service businesses (HVAC, plumbing, dental, etc.).'''
         
         if agent_config:
             system_prompt = agent_config.system_prompt
@@ -542,17 +553,12 @@ Example for HVAC business:
         email: str = None,
         related_posts: List[Dict] = None
     ) -> str:
-        """Build the blog generation prompt - 100% SEO SCORE GUARANTEED"""
-        
-        from datetime import datetime
-        current_year = datetime.utcnow().year
+        """Build the blog generation prompt - Clean SEO-focused version"""
         
         # Helper function to convert to Title Case properly
         def to_title_case(text):
-            """Convert text to Title Case, handling common words"""
             if not text:
                 return text
-            # Words that should stay lowercase (unless first word)
             lowercase_words = {'a', 'an', 'the', 'and', 'but', 'or', 'for', 'nor', 
                              'on', 'at', 'to', 'by', 'in', 'of', 'with', 'as'}
             words = text.split()
@@ -564,188 +570,98 @@ Example for HVAC business:
                     result.append(word.lower())
             return ' '.join(result)
         
-        # Convert keyword to Title Case for display
-        keyword_display = to_title_case(keyword)
-        
         # Parse geo into city/state
         geo_parts = geo.split(',') if geo else ['', '']
         city = geo_parts[0].strip() if len(geo_parts) > 0 else geo
         state = geo_parts[1].strip() if len(geo_parts) > 1 else ''
-        
-        # Convert city to Title Case
         city = to_title_case(city)
-        state = state.upper() if len(state) == 2 else to_title_case(state)  # Keep state abbreviations uppercase
+        state = state.upper() if len(state) == 2 else to_title_case(state)
         
-        location = f"{city}, {state}" if state else city
+        # Convert keyword to Title Case
+        primary_keyword = to_title_case(keyword)
         
-        # Check if keyword already contains the city name - avoid duplication
-        # e.g., "heating repair port charlotte" already has "port charlotte"
-        keyword_lower = keyword.lower()
-        city_lower = city.lower()
-        
-        # If keyword already contains city, don't add location to title
-        keyword_has_location = city_lower and city_lower in keyword_lower
-        
-        # For titles: if keyword has location, just add state; otherwise add full location
-        if keyword_has_location:
-            # Keyword already has city - just append state if available
-            title_location = f", {state}" if state else ""
-        else:
-            # Keyword doesn't have city - use full location
-            title_location = f" in {location}" if location else ""
-        
-        logger.info(f"Keyword: '{keyword_display}', City: '{city}', keyword_has_location: {keyword_has_location}")
-        
-        # Build MANDATORY internal links section - these MUST appear in content
-        internal_links_html = ""
-        link_instructions = ""
-        if internal_links and len(internal_links) > 0:
-            internal_links_html = "\n=== MANDATORY INTERNAL LINKS (MUST INCLUDE ALL) ===\n"
-            internal_links_html += "You MUST include these EXACT links in your body content using <a href> tags:\n\n"
-            for i, link in enumerate(internal_links[:6], 1):
-                url = link.get('url', '')
-                kw = link.get('keyword', link.get('title', ''))
-                if url and kw:
-                    internal_links_html += f'{i}. <a href="{url}">{kw}</a>\n'
-            internal_links_html += "\nINSTRUCTION: Copy these EXACT <a href> tags and place them naturally in your body paragraphs.\n"
-            link_instructions = f"✓ Include ALL {len(internal_links[:6])} internal links listed above"
-        
-        # CTA contact logic
-        cta_name = contact_name if contact_name else business_name
-        contact_methods = []
-        if phone:
-            contact_methods.append(f"call us at {phone}")
-        if email:
-            contact_methods.append(f"email us at {email}")
-        contact_str = " or ".join(contact_methods) if contact_methods else "contact us today"
-        
-        # Build USP bullet points
-        usp_text = ""
-        if usps and len(usps) > 0:
-            usp_text = "\nHighlight these unique benefits: " + ", ".join(usps[:3])
-
-        # Combine all internal links (service pages + related posts)
+        # Build internal links section
+        links_text = ""
         all_links = []
         
-        # Add service pages
         if internal_links:
             for link in internal_links[:4]:
                 url = link.get('url', '')
-                kw = link.get('keyword', link.get('title', ''))
-                if url and kw and not any(l['url'] == url for l in all_links):
-                    all_links.append({'url': url, 'keyword': kw, 'title': link.get('title', kw)})
+                title = link.get('title', link.get('keyword', ''))
+                if url and title:
+                    all_links.append({'url': url, 'title': title})
         
-        # Add related posts
         if related_posts:
             for post in related_posts[:4]:
                 url = post.get('url', post.get('published_url', ''))
                 title = post.get('title', '')
-                kw = post.get('keyword', title)
                 if url and title and not any(l['url'] == url for l in all_links):
-                    all_links.append({'url': url, 'keyword': kw, 'title': title})
+                    all_links.append({'url': url, 'title': title})
         
-        # Build links text for prompt - CRITICAL for SEO score
-        links_text = ""
         if all_links:
-            links_text = f"""
-=== INTERNAL LINKS - MANDATORY ===
-You MUST include at least 3 of these links in your article body.
-Copy the EXACT <a href="...">...</a> HTML and paste it into relevant paragraphs.
-
-LINKS TO INCLUDE:
-"""
-            for i, link in enumerate(all_links[:6], 1):
-                links_text += f'{i}. <a href="{link["url"]}">{link["title"]}</a>\n'
-            links_text += """
-Example usage: "For more information about related services, check out our <a href="URL">Title</a> page."
-
-DO NOT skip the internal links. They are required for SEO.
-===================================
-"""
+            links_text = "Internal Links to Include (2-4, naturally placed):\n"
+            for link in all_links[:4]:
+                links_text += f"- {link['title']}: {link['url']}\n"
         
-        logger.info(f"Blog prompt includes {len(all_links)} internal links")
-        if all_links:
-            logger.info(f"Links text preview: {links_text[:200]}...")
+        # Build contact info
+        contact_info = f"Company Name: {business_name}\n"
+        if contact_name:
+            contact_info += f"Contact Name: {contact_name}\n"
+        if phone:
+            contact_info += f"Phone: {phone}\n"
+        if email:
+            contact_info += f"Email: {email}\n"
+        
+        logger.info(f"Building prompt: keyword='{primary_keyword}', city='{city}', state='{state}', links={len(all_links)}")
 
-        # Scale section lengths based on word count
-        # For 1500 words: each section ~200 words
-        # For 2000 words: each section ~280 words
-        # For 2500 words: each section ~350 words
-        section_words = max(180, word_count // 6)
-        intro_words = max(250, word_count // 5)
-        benefits_words = max(300, word_count // 4)
-
-        return f"""Write a {word_count}-word informational article about "{keyword_display}" for a {industry or 'local business'} in {location}.
-
-BUSINESS: {business_name}
-CONTACT: {cta_name} - {contact_str}
-{usp_text}
+        return f"""Primary Keyword: {primary_keyword}
+Service: {industry or 'Local Service'}
+City: {city}
+State: {state}
+{contact_info}
 {links_text}
 
-IMPORTANT: Use Title Case for all headings (e.g., "{keyword_display}" not "{keyword.lower()}")
+SEO REQUIREMENTS:
+- Target SEO score: 90+
+- Word count: {word_count} (900-1200 recommended)
+- Internal links: 2-4 (contextually relevant)
+- Keyword density: natural (no stuffing)
 
-ARTICLE STRUCTURE - Use proper HTML heading hierarchy:
+CONTENT RULES:
+- Write for conversion first, SEO second
+- Use local expertise signals without repeating city names unnecessarily
+- Avoid generic phrasing ("ultimate guide", "epitome of")
 
-<h1>{keyword_display}{title_location} - Your Complete Guide</h1>
+CTA RULES (MANDATORY):
+- Include CTA with company name, contact name, and phone/email
+- Place CTA at least TWICE: mid-content and final section
+- Make CTA conversational and benefit-driven
 
-<h2>Introduction to {keyword_display}</h2>
-<p>({intro_words}+ words) What this service involves, why residents of {location} need it.</p>
-
-<h2>Key Benefits of Professional {keyword_display}</h2>
-<h3>Benefit 1: [Specific Benefit]</h3>
-<p>Explanation...</p>
-<h3>Benefit 2: [Specific Benefit]</h3>
-<p>Explanation...</p>
-<h3>Benefit 3: [Specific Benefit]</h3>
-<p>Explanation...</p>
-(Total {benefits_words}+ words for this section)
-
-<h2>The {keyword_display} Process Explained</h2>
-<p>({section_words}+ words) Step-by-step process, what to expect.</p>
-
-<h2>Cost Factors for {keyword_display}</h2>
-<p>({section_words}+ words) Pricing factors, value of professional service.</p>
-
-<h2>How to Choose the Right Provider</h2>
-<p>({section_words}+ words) What to look for, why {business_name} is the right choice.</p>
-
-<h2>Ready to Get Started?</h2>
-<p>(100+ words) Strong call to action, contact {business_name}.</p>
-
-TOTAL BODY CONTENT MUST BE {word_count}+ WORDS. Write comprehensive, detailed content.
-
-HTML REQUIREMENTS FOR SEO:
-1. Include exactly ONE <h1> tag at the start
-2. Include 5-6 <h2> tags for main sections
-3. Include 3-4 <h3> tags for subsections (especially in Benefits section)
-4. Include at least 3 internal <a href="..."> links naturally in paragraphs
-5. Use <p>, <ul>, <li>, <strong> tags appropriately
-
-OUTPUT FORMAT (valid JSON only, no markdown):
+OUTPUT AS VALID JSON ONLY:
 {{
-    "title": "{keyword_display}{title_location} - Your Complete Guide | {business_name}",
-    "meta_title": "{keyword_display}{title_location} | Expert {industry or 'Service'} | {business_name}",
-    "meta_description": "Looking for professional {keyword.lower()}? {business_name} in {location} offers expert service. Call today for a free consultation. Trusted local experts.",
-    "body": "<h1>...</h1><h2>...</h2><p>...</p>... (Full HTML with h1, h2, h3 tags, {word_count}+ words)",
-    "h2_headings": ["Introduction", "Key Benefits", "Process Explained", "Cost Factors", "Choosing a Provider", "Get Started"],
+    "meta_title": "[Title Case, 50-60 chars, keyword + location naturally]",
+    "meta_description": "[150-160 chars, compelling, includes keyword naturally]",
+    "h1": "[Human-readable Title Case headline, not keyword-stuffed]",
+    "body": "[Full HTML content with h2/h3 structure, {word_count}+ words, includes internal links as <a href>, two CTAs embedded]",
     "faq_items": [
-        {{"question": "How much does {keyword.lower()} cost in {location}?", "answer": "Costs in {location} typically range based on scope, property size, and specific requirements. {business_name} provides free estimates for accurate pricing tailored to your needs."}},
-        {{"question": "How do I know if I need {keyword.lower()} service?", "answer": "Common signs include [specific symptoms]. If you notice any issues, contact {business_name} for a professional assessment."}},
-        {{"question": "How long does {keyword.lower()} take?", "answer": "Most projects take [timeframe] depending on complexity. {business_name} provides accurate timelines during consultation."}},
-        {{"question": "Why choose {business_name} for {keyword.lower()}?", "answer": "{business_name} offers experienced professionals, quality service, and customer satisfaction. Contact us today to learn more."}},
-        {{"question": "Do you offer free estimates for {keyword.lower()}?", "answer": "Yes! {business_name} provides free, no-obligation estimates for all services in {location}. Call us today."}}
+        {{"question": "[Service-specific question about {primary_keyword}]", "answer": "[Helpful 40-60 word answer mentioning {business_name}]"}},
+        {{"question": "[Cost/pricing question]", "answer": "[Helpful answer with CTA to contact {business_name}]"}},
+        {{"question": "[Process/timeline question]", "answer": "[Informative answer]"}},
+        {{"question": "[Why choose us question]", "answer": "[Answer highlighting {business_name} benefits]"}},
+        {{"question": "[Local-specific question about {city}]", "answer": "[Locally relevant answer]"}}
     ],
     "faq_schema": {{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": []}},
-    "cta": {{"contact_name": "{cta_name}", "company_name": "{business_name}", "phone": "{phone or ''}", "email": "{email or ''}"}}
+    "cta": {{"contact_name": "{contact_name or ''}", "company_name": "{business_name}", "phone": "{phone or ''}", "email": "{email or ''}"}}
 }}
 
-CRITICAL SEO REQUIREMENTS:
-1. Body MUST have ONE <h1> tag, 5-6 <h2> tags, and 3+ <h3> tags
-2. Body MUST be {word_count}+ words - count before responding
-3. Include {keyword} naturally 10-15 times
-4. Include {location} 5-8 times
-5. Include at least 3 internal links (<a href>) in paragraphs
-6. NO placeholder text - write complete, valuable content"""
+FAIL CONDITIONS (DO NOT DO THESE):
+❌ No city duplication (e.g., "Service Port Charlotte in Port Charlotte")
+❌ No robotic keyword stuffing
+❌ No lowercase headlines
+❌ No generic filler content
+❌ No placeholder text like [specific symptoms]
+
+WRITE COMPLETE, PUBLICATION-READY CONTENT."""
     
     def _get_related_posts(self, client_id: str, current_keyword: str, limit: int = 6) -> List[Dict]:
         """
