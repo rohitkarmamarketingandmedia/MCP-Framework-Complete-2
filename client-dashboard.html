@@ -8015,11 +8015,11 @@
             btn.disabled = true;
             btn.innerHTML = '<div class="spinner w-5 h-5 mr-2"></div> Generating...';
             progress.classList.remove('hidden');
-            document.getElementById('blogProgressText').textContent = 'Starting blog generation...';
+            document.getElementById('blogProgressText').textContent = 'Generating blog post (this may take 30-60 seconds)...';
             
             try {
-                // Start async generation
-                const startResponse = await fetch('/api/content/blog/generate-async', {
+                // Use synchronous generation endpoint
+                const response = await fetch('/api/content/blog/generate-sync', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -8034,123 +8034,71 @@
                     })
                 });
                 
-                if (!startResponse.ok) {
-                    const errorData = await startResponse.json().catch(() => ({ error: `Server returned ${startResponse.status}` }));
-                    throw new Error(errorData.error || `Server error: ${startResponse.status}`);
+                const result = await response.json();
+                
+                if (!response.ok || result.error) {
+                    throw new Error(result.error || `Server error: ${response.status}`);
                 }
                 
-                const startResult = await startResponse.json();
-                const taskId = startResult.task_id;
+                const blogId = result.blog_id;
+                const blogTitle = result.title || keyword;
                 
-                document.getElementById('blogProgressText').textContent = 'Generating 1,200+ word SEO blog post with FAQs and internal links...';
+                document.getElementById('blogProgressText').textContent = '✓ Blog generated!';
                 
-                // Poll for completion - 8 minutes max for GPT-4 content
-                let attempts = 0;
-                const maxAttempts = 240; // 8 minutes max (2 sec intervals)
-                
-                while (attempts < maxAttempts) {
-                    await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2 seconds
+                // Generate featured image if enabled
+                if (generateImage && blogId) {
+                    document.getElementById('blogProgressText').textContent = '✓ Blog created! Generating featured image...';
                     
                     try {
-                        const statusResponse = await fetch(`/api/content/blog/task/${taskId}`, {
-                            headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
+                        const imageResponse = await fetch(`${API_URL}/api/images/generate`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Authorization': `Bearer ${AUTH_TOKEN}`
+                            },
+                            body: JSON.stringify({
+                                prompt: `${keyword} - professional blog header image for ${currentClient.business_name || 'business'}`,
+                                style: 'blog_header',
+                                size: '1792x1024',
+                                client_id: currentClient.id
+                            })
                         });
                         
-                        if (!statusResponse.ok) {
-                            // Network error or server error - keep trying
-                            attempts++;
-                            continue;
+                        const imageResult = await imageResponse.json();
+                        
+                        if (imageResult.success && imageResult.url) {
+                            await fetch(`${API_URL}/api/content/blog/${blogId}`, {
+                                method: 'PATCH',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'Authorization': `Bearer ${AUTH_TOKEN}`
+                                },
+                                body: JSON.stringify({
+                                    featured_image_url: imageResult.url
+                                })
+                            });
                         }
-                        
-                        const status = await statusResponse.json();
-                        
-                        if (status.status === 'complete') {
-                        const blogId = status.blog_id;
-                        const blogTitle = status.title || keyword;
-                        
-                        // Generate featured image if enabled
-                        if (generateImage && blogId) {
-                            document.getElementById('blogProgressText').textContent = '✓ Blog created! Generating featured image...';
-                            
-                            try {
-                                const imageResponse = await fetch(`${API_URL}/api/images/generate`, {
-                                    method: 'POST',
-                                    headers: {
-                                        'Content-Type': 'application/json',
-                                        'Authorization': `Bearer ${AUTH_TOKEN}`
-                                    },
-                                    body: JSON.stringify({
-                                        prompt: `${keyword} - professional blog header image for ${currentClient.business_name || 'business'}`,
-                                        style: 'blog_header',
-                                        size: '1792x1024',
-                                        client_id: currentClient.id
-                                    })
-                                });
-                                
-                                const imageResult = await imageResponse.json();
-                                
-                                if (imageResult.success && imageResult.url) {
-                                    await fetch(`${API_URL}/api/content/blog/${blogId}`, {
-                                        method: 'PATCH',
-                                        headers: {
-                                            'Content-Type': 'application/json',
-                                            'Authorization': `Bearer ${AUTH_TOKEN}`
-                                        },
-                                        body: JSON.stringify({
-                                            featured_image_url: imageResult.url
-                                        })
-                                    });
-                                    
-                                    document.getElementById('blogProgressText').textContent = '✓ Blog post + featured image generated!';
-                                } else {
-                                    document.getElementById('blogProgressText').textContent = '✓ Blog created (image generation unavailable)';
-                                }
-                            } catch (imgError) {
-                                console.warn('Image generation failed:', imgError);
-                                document.getElementById('blogProgressText').textContent = '✓ Blog created (image skipped)';
-                            }
-                        } else {
-                            document.getElementById('blogProgressText').textContent = '✓ Blog post generated successfully!';
-                        }
-                        
-                        // Refresh the blogs list
-                        setTimeout(() => {
-                            progress.classList.add('hidden');
-                            loadClient(currentClient.id);
-                            showTab('blogs');
-                            alert(`Blog post "${blogTitle}" generated successfully!`);
-                        }, 1500);
-                        
-                        return; // Success - exit function
+                    } catch (imgError) {
+                        console.warn('Image generation failed:', imgError);
                     }
-                    
-                    if (status.status === 'error') {
-                        throw new Error(status.error || 'Blog generation failed');
-                    }
-                    
-                    // Update progress message
-                    if (status.status === 'generating') {
-                        const dots = '.'.repeat((attempts % 3) + 1);
-                        document.getElementById('blogProgressText').textContent = `Generating SEO content${dots} (${Math.floor(attempts * 2 / 60)}m ${(attempts * 2) % 60}s)`;
-                    }
-                    
-                    } catch (pollError) {
-                        // Network error during polling - keep trying
-                        console.warn('Polling error:', pollError);
-                    }
-                    
-                    attempts++;
                 }
                 
-                throw new Error('Generation timed out after 8 minutes. The AI may be busy - please try again.');
+                // Refresh the blogs list
+                setTimeout(() => {
+                    progress.classList.add('hidden');
+                    loadClient(currentClient.id);
+                    showTab('blogs');
+                    showToast(`Blog post "${blogTitle}" generated successfully!`, 'success');
+                }, 500);
                 
             } catch (error) {
                 console.error('Blog generation error:', error);
                 document.getElementById('blogProgressText').textContent = `Error: ${error.message}`;
-                alert(`Failed to generate blog: ${error.message}`);
+                showToast(`Failed to generate blog: ${error.message}`, 'error');
             } finally {
                 btn.disabled = false;
                 btn.innerHTML = '<i class="fas fa-magic"></i> Generate Blog Post';
+                progress.classList.add('hidden');
             }
         }
         
@@ -8201,8 +8149,8 @@
                     progressLog.innerHTML += `<div class="text-yellow-400"><i class="fas fa-spinner fa-spin mr-1"></i> Generating: ${keyword}...</div>`;
                     progressLog.scrollTop = progressLog.scrollHeight;
                     
-                    // Start async generation
-                    const startResponse = await fetch('/api/content/blog/generate-async', {
+                    // Use synchronous generation
+                    const response = await fetch('/api/content/blog/generate-sync', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
@@ -8217,52 +8165,36 @@
                         })
                     });
                     
-                    if (!startResponse.ok) {
-                        throw new Error('Failed to start generation');
+                    const result = await response.json();
+                    
+                    if (!response.ok || result.error) {
+                        throw new Error(result.error || 'Generation failed');
                     }
                     
-                    const { task_id } = await startResponse.json();
+                    succeeded++;
+                    results.push({ keyword, success: true, blogId: result.blog_id });
                     
-                    // Poll for completion
-                    let taskComplete = false;
-                    for (let i = 0; i < 90 && !taskComplete; i++) {
-                        await new Promise(r => setTimeout(r, 2000));
-                        
-                        const statusRes = await fetch(`/api/content/blog/task/${task_id}`, {
-                            headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
-                        });
-                        
-                        if (statusRes.ok) {
-                            const status = await statusRes.json();
-                            if (status.status === 'complete') {
-                                taskComplete = true;
-                                succeeded++;
-                                results.push({ keyword, success: true, blogId: status.blog_id });
-                                
-                                // Remove the "generating" line and add success
-                                const lines = progressLog.innerHTML.split('</div>');
-                                lines.pop(); // Remove last empty
-                                lines.pop(); // Remove generating line
-                                progressLog.innerHTML = lines.join('</div>') + '</div>';
-                                progressLog.innerHTML += `<div class="text-green-400"><i class="fas fa-check mr-1"></i> ${keyword} - Created!</div>`;
-                            } else if (status.status === 'error') {
-                                throw new Error(status.error || 'Generation failed');
-                            }
-                        }
-                    }
-                    
-                    if (!taskComplete) {
-                        throw new Error('Timeout');
-                    }
+                    // Update progress log
+                    const lines = progressLog.innerHTML.split('</div>');
+                    lines.pop(); // Remove last empty
+                    lines.pop(); // Remove generating line
+                    progressLog.innerHTML = lines.join('</div>') + '</div>';
+                    progressLog.innerHTML += `<div class="text-green-400"><i class="fas fa-check mr-1"></i> ${keyword} - Created!</div>`;
                     
                 } catch (error) {
                     results.push({ keyword, success: false, error: error.message });
+                    // Update progress log
+                    const lines = progressLog.innerHTML.split('</div>');
+                    lines.pop();
+                    lines.pop();
+                    progressLog.innerHTML = lines.join('</div>') + '</div>';
                     progressLog.innerHTML += `<div class="text-red-400"><i class="fas fa-times mr-1"></i> ${keyword} - ${error.message}</div>`;
                 }
                 
                 completed++;
                 progressCount.textContent = `${completed}/${keywords.length}`;
                 progressBar.style.width = `${(completed / keywords.length) * 100}%`;
+                progressLog.scrollTop = progressLog.scrollHeight;
             }
             
             btn.disabled = false;

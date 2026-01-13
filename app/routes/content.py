@@ -230,7 +230,7 @@ def _generate_blog_background(task_id, app, client_id, keyword, word_count, incl
             body_content = result.get('body', '')
             if not body_content or body_content.strip().startswith('{') or '"title":' in body_content:
                 logger.error(f"Blog generation returned invalid body: {body_content[:200]}")
-                _blog_tasks[task_id] = {'status': 'error', 'error': 'AI returned invalid content format. Please try again.'}
+                _set_task(task_id, {'status': 'error', 'error': 'AI returned invalid content format. Please try again.'})
                 return
             
             # Process with internal linking
@@ -322,6 +322,136 @@ def _generate_blog_background(task_id, app, client_id, keyword, word_count, incl
             error_trace = traceback.format_exc()
             logger.error(f"[TASK {task_id}] Background blog generation error: {e}\n{error_trace}")
             _set_task(task_id, {'status': 'error', 'error': str(e), 'trace': error_trace[:500]})
+
+
+@content_bp.route('/blog/generate-sync', methods=['POST'])
+@token_required
+def generate_blog_sync(current_user):
+    """
+    Synchronous blog generation - waits for completion and returns result
+    
+    POST /api/content/blog/generate-sync
+    {
+        "client_id": "uuid",
+        "keyword": "ac repair sarasota",
+        "word_count": 800,
+        "include_faq": true,
+        "faq_count": 5
+    }
+    """
+    if not current_user.can_generate_content:
+        return jsonify({'error': 'Permission denied'}), 403
+    
+    data = request.get_json(silent=True) or {}
+    
+    client_id = data.get('client_id')
+    keyword = data.get('keyword')
+    word_count = data.get('word_count', 800)
+    include_faq = data.get('include_faq', True)
+    faq_count = data.get('faq_count', 5)
+    
+    if not client_id or not keyword:
+        return jsonify({'error': 'client_id and keyword required'}), 400
+    
+    # Verify client access
+    if not current_user.has_access_to_client(client_id):
+        return jsonify({'error': 'Access denied'}), 403
+    
+    try:
+        logger.info(f"[SYNC] Starting blog generation for keyword: {keyword}")
+        
+        # Get client
+        client = data_service.get_client(client_id)
+        if not client:
+            return jsonify({'error': 'Client not found'}), 404
+        
+        service_pages = client.get_service_pages() or []
+        
+        # Get contact info for CTA
+        contact_name = getattr(client, 'contact_name', None) or getattr(client, 'owner_name', None)
+        phone = getattr(client, 'phone', None)
+        email = getattr(client, 'email', None)
+        
+        logger.info(f"[SYNC] Calling AI service...")
+        
+        # Generate blog
+        result = ai_service.generate_blog_post(
+            keyword=keyword,
+            geo=client.geo or '',
+            industry=client.industry or '',
+            word_count=word_count,
+            tone=client.tone or 'professional',
+            business_name=client.business_name or '',
+            include_faq=include_faq,
+            faq_count=max(faq_count, 5),
+            internal_links=service_pages,
+            usps=client.get_unique_selling_points(),
+            contact_name=contact_name,
+            phone=phone,
+            email=email,
+            client_id=client.id
+        )
+        
+        logger.info(f"[SYNC] AI service returned. Error: {result.get('error', 'None')}")
+        
+        if result.get('error'):
+            return jsonify({'error': result['error']}), 500
+        
+        # Validate body content
+        body_content = result.get('body', '')
+        if not body_content or len(body_content) < 100:
+            return jsonify({'error': 'AI returned empty content'}), 500
+        
+        # Get FAQ items
+        faq_items = result.get('faq_items', [])
+        faq_schema = result.get('faq_schema', {})
+        
+        # Calculate SEO score
+        seo_score_result = seo_scoring_engine.score_content(
+            content={
+                'meta_title': result.get('meta_title', ''),
+                'meta_description': result.get('meta_description', ''),
+                'h1': result.get('title', ''),
+                'body': body_content
+            },
+            target_keyword=keyword,
+            location=client.geo or ''
+        )
+        seo_score = seo_score_result.get('total_score', 0)
+        
+        # Create blog post
+        blog_post = DBBlogPost(
+            client_id=client_id,
+            title=result.get('title', keyword),
+            body=body_content,
+            meta_title=result.get('meta_title', ''),
+            meta_description=result.get('meta_description', ''),
+            primary_keyword=keyword,
+            secondary_keywords=result.get('secondary_keywords', []),
+            internal_links=service_pages,
+            faq_content=faq_items,
+            schema_markup=faq_schema,
+            word_count=len(body_content.split()),
+            seo_score=seo_score,
+            status=ContentStatus.DRAFT
+        )
+        
+        data_service.save_blog_post(blog_post)
+        
+        logger.info(f"[SYNC] Blog generation complete: {blog_post.id}")
+        
+        return jsonify({
+            'success': True,
+            'blog_id': blog_post.id,
+            'title': blog_post.title,
+            'word_count': blog_post.word_count,
+            'seo_score': seo_score
+        })
+        
+    except Exception as e:
+        import traceback
+        logger.error(f"[SYNC] Blog generation error: {e}\n{traceback.format_exc()}")
+        return jsonify({'error': str(e)}), 500
 
 
 @content_bp.route('/blog/generate-async', methods=['POST'])
