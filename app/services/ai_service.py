@@ -197,6 +197,15 @@ Rules:
         # Parse the response
         result = self._parse_blog_response(raw_content)
         
+        # Log what we got from parsing
+        logger.info(f"Parse result keys: {list(result.keys())}")
+        logger.info(f"Parse result title: '{result.get('title', '')[:50]}'")
+        logger.info(f"Parse result body length: {len(result.get('body', ''))}")
+        if result.get('body'):
+            logger.info(f"Parse result body preview: '{result.get('body', '')[:200]}'")
+        else:
+            logger.error(f"Parse result body is EMPTY - raw content preview: '{raw_content[:500]}'")
+        
         # Validate we got actual content
         if not result.get('title') and not result.get('body'):
             logger.error(f"Blog parsing returned empty content")
@@ -756,6 +765,55 @@ A {word_count}-word article needs approximately {word_count // 6} words per sect
                     content = content[start:end+1]
             
             data = json.loads(content)
+            
+            # Log what we got from JSON parse
+            logger.info(f"JSON parsed successfully. Keys: {list(data.keys())}")
+            for key in data.keys():
+                val = data[key]
+                if isinstance(val, str):
+                    logger.info(f"  {key}: string({len(val)} chars)")
+                elif isinstance(val, list):
+                    logger.info(f"  {key}: list({len(val)} items)")
+                elif isinstance(val, dict):
+                    logger.info(f"  {key}: dict({list(val.keys())})")
+                else:
+                    logger.info(f"  {key}: {type(val).__name__}")
+            
+            # Robust body extraction - handle various response formats
+            body_content = data.get('body', '')
+            
+            # If body is not a string, try to convert or extract
+            if not isinstance(body_content, str):
+                logger.warning(f"Body is not a string: {type(body_content)}")
+                if isinstance(body_content, dict):
+                    # Try to get content from nested dict
+                    body_content = body_content.get('content', '') or body_content.get('html', '') or str(body_content)
+                elif isinstance(body_content, list):
+                    body_content = ' '.join(str(item) for item in body_content)
+                else:
+                    body_content = str(body_content) if body_content else ''
+            
+            # If body is still empty, try alternative fields
+            if not body_content or len(body_content.strip()) < 100:
+                logger.warning(f"Body empty or too short ({len(body_content)}), checking alternative fields")
+                # Check for common alternative field names
+                for alt_field in ['html', 'content', 'article', 'text', 'post_body', 'article_body']:
+                    if data.get(alt_field) and len(str(data.get(alt_field))) > len(body_content):
+                        body_content = str(data.get(alt_field))
+                        logger.info(f"Using alternative field '{alt_field}' with {len(body_content)} chars")
+                        break
+            
+            # Final fallback - try to extract from the original content
+            if not body_content or len(body_content.strip()) < 100:
+                logger.warning(f"Body still empty after alternatives, trying regex extraction")
+                body_match = re.search(r'"body"\s*:\s*"((?:[^"\\]|\\.)*)"|"body"\s*:\s*`((?:[^`\\]|\\.)*)`', original_content, re.DOTALL)
+                if body_match:
+                    body_content = body_match.group(1) or body_match.group(2) or ''
+                    body_content = body_content.replace('\\"', '"').replace('\\n', '\n').replace('\\/', '/')
+                    logger.info(f"Extracted body via regex: {len(body_content)} chars")
+            
+            # Update data with the extracted body
+            data['body'] = body_content
             
             # Validate body content - make sure it's not accidentally containing JSON
             body_content = data.get('body', '')
