@@ -413,11 +413,23 @@ def generate_blog_sync(current_user):
                 location=client.geo or ''
             )
             seo_score = seo_score_result.get('total_score', 0)
+            
+            # Log SEO score breakdown
+            logger.info(f"[SYNC] SEO Score: {seo_score}")
+            factors = seo_score_result.get('factors', {})
+            for factor, data in factors.items():
+                logger.info(f"[SYNC]   {factor}: {data.get('score', 0)}/{data.get('max', 0)} - {data.get('message', '')}")
         except Exception as e:
             logger.warning(f"[SYNC] SEO scoring failed: {e}")
             seo_score = 50  # Default score
         
         # Create blog post
+        # Calculate word count properly - strip HTML tags first
+        import re as re_module
+        text_only = re_module.sub(r'<[^>]+>', ' ', body_content)
+        text_only = re_module.sub(r'\s+', ' ', text_only).strip()
+        actual_word_count = len(text_only.split())
+        
         blog_post = DBBlogPost(
             client_id=client_id,
             title=result.get('title', keyword),
@@ -429,7 +441,7 @@ def generate_blog_sync(current_user):
             internal_links=service_pages,
             faq_content=faq_items,
             schema_markup=faq_schema,
-            word_count=len(body_content.split()),
+            word_count=actual_word_count,
             seo_score=seo_score,
             status=ContentStatus.DRAFT
         )
