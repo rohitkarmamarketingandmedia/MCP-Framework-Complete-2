@@ -64,11 +64,66 @@ def check_ai_config(current_user):
     })
 
 
+@content_bp.route('/test-ai', methods=['POST'])
+@token_required  
+def test_ai_generation(current_user):
+    """Quick test to verify AI is working"""
+    import os
+    import time
+    
+    openai_key = os.environ.get('OPENAI_API_KEY', '')
+    if not openai_key:
+        return jsonify({'error': 'OPENAI_API_KEY not set'}), 500
+    
+    start_time = time.time()
+    
+    try:
+        import requests
+        response = requests.post(
+            'https://api.openai.com/v1/chat/completions',
+            headers={
+                'Authorization': f'Bearer {openai_key}',
+                'Content-Type': 'application/json'
+            },
+            json={
+                'model': 'gpt-3.5-turbo',
+                'messages': [{'role': 'user', 'content': 'Say "AI is working" in exactly 3 words'}],
+                'max_tokens': 20
+            },
+            timeout=30
+        )
+        
+        elapsed = time.time() - start_time
+        
+        if response.status_code == 200:
+            data = response.json()
+            return jsonify({
+                'success': True,
+                'response': data['choices'][0]['message']['content'],
+                'elapsed_seconds': round(elapsed, 2),
+                'model': 'gpt-3.5-turbo'
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': f'API returned {response.status_code}',
+                'details': response.text[:500],
+                'elapsed_seconds': round(elapsed, 2)
+            }), 500
+            
+    except requests.exceptions.Timeout:
+        return jsonify({'error': 'OpenAI API timeout after 30 seconds'}), 500
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 def _generate_blog_background(task_id, app, client_id, keyword, word_count, include_faq, faq_count, user_id):
     """Background thread function to generate blog"""
     with app.app_context():
         try:
+            logger.info(f"[TASK {task_id}] Starting blog generation for keyword: {keyword}")
             _blog_tasks[task_id]['status'] = 'generating'
+            _blog_tasks[task_id]['started_at'] = datetime.utcnow().isoformat()
             
             # Get client
             client = data_service.get_client(client_id)
@@ -83,6 +138,8 @@ def _generate_blog_background(task_id, app, client_id, keyword, word_count, incl
             contact_name = getattr(client, 'contact_name', None) or getattr(client, 'owner_name', None)
             phone = getattr(client, 'phone', None)
             email = getattr(client, 'email', None)
+            
+            logger.info(f"[TASK {task_id}] Calling AI service...")
             
             # Generate blog with 100% SEO optimization and internal linking
             result = ai_service.generate_blog_post(
@@ -102,7 +159,10 @@ def _generate_blog_background(task_id, app, client_id, keyword, word_count, incl
                 client_id=client.id  # For fetching related posts
             )
             
+            logger.info(f"[TASK {task_id}] AI service returned. Error: {result.get('error', 'None')}")
+            
             if result.get('error'):
+                logger.error(f"[TASK {task_id}] AI error: {result['error']}")
                 _blog_tasks[task_id] = {'status': 'error', 'error': result['error']}
                 return
             
@@ -195,10 +255,13 @@ def _generate_blog_background(task_id, app, client_id, keyword, word_count, incl
                 'seo_score': seo_score,
                 'seo_recommendations': seo_score_result.get('recommendations', [])
             }
+            logger.info(f"[TASK {task_id}] Blog generation complete: {blog_post.id}")
             
         except Exception as e:
-            logger.error(f"Background blog generation error: {e}")
-            _blog_tasks[task_id] = {'status': 'error', 'error': str(e)}
+            import traceback
+            error_trace = traceback.format_exc()
+            logger.error(f"[TASK {task_id}] Background blog generation error: {e}\n{error_trace}")
+            _blog_tasks[task_id] = {'status': 'error', 'error': str(e), 'trace': error_trace[:500]}
 
 
 @content_bp.route('/blog/generate-async', methods=['POST'])
