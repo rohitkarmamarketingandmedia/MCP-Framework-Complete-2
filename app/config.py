@@ -75,7 +75,7 @@ class BaseConfig:
     LINKEDIN_ACCESS_TOKEN = os.environ.get('LINKEDIN_ACCESS_TOKEN', '')
     
     # Content generation defaults
-    DEFAULT_BLOG_WORD_COUNT = int(os.environ.get('DEFAULT_BLOG_WORD_COUNT', '1200'))
+    DEFAULT_BLOG_WORD_COUNT = int(os.environ.get('DEFAULT_BLOG_WORD_COUNT', '800'))
     DEFAULT_TONE = os.environ.get('DEFAULT_TONE', 'professional')
     
     # Rate limiting

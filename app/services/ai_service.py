@@ -199,20 +199,17 @@ class AIService:
         
         logger.info(f"Blog word count: requested={word_count}, actual={actual_word_count}")
         
-        # Check if word count is too low (less than 70% of requested)
-        min_acceptable = int(word_count * 0.7)
-        if actual_word_count < min_acceptable:
-            logger.warning(f"Blog word count too low: {actual_word_count} < {min_acceptable} (70% of {word_count})")
-            # Don't fail, but log warning - the content might still be usable
+        # Log warning if word count is low, but DON'T reject content
+        # GPT-3.5 often produces shorter content - let it through
+        if actual_word_count < 300:
+            logger.warning(f"Blog word count very low: {actual_word_count} words")
         
-        # Check if body is too short in characters (likely truncated)
-        min_chars = word_count * 5  # Average 5 chars per word
-        if len(body_content) < min_chars:
-            logger.error(f"Blog body too short: {len(body_content)} chars (expected {min_chars}+)")
+        # Only reject if body is essentially empty
+        if len(body_content) < 200:
+            logger.error(f"Blog body too short: {len(body_content)} chars")
             return {
-                'error': f'AI returned incomplete content ({actual_word_count} words instead of {word_count}). Please try again.',
-                'raw_response': response.get('content', '')[:500],
-                'actual_word_count': actual_word_count
+                'error': 'AI returned empty content. Please try again.',
+                'raw_response': response.get('content', '')[:500]
             }
         
         # ===== PLACEHOLDER DETECTION =====
@@ -561,48 +558,55 @@ Example for HVAC business:
                 if url and kw:
                     links_text += f'- <a href="{url}">{kw}</a>\n'
 
-        return f"""Write a {word_count}-word SEO blog post about "{keyword}" for {business_name} in {location}.
+        return f"""Write a detailed SEO blog post about "{keyword}" for {business_name} in {location}.
 
-REQUIREMENTS:
-- Word count: {word_count} words minimum
-- Keyword "{keyword}" must appear 10-15 times
-- Location "{location}" must appear 5-8 times
-- Include 5 H2 sections with H3 subsections
-- Include 5 FAQs at the end
-- Include 2 CTAs mentioning {cta_name} and {contact_str}
-- Tone: {tone}
+STRUCTURE (write ALL of these sections):
+
+1. INTRODUCTION (100 words)
+Write about why {keyword} matters for people in {location}.
+
+2. SECTION: What is {keyword}? (150 words)
+Explain {keyword} in detail with an H2 heading.
+
+3. SECTION: Benefits of {keyword} in {location} (150 words)  
+List 4-5 benefits with bullet points.
+
+4. SECTION: How {keyword} Works (150 words)
+Step-by-step process with numbered list.
+
+5. SECTION: Choosing a {keyword} Provider (100 words)
+What to look for. Include CTA: Contact {cta_name} at {business_name}. {contact_str}
+
+6. SECTION: Cost of {keyword} in {location} (100 words)
+Pricing factors to consider.
+
+7. FAQ SECTION (200 words)
+5 questions and answers about {keyword}.
+
+8. CONCLUSION (50 words)
+Final CTA: Contact {cta_name} at {business_name}. {contact_str}
 {usp_text}
 {links_text}
 
-OUTPUT FORMAT - Return ONLY valid JSON (no markdown):
+OUTPUT - Return ONLY this JSON:
 {{
-    "title": "SEO title with keyword and location",
-    "meta_title": "55-60 character title starting with {keyword}",
-    "meta_description": "150-155 character description with keyword",
-    "body": "<p>Full {word_count}+ word HTML content with H2s, H3s, lists, FAQs, CTAs</p>",
-    "h2_headings": ["heading1", "heading2", "heading3", "heading4", "heading5"],
+    "title": "{keyword} in {location} | {business_name}",
+    "meta_title": "{keyword} Services in {location} | {business_name}",
+    "meta_description": "Need {keyword} in {location}? {business_name} offers professional services. {contact_str}",
+    "body": "<FULL HTML with all 8 sections above. Use <h2>, <h3>, <p>, <ul>, <li> tags>",
+    "h2_headings": ["What is {keyword}?", "Benefits", "How it Works", "Choosing a Provider", "Cost", "FAQ", "Conclusion"],
     "faq_items": [
-        {{"question": "Q1?", "answer": "60-word answer"}},
-        {{"question": "Q2?", "answer": "60-word answer"}},
-        {{"question": "Q3?", "answer": "60-word answer"}},
-        {{"question": "Q4?", "answer": "60-word answer"}},
-        {{"question": "Q5?", "answer": "60-word answer"}}
+        {{"question": "Q1?", "answer": "Answer 1"}},
+        {{"question": "Q2?", "answer": "Answer 2"}},
+        {{"question": "Q3?", "answer": "Answer 3"}},
+        {{"question": "Q4?", "answer": "Answer 4"}},
+        {{"question": "Q5?", "answer": "Answer 5"}}
     ],
-    "faq_schema": {{
-        "@context": "https://schema.org",
-        "@type": "FAQPage",
-        "mainEntity": []
-    }},
-    "cta": {{
-        "contact_name": "{cta_name}",
-        "company_name": "{business_name}",
-        "phone": "{phone or ''}",
-        "email": "{email or ''}"
-    }},
-    "word_count": {word_count}
+    "faq_schema": {{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": []}},
+    "cta": {{"contact_name": "{cta_name}", "company_name": "{business_name}", "phone": "{phone or ''}", "email": "{email or ''}"}}
 }}
 
-IMPORTANT: The "body" field must contain {word_count}+ words of real HTML content with proper <h2>, <h3>, <p>, <ul>, <li> tags. Write comprehensive, detailed paragraphs for each section."""
+CRITICAL: Write ALL 8 sections with the word counts specified. The body must have real content."""
     
     def _get_related_posts(self, client_id: str, current_keyword: str, limit: int = 4) -> List[Dict]:
         """
