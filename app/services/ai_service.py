@@ -134,16 +134,20 @@ class AIService:
         fallback_model = 'gpt-3.5-turbo'
         
         # Calculate tokens based on model limits
-        # For 800 word content, we need ~1200 tokens output + JSON overhead
+        # Need enough tokens for 800+ word content in JSON format
         if '16k' in primary_model:
             max_allowed_tokens = 8000
+            min_tokens = 4000  # Ensure we ask for enough
         elif 'gpt-4' in primary_model:
             max_allowed_tokens = 4000
+            min_tokens = 3500
         else:
-            max_allowed_tokens = 3800  # Safe limit for gpt-3.5-turbo
+            max_allowed_tokens = 3900  # Safe limit for gpt-3.5-turbo
+            min_tokens = 3000
         
-        min_tokens_for_content = int(word_count * 1.5) + 800
-        estimated_tokens = min(max_allowed_tokens, max(2000, min_tokens_for_content))
+        # Request enough tokens for the word count
+        tokens_needed = int(word_count * 2) + 1000  # ~2 tokens per word + JSON overhead
+        estimated_tokens = min(max_allowed_tokens, max(min_tokens, tokens_needed))
         
         logger.info(f"Blog generation: word_count={word_count}, tokens={estimated_tokens}, model={primary_model}")
         
@@ -569,55 +573,80 @@ Example for HVAC business:
                 if url and kw:
                     links_text += f'- <a href="{url}">{kw}</a>\n'
 
-        return f"""Write a detailed SEO blog post about "{keyword}" for {business_name} in {location}.
+        # Calculate minimum word target
+        min_words = max(800, word_count)
 
-STRUCTURE (write ALL of these sections):
+        return f"""You are writing a {min_words}+ word SEO blog post. This is CRITICAL - the content MUST be at least {min_words} words.
 
-1. INTRODUCTION (100 words)
-Write about why {keyword} matters for people in {location}.
-
-2. SECTION: What is {keyword}? (150 words)
-Explain {keyword} in detail with an H2 heading.
-
-3. SECTION: Benefits of {keyword} in {location} (150 words)  
-List 4-5 benefits with bullet points.
-
-4. SECTION: How {keyword} Works (150 words)
-Step-by-step process with numbered list.
-
-5. SECTION: Choosing a {keyword} Provider (100 words)
-What to look for. Include CTA: Contact {cta_name} at {business_name}. {contact_str}
-
-6. SECTION: Cost of {keyword} in {location} (100 words)
-Pricing factors to consider.
-
-7. FAQ SECTION (200 words)
-5 questions and answers about {keyword}.
-
-8. CONCLUSION (50 words)
-Final CTA: Contact {cta_name} at {business_name}. {contact_str}
+TOPIC: {keyword}
+BUSINESS: {business_name}  
+LOCATION: {location}
 {usp_text}
 {links_text}
 
-OUTPUT - Return ONLY this JSON:
+REQUIRED CONTENT STRUCTURE - Each section must have the MINIMUM words shown:
+
+<h2>What is {keyword}?</h2>
+<p>Write 100+ words explaining what {keyword} is and why it matters for {location} residents.</p>
+
+<h2>Top Benefits of {keyword} in {location}</h2>
+<p>Write 80+ words introduction, then:</p>
+<ul>
+<li><strong>Benefit 1:</strong> 30+ word explanation</li>
+<li><strong>Benefit 2:</strong> 30+ word explanation</li>
+<li><strong>Benefit 3:</strong> 30+ word explanation</li>
+<li><strong>Benefit 4:</strong> 30+ word explanation</li>
+<li><strong>Benefit 5:</strong> 30+ word explanation</li>
+</ul>
+
+<h2>How {keyword} Works</h2>
+<p>Write 100+ words explaining the process step by step.</p>
+
+<h2>Choosing the Right {keyword} Provider in {location}</h2>
+<p>Write 100+ words about selection criteria. End with: Contact {cta_name} at {business_name} today. {contact_str}</p>
+
+<h2>{keyword} Cost Factors in {location}</h2>
+<p>Write 80+ words about pricing considerations.</p>
+
+<h2>Frequently Asked Questions About {keyword}</h2>
+<h3>Question 1 about {keyword}?</h3>
+<p>Write 40+ word answer with specific details.</p>
+<h3>Question 2 about {keyword} in {location}?</h3>
+<p>Write 40+ word answer.</p>
+<h3>Question 3 about cost?</h3>
+<p>Write 40+ word answer.</p>
+<h3>Question 4 about timing?</h3>
+<p>Write 40+ word answer.</p>
+<h3>Question 5 about choosing a provider?</h3>
+<p>Write 40+ word answer.</p>
+
+<h2>Get Professional {keyword} in {location}</h2>
+<p>Write 50+ word conclusion with CTA: Contact {cta_name} at {business_name}. {contact_str}</p>
+
+RETURN THIS EXACT JSON FORMAT (no markdown, no code blocks):
 {{
     "title": "{keyword} in {location} | {business_name}",
-    "meta_title": "{keyword} Services in {location} | {business_name}",
-    "meta_description": "Need {keyword} in {location}? {business_name} offers professional services. {contact_str}",
-    "body": "<FULL HTML with all 8 sections above. Use <h2>, <h3>, <p>, <ul>, <li> tags>",
-    "h2_headings": ["What is {keyword}?", "Benefits", "How it Works", "Choosing a Provider", "Cost", "FAQ", "Conclusion"],
+    "meta_title": "{keyword} in {location} - Professional Service | {business_name}",
+    "meta_description": "Looking for {keyword} in {location}? {business_name} provides expert services. {contact_str}",
+    "body": "<THE FULL HTML CONTENT WITH ALL SECTIONS ABOVE - MUST BE {min_words}+ WORDS>",
+    "h2_headings": ["What is {keyword}?", "Top Benefits", "How it Works", "Choosing Provider", "Cost Factors", "FAQ", "Get Professional {keyword}"],
     "faq_items": [
-        {{"question": "Q1?", "answer": "Answer 1"}},
-        {{"question": "Q2?", "answer": "Answer 2"}},
-        {{"question": "Q3?", "answer": "Answer 3"}},
-        {{"question": "Q4?", "answer": "Answer 4"}},
-        {{"question": "Q5?", "answer": "Answer 5"}}
+        {{"question": "Full question 1?", "answer": "Full 40+ word answer"}},
+        {{"question": "Full question 2?", "answer": "Full 40+ word answer"}},
+        {{"question": "Full question 3?", "answer": "Full 40+ word answer"}},
+        {{"question": "Full question 4?", "answer": "Full 40+ word answer"}},
+        {{"question": "Full question 5?", "answer": "Full 40+ word answer"}}
     ],
     "faq_schema": {{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": []}},
     "cta": {{"contact_name": "{cta_name}", "company_name": "{business_name}", "phone": "{phone or ''}", "email": "{email or ''}"}}
 }}
 
-CRITICAL: Write ALL 8 sections with the word counts specified. The body must have real content."""
+IMPORTANT: 
+- The "body" field MUST contain {min_words}+ words of actual HTML content
+- Include ALL sections shown above
+- Each FAQ answer must be 40+ words
+- Do NOT use placeholder text - write real, helpful content
+- Mention {keyword} at least 10 times and {location} at least 5 times"""
     
     def _get_related_posts(self, client_id: str, current_keyword: str, limit: int = 4) -> List[Dict]:
         """
