@@ -127,27 +127,27 @@ class AIService:
         self._rate_limit_delay()
         
         # Model selection with appropriate token limits
-        # gpt-3.5-turbo: 4096 max tokens
-        # gpt-3.5-turbo-16k: 16384 max tokens  
-        # gpt-4o: 4096 max tokens (output)
-        primary_model = os.environ.get('BLOG_AI_MODEL', 'gpt-3.5-turbo-16k')
-        fallback_model = 'gpt-3.5-turbo'
+        # gpt-4o-mini: Best balance of quality, speed, and cost - follows instructions well
+        # gpt-4o: Higher quality but slower and more expensive
+        # gpt-3.5-turbo-16k: Fast but doesn't follow word count instructions well
+        primary_model = os.environ.get('BLOG_AI_MODEL', 'gpt-4o-mini')
+        fallback_model = 'gpt-3.5-turbo-16k'
         
-        # Calculate tokens based on model limits
-        # Need enough tokens for 800+ word content in JSON format
-        if '16k' in primary_model:
-            max_allowed_tokens = 8000
-            min_tokens = 4000  # Ensure we ask for enough
-        elif 'gpt-4' in primary_model:
-            max_allowed_tokens = 4000
-            min_tokens = 3500
+        # Calculate tokens based on model and word count
+        # ~1.5 tokens per word + JSON overhead (~500 tokens)
+        tokens_needed = int(word_count * 1.5) + 800
+        
+        # Set limits based on model
+        if 'gpt-4o' in primary_model or 'gpt-4' in primary_model:
+            # GPT-4 models have 16K output limit but we cap lower for speed
+            max_allowed_tokens = min(8000, tokens_needed + 1000)
+        elif '16k' in primary_model:
+            max_allowed_tokens = min(12000, tokens_needed + 1000)
         else:
-            max_allowed_tokens = 3900  # Safe limit for gpt-3.5-turbo
-            min_tokens = 3000
+            max_allowed_tokens = min(4000, tokens_needed)
         
-        # Request enough tokens for the word count
-        tokens_needed = int(word_count * 2) + 1000  # ~2 tokens per word + JSON overhead
-        estimated_tokens = min(max_allowed_tokens, max(min_tokens, tokens_needed))
+        # Ensure minimum tokens for reasonable content
+        estimated_tokens = max(3000, max_allowed_tokens)
         
         logger.info(f"Blog generation: word_count={word_count}, tokens={estimated_tokens}, model={primary_model}")
         
@@ -172,11 +172,12 @@ class AIService:
             temperature=0.7
         )
         
-        # If primary model fails, try fallback with safe token limit
+        # If primary model fails, try fallback with appropriate token limit
         if response.get('error'):
             logger.warning(f"Primary model {primary_model} failed: {response['error']}, trying fallback {fallback_model}")
             model_used = fallback_model
-            fallback_tokens = min(3800, estimated_tokens)  # Safe limit for gpt-3.5-turbo
+            # gpt-3.5-turbo-16k can handle more tokens
+            fallback_tokens = min(8000, estimated_tokens)
             response = self._call_with_retry(
                 prompt, 
                 max_tokens=fallback_tokens,
@@ -583,67 +584,96 @@ Example for HVAC business:
                 if url and kw:
                     links_text += f'- <a href="{url}">{kw}</a>\n'
 
-        return f"""Write a comprehensive, helpful blog post about {keyword} for homeowners and businesses in {location}.
+        # Scale section lengths based on word count
+        # For 1500 words: each section ~200 words
+        # For 2000 words: each section ~280 words
+        # For 2500 words: each section ~350 words
+        section_words = max(150, word_count // 7)
+        intro_words = max(200, word_count // 6)
+        benefits_words = max(250, word_count // 5)
 
-BUSINESS INFO:
-- Company: {business_name}
-- Contact: {cta_name}
-- How to reach: {contact_str}
+        return f"""Write a {word_count}-word blog post about {keyword} for {location} residents.
+
+TARGET: {word_count} WORDS MINIMUM - This is a strict requirement.
+
+BUSINESS: {business_name}
+CONTACT: {cta_name} - {contact_str}
 {usp_text}
 {links_text}
 
-WRITING REQUIREMENTS:
-1. Write like a knowledgeable local expert, not a generic AI
-2. Include specific details relevant to {location} (climate, local factors, etc.)
-3. Use natural, conversational language
-4. Every paragraph must have real, useful information
-5. NO placeholder text - write REAL content
+CONTENT STRUCTURE - Write comprehensive content for EACH section:
 
-SECTIONS TO WRITE IN THE BODY (create actual helpful content for each):
+<h2>Understanding {keyword} in {location}</h2>
+Write {intro_words}+ words introducing {keyword}. Cover:
+- What it is and why {location} residents need it
+- Local climate factors in {location} that affect this service
+- Overview of what professional service involves
+- Why this matters for homeowners and businesses
 
-SECTION 1 - INTRODUCTION (H2: Understanding {keyword}):
-Write 2-3 paragraphs (150+ words) introducing {keyword} and why it matters for {location} residents. Mention local climate considerations.
+<h2>Key Benefits of Professional {keyword}</h2>
+Write {benefits_words}+ words. Include:
+- Introduction paragraph about overall benefits
+- 5-6 specific benefits, each with 2-3 sentences explaining the benefit in detail
+- How each benefit saves money, time, or improves comfort
+- Why {location} specifically benefits from professional service
 
-SECTION 2 - KEY BENEFITS (H2: Benefits of {keyword} in {location}):
-Write an intro paragraph, then list 5 specific benefits with detailed explanations. Each benefit needs 2-3 sentences explaining WHY it matters.
+<h2>The {keyword} Process Explained</h2>
+Write {section_words}+ words covering:
+- Initial consultation and assessment
+- Step-by-step process of the service
+- Timeline expectations (hours, days, etc.)
+- What homeowners should prepare or expect
 
-SECTION 3 - THE PROCESS (H2: How {keyword} Works):
-Explain step-by-step what customers can expect. Include timeline expectations. Write 100+ words.
+<h2>{keyword} Cost Factors in {location}</h2>
+Write {section_words}+ words discussing:
+- Factors that influence pricing
+- Size and scope considerations
+- Quality vs budget options
+- Why investing in quality service pays off
+- Mention contacting {business_name} for accurate quotes
 
-SECTION 4 - COST CONSIDERATIONS (H2: {keyword} Cost Factors):
-Discuss factors that affect pricing for {keyword} in {location}. Be helpful without giving specific prices. Write 80+ words.
+<h2>How to Choose the Right {keyword} Provider</h2>
+Write {section_words}+ words about:
+- Licensing and certification requirements
+- Experience and reputation factors
+- Questions to ask potential providers
+- Red flags to watch for
+- Why {business_name} is the right choice
 
-SECTION 5 - CHOOSING A PROVIDER (H2: Choosing the Right {keyword} Provider):
-What should {location} residents look for? Write 80+ words. End with call-to-action for {business_name}.
+<h2>Ready to Get Started?</h2>
+Write 80+ words with strong call-to-action:
+- Summarize key benefits
+- Urgency to act
+- Contact {cta_name} at {business_name}
+- {contact_str}
 
-SECTION 6 - CONCLUSION (H2: Get Started with {keyword} Today):
-Summarize key points (50+ words) and include strong call-to-action: Contact {cta_name} at {business_name}. {contact_str}
+TOTAL BODY CONTENT MUST BE {word_count}+ WORDS.
 
-NOTE: Do NOT include FAQs in the body - they are handled separately in faq_items.
-
-OUTPUT FORMAT - Return valid JSON only (no markdown):
+OUTPUT FORMAT (valid JSON only, no markdown):
 {{
-    "title": "{keyword} Services in {location} | {business_name}",
-    "meta_title": "{keyword} in {location} | Expert Service | {business_name}",
-    "meta_description": "Need {keyword} in {location}? Learn about costs, benefits, and how to choose the right provider. Contact {business_name} for expert service.",
-    "body": "<HTML content with the 6 sections above. Use <h2>, <p>, <ul>, <li>, <strong> tags. NO FAQs here - they go in faq_items. Must be 600+ words.>",
-    "h2_headings": ["Understanding {keyword}", "Benefits", "How it Works", "Cost Factors", "Choosing a Provider", "Get Started Today"],
+    "title": "Professional {keyword} in {location} | {business_name}",
+    "meta_title": "{keyword} Services {location} | Expert Solutions | {business_name}",
+    "meta_description": "Looking for professional {keyword} in {location}? {business_name} offers expert service. Contact us today for a free consultation.",
+    "body": "<Full HTML content with all sections above. Must be {word_count}+ words. Use <h2>, <p>, <ul>, <li>, <strong> tags.>",
+    "h2_headings": ["Understanding {keyword}", "Key Benefits", "Process Explained", "Cost Factors", "Choosing a Provider", "Ready to Get Started"],
     "faq_items": [
-        {{"question": "How often should {keyword} maintenance be performed?", "answer": "Write a detailed 40-50 word answer with specific timeframes and recommendations for {location} residents."}},
-        {{"question": "What are the signs that I need {keyword} service?", "answer": "Write a detailed 40-50 word answer listing specific warning signs homeowners should watch for."}},
-        {{"question": "How much does {keyword} typically cost in {location}?", "answer": "Write a detailed 40-50 word answer discussing price factors without exact numbers."}},
-        {{"question": "How long does the {keyword} process take?", "answer": "Write a detailed 40-50 word answer with realistic timeframes for different scenarios."}},
-        {{"question": "Should I attempt DIY or hire a professional for {keyword}?", "answer": "Write a detailed 40-50 word answer explaining risks of DIY and benefits of professional service."}}
+        {{"question": "How often should {keyword} maintenance be performed?", "answer": "For {location} residents, regular maintenance every [specific timeframe] ensures optimal performance. Factors like usage frequency and local climate conditions may require more frequent service. Contact {business_name} for a personalized maintenance schedule."}},
+        {{"question": "What signs indicate I need {keyword} service?", "answer": "Watch for warning signs including [specific symptoms]. {location} homeowners should also look for [local-specific issues]. Early detection prevents costly repairs. If you notice any of these signs, contact {business_name} immediately."}},
+        {{"question": "How much does {keyword} cost in {location}?", "answer": "Costs vary based on factors like property size, system condition, and service scope. {location} prices typically range from [general range] depending on requirements. {business_name} offers free estimates to provide accurate pricing for your specific needs."}},
+        {{"question": "How long does the {keyword} process take?", "answer": "Most {keyword} projects in {location} take between [timeframe] depending on scope and complexity. {business_name} provides detailed timelines during consultation. We work efficiently while ensuring quality results."}},
+        {{"question": "Should I DIY or hire a professional for {keyword}?", "answer": "While minor tasks may seem DIY-friendly, professional {keyword} service ensures safety, warranty protection, and optimal results. {location} building codes often require licensed professionals. {business_name} brings expertise that prevents costly mistakes."}}
     ],
     "faq_schema": {{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": []}},
     "cta": {{"contact_name": "{cta_name}", "company_name": "{business_name}", "phone": "{phone or ''}", "email": "{email or ''}"}}
 }}
 
-CRITICAL: 
-- The "body" must NOT contain any FAQ section - FAQs go only in faq_items array
-- Write real, helpful answers for each FAQ (40-50 words each)
-- Body content should be 600+ words covering the 6 sections above
-- Do NOT use placeholder text anywhere"""
+CRITICAL REQUIREMENTS:
+1. Body content MUST be {word_count}+ words - count carefully
+2. Each section must have substantial, helpful content
+3. Include {keyword} naturally throughout (10-15 times)
+4. Mention {location} multiple times (5-8 times)
+5. NO placeholder text - write real, valuable content
+6. FAQs should have complete, helpful answers (40-50 words each)"""
     
     def _get_related_posts(self, client_id: str, current_keyword: str, limit: int = 4) -> List[Dict]:
         """
