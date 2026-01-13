@@ -8019,6 +8019,8 @@
             
             try {
                 // Use synchronous generation endpoint
+                document.getElementById('blogProgressText').textContent = 'Connecting to AI service...';
+                
                 const response = await fetch('/api/content/blog/generate-sync', {
                     method: 'POST',
                     headers: {
@@ -8034,15 +8036,22 @@
                     })
                 });
                 
-                // Check if response is JSON
-                const contentType = response.headers.get('content-type');
-                if (!contentType || !contentType.includes('application/json')) {
-                    const text = await response.text();
-                    console.error('Non-JSON response:', text.substring(0, 500));
-                    throw new Error('Server returned an error. Please try again.');
-                }
+                document.getElementById('blogProgressText').textContent = 'Processing response...';
                 
-                const result = await response.json();
+                // Try to parse as JSON, handle non-JSON responses
+                let result;
+                const responseText = await response.text();
+                
+                try {
+                    result = JSON.parse(responseText);
+                } catch (parseError) {
+                    console.error('Failed to parse response:', responseText.substring(0, 500));
+                    // Check if it's an HTML error page
+                    if (responseText.includes('<!DOCTYPE') || responseText.includes('<html')) {
+                        throw new Error('Server timeout or error. Please try again with a lower word count.');
+                    }
+                    throw new Error('Invalid server response. Please try again.');
+                }
                 
                 if (!response.ok || result.error) {
                     throw new Error(result.error || `Server error: ${response.status}`);
