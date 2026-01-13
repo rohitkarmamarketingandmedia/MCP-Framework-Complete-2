@@ -628,65 +628,68 @@ CONTACT: {cta_name} - {contact_str}
 {usp_text}
 {links_text}
 
-Write a helpful, informative article with these sections (use <h2> tags for headings):
+ARTICLE STRUCTURE - Use proper HTML heading hierarchy:
 
-1. Introduction to {keyword} ({intro_words}+ words)
-   - What this service involves
-   - Why residents of {location} might need it
-   - Brief overview
+<h1>{keyword} in {location} - Your Complete Guide</h1>
 
-2. Benefits ({benefits_words}+ words)  
-   - List 5-6 key benefits with explanations
-   - How it helps homeowners/businesses
+<h2>Introduction to {keyword}</h2>
+<p>({intro_words}+ words) What this service involves, why residents of {location} need it.</p>
 
-3. The Process ({section_words}+ words)
-   - How the service works step-by-step
-   - What to expect during the process
+<h2>Key Benefits of Professional {keyword}</h2>
+<h3>Benefit 1: [Specific Benefit]</h3>
+<p>Explanation...</p>
+<h3>Benefit 2: [Specific Benefit]</h3>
+<p>Explanation...</p>
+<h3>Benefit 3: [Specific Benefit]</h3>
+<p>Explanation...</p>
+(Total {benefits_words}+ words for this section)
 
-4. Cost Considerations ({section_words}+ words)
-   - Factors that affect pricing
-   - Value of professional service
+<h2>The {keyword} Process Explained</h2>
+<p>({section_words}+ words) Step-by-step process, what to expect.</p>
 
-5. Choosing a Provider ({section_words}+ words)
-   - What to look for in a provider
-   - Questions to ask
-   - Why {business_name} is a good choice
+<h2>Cost Factors for {keyword} in {location}</h2>
+<p>({section_words}+ words) Pricing factors, value of professional service.</p>
 
-6. Getting Started (80+ words)
-   - Call to action
-   - Contact information for {business_name}
+<h2>How to Choose the Right {keyword} Provider</h2>
+<p>({section_words}+ words) What to look for, why {business_name} is the right choice.</p>
+
+<h2>Ready to Get Started?</h2>
+<p>(80+ words) Call to action, contact {business_name}.</p>
 
 TOTAL BODY CONTENT MUST BE {word_count}+ WORDS.
 
+HTML REQUIREMENTS FOR SEO:
+1. Include exactly ONE <h1> tag at the start
+2. Include 5-6 <h2> tags for main sections
+3. Include 3-4 <h3> tags for subsections (especially in Benefits section)
+4. Include at least 3 internal <a href="..."> links naturally in paragraphs
+5. Use <p>, <ul>, <li>, <strong> tags appropriately
+
 OUTPUT FORMAT (valid JSON only, no markdown):
 {{
-    "title": "Professional {keyword} in {location} | {business_name}",
-    "meta_title": "{keyword} Services {location} | Expert Solutions | {business_name}",
-    "meta_description": "Looking for professional {keyword} in {location}? {business_name} offers expert service. Contact us today for a free consultation.",
-    "body": "<Full HTML content with all sections above. Must be {word_count}+ words. Use <h2>, <p>, <ul>, <li>, <strong> tags.>",
-    "h2_headings": ["Understanding {keyword}", "Key Benefits", "Process Explained", "Cost Factors", "Choosing a Provider", "Ready to Get Started"],
+    "title": "{keyword} in {location} - Your Complete Guide | {business_name}",
+    "meta_title": "{keyword} {location} | Expert {industry or 'Service'} | {business_name}",
+    "meta_description": "Looking for professional {keyword} in {location}? {business_name} offers expert service. Call today for a free consultation. Trusted local experts.",
+    "body": "<h1>...</h1><h2>...</h2><p>...</p>... (Full HTML with h1, h2, h3 tags, {word_count}+ words)",
+    "h2_headings": ["Introduction", "Key Benefits", "Process Explained", "Cost Factors", "Choosing a Provider", "Get Started"],
     "faq_items": [
-        {{"question": "How often should {keyword} maintenance be performed?", "answer": "For {location} residents, regular maintenance every [specific timeframe] ensures optimal performance. Factors like usage frequency and local climate conditions may require more frequent service. Contact {business_name} for a personalized maintenance schedule."}},
-        {{"question": "What signs indicate I need {keyword} service?", "answer": "Watch for warning signs including [specific symptoms]. {location} homeowners should also look for [local-specific issues]. Early detection prevents costly repairs. If you notice any of these signs, contact {business_name} immediately."}},
-        {{"question": "How much does {keyword} cost in {location}?", "answer": "Costs vary based on factors like property size, system condition, and service scope. {location} prices typically range from [general range] depending on requirements. {business_name} offers free estimates to provide accurate pricing for your specific needs."}},
-        {{"question": "How long does the {keyword} process take?", "answer": "Most {keyword} projects in {location} take between [timeframe] depending on scope and complexity. {business_name} provides detailed timelines during consultation. We work efficiently while ensuring quality results."}},
-        {{"question": "Should I DIY or hire a professional for {keyword}?", "answer": "While minor tasks may seem DIY-friendly, professional {keyword} service ensures safety, warranty protection, and optimal results. {location} building codes often require licensed professionals. {business_name} brings expertise that prevents costly mistakes."}}
+        {{"question": "How much does {keyword} cost in {location}?", "answer": "Costs in {location} typically range based on scope, property size, and specific requirements. {business_name} provides free estimates for accurate pricing tailored to your needs."}},
+        {{"question": "How do I know if I need {keyword} service?", "answer": "Common signs include [specific symptoms]. If you notice any issues, contact {business_name} for a professional assessment."}},
+        {{"question": "How long does {keyword} take?", "answer": "Most {keyword} projects take [timeframe] depending on complexity. {business_name} provides accurate timelines during consultation."}},
+        {{"question": "Why choose {business_name} for {keyword}?", "answer": "{business_name} offers experienced professionals, quality service, and customer satisfaction. Contact us today to learn more."}},
+        {{"question": "Do you offer free estimates for {keyword}?", "answer": "Yes! {business_name} provides free, no-obligation estimates for all {keyword} services in {location}. Call us today."}}
     ],
     "faq_schema": {{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": []}},
     "cta": {{"contact_name": "{cta_name}", "company_name": "{business_name}", "phone": "{phone or ''}", "email": "{email or ''}"}}
 }}
 
-CRITICAL REQUIREMENTS:
-1. Body content MUST be {word_count}+ words - THIS IS MANDATORY
-2. Each section must have substantial, helpful content - NOT short paragraphs
-3. Include {keyword} naturally throughout (10-15 times)
-4. Mention {location} multiple times (5-8 times)
-5. NO placeholder text - write real, valuable content
-6. FAQs should have complete, helpful answers (40-50 words each)
-
-WORD COUNT CHECK: Your response body MUST contain at least {word_count} words. 
-Count your words before responding. If under {word_count}, add more detail to each section.
-A {word_count}-word article needs approximately {word_count // 6} words per section."""
+CRITICAL SEO REQUIREMENTS:
+1. Body MUST have ONE <h1> tag, 5-6 <h2> tags, and 3+ <h3> tags
+2. Body MUST be {word_count}+ words - count before responding
+3. Include {keyword} naturally 10-15 times
+4. Include {location} 5-8 times
+5. Include at least 3 internal links (<a href>) in paragraphs
+6. NO placeholder text - write complete, valuable content"""
     
     def _get_related_posts(self, client_id: str, current_keyword: str, limit: int = 6) -> List[Dict]:
         """
