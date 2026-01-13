@@ -578,6 +578,24 @@ Example for HVAC business:
         
         location = f"{city}, {state}" if state else city
         
+        # Check if keyword already contains the city name - avoid duplication
+        # e.g., "heating repair port charlotte" already has "port charlotte"
+        keyword_lower = keyword.lower()
+        city_lower = city.lower()
+        
+        # If keyword already contains city, don't add location to title
+        keyword_has_location = city_lower and city_lower in keyword_lower
+        
+        # For titles: if keyword has location, just add state; otherwise add full location
+        if keyword_has_location:
+            # Keyword already has city - just append state if available
+            title_location = f", {state}" if state else ""
+        else:
+            # Keyword doesn't have city - use full location
+            title_location = f" in {location}" if location else ""
+        
+        logger.info(f"Keyword: '{keyword_display}', City: '{city}', keyword_has_location: {keyword_has_location}")
+        
         # Build MANDATORY internal links section - these MUST appear in content
         internal_links_html = ""
         link_instructions = ""
@@ -668,7 +686,7 @@ IMPORTANT: Use Title Case for all headings (e.g., "{keyword_display}" not "{keyw
 
 ARTICLE STRUCTURE - Use proper HTML heading hierarchy:
 
-<h1>{keyword_display} in {location} - Your Complete Guide</h1>
+<h1>{keyword_display}{title_location} - Your Complete Guide</h1>
 
 <h2>Introduction to {keyword_display}</h2>
 <p>({intro_words}+ words) What this service involves, why residents of {location} need it.</p>
@@ -685,10 +703,10 @@ ARTICLE STRUCTURE - Use proper HTML heading hierarchy:
 <h2>The {keyword_display} Process Explained</h2>
 <p>({section_words}+ words) Step-by-step process, what to expect.</p>
 
-<h2>Cost Factors for {keyword_display} in {location}</h2>
+<h2>Cost Factors for {keyword_display}</h2>
 <p>({section_words}+ words) Pricing factors, value of professional service.</p>
 
-<h2>How to Choose the Right {keyword_display} Provider</h2>
+<h2>How to Choose the Right Provider</h2>
 <p>({section_words}+ words) What to look for, why {business_name} is the right choice.</p>
 
 <h2>Ready to Get Started?</h2>
@@ -705,17 +723,17 @@ HTML REQUIREMENTS FOR SEO:
 
 OUTPUT FORMAT (valid JSON only, no markdown):
 {{
-    "title": "{keyword_display} in {location} - Your Complete Guide | {business_name}",
-    "meta_title": "{keyword_display} {location} | Expert {industry or 'Service'} | {business_name}",
-    "meta_description": "Looking for professional {keyword_display.lower()} in {location}? {business_name} offers expert service. Call today for a free consultation. Trusted local experts.",
+    "title": "{keyword_display}{title_location} - Your Complete Guide | {business_name}",
+    "meta_title": "{keyword_display}{title_location} | Expert {industry or 'Service'} | {business_name}",
+    "meta_description": "Looking for professional {keyword.lower()}? {business_name} in {location} offers expert service. Call today for a free consultation. Trusted local experts.",
     "body": "<h1>...</h1><h2>...</h2><p>...</p>... (Full HTML with h1, h2, h3 tags, {word_count}+ words)",
     "h2_headings": ["Introduction", "Key Benefits", "Process Explained", "Cost Factors", "Choosing a Provider", "Get Started"],
     "faq_items": [
-        {{"question": "How much does {keyword_display.lower()} cost in {location}?", "answer": "Costs in {location} typically range based on scope, property size, and specific requirements. {business_name} provides free estimates for accurate pricing tailored to your needs."}},
-        {{"question": "How do I know if I need {keyword_display.lower()} service?", "answer": "Common signs include [specific symptoms]. If you notice any issues, contact {business_name} for a professional assessment."}},
-        {{"question": "How long does {keyword_display.lower()} take?", "answer": "Most projects take [timeframe] depending on complexity. {business_name} provides accurate timelines during consultation."}},
-        {{"question": "Why choose {business_name} for {keyword_display.lower()}?", "answer": "{business_name} offers experienced professionals, quality service, and customer satisfaction. Contact us today to learn more."}},
-        {{"question": "Do you offer free estimates for {keyword_display.lower()}?", "answer": "Yes! {business_name} provides free, no-obligation estimates for all services in {location}. Call us today."}}
+        {{"question": "How much does {keyword.lower()} cost in {location}?", "answer": "Costs in {location} typically range based on scope, property size, and specific requirements. {business_name} provides free estimates for accurate pricing tailored to your needs."}},
+        {{"question": "How do I know if I need {keyword.lower()} service?", "answer": "Common signs include [specific symptoms]. If you notice any issues, contact {business_name} for a professional assessment."}},
+        {{"question": "How long does {keyword.lower()} take?", "answer": "Most projects take [timeframe] depending on complexity. {business_name} provides accurate timelines during consultation."}},
+        {{"question": "Why choose {business_name} for {keyword.lower()}?", "answer": "{business_name} offers experienced professionals, quality service, and customer satisfaction. Contact us today to learn more."}},
+        {{"question": "Do you offer free estimates for {keyword.lower()}?", "answer": "Yes! {business_name} provides free, no-obligation estimates for all services in {location}. Call us today."}}
     ],
     "faq_schema": {{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": []}},
     "cta": {{"contact_name": "{cta_name}", "company_name": "{business_name}", "phone": "{phone or ''}", "email": "{email or ''}"}}
