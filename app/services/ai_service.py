@@ -623,10 +623,16 @@ Example for HVAC business:
                 if url and title and not any(l['url'] == url for l in all_links):
                     all_links.append({'url': url, 'title': title})
         
+        # Build internal links section with explicit HTML format
+        links_text = ""
+        links_html_examples = ""
         if all_links:
-            links_text = "Internal Links to Include (2-4, naturally placed):\n"
-            for link in all_links[:4]:
-                links_text += f"- {link['title']}: {link['url']}\n"
+            links_text = "INTERNAL LINKS TO INSERT (REQUIRED - add at least 3):\n"
+            for i, link in enumerate(all_links[:6]):
+                links_text += f"{i+1}. {link['title']}: {link['url']}\n"
+                if i < 3:
+                    links_html_examples += f'<a href="{link["url"]}">{link["title"]}</a>, '
+            links_html_examples = links_html_examples.rstrip(', ')
         
         # Build contact info
         contact_info = f"Company Name: {business_name}\n"
@@ -651,6 +657,7 @@ TOPIC: {primary_keyword}
 COMPANY: {business_name}
 CITY: {city}, {state}
 {contact_info}
+
 {links_text}
 
 REQUIRED ARTICLE STRUCTURE:
@@ -666,13 +673,13 @@ Write 300 words covering 3 key benefits:
 - Benefit 3: [Title] - 100 words explanation
 
 ## Our Process (200 words)
-Write 200 words explaining how {business_name} handles {primary_keyword}.
+Write 200 words explaining how {business_name} handles {primary_keyword}. Include internal links here.
 
 ## Pricing and Cost Factors (200 words)
 Write 200 words about what affects pricing for {primary_keyword} in {city}.
 
 ## Why Choose {business_name} (200 words)
-Write 200 words about why {business_name} is the best choice. Include contact information.
+Write 200 words about why {business_name} is the best choice. Include contact information and internal links.
 
 ## Frequently Asked Questions (200 words)
 Write 5 Q&A pairs about {primary_keyword}.
@@ -682,16 +689,18 @@ Write 150 words with a strong call-to-action. Include phone and email.
 
 TOTAL: {word_count}+ words
 
-IMPORTANT RULES:
-1. Write EXACTLY the word counts specified above
-2. Use ONLY {city}, {state} for location - no other cities
-3. Include 2-4 internal links naturally
+**CRITICAL REQUIREMENTS:**
+1. Word count: {word_count}+ words minimum
+2. Location: Use ONLY {city}, {state} - no other cities
+3. INTERNAL LINKS: Insert at least 3 links using <a href="URL">anchor text</a> format
+   Example: {links_html_examples if links_html_examples else 'Check out our <a href="/services">other services</a>'}
+4. Meta description: 150-160 characters
 
 Return ONLY valid JSON:
 {{"meta_title": "{primary_keyword} | Expert Service | {business_name}",
 "meta_description": "Professional {primary_keyword.lower()} in {city}. {business_name} provides expert service. Call today for a free estimate.",
 "h1": "{primary_keyword} - Trusted {city} Experts | {business_name}",
-"body": "<h2>Introduction</h2><p>[250 words]</p><h2>Benefits of {primary_keyword}</h2><h3>Benefit 1</h3><p>[100 words]</p><h3>Benefit 2</h3><p>[100 words]</p><h3>Benefit 3</h3><p>[100 words]</p><h2>Our Process</h2><p>[200 words]</p><h2>Pricing and Cost Factors</h2><p>[200 words]</p><h2>Why Choose {business_name}</h2><p>[200 words]</p><h2>Frequently Asked Questions</h2><h3>Q1</h3><p>A1</p><h3>Q2</h3><p>A2</p><h3>Q3</h3><p>A3</p><h3>Q4</h3><p>A4</p><h3>Q5</h3><p>A5</p><h2>Get Started Today</h2><p>[150 words with CTA]</p>",
+"body": "<h2>Introduction</h2><p>... include <a href='URL'>links</a> ...</p>...",
 "faq_items": [
   {{"question": "How much does {primary_keyword.lower()} cost in {city}?", "answer": "Costs vary by project. Contact {business_name} at {phone or 'our office'} for a free estimate."}},
   {{"question": "How long does {primary_keyword.lower()} take?", "answer": "Most jobs take 1-3 days. {business_name} provides accurate timelines during consultation."}},
@@ -703,7 +712,7 @@ Return ONLY valid JSON:
 "cta": {{"company_name": "{business_name}", "phone": "{phone or ''}", "email": "{email or ''}"}}
 }}
 
-CRITICAL: The body must contain {word_count}+ words total. Follow the word counts for each section."""
+REMEMBER: Body must have {word_count}+ words AND at least 3 internal <a href> links!"""
     
     def _get_related_posts(self, client_id: str, current_keyword: str, limit: int = 6) -> List[Dict]:
         """

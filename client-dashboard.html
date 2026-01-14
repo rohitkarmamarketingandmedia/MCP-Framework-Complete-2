@@ -7074,8 +7074,22 @@
                 imageEmpty.classList.remove('hidden');
             }
             
-            // Calculate and display SEO score
-            const seoResult = calculateSEOScore(currentBlog);
+            // Use database SEO score if available, otherwise calculate
+            let seoResult;
+            if (currentBlog.seo_score && currentBlog.seo_score > 0) {
+                // Use stored score from database but still check factors for display
+                const checks = {
+                    wordCount: (currentBlog.word_count || 0) >= 800,
+                    keywordDensity: true, // Assume passed if score stored
+                    internalLinks: countInternalLinks(currentBlog.body || '') >= 1,
+                    metaTitle: (currentBlog.meta_title || '').length >= 40 && (currentBlog.meta_title || '').length <= 70,
+                    metaDesc: (currentBlog.meta_description || '').length >= 100 && (currentBlog.meta_description || '').length <= 180,
+                    headings: (currentBlog.body || '').match(/<h2/gi)?.length >= 3
+                };
+                seoResult = { score: currentBlog.seo_score, checks };
+            } else {
+                seoResult = calculateSEOScore(currentBlog);
+            }
             updateSEOScoreDisplay(seoResult);
 
             // FAQs
