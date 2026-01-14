@@ -638,19 +638,29 @@ Example for HVAC business:
         
         logger.info(f"Building prompt: keyword='{primary_keyword}', city='{city}', state='{state}', links={len(all_links)}")
 
+        # Build critical instruction about city
+        city_instruction = ""
+        if keyword_city:
+            city_instruction = f"""
+⚠️ CRITICAL CITY RULE: The keyword "{primary_keyword}" contains the city "{city}".
+- Use ONLY "{city}" throughout the entire article
+- Do NOT mention any other city (especially not from settings)
+- Every location reference must be "{city}, {state}" or just "{city}"
+"""
+
         return f"""Primary Keyword: {primary_keyword}
 Service: {industry or 'Local Service'}
-City: {city}
+Target City: {city}
 State: {state}
 {contact_info}
 {links_text}
-
+{city_instruction}
 WRITE A {word_count}-WORD BLOG ARTICLE with this structure:
 
-<h1>[Title about {primary_keyword} - do NOT repeat city twice]</h1>
+<h1>[Title about {primary_keyword}]</h1>
 
 <h2>Introduction</h2>
-<p>200+ words introducing the service and why {city} residents need it.</p>
+<p>200+ words introducing the service for {city} residents.</p>
 
 <h2>Benefits of Professional {primary_keyword}</h2>
 <h3>Benefit 1</h3><p>Explanation...</p>
@@ -674,8 +684,8 @@ MANDATORY REQUIREMENTS:
 1. Body MUST be {word_count}+ words - COUNT BEFORE RESPONDING
 2. Include 1 <h1>, 5-6 <h2>, 3+ <h3> tags
 3. Include 2-4 internal links naturally in paragraphs
-4. Include keyword {primary_keyword} 8-12 times naturally
-5. Mention {city} 3-5 times (but NEVER duplicate like "{city} in {city}")
+4. Include keyword "{primary_keyword}" 8-12 times naturally
+5. ONLY use city "{city}" - no other cities allowed
 
 OUTPUT AS VALID JSON:
 {{
@@ -694,7 +704,7 @@ OUTPUT AS VALID JSON:
     "cta": {{"contact_name": "{contact_name or ''}", "company_name": "{business_name}", "phone": "{phone or ''}", "email": "{email or ''}"}}
 }}
 
-⚠️ CRITICAL: Your body content MUST be at least {word_count} words. Count your words!"""
+⚠️ CRITICAL: Body must be {word_count}+ words. Use ONLY the city "{city}" - no other cities!"""
     
     def _get_related_posts(self, client_id: str, current_keyword: str, limit: int = 6) -> List[Dict]:
         """
