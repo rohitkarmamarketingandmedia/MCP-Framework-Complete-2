@@ -366,25 +366,42 @@ def generate_blog_sync(current_user):
         
         logger.info(f"[SYNC] Calling AI service for client: {client.business_name}")
         
-        # Generate blog
-        result = ai_service.generate_blog_post(
+        # Use the new robust blog generator
+        from app.services.blog_ai_single import get_blog_ai_single, BlogRequest
+        
+        blog_gen = get_blog_ai_single()
+        
+        # Parse geo into city/state
+        geo = client.geo or ''
+        geo_parts = geo.split(',') if geo else ['', '']
+        city = geo_parts[0].strip() if len(geo_parts) > 0 else ''
+        state = geo_parts[1].strip() if len(geo_parts) > 1 else 'FL'
+        
+        # Build internal links list
+        internal_links = []
+        for sp in service_pages[:6]:
+            if isinstance(sp, dict) and sp.get('url'):
+                internal_links.append({
+                    'title': sp.get('title') or sp.get('keyword', ''),
+                    'url': sp.get('url', '')
+                })
+        
+        # Generate blog with new robust generator
+        blog_request = BlogRequest(
             keyword=keyword,
-            geo=client.geo or '',
-            industry=client.industry or '',
-            word_count=word_count,
-            tone=client.tone or 'professional',
-            business_name=client.business_name or '',
-            include_faq=include_faq,
-            faq_count=max(faq_count, 5),
-            internal_links=service_pages,
-            usps=client.get_unique_selling_points(),
-            contact_name=contact_name,
-            phone=phone,
-            email=email,
-            client_id=client.id
+            target_words=max(word_count, 1800),  # Ensure minimum 1800 words
+            city=city,
+            state=state,
+            company_name=client.business_name or '',
+            phone=phone or '',
+            email=email or '',
+            industry=client.industry or 'Local Services',
+            internal_links=internal_links
         )
         
-        logger.info(f"[SYNC] AI service returned. Error: {result.get('error', 'None')}")
+        result = blog_gen.generate(blog_request)
+        
+        logger.info(f"[SYNC] BlogAISingle returned: {result.get('word_count', 0)} words")
         
         if result.get('error'):
             logger.error(f"[SYNC] AI error: {result['error']}")
@@ -406,11 +423,11 @@ def generate_blog_sync(current_user):
                 content={
                     'meta_title': result.get('meta_title', ''),
                     'meta_description': result.get('meta_description', ''),
-                    'h1': result.get('title', ''),
+                    'h1': result.get('h1', result.get('title', '')),
                     'body': body_content
                 },
                 target_keyword=keyword,
-                location=client.geo or ''
+                location=city or client.geo or ''
             )
             seo_score = seo_score_result.get('total_score', 0)
             
@@ -424,11 +441,8 @@ def generate_blog_sync(current_user):
             seo_score = 50  # Default score
         
         # Create blog post
-        # Calculate word count properly - strip HTML tags first
-        import re as re_module
-        text_only = re_module.sub(r'<[^>]+>', ' ', body_content)
-        text_only = re_module.sub(r'\s+', ' ', text_only).strip()
-        actual_word_count = len(text_only.split())
+        # Use word count from result
+        actual_word_count = result.get('word_count', 0)
         
         blog_post = DBBlogPost(
             client_id=client_id,
