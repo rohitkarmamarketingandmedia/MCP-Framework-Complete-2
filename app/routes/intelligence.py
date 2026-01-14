@@ -283,7 +283,10 @@ def get_intelligence_report(current_user, client_id):
             callrail_company_id = getattr(client, 'callrail_company_id', None)
             callrail_account_id = getattr(client, 'callrail_account_id', None)
             
+            # STRICT: Only fetch if company_id is set for THIS client
             if callrail_company_id:
+                logger.info(f"Intelligence report for client {client_id} ({client.business_name}): using CallRail company_id={callrail_company_id}")
+                
                 callrail = get_callrail_service()
                 all_calls = callrail.get_recent_calls(
                     company_id=callrail_company_id,
@@ -292,7 +295,7 @@ def get_intelligence_report(current_user, client_id):
                     limit=100
                 )
                 total_calls = len(all_calls)
-                logger.info(f"Intelligence report: got {total_calls} calls from CallRail")
+                logger.info(f"Intelligence report: got {total_calls} calls from CallRail for company {callrail_company_id}")
                 
                 # Extract transcripts from calls that have them
                 call_transcripts = [
@@ -304,6 +307,8 @@ def get_intelligence_report(current_user, client_id):
                     # Log first transcript length for debugging
                     first_len = len(call_transcripts[0].get('transcript', ''))
                     logger.info(f"First transcript length: {first_len} chars")
+            else:
+                logger.info(f"Intelligence report for client {client_id} ({client.business_name}): NO CallRail company_id set - skipping CallRail data")
     except Exception as e:
         logger.warning(f"Could not fetch CallRail data: {e}")
     

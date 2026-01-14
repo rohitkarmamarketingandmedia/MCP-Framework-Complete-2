@@ -4422,8 +4422,53 @@
         
         let callSimulationInterval = null;
         
+        function clearCallIntelligenceUI() {
+            // Clear all call intelligence UI elements when switching clients
+            // This prevents data from one client showing on another client's dashboard
+            
+            // Clear questions
+            const questionsEl = document.getElementById('extracted-questions');
+            if (questionsEl) questionsEl.innerHTML = '<div class="text-xs text-gray-400">Loading...</div>';
+            
+            // Clear keywords
+            const keywordsEl = document.getElementById('extracted-keywords');
+            if (keywordsEl) keywordsEl.innerHTML = '<span class="text-xs text-gray-400">Loading...</span>';
+            
+            // Clear pain points
+            const painEl = document.getElementById('extracted-pain');
+            if (painEl) painEl.innerHTML = '<div class="text-xs text-gray-400">Loading...</div>';
+            
+            // Clear services/opportunities
+            const opportunitiesEl = document.getElementById('content-opportunities');
+            if (opportunitiesEl) opportunitiesEl.innerHTML = '<div class="text-xs text-gray-400">Loading...</div>';
+            
+            // Clear calls count
+            const callsToday = document.getElementById('calls-today');
+            if (callsToday) callsToday.textContent = '0 calls analyzed';
+            
+            // Clear phone mockup
+            const callerName = document.getElementById('caller-name');
+            const callerLocation = document.getElementById('caller-location');
+            const callTimer = document.getElementById('call-timer');
+            if (callerName) callerName.textContent = 'No calls';
+            if (callerLocation) callerLocation.textContent = '';
+            if (callTimer) callTimer.textContent = '00:00';
+            
+            // Stop any running simulation
+            if (callSimulationInterval) {
+                clearInterval(callSimulationInterval);
+                callSimulationInterval = null;
+            }
+            
+            console.log('Cleared call intelligence UI');
+        }
+        
         async function loadCallIntelligence() {
-            console.log('loadCallIntelligence called');
+            console.log('loadCallIntelligence called for client:', currentClient?.id, currentClient?.business_name);
+            
+            // IMPORTANT: Clear previous client's data before fetching new data
+            clearCallIntelligenceUI();
+            
             try {
                 // First try the full intelligence report which includes AI analysis
                 const reportResponse = await fetch(`${API_URL}/api/intelligence/report/${currentClient.id}?days=30&_v=${Date.now()}`, {
@@ -4434,7 +4479,7 @@
                 
                 if (reportResponse.ok) {
                     const report = await reportResponse.json();
-                    console.log('Full intelligence report:', JSON.stringify(report, null, 2));
+                    console.log('Full intelligence report for', currentClient.business_name, ':', JSON.stringify(report, null, 2));
                     
                     // Update calls count
                     const callsToday = document.getElementById('calls-today');
