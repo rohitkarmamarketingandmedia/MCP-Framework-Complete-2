@@ -1007,6 +1007,9 @@ WRITE COMPLETE, PUBLICATION-READY CONTENT."""
             if 'html' not in data and 'body' in data:
                 data['html'] = data['body']
             
+            # POST-PROCESS: Fix duplicate city names in titles
+            data = self._fix_duplicate_cities(data)
+            
             logger.debug(f"Parsed blog: title='{data.get('title', '')[:30]}', body_len={len(data.get('body', ''))}")
             return data
             
@@ -1053,6 +1056,96 @@ WRITE COMPLETE, PUBLICATION-READY CONTENT."""
                 'html': extracted_body,
                 'parse_error': str(e)
             }
+    
+    def _fix_duplicate_cities(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Post-process AI response to fix duplicate city names.
+        E.g., "Heating Repair Port Charlotte Port Charlotte, FL" -> "Heating Repair Port Charlotte, FL"
+        """
+        import re
+        
+        def fix_duplicate(text, pattern_city):
+            """Remove duplicate city occurrences"""
+            if not text or not pattern_city:
+                return text
+            
+            city_lower = pattern_city.lower()
+            city_title = pattern_city.title()
+            
+            # Common duplicate patterns to fix:
+            # "Service City City" -> "Service City"
+            # "Service City in City" -> "Service City"
+            # "Service City City, State" -> "Service City, State"
+            # "Service City for City" -> "Service City"
+            
+            patterns = [
+                # "Port Charlotte Port Charlotte" -> "Port Charlotte"
+                (rf'({city_title})\s+{city_title}', r'\1'),
+                # "Port Charlotte in Port Charlotte" -> "Port Charlotte"
+                (rf'({city_title})\s+in\s+{city_title}', r'\1'),
+                # "Port Charlotte for Port Charlotte" -> "Port Charlotte"  
+                (rf'({city_title})\s+for\s+{city_title}', r'\1'),
+                # "in Port Charlotte in Port Charlotte" -> "in Port Charlotte"
+                (rf'(in\s+{city_title})\s+in\s+{city_title}', r'\1'),
+                # Case insensitive versions
+                (rf'({pattern_city})\s+{pattern_city}', r'\1', re.IGNORECASE),
+                (rf'({pattern_city})\s+in\s+{pattern_city}', r'\1', re.IGNORECASE),
+            ]
+            
+            for pattern_tuple in patterns:
+                if len(pattern_tuple) == 3:
+                    pattern, replacement, flags = pattern_tuple
+                    text = re.sub(pattern, replacement, text, flags=flags)
+                else:
+                    pattern, replacement = pattern_tuple
+                    text = re.sub(pattern, replacement, text)
+            
+            return text
+        
+        # Try to extract city from the content
+        # Look for common patterns like "City, State" or "City, FL"
+        city = None
+        
+        # Try to find city from meta_description or title
+        for field in ['meta_description', 'title', 'meta_title', 'h1']:
+            text = data.get(field, '')
+            if text:
+                # Look for "City, STATE" pattern
+                match = re.search(r'in\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?),\s*([A-Z]{2})', text)
+                if match:
+                    city = match.group(1)
+                    break
+                # Look for just city name followed by state
+                match = re.search(r'([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?),\s*(?:FL|Florida|TX|Texas|CA|California|[A-Z]{2})', text)
+                if match:
+                    city = match.group(1)
+                    break
+        
+        if not city:
+            # Try extracting from common city names in the text
+            common_cities = ['Port Charlotte', 'Sarasota', 'Fort Myers', 'Naples', 'Tampa', 'Orlando', 
+                           'Jacksonville', 'Miami', 'Bradenton', 'Venice', 'Punta Gorda']
+            for test_city in common_cities:
+                if test_city.lower() in str(data).lower():
+                    city = test_city
+                    break
+        
+        if city:
+            logger.info(f"Post-processing: fixing duplicate city '{city}' in titles")
+            
+            # Fix each text field
+            for field in ['title', 'meta_title', 'meta_description', 'h1']:
+                if field in data and data[field]:
+                    original = data[field]
+                    data[field] = fix_duplicate(data[field], city)
+                    if original != data[field]:
+                        logger.info(f"  Fixed {field}: '{original[:50]}' -> '{data[field][:50]}'")
+            
+            # Also fix H1 in body content
+            if 'body' in data and data['body']:
+                data['body'] = fix_duplicate(data['body'], city)
+        
+        return data
     
     def _call_with_retry(self, prompt: str, max_tokens: int = 2000, max_retries: int = 3, system_prompt: str = None, model: str = None, temperature: float = 0.7) -> Dict[str, Any]:
         """Call OpenAI with retry logic for rate limits"""
