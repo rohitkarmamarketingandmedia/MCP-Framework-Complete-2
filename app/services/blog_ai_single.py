@@ -105,13 +105,16 @@ class BlogAISingle:
         # 4) SEO auto-fixes
         result = self._seo_autofix(result, req)
         
-        # 5) Fix wrong city references
+        # 5) Fix wrong city references (settings city -> keyword city)
         result = self._fix_wrong_city(result)
+        
+        # 6) Validate and fix any other wrong cities (enterprise-level validation)
+        result = self._validate_and_fix_cities(result, req.city)
 
-        # 6) Build HTML
+        # 7) Build HTML
         result["html"] = result.get("body", "")
         
-        # 7) Calculate word count
+        # 8) Calculate word count
         result["word_count"] = self._word_count(result.get("body", ""))
         
         logger.info(f"BlogAISingle.generate complete: {result['word_count']} words")
@@ -137,16 +140,19 @@ class BlogAISingle:
             req.city = keyword_city
 
     def _call_model(self, model: str, prompt: str) -> str:
-        """Call OpenAI API"""
+        """Call OpenAI API with optimized settings"""
         try:
             logger.info(f"Calling {model}...")
             resp = self.client.chat.completions.create(
                 model=model,
                 messages=[
-                    {"role": "system", "content": "You are a professional SEO content writer. Return ONLY valid JSON. No markdown code blocks."},
+                    {
+                        "role": "system", 
+                        "content": "You are an SEO content generator. You must follow ALL constraints exactly. If any rule is violated, the output is considered invalid."
+                    },
                     {"role": "user", "content": prompt},
                 ],
-                temperature=0.7,
+                temperature=0.45,  # Lower temp for better constraint following
                 max_tokens=8000,
             )
             content = resp.choices[0].message.content or ""
@@ -158,34 +164,34 @@ class BlogAISingle:
 
     def _call_model_continue(self, model: str, current_body: str, words_needed: int, req: BlogRequest) -> str:
         """Call model to continue/expand body content"""
-        prompt = f"""You are continuing a blog post about "{req.keyword}" for {req.company_name} in {req.city}, {req.state}.
+        prompt = f"""You are continuing an SEO blog post. Return ONLY valid JSON.
 
-TASK: Write {words_needed} MORE WORDS of high-quality content to add to the existing article.
+TASK: Add {words_needed} MORE words to the article about "{req.keyword}".
 
-CURRENT ARTICLE (last portion):
+CITY RULE: Use ONLY "{req.city}" - no other cities allowed.
+HEADING RULE: Do NOT put city name in H2/H3 headings.
+
+CURRENT ARTICLE ENDING:
 {current_body[-1500:]}
 
-WRITE NEW CONTENT WITH:
-- New <h2> section with detailed information
-- At least 2-3 paragraphs under each heading
-- Practical tips and helpful information
-- Mention {req.company_name} and {req.city} naturally
+REQUIREMENTS:
+- Write {words_needed}+ words of NEW content
+- Add 2-3 new <h2> sections with detailed paragraphs (80-100+ words each)
+- Sound like an industry expert in {req.industry or 'this field'}
+- Include specific technical details
 - Do NOT repeat existing content
 
-REQUIRED: Write exactly {words_needed} words of NEW content.
-
-Return ONLY valid JSON:
-{{"body_append": "<h2>New Section Title</h2><p>Detailed paragraph 1 with at least 100 words...</p><p>Detailed paragraph 2 with at least 100 words...</p><h2>Another Section</h2><p>More detailed content...</p>"}}
-
-IMPORTANT: The body_append must contain {words_needed}+ words of new content!"""
+Return ONLY this JSON:
+{{"body_append": "<h2>Section Title</h2><p>80-100+ words of expert content...</p><h2>Another Section</h2><p>More detailed content...</p>"}}"""
+        
         try:
             resp = self.client.chat.completions.create(
                 model=model,
                 messages=[
-                    {"role": "system", "content": "You are an expert SEO content writer. Return ONLY valid JSON with the body_append key containing HTML content."},
+                    {"role": "system", "content": "You are an SEO content generator. Return ONLY valid JSON."},
                     {"role": "user", "content": prompt},
                 ],
-                temperature=0.7,
+                temperature=0.45,  # Lower temp for constraint following
                 max_tokens=4000,
             )
             return resp.choices[0].message.content or ""
@@ -203,191 +209,168 @@ IMPORTANT: The body_append must contain {words_needed}+ words of new content!"""
         internal = req.internal_links or []
         internal_text = ""
         if internal:
-            internal_text = "INTERNAL LINKS TO NATURALLY WEAVE INTO CONTENT:\n"
+            internal_text = "INTERNAL LINKS TO INSERT (minimum 3 required):\n"
             for link in internal[:6]:
                 if link.get("url") and link.get("title"):
-                    internal_text += f'- <a href="{link["url"]}">{link["title"]}</a>\n'
+                    internal_text += f'<a href="{link["url"]}">{link["title"]}</a>\n'
         
-        # Industry-specific content guidance
-        industry_lower = (req.industry or '').lower()
-        
-        # Determine industry-specific angle
-        if 'hvac' in industry_lower or 'air' in industry_lower or 'ac' in industry_lower or 'heating' in industry_lower:
-            industry_angle = """
-INDUSTRY CONTEXT (HVAC/Air Conditioning):
-- Discuss energy efficiency, SEER ratings, and utility savings
-- Mention Florida's humidity challenges and year-round cooling needs
-- Reference common issues: refrigerant leaks, compressor failures, frozen coils
-- Include seasonal maintenance tips (pre-summer tune-ups, filter changes)
-- Discuss indoor air quality, duct cleaning, and humidity control
-- Mention emergency 24/7 service availability if applicable"""
-        elif 'electric' in industry_lower:
-            industry_angle = """
-INDUSTRY CONTEXT (Electrical Services):
-- Discuss electrical safety, code compliance, and permits
-- Mention panel upgrades, circuit overloads, and grounding
-- Reference common issues: flickering lights, tripping breakers, outlet problems
-- Include smart home integration and EV charger installation
-- Discuss surge protection and whole-home generators
-- Mention emergency electrical services"""
-        elif 'plumb' in industry_lower:
-            industry_angle = """
-INDUSTRY CONTEXT (Plumbing):
-- Discuss water heater options (tank vs tankless, gas vs electric)
-- Mention drain cleaning, sewer line issues, and leak detection
-- Reference common issues: low water pressure, running toilets, pipe corrosion
-- Include water quality, filtration, and softener systems
-- Discuss emergency plumbing and 24/7 availability
-- Mention bathroom/kitchen remodeling plumbing"""
-        elif 'dental' in industry_lower or 'dentist' in industry_lower:
-            industry_angle = """
-INDUSTRY CONTEXT (Dental Services):
-- Discuss preventive care, cleanings, and oral health education
-- Mention cosmetic options: whitening, veneers, Invisalign
-- Reference common concerns: cavities, gum disease, tooth sensitivity
-- Include family dentistry and pediatric care
-- Discuss sedation options for anxious patients
-- Mention emergency dental care availability"""
-        elif 'roof' in industry_lower:
-            industry_angle = """
-INDUSTRY CONTEXT (Roofing):
-- Discuss Florida's unique roofing challenges (hurricanes, heat, humidity)
-- Mention material options: shingles, tile, metal, flat roofing
-- Reference common issues: leaks, storm damage, aging materials
-- Include insurance claim assistance and inspections
-- Discuss energy-efficient and reflective roofing options
-- Mention warranties and maintenance programs"""
-        else:
-            industry_angle = """
-INDUSTRY CONTEXT (Local Services):
-- Emphasize local expertise and community involvement
-- Mention licensing, insurance, and professional certifications
-- Reference customer satisfaction and review ratings
-- Include response times and service guarantees
-- Discuss the importance of choosing local over national chains
-- Mention any specializations or unique service offerings"""
+        return f"""You are a STRICT SEO CONTENT ENGINE, not a creative writer.
+Your job is to generate LOCAL SEO BLOG POSTS that MUST follow ALL rules below.
+If ANY rule is violated, you must FIX the output BEFORE returning it.
+FAILURE TO FOLLOW RULES IS NOT ALLOWED.
 
-        return f"""You are a senior SEO content strategist writing a comprehensive, authoritative blog post that will rank on page 1 of Google.
-
-=== CONTENT BRIEF ===
-
-PRIMARY KEYWORD: {req.keyword}
-BUSINESS: {req.company_name}
-LOCATION: {city}, {state}
-SERVICE CATEGORY: {req.industry or 'Professional Services'}
-CONTACT: {req.phone} | {req.email}
-TARGET LENGTH: {req.target_words} words (MINIMUM - this is critical for SEO)
-
-{industry_angle}
+========================
+INPUT PARAMETERS
+========================
+Primary Keyword: {req.keyword}
+Business Name: {req.company_name}
+City: {city}
+State: {state}
+Industry: {req.industry or 'Local Services'}
+Phone: {req.phone}
+Email: {req.email}
+Target Word Count: {req.target_words} words MINIMUM
 
 {internal_text}
 
-=== CONTENT REQUIREMENTS ===
+========================
+ABSOLUTE RULES (NON-NEGOTIABLE)
+========================
 
-WRITING STYLE:
-- Write like an industry expert, not a generic AI
-- Use specific technical terms relevant to {req.industry or 'the industry'}
-- Include real-world scenarios and examples
-- Address actual customer pain points and concerns
-- Sound helpful and authoritative, not salesy
-- Vary sentence length and structure for natural flow
+1. LOCATION ENFORCEMENT
+- Use ONLY the city "{city}" - NO OTHER CITIES ALLOWED
+- NEVER introduce any other city, nearby area, county, or region
+- If the primary keyword already contains a city name, DO NOT add another city anywhere
+- City name may appear naturally 3-5 times, NOT repetitively
+- Do NOT put city name in H2 or H3 headings
 
-STRUCTURE (create engaging, detailed content for each):
+2. HEADLINES & CASING
+- ALL headlines must be in Proper Title Case
+- NO lowercase headlines
+- H1 must be human-readable, not keyword-stuffed
+- H2/H3 headings should NOT include the city name
+
+3. WORD COUNT
+- You MUST meet or exceed {req.target_words} words
+- Output AT LEAST {req.target_words} words in the body
+- Do NOT summarize, compress, or shorten content
+- Write detailed, comprehensive paragraphs
+
+4. CONTENT QUALITY
+- NO generic filler or vague marketing language
+- NO statements like "ultimate guide," "epitome," "unparalleled"
+- Write as a subject-matter expert in {req.industry or 'this field'}
+- Include specific technical details relevant to {req.keyword}
+- Address real customer pain points and concerns
+
+5. INTERNAL LINKS
+- Insert AT LEAST 3 internal links using HTML: <a href="URL">Anchor Text</a>
+- Links must be contextually relevant and woven naturally into sentences
+- Use the links provided above
+
+6. CTA RULES
+- CTA must include: {req.company_name}, {req.phone}, {req.email}
+- CTA must appear at least TWICE in the body
+- CTA must be persuasive, not generic
+- Example: "Call {req.company_name} at {req.phone} for your free estimate"
+
+7. FAQ + SCHEMA
+- Include 5 real, specific FAQs about {req.keyword}
+- NO placeholder questions - make them specific to the service
+- Generate valid FAQPage schema JSON
+- Questions must match the article topic exactly
+
+8. SEO SCORE TARGET
+- Content must achieve SEO score of 90+
+- Optimize headings, keyword placement, internal links, and readability
+- Use keyword "{req.keyword}" naturally 8-12 times
+- Meta description must be 150-160 characters
+
+========================
+REQUIRED CONTENT STRUCTURE
+========================
 
 <h2>What Is {req.keyword}?</h2>
-Write 250+ words:
-- Define the service in plain language
-- Explain when homeowners/businesses need this service
-- Describe what the service involves (process overview)
-- Mention {city}-specific considerations if relevant
+<p>250+ words defining the service, when it's needed, what it involves</p>
 
-<h2>Signs You Need {req.keyword}</h2>
-Write 200+ words:
-- List 5-7 specific warning signs or indicators
-- Explain why each sign matters
-- Create urgency without being alarmist
-- Help readers self-diagnose their situation
+<h2>Signs You Need Professional Help</h2>
+<p>200+ words listing 5-7 specific warning signs with explanations</p>
 
-<h2>Benefits of Professional {req.keyword}</h2>
-Write 250+ words with 3-4 subheadings:
-<h3>[Specific Benefit 1]</h3> - 60+ words with details
-<h3>[Specific Benefit 2]</h3> - 60+ words with details  
-<h3>[Specific Benefit 3]</h3> - 60+ words with details
-<h3>[Specific Benefit 4]</h3> - 60+ words with details
+<h2>Benefits Of Choosing Expert Service</h2>
+<h3>Benefit One Title</h3>
+<p>80+ words</p>
+<h3>Benefit Two Title</h3>
+<p>80+ words</p>
+<h3>Benefit Three Title</h3>
+<p>80+ words</p>
 
-<h2>Our {req.keyword} Process</h2>
-Write 200+ words:
-- Step-by-step explanation of how {req.company_name} handles the service
-- What customers can expect during the service
-- Timeline expectations
-- Any preparation customers should do
+<h2>Our Service Process</h2>
+<p>200+ words explaining step-by-step process, timeline, what to expect</p>
 
-<h2>Cost Factors and Pricing</h2>
-Write 200+ words:
-- Factors that affect pricing (size, complexity, materials, etc.)
-- Price ranges if appropriate (avoid specific numbers unless provided)
-- Value vs. cost discussion
-- Financing options if available
-- Why cheapest isn't always best
+<h2>Cost And Pricing Factors</h2>
+<p>200+ words about what affects pricing, value vs cost, financing options</p>
 
-<h2>Why {city} Residents Choose {req.company_name}</h2>
-Write 200+ words:
-- Local expertise and knowledge of {city} area
-- Years of experience, certifications, licensing
-- Customer testimonials themes (reliability, quality, communication)
-- Guarantees and warranties offered
-- What sets {req.company_name} apart from competitors
+<h2>Why Choose {req.company_name}</h2>
+<p>200+ words about company strengths, experience, guarantees - INCLUDE CTA</p>
 
-<h2>Frequently Asked Questions</h2>
-Write 5 Q&As directly in the body (150+ words total):
-- Real questions customers ask
-- Detailed, helpful answers
-- Include specific information where possible
+<h2>Service Areas We Cover</h2>
+<p>100+ words mentioning {city} and commitment to local community</p>
 
-<h2>Get Expert {req.keyword} Today</h2>
-Write 150+ words:
-- Strong but not pushy call-to-action
-- Mention contact methods: {req.phone}, {req.email}
-- Service area: {city} and surrounding communities
-- What happens when they call (free estimate, consultation, etc.)
+<h2>Get Started Today</h2>
+<p>150+ words with strong CTA - phone {req.phone}, email {req.email}</p>
 
-=== TECHNICAL SEO REQUIREMENTS ===
+========================
+OUTPUT FORMAT (MANDATORY)
+========================
 
-1. WORD COUNT: {req.target_words}+ words total (COUNT CAREFULLY!)
-2. KEYWORD USAGE: Use "{req.keyword}" naturally 8-12 times
-3. LOCATION: Mention "{city}" 4-6 times naturally (NOT in H2/H3 headings)
-4. INTERNAL LINKS: Include 3+ links from the list above, woven naturally into sentences
-5. META TITLE: 50-60 characters, include keyword
-6. META DESCRIPTION: 150-160 characters, compelling with CTA
-
-=== OUTPUT FORMAT ===
-
-Return ONLY valid JSON (no markdown, no code blocks):
+Return ONLY valid JSON. NO markdown. NO commentary. NO explanations.
 
 {{
-  "title": "[Engaging title - Proper Title Case - Include keyword]",
-  "h1": "{req.keyword} Services in {city} | {req.company_name}",
-  "meta_title": "{req.keyword} {city} | {req.company_name}",
-  "meta_description": "Need {req.keyword.lower()} in {city}? {req.company_name} offers expert service with free estimates. Call {req.phone or 'us'} today!",
-  "body": "<h2>What Is {req.keyword}?</h2><p>[250+ words of detailed, expert content...]</p><h2>Signs You Need...</h2><p>[200+ words...]</p>...[CONTINUE ALL SECTIONS]...",
+  "meta_title": "{req.keyword} | Expert {req.industry or 'Service'} | {req.company_name}",
+  "meta_description": "Need {req.keyword.lower()} in {city}? {req.company_name} provides expert service. Call {req.phone or 'today'} for a free estimate!",
+  "h1": "{req.keyword} - Trusted {city} Experts | {req.company_name}",
+  "body": "<h2>What Is {req.keyword}?</h2><p>[250+ words]</p><h2>Signs You Need Professional Help</h2><p>[200+ words]</p>...[ALL SECTIONS WITH FULL WORD COUNTS]...",
   "faq_items": [
-    {{"question": "[Specific question about {req.keyword.lower()}]", "answer": "[Detailed 40-60 word answer]"}},
-    {{"question": "[Question about cost/pricing]", "answer": "[Helpful answer about pricing factors]"}},
-    {{"question": "[Question about timeline/process]", "answer": "[Clear answer about what to expect]"}},
-    {{"question": "[Question about {city} service area]", "answer": "[Answer mentioning areas served]"}},
-    {{"question": "[Question about {req.company_name}]", "answer": "[Answer highlighting company strengths]"}}
+    {{"question": "How much does {req.keyword.lower()} cost in {city}?", "answer": "[Detailed 50+ word answer about pricing factors]"}},
+    {{"question": "How long does {req.keyword.lower()} typically take?", "answer": "[Detailed answer about timeline]"}},
+    {{"question": "Is {req.company_name} licensed and insured?", "answer": "[Answer confirming credentials]"}},
+    {{"question": "Do you offer emergency services?", "answer": "[Answer about availability]"}},
+    {{"question": "What areas do you serve?", "answer": "[Answer mentioning {city} and surrounding areas]"}}
   ],
-  "cta": {{"company_name": "{req.company_name}", "phone": "{req.phone}", "email": "{req.email}"}}
+  "faq_schema": {{
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": [
+      {{"@type": "Question", "name": "...", "acceptedAnswer": {{"@type": "Answer", "text": "..."}}}},
+      {{"@type": "Question", "name": "...", "acceptedAnswer": {{"@type": "Answer", "text": "..."}}}},
+      {{"@type": "Question", "name": "...", "acceptedAnswer": {{"@type": "Answer", "text": "..."}}}},
+      {{"@type": "Question", "name": "...", "acceptedAnswer": {{"@type": "Answer", "text": "..."}}}},
+      {{"@type": "Question", "name": "...", "acceptedAnswer": {{"@type": "Answer", "text": "..."}}}}
+    ]
+  }},
+  "cta": {{
+    "contact_name": "",
+    "business_name": "{req.company_name}",
+    "phone": "{req.phone}",
+    "email": "{req.email}"
+  }}
 }}
 
-=== FINAL CHECKLIST ===
-✓ Body content is {req.target_words}+ words (THIS IS MANDATORY)
-✓ Content sounds like an expert wrote it, not generic AI
-✓ City name ({city}) appears naturally but NOT in H2/H3 headings
-✓ State is uppercase: {state}
-✓ 3+ internal links are woven into the content
-✓ Each section has the minimum word count specified
-✓ FAQs are specific to {req.keyword}, not generic"""
+========================
+SELF-VALIDATION (MANDATORY)
+========================
+
+Before returning output, you MUST internally verify:
+✓ Word count is {req.target_words}+ words
+✓ Only "{city}" is used as the city - no other cities
+✓ No city name in H2/H3 headings
+✓ Headlines are Proper Title Case
+✓ CTA appears at least twice in body
+✓ 3+ internal links are included
+✓ FAQs are specific to {req.keyword}
+✓ JSON is valid
+
+If ANY check fails → FIX IT → then return the JSON."""
 
     def _robust_parse_json(self, text: str) -> Dict[str, Any]:
         """Parse JSON robustly, handling common issues"""
@@ -693,6 +676,66 @@ Return ONLY valid JSON (no markdown, no code blocks):
                         result['faq_items'][i]['question'] = replace_city(faq['question'])
                     if 'answer' in faq:
                         result['faq_items'][i]['answer'] = replace_city(faq['answer'])
+        
+        return result
+    
+    def _validate_and_fix_cities(self, result: Dict[str, Any], correct_city: str) -> Dict[str, Any]:
+        """
+        Post-generation validator: scan for any city != correct_city and remove/replace them.
+        This is how enterprise SEO tools ensure city accuracy.
+        """
+        if not correct_city:
+            return result
+        
+        correct_city_lower = correct_city.lower()
+        correct_city_title = correct_city.title()
+        
+        # List of Florida cities that might incorrectly appear
+        other_cities = [
+            city for city in self.KNOWN_CITIES 
+            if city.lower() != correct_city_lower
+        ]
+        
+        violations_found = []
+        
+        def scan_and_fix(text: str) -> str:
+            if not text or not isinstance(text, str):
+                return text
+            
+            fixed_text = text
+            for other_city in other_cities:
+                other_city_title = other_city.title()
+                # Check if this wrong city appears in the text
+                if re.search(re.escape(other_city_title), fixed_text, re.IGNORECASE):
+                    violations_found.append(other_city_title)
+                    # Replace with correct city
+                    fixed_text = re.sub(
+                        re.escape(other_city_title), 
+                        correct_city_title, 
+                        fixed_text, 
+                        flags=re.IGNORECASE
+                    )
+            return fixed_text
+        
+        # Scan and fix all text fields
+        for field in ['title', 'h1', 'meta_title', 'meta_description', 'body']:
+            if field in result and isinstance(result[field], str):
+                result[field] = scan_and_fix(result[field])
+        
+        # Scan and fix FAQ items
+        if 'faq_items' in result and isinstance(result['faq_items'], list):
+            for i, faq in enumerate(result['faq_items']):
+                if isinstance(faq, dict):
+                    if 'question' in faq:
+                        result['faq_items'][i]['question'] = scan_and_fix(faq['question'])
+                    if 'answer' in faq:
+                        result['faq_items'][i]['answer'] = scan_and_fix(faq['answer'])
+        
+        if violations_found:
+            unique_violations = list(set(violations_found))
+            logger.warning(f"City validator found and fixed wrong cities: {unique_violations} -> {correct_city_title}")
+        else:
+            logger.info(f"City validator: no wrong cities found, content uses only '{correct_city_title}'")
         
         return result
     
