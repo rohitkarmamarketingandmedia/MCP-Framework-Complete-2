@@ -203,105 +203,191 @@ IMPORTANT: The body_append must contain {words_needed}+ words of new content!"""
         internal = req.internal_links or []
         internal_text = ""
         if internal:
-            internal_text = "INTERNAL LINKS (insert 3+ as <a href> tags in body):\n"
+            internal_text = "INTERNAL LINKS TO NATURALLY WEAVE INTO CONTENT:\n"
             for link in internal[:6]:
                 if link.get("url") and link.get("title"):
-                    internal_text += f'- {link["title"]}: {link["url"]}\n'
+                    internal_text += f'- <a href="{link["url"]}">{link["title"]}</a>\n'
         
-        return f"""You are an expert SEO content writer generating a high-quality, location-specific blog post.
+        # Industry-specific content guidance
+        industry_lower = (req.industry or '').lower()
+        
+        # Determine industry-specific angle
+        if 'hvac' in industry_lower or 'air' in industry_lower or 'ac' in industry_lower or 'heating' in industry_lower:
+            industry_angle = """
+INDUSTRY CONTEXT (HVAC/Air Conditioning):
+- Discuss energy efficiency, SEER ratings, and utility savings
+- Mention Florida's humidity challenges and year-round cooling needs
+- Reference common issues: refrigerant leaks, compressor failures, frozen coils
+- Include seasonal maintenance tips (pre-summer tune-ups, filter changes)
+- Discuss indoor air quality, duct cleaning, and humidity control
+- Mention emergency 24/7 service availability if applicable"""
+        elif 'electric' in industry_lower:
+            industry_angle = """
+INDUSTRY CONTEXT (Electrical Services):
+- Discuss electrical safety, code compliance, and permits
+- Mention panel upgrades, circuit overloads, and grounding
+- Reference common issues: flickering lights, tripping breakers, outlet problems
+- Include smart home integration and EV charger installation
+- Discuss surge protection and whole-home generators
+- Mention emergency electrical services"""
+        elif 'plumb' in industry_lower:
+            industry_angle = """
+INDUSTRY CONTEXT (Plumbing):
+- Discuss water heater options (tank vs tankless, gas vs electric)
+- Mention drain cleaning, sewer line issues, and leak detection
+- Reference common issues: low water pressure, running toilets, pipe corrosion
+- Include water quality, filtration, and softener systems
+- Discuss emergency plumbing and 24/7 availability
+- Mention bathroom/kitchen remodeling plumbing"""
+        elif 'dental' in industry_lower or 'dentist' in industry_lower:
+            industry_angle = """
+INDUSTRY CONTEXT (Dental Services):
+- Discuss preventive care, cleanings, and oral health education
+- Mention cosmetic options: whitening, veneers, Invisalign
+- Reference common concerns: cavities, gum disease, tooth sensitivity
+- Include family dentistry and pediatric care
+- Discuss sedation options for anxious patients
+- Mention emergency dental care availability"""
+        elif 'roof' in industry_lower:
+            industry_angle = """
+INDUSTRY CONTEXT (Roofing):
+- Discuss Florida's unique roofing challenges (hurricanes, heat, humidity)
+- Mention material options: shingles, tile, metal, flat roofing
+- Reference common issues: leaks, storm damage, aging materials
+- Include insurance claim assistance and inspections
+- Discuss energy-efficient and reflective roofing options
+- Mention warranties and maintenance programs"""
+        else:
+            industry_angle = """
+INDUSTRY CONTEXT (Local Services):
+- Emphasize local expertise and community involvement
+- Mention licensing, insurance, and professional certifications
+- Reference customer satisfaction and review ratings
+- Include response times and service guarantees
+- Discuss the importance of choosing local over national chains
+- Mention any specializations or unique service offerings"""
 
-STRICT GUARDRAILS (DO NOT BREAK):
-- Use ONLY "{city}" as the city name - never substitute or use other cities
-- Do NOT put city name in H2/H3 headings (e.g., write "Introduction" not "Introduction in {city}")
-- Convert all titles to Proper Title Case
-- Generate original, human-sounding content (no fluff, no keyword stuffing)
-- Write EXACTLY {req.target_words}+ words - this is CRITICAL
+        return f"""You are a senior SEO content strategist writing a comprehensive, authoritative blog post that will rank on page 1 of Google.
 
-INPUT:
-- Primary Keyword: {req.keyword}
-- Service: {req.industry or 'Professional Service'}
-- City: {city}
-- State: {state}
-- Business Name: {req.company_name}
-- Phone: {req.phone}
-- Email: {req.email}
-- Target Word Count: {req.target_words} words MINIMUM
+=== CONTENT BRIEF ===
+
+PRIMARY KEYWORD: {req.keyword}
+BUSINESS: {req.company_name}
+LOCATION: {city}, {state}
+SERVICE CATEGORY: {req.industry or 'Professional Services'}
+CONTACT: {req.phone} | {req.email}
+TARGET LENGTH: {req.target_words} words (MINIMUM - this is critical for SEO)
+
+{industry_angle}
 
 {internal_text}
 
-REQUIRED STRUCTURE (follow exactly):
+=== CONTENT REQUIREMENTS ===
 
-1. H1 TITLE (55-65 characters)
-   - Include keyword + city ONCE
-   - Proper Title Case
-   - Example: "{req.keyword} - Expert Service in {city}"
+WRITING STYLE:
+- Write like an industry expert, not a generic AI
+- Use specific technical terms relevant to {req.industry or 'the industry'}
+- Include real-world scenarios and examples
+- Address actual customer pain points and concerns
+- Sound helpful and authoritative, not salesy
+- Vary sentence length and structure for natural flow
 
-2. META TITLE (50-60 characters)
-   - "{req.keyword} | {req.company_name}"
+STRUCTURE (create engaging, detailed content for each):
 
-3. META DESCRIPTION (150-160 characters)
-   - Include service + city once
-   - Call to action
+<h2>What Is {req.keyword}?</h2>
+Write 250+ words:
+- Define the service in plain language
+- Explain when homeowners/businesses need this service
+- Describe what the service involves (process overview)
+- Mention {city}-specific considerations if relevant
 
-4. BODY CONTENT ({req.target_words}+ words total):
+<h2>Signs You Need {req.keyword}</h2>
+Write 200+ words:
+- List 5-7 specific warning signs or indicators
+- Explain why each sign matters
+- Create urgency without being alarmist
+- Help readers self-diagnose their situation
 
-   <h2>Understanding {req.keyword}</h2>
-   <p>300+ words explaining the service and its importance...</p>
+<h2>Benefits of Professional {req.keyword}</h2>
+Write 250+ words with 3-4 subheadings:
+<h3>[Specific Benefit 1]</h3> - 60+ words with details
+<h3>[Specific Benefit 2]</h3> - 60+ words with details  
+<h3>[Specific Benefit 3]</h3> - 60+ words with details
+<h3>[Specific Benefit 4]</h3> - 60+ words with details
 
-   <h2>Benefits of Professional Service</h2>
-   <h3>Benefit One</h3>
-   <p>100+ words...</p>
-   <h3>Benefit Two</h3>
-   <p>100+ words...</p>
-   <h3>Benefit Three</h3>
-   <p>100+ words...</p>
+<h2>Our {req.keyword} Process</h2>
+Write 200+ words:
+- Step-by-step explanation of how {req.company_name} handles the service
+- What customers can expect during the service
+- Timeline expectations
+- Any preparation customers should do
 
-   <h2>Our Service Process</h2>
-   <p>200+ words explaining how {req.company_name} works...</p>
+<h2>Cost Factors and Pricing</h2>
+Write 200+ words:
+- Factors that affect pricing (size, complexity, materials, etc.)
+- Price ranges if appropriate (avoid specific numbers unless provided)
+- Value vs. cost discussion
+- Financing options if available
+- Why cheapest isn't always best
 
-   <h2>Cost and Pricing Factors</h2>
-   <p>200+ words about pricing considerations...</p>
+<h2>Why {city} Residents Choose {req.company_name}</h2>
+Write 200+ words:
+- Local expertise and knowledge of {city} area
+- Years of experience, certifications, licensing
+- Customer testimonials themes (reliability, quality, communication)
+- Guarantees and warranties offered
+- What sets {req.company_name} apart from competitors
 
-   <h2>Common Problems We Solve</h2>
-   <p>200+ words about issues customers face...</p>
+<h2>Frequently Asked Questions</h2>
+Write 5 Q&As directly in the body (150+ words total):
+- Real questions customers ask
+- Detailed, helpful answers
+- Include specific information where possible
 
-   <h2>Why Choose {req.company_name}</h2>
-   <p>200+ words about company benefits, include phone {req.phone}...</p>
+<h2>Get Expert {req.keyword} Today</h2>
+Write 150+ words:
+- Strong but not pushy call-to-action
+- Mention contact methods: {req.phone}, {req.email}
+- Service area: {city} and surrounding communities
+- What happens when they call (free estimate, consultation, etc.)
 
-   <h2>Service Areas</h2>
-   <p>100+ words mentioning {city} and surrounding areas...</p>
+=== TECHNICAL SEO REQUIREMENTS ===
 
-   <h2>Get Started Today</h2>
-   <p>150+ words with strong CTA, phone {req.phone}, email {req.email}...</p>
+1. WORD COUNT: {req.target_words}+ words total (COUNT CAREFULLY!)
+2. KEYWORD USAGE: Use "{req.keyword}" naturally 8-12 times
+3. LOCATION: Mention "{city}" 4-6 times naturally (NOT in H2/H3 headings)
+4. INTERNAL LINKS: Include 3+ links from the list above, woven naturally into sentences
+5. META TITLE: 50-60 characters, include keyword
+6. META DESCRIPTION: 150-160 characters, compelling with CTA
 
-5. FAQ SECTION (in faq_items array, NOT in body):
-   - 5 high-intent questions with detailed answers
+=== OUTPUT FORMAT ===
 
-TOTAL BODY: {req.target_words}+ words (THIS IS MANDATORY - COUNT YOUR WORDS!)
+Return ONLY valid JSON (no markdown, no code blocks):
 
-OUTPUT AS VALID JSON ONLY (no markdown):
 {{
-  "title": "[Compelling title with keyword - Proper Case]",
-  "h1": "{req.keyword} - Expert {req.industry or 'Service'} in {city}",
-  "meta_title": "{req.keyword} | {req.company_name}",
-  "meta_description": "Professional {req.keyword.lower()} in {city}, {state}. {req.company_name} offers expert service. Call {req.phone or 'today'} for a free estimate.",
-  "body": "<h2>Understanding {req.keyword}</h2><p>...</p><h2>Benefits</h2>...",
+  "title": "[Engaging title - Proper Title Case - Include keyword]",
+  "h1": "{req.keyword} Services in {city} | {req.company_name}",
+  "meta_title": "{req.keyword} {city} | {req.company_name}",
+  "meta_description": "Need {req.keyword.lower()} in {city}? {req.company_name} offers expert service with free estimates. Call {req.phone or 'us'} today!",
+  "body": "<h2>What Is {req.keyword}?</h2><p>[250+ words of detailed, expert content...]</p><h2>Signs You Need...</h2><p>[200+ words...]</p>...[CONTINUE ALL SECTIONS]...",
   "faq_items": [
-    {{"question": "How much does {req.keyword.lower()} cost?", "answer": "..."}},
-    {{"question": "How long does it take?", "answer": "..."}},
-    {{"question": "Is {req.company_name} licensed?", "answer": "..."}},
-    {{"question": "Do you offer warranties?", "answer": "..."}},
-    {{"question": "What areas do you serve?", "answer": "..."}}
+    {{"question": "[Specific question about {req.keyword.lower()}]", "answer": "[Detailed 40-60 word answer]"}},
+    {{"question": "[Question about cost/pricing]", "answer": "[Helpful answer about pricing factors]"}},
+    {{"question": "[Question about timeline/process]", "answer": "[Clear answer about what to expect]"}},
+    {{"question": "[Question about {city} service area]", "answer": "[Answer mentioning areas served]"}},
+    {{"question": "[Question about {req.company_name}]", "answer": "[Answer highlighting company strengths]"}}
   ],
   "cta": {{"company_name": "{req.company_name}", "phone": "{req.phone}", "email": "{req.email}"}}
 }}
 
-CRITICAL REMINDERS:
-1. Body MUST have {req.target_words}+ words - write detailed paragraphs
-2. Do NOT put city in H2/H3 headings
-3. Use ONLY {city} as the city
-4. Include 3+ internal links as <a href> tags in body
-5. State abbreviation must be uppercase: {state}"""
+=== FINAL CHECKLIST ===
+✓ Body content is {req.target_words}+ words (THIS IS MANDATORY)
+✓ Content sounds like an expert wrote it, not generic AI
+✓ City name ({city}) appears naturally but NOT in H2/H3 headings
+✓ State is uppercase: {state}
+✓ 3+ internal links are woven into the content
+✓ Each section has the minimum word count specified
+✓ FAQs are specific to {req.keyword}, not generic"""
 
     def _robust_parse_json(self, text: str) -> Dict[str, Any]:
         """Parse JSON robustly, handling common issues"""
