@@ -49,7 +49,7 @@ class AIService:
         keyword: str,
         geo: str,
         industry: str,
-        word_count: int = 1000,
+        word_count: int = 1200,
         tone: str = 'professional',
         business_name: str = '',
         include_faq: bool = True,
@@ -570,11 +570,35 @@ Example for HVAC business:
                     result.append(word.lower())
             return ' '.join(result)
         
-        # Parse geo into city/state
+        # Known Florida cities to detect in keyword
+        known_cities = [
+            'sarasota', 'port charlotte', 'fort myers', 'naples', 'tampa', 'orlando',
+            'jacksonville', 'miami', 'bradenton', 'venice', 'punta gorda', 'north port',
+            'cape coral', 'bonita springs', 'estero', 'lehigh acres', 'englewood',
+            'arcadia', 'nokomis', 'osprey', 'lakewood ranch', 'palmetto', 'ellenton',
+            'parrish', 'ruskin', 'sun city center', 'apollo beach', 'brandon', 'riverview'
+        ]
+        
+        # Check if keyword already contains a city name
+        keyword_lower = keyword.lower()
+        keyword_city = None
+        for test_city in known_cities:
+            if test_city in keyword_lower:
+                keyword_city = test_city.title()
+                break
+        
+        # Parse geo from settings
         geo_parts = geo.split(',') if geo else ['', '']
-        city = geo_parts[0].strip() if len(geo_parts) > 0 else geo
-        state = geo_parts[1].strip() if len(geo_parts) > 1 else ''
-        city = to_title_case(city)
+        settings_city = geo_parts[0].strip() if len(geo_parts) > 0 else ''
+        state = geo_parts[1].strip() if len(geo_parts) > 1 else 'FL'
+        
+        # USE THE CITY FROM KEYWORD if present, otherwise use settings
+        if keyword_city:
+            city = keyword_city
+            logger.info(f"Using city from keyword: '{city}' (ignoring settings city '{settings_city}')")
+        else:
+            city = to_title_case(settings_city) if settings_city else ''
+        
         state = state.upper() if len(state) == 2 else to_title_case(state)
         
         # Convert keyword to Title Case
@@ -959,16 +983,32 @@ OUTPUT AS VALID JSON:
             # Robust body extraction - handle various response formats
             body_content = data.get('body', '')
             
-            # Clean up escaped characters from JSON
-            if isinstance(body_content, str):
+            # Helper to clean string content
+            def clean_content(text):
+                if not isinstance(text, str):
+                    return text
                 # Remove escaped newlines and backslashes
-                body_content = body_content.replace('\\n', '\n')
-                body_content = body_content.replace('\\/', '/')
-                body_content = body_content.replace('\\"', '"')
+                text = text.replace('\\n', '\n')
+                text = text.replace('\\r', '')
+                text = text.replace('\\/', '/')
+                text = text.replace('\\"', '"')
+                text = text.replace("\\'", "'")
                 # Remove stray backslashes that appear before tags
-                body_content = re.sub(r'\\+([<>])', r'\1', body_content)
+                text = re.sub(r'\\+([<>])', r'\1', text)
+                # Remove backslashes before other chars
+                text = re.sub(r'\\([^\\])', r'\1', text)
                 # Remove any remaining stray backslashes
-                body_content = body_content.replace('\\', '')
+                text = text.replace('\\', '')
+                return text.strip()
+            
+            # Clean body content
+            if isinstance(body_content, str):
+                body_content = clean_content(body_content)
+            
+            # Clean other text fields
+            for field in ['h1', 'title', 'meta_title', 'meta_description']:
+                if field in data and isinstance(data[field], str):
+                    data[field] = clean_content(data[field])
             
             # If body is not a string, try to convert or extract
             if not isinstance(body_content, str):
