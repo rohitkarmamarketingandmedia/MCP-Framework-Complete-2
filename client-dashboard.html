@@ -4459,13 +4459,37 @@
                         const insights = report.combined_insights || {};
                         
                         // Get services from top_services or content_opportunities
-                        const services = (insights.top_services || []).map(s => s.service || s);
-                        const opportunities = services.length > 0 ? services : (report.content_opportunities || []);
+                        // top_services format: [{service: 'name', count: n}]
+                        // content_opportunities format: [{type: 'x', title: 'y', service: 'z', ...}]
+                        let services = (insights.top_services || []).map(s => {
+                            if (typeof s === 'string') return s;
+                            return s.service || s.title || s.name || JSON.stringify(s);
+                        });
+                        
+                        // If no top_services, try content_opportunities
+                        if (services.length === 0 && report.content_opportunities) {
+                            services = report.content_opportunities.map(o => {
+                                if (typeof o === 'string') return o;
+                                // For content opportunities, show the service or title
+                                return o.service || o.title || o.description || JSON.stringify(o);
+                            }).filter(s => s && !s.startsWith('{'));
+                        }
+                        
+                        const opportunities = services.slice(0, 6); // Limit to 6
                         
                         updateExtractedUI(
-                            (insights.top_questions || []).map(q => q.question || q),
-                            (insights.top_keywords || []).map(k => k.keyword || k),
-                            (insights.top_pain_points || []).map(p => p.pain_point || p),
+                            (insights.top_questions || []).map(q => {
+                                if (typeof q === 'string') return q;
+                                return q.question || q.text || JSON.stringify(q);
+                            }),
+                            (insights.top_keywords || []).map(k => {
+                                if (typeof k === 'string') return k;
+                                return k.keyword || k.name || JSON.stringify(k);
+                            }),
+                            (insights.top_pain_points || []).map(p => {
+                                if (typeof p === 'string') return p;
+                                return p.pain_point || p.text || JSON.stringify(p);
+                            }),
                             opportunities
                         );
                     } else if (report.metadata_insights) {

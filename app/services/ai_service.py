@@ -621,47 +621,56 @@ State: {state}
 {contact_info}
 {links_text}
 
-SEO REQUIREMENTS:
-- Target SEO score: 90+
-- Word count: {word_count} (900-1200 recommended)
-- Internal links: 2-4 (contextually relevant)
-- Keyword density: natural (no stuffing)
+WRITE A {word_count}-WORD BLOG ARTICLE with this structure:
 
-CONTENT RULES:
-- Write for conversion first, SEO second
-- Use local expertise signals without repeating city names unnecessarily
-- Avoid generic phrasing ("ultimate guide", "epitome of")
+<h1>[Title about {primary_keyword} - do NOT repeat city twice]</h1>
 
-CTA RULES (MANDATORY):
-- Include CTA with company name, contact name, and phone/email
-- Place CTA at least TWICE: mid-content and final section
-- Make CTA conversational and benefit-driven
+<h2>Introduction</h2>
+<p>200+ words introducing the service and why {city} residents need it.</p>
 
-OUTPUT AS VALID JSON ONLY:
+<h2>Benefits of Professional {primary_keyword}</h2>
+<h3>Benefit 1</h3><p>Explanation...</p>
+<h3>Benefit 2</h3><p>Explanation...</p>
+<h3>Benefit 3</h3><p>Explanation...</p>
+<p>Total 250+ words for benefits section.</p>
+
+<h2>The Process</h2>
+<p>150+ words explaining how the service works.</p>
+
+<h2>Cost Factors</h2>
+<p>150+ words about pricing considerations.</p>
+
+<h2>Why Choose {business_name}</h2>
+<p>150+ words about company benefits. Include CTA here.</p>
+
+<h2>Get Started Today</h2>
+<p>100+ words with strong CTA including contact info.</p>
+
+MANDATORY REQUIREMENTS:
+1. Body MUST be {word_count}+ words - COUNT BEFORE RESPONDING
+2. Include 1 <h1>, 5-6 <h2>, 3+ <h3> tags
+3. Include 2-4 internal links naturally in paragraphs
+4. Include keyword {primary_keyword} 8-12 times naturally
+5. Mention {city} 3-5 times (but NEVER duplicate like "{city} in {city}")
+
+OUTPUT AS VALID JSON:
 {{
-    "meta_title": "[Title Case, 50-60 chars, keyword + location naturally]",
-    "meta_description": "[150-160 chars, compelling, includes keyword naturally]",
-    "h1": "[Human-readable Title Case headline, not keyword-stuffed]",
-    "body": "[Full HTML content with h2/h3 structure, {word_count}+ words, includes internal links as <a href>, two CTAs embedded]",
+    "meta_title": "{primary_keyword} | Expert Service | {business_name}",
+    "meta_description": "Professional {primary_keyword.lower()} by {business_name}. Trusted {city} experts. Call today for a free estimate.",
+    "h1": "{primary_keyword} - Professional Service by {business_name}",
+    "body": "<h1>...</h1><h2>...</h2><p>...</p>... MUST BE {word_count}+ WORDS",
     "faq_items": [
-        {{"question": "[Service-specific question about {primary_keyword}]", "answer": "[Helpful 40-60 word answer mentioning {business_name}]"}},
-        {{"question": "[Cost/pricing question]", "answer": "[Helpful answer with CTA to contact {business_name}]"}},
-        {{"question": "[Process/timeline question]", "answer": "[Informative answer]"}},
-        {{"question": "[Why choose us question]", "answer": "[Answer highlighting {business_name} benefits]"}},
-        {{"question": "[Local-specific question about {city}]", "answer": "[Locally relevant answer]"}}
+        {{"question": "How much does {primary_keyword.lower()} cost?", "answer": "Costs vary based on your specific needs. Contact {business_name} for a free estimate tailored to your situation."}},
+        {{"question": "How long does {primary_keyword.lower()} take?", "answer": "Most projects are completed within [timeframe]. {business_name} provides accurate timelines during your consultation."}},
+        {{"question": "Why choose {business_name}?", "answer": "{business_name} offers professional service, quality workmanship, and customer satisfaction guaranteed."}},
+        {{"question": "Do you serve {city}?", "answer": "Yes! {business_name} proudly serves {city} and surrounding areas. Call us today."}},
+        {{"question": "Do you offer free estimates?", "answer": "Yes, {business_name} provides free, no-obligation estimates. Contact us to schedule yours."}}
     ],
     "faq_schema": {{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": []}},
     "cta": {{"contact_name": "{contact_name or ''}", "company_name": "{business_name}", "phone": "{phone or ''}", "email": "{email or ''}"}}
 }}
 
-FAIL CONDITIONS (DO NOT DO THESE):
-❌ No city duplication (e.g., "Service Port Charlotte in Port Charlotte")
-❌ No robotic keyword stuffing
-❌ No lowercase headlines
-❌ No generic filler content
-❌ No placeholder text like [specific symptoms]
-
-WRITE COMPLETE, PUBLICATION-READY CONTENT."""
+⚠️ CRITICAL: Your body content MUST be at least {word_count} words. Count your words!"""
     
     def _get_related_posts(self, client_id: str, current_keyword: str, limit: int = 6) -> List[Dict]:
         """
@@ -1061,6 +1070,7 @@ WRITE COMPLETE, PUBLICATION-READY CONTENT."""
         """
         Post-process AI response to fix duplicate city names.
         E.g., "Heating Repair Port Charlotte Port Charlotte, FL" -> "Heating Repair Port Charlotte, FL"
+        E.g., "in Port Charlotte? in Port Charlotte" -> "in Port Charlotte"
         """
         import re
         
@@ -1069,49 +1079,60 @@ WRITE COMPLETE, PUBLICATION-READY CONTENT."""
             if not text or not pattern_city:
                 return text
             
+            original_text = text
             city_lower = pattern_city.lower()
             city_title = pattern_city.title()
             
-            # Common duplicate patterns to fix:
-            # "Service City City" -> "Service City"
-            # "Service City in City" -> "Service City"
-            # "Service City City, State" -> "Service City, State"
-            # "Service City for City" -> "Service City"
+            # Build regex-safe city name
+            city_escaped = re.escape(city_title)
+            city_escaped_lower = re.escape(city_lower)
             
+            # Patterns to fix (order matters - most specific first):
             patterns = [
+                # "in Port Charlotte? in Port Charlotte" or "in Port Charlotte? in Port"
+                (rf'(in\s+{city_escaped}[?!.,]?)\s+in\s+{city_escaped}', r'\1', re.IGNORECASE),
+                # "in Port Charlotte in Port Charlotte" -> "in Port Charlotte"  
+                (rf'(in\s+{city_escaped})\s+in\s+{city_escaped}', r'\1', re.IGNORECASE),
+                # "Port Charlotte? in Port" (partial at end)
+                (rf'({city_escaped}[?!.,]?)\s+in\s+Port\b', r'\1', re.IGNORECASE),
                 # "Port Charlotte Port Charlotte" -> "Port Charlotte"
-                (rf'({city_title})\s+{city_title}', r'\1'),
+                (rf'({city_escaped})\s+{city_escaped}', r'\1', re.IGNORECASE),
                 # "Port Charlotte in Port Charlotte" -> "Port Charlotte"
-                (rf'({city_title})\s+in\s+{city_title}', r'\1'),
+                (rf'({city_escaped})\s+in\s+{city_escaped}', r'\1', re.IGNORECASE),
                 # "Port Charlotte for Port Charlotte" -> "Port Charlotte"  
-                (rf'({city_title})\s+for\s+{city_title}', r'\1'),
-                # "in Port Charlotte in Port Charlotte" -> "in Port Charlotte"
-                (rf'(in\s+{city_title})\s+in\s+{city_title}', r'\1'),
-                # Case insensitive versions
-                (rf'({pattern_city})\s+{pattern_city}', r'\1', re.IGNORECASE),
-                (rf'({pattern_city})\s+in\s+{pattern_city}', r'\1', re.IGNORECASE),
+                (rf'({city_escaped})\s+for\s+{city_escaped}', r'\1', re.IGNORECASE),
+                # "Port Charlotte, FL in Port Charlotte" -> "Port Charlotte, FL"
+                (rf'({city_escaped},?\s*(?:FL|Florida)?)\s+in\s+{city_escaped}', r'\1', re.IGNORECASE),
+                # "for Port Charlotte in Port Charlotte" -> "for Port Charlotte"
+                (rf'(for\s+{city_escaped})\s+in\s+{city_escaped}', r'\1', re.IGNORECASE),
+                # Handle truncated city at end: "in Port$" when city is "Port Charlotte"
+                (rf'in\s+Port\s*$', '', re.IGNORECASE) if 'port' in city_lower else (r'$^', ''),
             ]
             
-            for pattern_tuple in patterns:
-                if len(pattern_tuple) == 3:
-                    pattern, replacement, flags = pattern_tuple
-                    text = re.sub(pattern, replacement, text, flags=flags)
-                else:
-                    pattern, replacement = pattern_tuple
-                    text = re.sub(pattern, replacement, text)
+            for pattern, replacement, *flags in patterns:
+                flag = flags[0] if flags else 0
+                text = re.sub(pattern, replacement, text, flags=flag)
             
-            return text
+            # Clean up any trailing "in " at end of text
+            text = re.sub(r'\s+in\s*$', '', text)
+            
+            # Clean up double spaces
+            text = re.sub(r'\s{2,}', ' ', text)
+            
+            if original_text != text:
+                logger.debug(f"Fixed duplicate: '{original_text[:60]}' -> '{text[:60]}'")
+            
+            return text.strip()
         
         # Try to extract city from the content
-        # Look for common patterns like "City, State" or "City, FL"
         city = None
         
         # Try to find city from meta_description or title
-        for field in ['meta_description', 'title', 'meta_title', 'h1']:
+        for field in ['meta_description', 'title', 'meta_title', 'h1', 'body']:
             text = data.get(field, '')
             if text:
                 # Look for "City, STATE" pattern
-                match = re.search(r'in\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?),\s*([A-Z]{2})', text)
+                match = re.search(r'in\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?),?\s*([A-Z]{2})?', text)
                 if match:
                     city = match.group(1)
                     break
@@ -1124,7 +1145,8 @@ WRITE COMPLETE, PUBLICATION-READY CONTENT."""
         if not city:
             # Try extracting from common city names in the text
             common_cities = ['Port Charlotte', 'Sarasota', 'Fort Myers', 'Naples', 'Tampa', 'Orlando', 
-                           'Jacksonville', 'Miami', 'Bradenton', 'Venice', 'Punta Gorda']
+                           'Jacksonville', 'Miami', 'Bradenton', 'Venice', 'Punta Gorda', 'North Port',
+                           'Cape Coral', 'Bonita Springs', 'Estero', 'Lehigh Acres']
             for test_city in common_cities:
                 if test_city.lower() in str(data).lower():
                     city = test_city
