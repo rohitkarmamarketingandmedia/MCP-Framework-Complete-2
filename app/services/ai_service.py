@@ -49,7 +49,7 @@ class AIService:
         keyword: str,
         geo: str,
         industry: str,
-        word_count: int = 1200,
+        word_count: int = 1500,
         tone: str = 'professional',
         business_name: str = '',
         include_faq: bool = True,
@@ -140,7 +140,8 @@ class AIService:
         fallback_model = 'gpt-4o-mini'  # Much better than gpt-3.5-turbo-16k
         
         # Calculate tokens - both models support 16K output
-        tokens_needed = min(8000, int(word_count * 2) + 1500)
+        # 1 word ≈ 1.5 tokens, plus JSON overhead
+        tokens_needed = min(12000, int(word_count * 2.5) + 2000)
         
         logger.info(f"Blog generation: word_count={word_count}, tokens={tokens_needed}, primary={primary_model}, fallback={fallback_model}")
         
@@ -636,75 +637,52 @@ Example for HVAC business:
         if email:
             contact_info += f"Email: {email}\n"
         
-        logger.info(f"Building prompt: keyword='{primary_keyword}', city='{city}', state='{state}', links={len(all_links)}")
+        logger.info(f"Building prompt: keyword='{primary_keyword}', city='{city}', state='{state}', keyword_city='{keyword_city}', settings_city='{settings_city}', links={len(all_links)}")
+        
+        # Store settings_city for post-processing (to remove wrong city mentions)
+        self._last_settings_city = settings_city
+        self._last_keyword_city = keyword_city
 
-        # Build critical instruction about city
-        city_instruction = ""
-        if keyword_city:
-            city_instruction = f"""
-⚠️ CRITICAL CITY RULE: The keyword "{primary_keyword}" contains the city "{city}".
-- Use ONLY "{city}" throughout the entire article
-- Do NOT mention any other city (especially not from settings)
-- Every location reference must be "{city}, {state}" or just "{city}"
-"""
+        return f"""Generate a {word_count}-word SEO blog post.
 
-        return f"""Primary Keyword: {primary_keyword}
-Service: {industry or 'Local Service'}
-Target City: {city}
-State: {state}
+KEYWORD: {primary_keyword}
+BUSINESS: {business_name}
+LOCATION: {city}, {state}
 {contact_info}
 {links_text}
-{city_instruction}
-WRITE A {word_count}-WORD BLOG ARTICLE with this structure:
 
-<h1>[Title about {primary_keyword}]</h1>
+STRUCTURE (use these exact headings):
+<h1>{primary_keyword} - Professional Service by {business_name}</h1>
+<h2>Introduction</h2> - 200 words about {primary_keyword} in {city}
+<h2>Benefits of {primary_keyword}</h2> - 250 words with 3 <h3> subheadings
+<h2>Our Process</h2> - 150 words
+<h2>Pricing Factors</h2> - 150 words  
+<h2>Why Choose {business_name}</h2> - 150 words with CTA
+<h2>Contact Us Today</h2> - 100 words with phone/email CTA
 
-<h2>Introduction</h2>
-<p>200+ words introducing the service for {city} residents.</p>
+RULES:
+- MINIMUM {word_count} words total
+- Location is {city}, {state} - use this city ONLY
+- Include 2-4 internal links from the list above
+- Use keyword naturally 8-12 times
 
-<h2>Benefits of Professional {primary_keyword}</h2>
-<h3>Benefit 1</h3><p>Explanation...</p>
-<h3>Benefit 2</h3><p>Explanation...</p>
-<h3>Benefit 3</h3><p>Explanation...</p>
-<p>Total 250+ words for benefits section.</p>
-
-<h2>The Process</h2>
-<p>150+ words explaining how the service works.</p>
-
-<h2>Cost Factors</h2>
-<p>150+ words about pricing considerations.</p>
-
-<h2>Why Choose {business_name}</h2>
-<p>150+ words about company benefits. Include CTA here.</p>
-
-<h2>Get Started Today</h2>
-<p>100+ words with strong CTA including contact info.</p>
-
-MANDATORY REQUIREMENTS:
-1. Body MUST be {word_count}+ words - COUNT BEFORE RESPONDING
-2. Include 1 <h1>, 5-6 <h2>, 3+ <h3> tags
-3. Include 2-4 internal links naturally in paragraphs
-4. Include keyword "{primary_keyword}" 8-12 times naturally
-5. ONLY use city "{city}" - no other cities allowed
-
-OUTPUT AS VALID JSON:
-{{
-    "meta_title": "{primary_keyword} | Expert Service | {business_name}",
-    "meta_description": "Professional {primary_keyword.lower()} by {business_name}. Trusted {city} experts. Call today for a free estimate.",
-    "h1": "{primary_keyword} - Professional Service by {business_name}",
-    "body": "<h1>...</h1><h2>...</h2><p>...</p>... MUST BE {word_count}+ WORDS",
-    "faq_items": [
-        {{"question": "How much does {primary_keyword.lower()} cost?", "answer": "Costs vary based on your specific needs. Contact {business_name} for a free estimate tailored to your situation."}},
-        {{"question": "How long does {primary_keyword.lower()} take?", "answer": "Most projects are completed within [timeframe]. {business_name} provides accurate timelines during your consultation."}},
-        {{"question": "Why choose {business_name}?", "answer": "{business_name} offers professional service, quality workmanship, and customer satisfaction guaranteed."}},
-        {{"question": "Do you serve {city}?", "answer": "Yes! {business_name} proudly serves {city} and surrounding areas. Call us today."}},
-        {{"question": "Do you offer free estimates?", "answer": "Yes, {business_name} provides free, no-obligation estimates. Contact us to schedule yours."}}
-    ],
-    "faq_schema": {{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": []}},
-    "cta": {{"contact_name": "{contact_name or ''}", "company_name": "{business_name}", "phone": "{phone or ''}", "email": "{email or ''}"}}
+OUTPUT JSON:
+{{"meta_title": "{primary_keyword} | Expert Service | {business_name}",
+"meta_description": "Professional {primary_keyword.lower()} by {business_name}. Trusted {city} experts. Call today.",
+"h1": "{primary_keyword} - Professional Service by {business_name}",
+"body": "<h1>...</h1><h2>Introduction</h2><p>...</p>...",
+"faq_items": [
+  {{"question": "How much does {primary_keyword.lower()} cost in {city}?", "answer": "Contact {business_name} for a free estimate."}},
+  {{"question": "Why choose {business_name}?", "answer": "{business_name} provides expert {primary_keyword.lower()} in {city}."}},
+  {{"question": "Do you offer emergency service?", "answer": "Yes, call {business_name} anytime."}},
+  {{"question": "What areas do you serve?", "answer": "We serve {city} and surrounding areas."}},
+  {{"question": "Do you offer free estimates?", "answer": "Yes, contact us for a free quote."}}
+],
+"faq_schema": {{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": []}},
+"cta": {{"company_name": "{business_name}", "phone": "{phone or ''}", "email": "{email or ''}"}}
 }}
 
-⚠️ CRITICAL: Body must be {word_count}+ words. Use ONLY the city "{city}" - no other cities!"""
+Write {word_count}+ words. Location is {city} ONLY."""
     
     def _get_related_posts(self, client_id: str, current_keyword: str, limit: int = 6) -> List[Dict]:
         """
@@ -1066,8 +1044,9 @@ OUTPUT AS VALID JSON:
             if 'html' not in data and 'body' in data:
                 data['html'] = data['body']
             
-            # POST-PROCESS: Fix duplicate city names in titles
+            # POST-PROCESS: Fix duplicate city names AND wrong city references
             data = self._fix_duplicate_cities(data)
+            data = self._fix_wrong_city(data)
             
             logger.debug(f"Parsed blog: title='{data.get('title', '')[:30]}', body_len={len(data.get('body', ''))}")
             return data
@@ -1216,6 +1195,66 @@ OUTPUT AS VALID JSON:
             # Also fix H1 in body content
             if 'body' in data and data['body']:
                 data['body'] = fix_duplicate(data['body'], city)
+        
+        return data
+    
+    def _fix_wrong_city(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Replace wrong city (from settings) with correct city (from keyword).
+        E.g., If keyword is "AC Repair Sarasota" but content mentions "Port Charlotte",
+        replace "Port Charlotte" with "Sarasota".
+        """
+        import re
+        
+        # Get the cities we stored during prompt building
+        settings_city = getattr(self, '_last_settings_city', None)
+        keyword_city = getattr(self, '_last_keyword_city', None)
+        
+        if not settings_city or not keyword_city:
+            return data
+        
+        # Only fix if settings city is different from keyword city
+        if settings_city.lower() == keyword_city.lower():
+            return data
+        
+        logger.info(f"Post-processing: replacing wrong city '{settings_city}' with correct city '{keyword_city}'")
+        
+        # Build replacement patterns
+        settings_city_title = settings_city.title()
+        keyword_city_title = keyword_city.title()
+        settings_city_lower = settings_city.lower()
+        keyword_city_lower = keyword_city.lower()
+        settings_city_upper = settings_city.upper()
+        keyword_city_upper = keyword_city.upper()
+        
+        def replace_city(text):
+            if not text or not isinstance(text, str):
+                return text
+            original = text
+            # Replace all case variations
+            text = re.sub(re.escape(settings_city_title), keyword_city_title, text)
+            text = re.sub(re.escape(settings_city_lower), keyword_city_lower, text, flags=re.IGNORECASE)
+            if original != text:
+                logger.debug(f"Replaced city in text")
+            return text
+        
+        # Fix all text fields
+        fields_to_fix = ['title', 'h1', 'meta_title', 'meta_description', 'body', 'summary']
+        for field in fields_to_fix:
+            if field in data and isinstance(data[field], str):
+                original = data[field]
+                data[field] = replace_city(data[field])
+                if original != data[field]:
+                    logger.info(f"  Fixed wrong city in {field}")
+        
+        # Fix FAQ items
+        if 'faq_items' in data and isinstance(data['faq_items'], list):
+            for i, faq in enumerate(data['faq_items']):
+                if isinstance(faq, dict):
+                    if 'question' in faq:
+                        data['faq_items'][i]['question'] = replace_city(faq['question'])
+                    if 'answer' in faq:
+                        data['faq_items'][i]['answer'] = replace_city(faq['answer'])
         
         return data
     

@@ -339,7 +339,7 @@ def generate_blog_sync(current_user):
         
         client_id = data.get('client_id')
         keyword = data.get('keyword')
-        word_count = data.get('word_count', 1200)  # Default 1200 for good SEO
+        word_count = data.get('word_count', 1500)  # Default 1500 for high SEO score
         include_faq = data.get('include_faq', True)
         faq_count = data.get('faq_count', 5)
         
