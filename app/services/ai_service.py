@@ -643,46 +643,67 @@ Example for HVAC business:
         self._last_settings_city = settings_city
         self._last_keyword_city = keyword_city
 
-        return f"""Generate a {word_count}-word SEO blog post.
+        return f"""You are writing a {word_count}-word blog post for a local service business.
 
-KEYWORD: {primary_keyword}
-BUSINESS: {business_name}
-LOCATION: {city}, {state}
+TARGET: {word_count} words minimum (this is CRITICAL - count your words!)
+
+TOPIC: {primary_keyword}
+COMPANY: {business_name}
+CITY: {city}, {state}
 {contact_info}
 {links_text}
 
-STRUCTURE (use these exact headings):
-<h1>{primary_keyword} - Professional Service by {business_name}</h1>
-<h2>Introduction</h2> - 200 words about {primary_keyword} in {city}
-<h2>Benefits of {primary_keyword}</h2> - 250 words with 3 <h3> subheadings
-<h2>Our Process</h2> - 150 words
-<h2>Pricing Factors</h2> - 150 words  
-<h2>Why Choose {business_name}</h2> - 150 words with CTA
-<h2>Contact Us Today</h2> - 100 words with phone/email CTA
+REQUIRED ARTICLE STRUCTURE:
+Write each section with the specified word count:
 
-RULES:
-- MINIMUM {word_count} words total
-- Location is {city}, {state} - use this city ONLY
-- Include 2-4 internal links from the list above
-- Use keyword naturally 8-12 times
+## Introduction (250 words)
+Write 250 words introducing {primary_keyword} services in {city}. Explain why residents need this service.
 
-OUTPUT JSON:
+## Benefits (300 words)  
+Write 300 words covering 3 key benefits:
+- Benefit 1: [Title] - 100 words explanation
+- Benefit 2: [Title] - 100 words explanation  
+- Benefit 3: [Title] - 100 words explanation
+
+## Our Process (200 words)
+Write 200 words explaining how {business_name} handles {primary_keyword}.
+
+## Pricing and Cost Factors (200 words)
+Write 200 words about what affects pricing for {primary_keyword} in {city}.
+
+## Why Choose {business_name} (200 words)
+Write 200 words about why {business_name} is the best choice. Include contact information.
+
+## Frequently Asked Questions (200 words)
+Write 5 Q&A pairs about {primary_keyword}.
+
+## Get Started Today (150 words)
+Write 150 words with a strong call-to-action. Include phone and email.
+
+TOTAL: {word_count}+ words
+
+IMPORTANT RULES:
+1. Write EXACTLY the word counts specified above
+2. Use ONLY {city}, {state} for location - no other cities
+3. Include 2-4 internal links naturally
+
+Return ONLY valid JSON:
 {{"meta_title": "{primary_keyword} | Expert Service | {business_name}",
-"meta_description": "Professional {primary_keyword.lower()} by {business_name}. Trusted {city} experts. Call today.",
-"h1": "{primary_keyword} - Professional Service by {business_name}",
-"body": "<h1>...</h1><h2>Introduction</h2><p>...</p>...",
+"meta_description": "Professional {primary_keyword.lower()} in {city}. {business_name} provides expert service. Call today for a free estimate.",
+"h1": "{primary_keyword} - Trusted {city} Experts | {business_name}",
+"body": "<h2>Introduction</h2><p>[250 words]</p><h2>Benefits of {primary_keyword}</h2><h3>Benefit 1</h3><p>[100 words]</p><h3>Benefit 2</h3><p>[100 words]</p><h3>Benefit 3</h3><p>[100 words]</p><h2>Our Process</h2><p>[200 words]</p><h2>Pricing and Cost Factors</h2><p>[200 words]</p><h2>Why Choose {business_name}</h2><p>[200 words]</p><h2>Frequently Asked Questions</h2><h3>Q1</h3><p>A1</p><h3>Q2</h3><p>A2</p><h3>Q3</h3><p>A3</p><h3>Q4</h3><p>A4</p><h3>Q5</h3><p>A5</p><h2>Get Started Today</h2><p>[150 words with CTA]</p>",
 "faq_items": [
-  {{"question": "How much does {primary_keyword.lower()} cost in {city}?", "answer": "Contact {business_name} for a free estimate."}},
-  {{"question": "Why choose {business_name}?", "answer": "{business_name} provides expert {primary_keyword.lower()} in {city}."}},
-  {{"question": "Do you offer emergency service?", "answer": "Yes, call {business_name} anytime."}},
-  {{"question": "What areas do you serve?", "answer": "We serve {city} and surrounding areas."}},
-  {{"question": "Do you offer free estimates?", "answer": "Yes, contact us for a free quote."}}
+  {{"question": "How much does {primary_keyword.lower()} cost in {city}?", "answer": "Costs vary by project. Contact {business_name} at {phone or 'our office'} for a free estimate."}},
+  {{"question": "How long does {primary_keyword.lower()} take?", "answer": "Most jobs take 1-3 days. {business_name} provides accurate timelines during consultation."}},
+  {{"question": "Is {business_name} licensed and insured?", "answer": "Yes, {business_name} is fully licensed and insured to serve {city}."}},
+  {{"question": "Do you offer emergency service?", "answer": "Yes, contact {business_name} anytime for emergency {primary_keyword.lower()}."}},
+  {{"question": "What areas do you serve?", "answer": "{business_name} proudly serves {city} and surrounding areas in {state}."}}
 ],
 "faq_schema": {{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": []}},
 "cta": {{"company_name": "{business_name}", "phone": "{phone or ''}", "email": "{email or ''}"}}
 }}
 
-Write {word_count}+ words. Location is {city} ONLY."""
+CRITICAL: The body must contain {word_count}+ words total. Follow the word counts for each section."""
     
     def _get_related_posts(self, client_id: str, current_keyword: str, limit: int = 6) -> List[Dict]:
         """
@@ -1210,11 +1231,15 @@ Write {word_count}+ words. Location is {city} ONLY."""
         settings_city = getattr(self, '_last_settings_city', None)
         keyword_city = getattr(self, '_last_keyword_city', None)
         
+        logger.info(f"_fix_wrong_city called: settings_city='{settings_city}', keyword_city='{keyword_city}'")
+        
         if not settings_city or not keyword_city:
+            logger.info("_fix_wrong_city: No cities to fix (settings or keyword city is None)")
             return data
         
         # Only fix if settings city is different from keyword city
         if settings_city.lower() == keyword_city.lower():
+            logger.info("_fix_wrong_city: Cities are the same, no fix needed")
             return data
         
         logger.info(f"Post-processing: replacing wrong city '{settings_city}' with correct city '{keyword_city}'")

@@ -4660,20 +4660,37 @@
         
         function showNoInsightsMessage() {
             // Update UI elements to show no data message instead of Loading...
-            const containers = [
-                { selector: '#questions-container, [data-insight="questions"]', message: 'No questions detected yet' },
-                { selector: '#keywords-container, [data-insight="keywords"]', message: 'No keywords detected yet' },
-                { selector: '#painpoints-container, [data-insight="painpoints"]', message: 'No pain points detected yet' },
-                { selector: '#opportunities-container, [data-insight="opportunities"]', message: 'No opportunities detected yet' }
-            ];
+            console.log('showNoInsightsMessage called');
             
-            // Find all Loading... elements in the AI Insights section and update them
-            document.querySelectorAll('.text-gray-300, .text-purple-300, .text-orange-300, .text-emerald-300').forEach(el => {
-                if (el.textContent.includes('Loading...')) {
-                    el.textContent = 'Requires call transcripts';
-                    el.classList.add('text-gray-500');
-                }
-            });
+            // Clear questions
+            const questionsEl = document.getElementById('extracted-questions');
+            if (questionsEl) {
+                questionsEl.innerHTML = '<div class="text-xs text-gray-500 italic">No call data available</div>';
+            }
+            
+            // Clear keywords
+            const keywordsEl = document.getElementById('extracted-keywords');
+            if (keywordsEl) {
+                keywordsEl.innerHTML = '<span class="text-xs text-gray-500 italic">No call data available</span>';
+            }
+            
+            // Clear pain points
+            const painEl = document.getElementById('extracted-pain');
+            if (painEl) {
+                painEl.innerHTML = '<div class="text-xs text-gray-500 italic">No call data available</div>';
+            }
+            
+            // Clear services/opportunities
+            const opportunitiesEl = document.getElementById('content-opportunities');
+            if (opportunitiesEl) {
+                opportunitiesEl.innerHTML = '<div class="text-xs text-gray-500 italic">No call data available</div>';
+            }
+            
+            // Update calls count
+            const callsToday = document.getElementById('calls-today');
+            if (callsToday) {
+                callsToday.textContent = '0 calls analyzed';
+            }
         }
         
         
