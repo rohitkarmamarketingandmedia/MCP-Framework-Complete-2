@@ -86,14 +86,15 @@ class BlogAISingle:
         logger.info(f"BlogAISingle.generate: keyword='{req.keyword}', target={req.target_words}, city='{req.city}'")
         
         base_prompt = self._build_prompt(req)
+        system_prompt = getattr(self, '_system_prompt', None)
 
         # 1) Try primary then fallback
-        raw = self._call_model(self.model_primary, base_prompt)
+        raw = self._call_model(self.model_primary, base_prompt, system_prompt)
         parsed = self._robust_parse_json(raw)
 
         if not parsed or not parsed.get("body"):
             logger.warning("Primary model failed, trying fallback")
-            raw2 = self._call_model(self.model_fallback, base_prompt)
+            raw2 = self._call_model(self.model_fallback, base_prompt, system_prompt)
             parsed = self._robust_parse_json(raw2)
 
         # 2) Normalize shape
@@ -139,24 +140,35 @@ class BlogAISingle:
             logger.info(f"Detected city '{keyword_city}' from keyword (ignoring settings city '{req.city}')")
             req.city = keyword_city
 
-    def _call_model(self, model: str, prompt: str) -> str:
-        """Call OpenAI API with optimized settings"""
+    def _call_model(self, model: str, prompt: str, system_prompt: str = None) -> str:
+        """Call OpenAI API with hardened settings"""
         try:
             logger.info(f"Calling {model}...")
+            
+            if system_prompt is None:
+                system_prompt = "You are an SEO content generator. Return ONLY valid JSON. No markdown. No commentary."
+            
             resp = self.client.chat.completions.create(
                 model=model,
                 messages=[
-                    {
-                        "role": "system", 
-                        "content": "You are an SEO content generator. You must follow ALL constraints exactly. If any rule is violated, the output is considered invalid."
-                    },
-                    {"role": "user", "content": prompt},
+                    {"role": "system", "content": system_prompt.strip()},
+                    {"role": "user", "content": prompt.strip()},
                 ],
-                temperature=0.45,  # Lower temp for better constraint following
+                temperature=0.4,  # Low temp for constraint following
                 max_tokens=8000,
             )
             content = resp.choices[0].message.content or ""
+            content = content.strip()
             logger.info(f"Got {len(content)} chars from {model}")
+            
+            # Validate JSON output
+            if content and not content.startswith("{"):
+                logger.warning("Model returned non-JSON output, attempting to extract JSON")
+                # Try to find JSON in response
+                start = content.find("{")
+                if start != -1:
+                    content = content[start:]
+            
             return content
         except Exception as e:
             logger.error(f"Model call failed: {e}")
@@ -164,34 +176,33 @@ class BlogAISingle:
 
     def _call_model_continue(self, model: str, current_body: str, words_needed: int, req: BlogRequest) -> str:
         """Call model to continue/expand body content"""
-        prompt = f"""You are continuing an SEO blog post. Return ONLY valid JSON.
+        system_prompt = f"""You are an SEO content generator continuing an article.
+Return ONLY valid JSON with key "body_append".
+Use ONLY city "{req.city}" - no other cities.
+No markdown. No commentary."""
 
-TASK: Add {words_needed} MORE words to the article about "{req.keyword}".
+        prompt = f"""Add {words_needed} MORE words to this article about "{req.keyword}".
 
-CITY RULE: Use ONLY "{req.city}" - no other cities allowed.
-HEADING RULE: Do NOT put city name in H2/H3 headings.
+Current ending:
+{current_body[-1200:]}
 
-CURRENT ARTICLE ENDING:
-{current_body[-1500:]}
-
-REQUIREMENTS:
+Requirements:
 - Write {words_needed}+ words of NEW content
-- Add 2-3 new <h2> sections with detailed paragraphs (80-100+ words each)
-- Sound like an industry expert in {req.industry or 'this field'}
-- Include specific technical details
+- Add 2-3 <h2> sections with 80-100 word paragraphs
+- Do NOT put city in headings
+- Sound like an expert in {req.industry or 'this field'}
 - Do NOT repeat existing content
 
-Return ONLY this JSON:
-{{"body_append": "<h2>Section Title</h2><p>80-100+ words of expert content...</p><h2>Another Section</h2><p>More detailed content...</p>"}}"""
+Return: {{"body_append": "<h2>Title</h2><p>Content...</p>"}}"""
         
         try:
             resp = self.client.chat.completions.create(
                 model=model,
                 messages=[
-                    {"role": "system", "content": "You are an SEO content generator. Return ONLY valid JSON."},
-                    {"role": "user", "content": prompt},
+                    {"role": "system", "content": system_prompt.strip()},
+                    {"role": "user", "content": prompt.strip()},
                 ],
-                temperature=0.45,  # Lower temp for constraint following
+                temperature=0.4,
                 max_tokens=4000,
             )
             return resp.choices[0].message.content or ""
@@ -200,142 +211,121 @@ Return ONLY this JSON:
             return ""
 
     def _build_prompt(self, req: BlogRequest) -> str:
-        """Build the main generation prompt using improved SEO template"""
+        """Build hardened prompt with strict guardrails"""
         city = req.city
         state = req.state.upper() if len(req.state) == 2 else req.state
-        city_state = f"{city}, {state}".strip(", ")
         
-        # Build internal links section
+        # Build internal links
         internal = req.internal_links or []
-        internal_text = ""
+        internal_links_text = ""
         if internal:
-            internal_text = "INTERNAL LINKS TO INSERT (minimum 3 required):\n"
+            internal_links_text = "INTERNAL LINKS (insert 3+ as <a href> tags):\n"
             for link in internal[:6]:
                 if link.get("url") and link.get("title"):
-                    internal_text += f'<a href="{link["url"]}">{link["title"]}</a>\n'
+                    internal_links_text += f'- <a href="{link["url"]}">{link["title"]}</a>\n'
         
-        return f"""You are a STRICT SEO CONTENT ENGINE, not a creative writer.
-Your job is to generate LOCAL SEO BLOG POSTS that MUST follow ALL rules below.
-If ANY rule is violated, you must FIX the output BEFORE returning it.
-FAILURE TO FOLLOW RULES IS NOT ALLOWED.
+        # Build system prompt (kept short as recommended)
+        self._system_prompt = f"""You are an expert SEO content writer generating high-quality, location-specific blog posts for service-based businesses.
 
-========================
-INPUT PARAMETERS
-========================
+STRICT GUARDRAILS (DO NOT BREAK):
+- Use ONLY the city "{city}" and state "{state}"
+- Never substitute, infer, or replace the city
+- Never mix cities (e.g., Sarasota ≠ Port Charlotte)
+- If the city appears in both keyword and headings, deduplicate it
+- Do NOT put city name in H2 or H3 headings
+- Convert all titles to Proper Title Case
+- Generate original, human-sounding content
+- NO filler, NO placeholders, NO markdown
+- NEVER explain your reasoning
+
+OUTPUT FORMAT RULE:
+- Return ONLY valid JSON
+- Do NOT wrap JSON in markdown
+- Do NOT include commentary
+
+FAILURE TO FOLLOW THESE RULES INVALIDATES THE RESPONSE"""
+
+        # Build user prompt
+        return f"""INPUT VARIABLES:
 Primary Keyword: {req.keyword}
-Business Name: {req.company_name}
+Service: {req.industry or 'Professional Service'}
 City: {city}
 State: {state}
-Industry: {req.industry or 'Local Services'}
+Business Name: {req.company_name}
 Phone: {req.phone}
 Email: {req.email}
-Target Word Count: {req.target_words} words MINIMUM
+Target Audience: Homeowners and businesses in {city}
+Minimum Word Count: {req.target_words}
 
-{internal_text}
+{internal_links_text}
 
-========================
-ABSOLUTE RULES (NON-NEGOTIABLE)
-========================
+OUTPUT REQUIREMENTS:
 
-1. LOCATION ENFORCEMENT
-- Use ONLY the city "{city}" - NO OTHER CITIES ALLOWED
-- NEVER introduce any other city, nearby area, county, or region
-- If the primary keyword already contains a city name, DO NOT add another city anywhere
-- City name may appear naturally 3-5 times, NOT repetitively
-- Do NOT put city name in H2 or H3 headings
+1. SEO TITLE (H1)
+- Proper Title Case
+- Include primary keyword + city ONCE
+- 55-65 characters
 
-2. HEADLINES & CASING
-- ALL headlines must be in Proper Title Case
-- NO lowercase headlines
-- H1 must be human-readable, not keyword-stuffed
-- H2/H3 headings should NOT include the city name
+2. META TITLE
+- 50-60 characters
+- Include keyword + company name
 
-3. WORD COUNT
-- You MUST meet or exceed {req.target_words} words
-- Output AT LEAST {req.target_words} words in the body
-- Do NOT summarize, compress, or shorten content
-- Write detailed, comprehensive paragraphs
+3. META DESCRIPTION
+- 150-160 characters
+- Include service + city ONCE
+- Click-optimized with CTA
 
-4. CONTENT QUALITY
-- NO generic filler or vague marketing language
-- NO statements like "ultimate guide," "epitome," "unparalleled"
-- Write as a subject-matter expert in {req.industry or 'this field'}
-- Include specific technical details relevant to {req.keyword}
-- Address real customer pain points and concerns
-
-5. INTERNAL LINKS
-- Insert AT LEAST 3 internal links using HTML: <a href="URL">Anchor Text</a>
-- Links must be contextually relevant and woven naturally into sentences
-- Use the links provided above
-
-6. CTA RULES
-- CTA must include: {req.company_name}, {req.phone}, {req.email}
-- CTA must appear at least TWICE in the body
-- CTA must be persuasive, not generic
-- Example: "Call {req.company_name} at {req.phone} for your free estimate"
-
-7. FAQ + SCHEMA
-- Include 5 real, specific FAQs about {req.keyword}
-- NO placeholder questions - make them specific to the service
-- Generate valid FAQPage schema JSON
-- Questions must match the article topic exactly
-
-8. SEO SCORE TARGET
-- Content must achieve SEO score of 90+
-- Optimize headings, keyword placement, internal links, and readability
-- Use keyword "{req.keyword}" naturally 8-12 times
-- Meta description must be 150-160 characters
-
-========================
-REQUIRED CONTENT STRUCTURE
-========================
+4. BODY CONTENT ({req.target_words}+ words - CRITICAL!)
+Use this structure with H2/H3 headings (NO city in headings):
 
 <h2>What Is {req.keyword}?</h2>
-<p>250+ words defining the service, when it's needed, what it involves</p>
+<p>250+ words defining service, when needed, what's involved. Mention {city} once.</p>
 
 <h2>Signs You Need Professional Help</h2>
-<p>200+ words listing 5-7 specific warning signs with explanations</p>
+<p>200+ words with 5-7 warning signs and explanations.</p>
 
-<h2>Benefits Of Choosing Expert Service</h2>
-<h3>Benefit One Title</h3>
-<p>80+ words</p>
-<h3>Benefit Two Title</h3>
-<p>80+ words</p>
-<h3>Benefit Three Title</h3>
-<p>80+ words</p>
+<h2>Benefits Of Expert Service</h2>
+<h3>Benefit One</h3><p>80+ words</p>
+<h3>Benefit Two</h3><p>80+ words</p>
+<h3>Benefit Three</h3><p>80+ words</p>
 
 <h2>Our Service Process</h2>
-<p>200+ words explaining step-by-step process, timeline, what to expect</p>
+<p>200+ words explaining step-by-step process.</p>
 
 <h2>Cost And Pricing Factors</h2>
-<p>200+ words about what affects pricing, value vs cost, financing options</p>
+<p>200+ words about pricing considerations.</p>
 
 <h2>Why Choose {req.company_name}</h2>
-<p>200+ words about company strengths, experience, guarantees - INCLUDE CTA</p>
-
-<h2>Service Areas We Cover</h2>
-<p>100+ words mentioning {city} and commitment to local community</p>
+<p>200+ words with company benefits. Include CTA with {req.phone}.</p>
 
 <h2>Get Started Today</h2>
-<p>150+ words with strong CTA - phone {req.phone}, email {req.email}</p>
+<p>150+ words with strong CTA. Phone: {req.phone}, Email: {req.email}</p>
 
-========================
-OUTPUT FORMAT (MANDATORY)
-========================
+5. FAQ SECTION (MANDATORY)
+- 5-7 high-intent FAQs specific to {req.keyword}
+- Clear, concise answers (50-80 words each)
 
-Return ONLY valid JSON. NO markdown. NO commentary. NO explanations.
+6. INTERNAL LINKS
+- Insert 3+ links from the list above naturally into body content
 
+7. SEO QUALITY
+- Short paragraphs (3-4 sentences max)
+- Active voice
+- Keyword density 1-2%
+- SEO score target: 90+
+
+RETURN THIS EXACT JSON STRUCTURE:
 {{
-  "meta_title": "{req.keyword} | Expert {req.industry or 'Service'} | {req.company_name}",
-  "meta_description": "Need {req.keyword.lower()} in {city}? {req.company_name} provides expert service. Call {req.phone or 'today'} for a free estimate!",
-  "h1": "{req.keyword} - Trusted {city} Experts | {req.company_name}",
+  "h1": "{req.keyword} in {city} - Expert Service | {req.company_name}",
+  "meta_title": "{req.keyword} {city} | {req.company_name}",
+  "meta_description": "Need {req.keyword.lower()} in {city}? {req.company_name} provides expert service. Call {req.phone or 'today'}!",
   "body": "<h2>What Is {req.keyword}?</h2><p>[250+ words]</p><h2>Signs You Need Professional Help</h2><p>[200+ words]</p>...[ALL SECTIONS WITH FULL WORD COUNTS]...",
   "faq_items": [
-    {{"question": "How much does {req.keyword.lower()} cost in {city}?", "answer": "[Detailed 50+ word answer about pricing factors]"}},
-    {{"question": "How long does {req.keyword.lower()} typically take?", "answer": "[Detailed answer about timeline]"}},
-    {{"question": "Is {req.company_name} licensed and insured?", "answer": "[Answer confirming credentials]"}},
-    {{"question": "Do you offer emergency services?", "answer": "[Answer about availability]"}},
-    {{"question": "What areas do you serve?", "answer": "[Answer mentioning {city} and surrounding areas]"}}
+    {{"question": "How much does {req.keyword.lower()} cost in {city}?", "answer": "[50-80 word answer]"}},
+    {{"question": "How long does the service take?", "answer": "[50-80 word answer]"}},
+    {{"question": "Is {req.company_name} licensed?", "answer": "[50-80 word answer]"}},
+    {{"question": "Do you offer emergency service?", "answer": "[50-80 word answer]"}},
+    {{"question": "What areas do you serve?", "answer": "[50-80 word answer]"}}
   ],
   "faq_schema": {{
     "@context": "https://schema.org",
@@ -348,29 +338,18 @@ Return ONLY valid JSON. NO markdown. NO commentary. NO explanations.
       {{"@type": "Question", "name": "...", "acceptedAnswer": {{"@type": "Answer", "text": "..."}}}}
     ]
   }},
-  "cta": {{
-    "contact_name": "",
-    "business_name": "{req.company_name}",
-    "phone": "{req.phone}",
-    "email": "{req.email}"
-  }}
+  "cta": {{"company_name": "{req.company_name}", "phone": "{req.phone}", "email": "{req.email}"}}
 }}
 
-========================
-SELF-VALIDATION (MANDATORY)
-========================
-
-Before returning output, you MUST internally verify:
-✓ Word count is {req.target_words}+ words
-✓ Only "{city}" is used as the city - no other cities
+FINAL CHECK BEFORE RESPONDING:
+✓ City is "{city}" ONLY - no other cities
 ✓ No city name in H2/H3 headings
-✓ Headlines are Proper Title Case
-✓ CTA appears at least twice in body
-✓ 3+ internal links are included
-✓ FAQs are specific to {req.keyword}
-✓ JSON is valid
+✓ Word count >= {req.target_words}
+✓ All headings are Proper Title Case
+✓ 3+ internal links included
+✓ Content is human and authoritative
 
-If ANY check fails → FIX IT → then return the JSON."""
+ONLY OUTPUT JSON - NO OTHER TEXT"""
 
     def _robust_parse_json(self, text: str) -> Dict[str, Any]:
         """Parse JSON robustly, handling common issues"""
