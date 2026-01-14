@@ -357,7 +357,17 @@ def generate_blog_sync(current_user):
         if not client:
             return jsonify({'error': 'Client not found'}), 404
         
+        # Get service pages for internal linking
         service_pages = client.get_service_pages() or []
+        logger.info(f"[SYNC] Client service_pages: {len(service_pages)} pages")
+        
+        # Also get published blog posts for internal linking
+        from app.models.db_models import DBBlogPost
+        published_posts = DBBlogPost.query.filter_by(
+            client_id=client_id, 
+            status='published'
+        ).limit(10).all()
+        logger.info(f"[SYNC] Published posts for linking: {len(published_posts)}")
         
         # Get contact info for CTA
         contact_name = getattr(client, 'contact_name', None) or getattr(client, 'owner_name', None)
@@ -377,14 +387,42 @@ def generate_blog_sync(current_user):
         city = geo_parts[0].strip() if len(geo_parts) > 0 else ''
         state = geo_parts[1].strip() if len(geo_parts) > 1 else 'FL'
         
-        # Build internal links list
+        # Build internal links list from multiple sources
         internal_links = []
-        for sp in service_pages[:6]:
+        
+        # 1. Add service pages
+        for sp in service_pages[:4]:
             if isinstance(sp, dict) and sp.get('url'):
                 internal_links.append({
                     'title': sp.get('title') or sp.get('keyword', ''),
                     'url': sp.get('url', '')
                 })
+        
+        # 2. Add published blog posts
+        for post in published_posts[:4]:
+            if post.published_url:
+                internal_links.append({
+                    'title': post.title or post.primary_keyword or '',
+                    'url': post.published_url
+                })
+        
+        # 3. If still not enough links, create from website URL
+        if len(internal_links) < 3 and client.website_url:
+            base_url = client.website_url.rstrip('/')
+            # Add common service page URLs
+            default_pages = [
+                {'title': 'Our Services', 'url': f'{base_url}/services'},
+                {'title': 'About Us', 'url': f'{base_url}/about'},
+                {'title': 'Contact Us', 'url': f'{base_url}/contact'},
+                {'title': 'Service Areas', 'url': f'{base_url}/service-areas'},
+            ]
+            for page in default_pages:
+                if len(internal_links) < 6:
+                    internal_links.append(page)
+        
+        logger.info(f"[SYNC] Internal links for blog: {len(internal_links)} links")
+        for link in internal_links[:3]:
+            logger.info(f"[SYNC]   - {link.get('title')}: {link.get('url')}")
         
         # Generate blog with new robust generator
         blog_request = BlogRequest(

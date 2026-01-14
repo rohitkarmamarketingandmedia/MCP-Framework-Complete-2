@@ -502,20 +502,56 @@ CRITICAL REMINDERS:
         else:
             result["meta_description"] = meta_desc
 
-        # Add internal links if missing
+        # Add internal links if missing or insufficient
         internal = req.internal_links or []
         body = result.get("body", "")
         link_count = len(re.findall(r'<a\s+href=', body, re.IGNORECASE))
         
+        logger.info(f"SEO autofix: body has {link_count} internal links, have {len(internal)} available")
+        
         if link_count < 3 and internal:
-            logger.info(f"Adding internal links (currently {link_count})")
-            links_html = ""
-            for link in internal[:4]:
-                if link.get("url") and link.get("title"):
-                    links_html += f'<li><a href="{link["url"]}">{link["title"]}</a></li>\n'
+            logger.info(f"Adding internal links (currently {link_count}, need 3+)")
             
-            if links_html:
-                result["body"] += f'\n<h2>Related Services</h2>\n<ul>\n{links_html}</ul>'
+            # Try to inject links into existing paragraphs first
+            links_to_add = internal[:4]
+            links_added = 0
+            
+            for link in links_to_add:
+                if link.get("url") and link.get("title"):
+                    link_html = f'<a href="{link["url"]}">{link["title"]}</a>'
+                    
+                    # Find a good place to inject - after a paragraph that doesn't already have a link
+                    # Look for </p> that isn't followed by <a
+                    if '</p>' in body and links_added < 3:
+                        # Find paragraphs without links
+                        paragraphs = body.split('</p>')
+                        new_paragraphs = []
+                        link_injected = False
+                        
+                        for i, p in enumerate(paragraphs):
+                            new_paragraphs.append(p)
+                            # Inject link after some paragraphs (not all)
+                            if not link_injected and i > 0 and i % 3 == 0 and '<a href' not in p and links_added < 3:
+                                # Add contextual text with link
+                                new_paragraphs[-1] += f'</p>\n<p>Learn more about {link_html}.'
+                                links_added += 1
+                                link_injected = True
+                        
+                        body = '</p>'.join(new_paragraphs)
+            
+            # If still not enough links, add a "Related Services" section
+            current_link_count = len(re.findall(r'<a\s+href=', body, re.IGNORECASE))
+            if current_link_count < 3 and internal:
+                links_html = ""
+                for link in internal[:4]:
+                    if link.get("url") and link.get("title"):
+                        links_html += f'<li><a href="{link["url"]}">{link["title"]}</a></li>\n'
+                
+                if links_html:
+                    body += f'\n<h2>Related Services</h2>\n<ul>\n{links_html}</ul>'
+                    logger.info("Added Related Services section with links")
+            
+            result["body"] = body
 
         # Fix heading structure - remove "in City" or "in City, State" pattern from h2/h3
         body = result.get("body", "")
