@@ -1366,6 +1366,25 @@
                 return;
             }
             
+            // Deduplicate city names in keywords
+            const geo = currentClient?.geo || '';
+            if (geo) {
+                gaps = gaps.map(gap => {
+                    let kw = gap.keyword || '';
+                    const geoRegex = new RegExp(`\\b${geo}\\b`, 'gi');
+                    const matches = kw.match(geoRegex);
+                    if (matches && matches.length > 1) {
+                        // Remove duplicate geo
+                        kw = kw.replace(geoRegex, '__GEO__');
+                        kw = kw.replace(/__GEO__\s+__GEO__/g, '__GEO__');
+                        kw = kw.replace('__GEO__', geo);
+                        kw = kw.replace(/__GEO__/g, '').trim();
+                        kw = kw.replace(/\s+/g, ' ');
+                    }
+                    return { ...gap, keyword: kw };
+                });
+            }
+            
             // Sort by priority
             gaps.sort((a, b) => {
                 const order = { HIGH: 0, MEDIUM: 1, LOW: 2 };
@@ -1471,10 +1490,66 @@
             renderKeywordGapTable(gaps);
         }
         
-        function createContentFor(keyword) {
-            const safeKeyword = keyword || '';
-            alert(`Creating content for: ${safeKeyword}\n\nThis will add "${safeKeyword}" to your content queue.`);
-            // In production, this would call the content generation API
+        async function createContentFor(keyword) {
+            if (!currentClient) {
+                alert('Please select a client first');
+                return;
+            }
+            
+            // Deduplicate city in keyword (e.g., "Bridges Sarasota Sarasota" -> "Bridges Sarasota")
+            let cleanKeyword = keyword || '';
+            const geo = currentClient.geo || '';
+            if (geo) {
+                const geoRegex = new RegExp(`\\b${geo}\\b`, 'gi');
+                const matches = cleanKeyword.match(geoRegex);
+                if (matches && matches.length > 1) {
+                    // Replace all occurrences with placeholder, then put one back
+                    cleanKeyword = cleanKeyword.replace(geoRegex, '__GEO__');
+                    cleanKeyword = cleanKeyword.replace(/__GEO__\s+__GEO__/g, '__GEO__');
+                    cleanKeyword = cleanKeyword.replace('__GEO__', geo);
+                    cleanKeyword = cleanKeyword.replace(/__GEO__/g, '').trim();
+                    cleanKeyword = cleanKeyword.replace(/\s+/g, ' ');
+                }
+            }
+            
+            if (!confirm(`Create blog post for:\n"${cleanKeyword}"\n\nThis will generate a new blog post for ${currentClient.business_name}.`)) {
+                return;
+            }
+            
+            // Show loading state
+            const btn = event.target.closest('button');
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+            btn.disabled = true;
+            
+            try {
+                const response = await fetch(`${API_URL}/api/content/blog/generate-sync`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${AUTH_TOKEN}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        client_id: currentClient.id,
+                        keyword: cleanKeyword,
+                        word_count: 1800
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok && data.post_id) {
+                    alert(`✅ Blog post created!\n\nKeyword: ${cleanKeyword}\nWord Count: ${data.word_count || 'N/A'}\n\nView it in the Content section.`);
+                    btn.innerHTML = '<i class="fas fa-check text-green-400"></i>';
+                } else {
+                    throw new Error(data.error || 'Failed to create content');
+                }
+            } catch (e) {
+                console.error('Content creation failed:', e);
+                alert(`❌ Failed to create content:\n${e.message}`);
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+            }
         }
         
         // ==========================================
