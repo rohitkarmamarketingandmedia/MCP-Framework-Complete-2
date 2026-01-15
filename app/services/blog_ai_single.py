@@ -33,6 +33,7 @@ class BlogRequest:
     industry: str = ""
     internal_links: Optional[List[Dict[str, str]]] = None
     external_links: Optional[List[Dict[str, str]]] = None
+    faq_count: int = 5  # Number of FAQs to generate (3-7)
 
 
 class BlogAISingle:
@@ -207,8 +208,9 @@ class BlogAISingle:
         
         # 5. FAQ count validation
         faq_items = result.get('faq_items', [])
-        if len(faq_items) < 5:
-            warnings.append(f"Low FAQ count: {len(faq_items)} (need 5-7)")
+        expected_faq = getattr(req, 'faq_count', 5) if req else 5
+        if len(faq_items) < expected_faq:
+            warnings.append(f"Low FAQ count: {len(faq_items)} (need {expected_faq})")
         
         # 6. Internal links validation
         link_count = len(re.findall(r'<a\s+href=', body, re.IGNORECASE))
@@ -396,6 +398,19 @@ LOCAL SERVICE EXPERTISE:
 - Include guarantees, warranties, customer satisfaction
 - Address why local expertise matters"""
 
+        # Build FAQ items template based on faq_count
+        faq_count = req.faq_count if hasattr(req, 'faq_count') and req.faq_count else 5
+        faq_questions = [
+            f'{{"question": "[Specific question about {keyword}]", "answer": "[60-80 word expert answer]"}}',
+            '{"question": "[Question about cost/pricing]", "answer": "[60-80 word answer]"}',
+            '{"question": "[Question about timeline/process]", "answer": "[60-80 word answer]"}',
+            f'{{"question": "[Question about {req.company_name}]", "answer": "[60-80 word answer]"}}',
+            '{"question": "[Question about service area]", "answer": "[60-80 word answer]"}',
+            '{"question": "[Question about warranty/guarantee]", "answer": "[60-80 word answer]"}',
+            '{"question": "[Question about scheduling]", "answer": "[60-80 word answer]"}',
+        ]
+        faq_items_template = ',\n    '.join(faq_questions[:faq_count])
+
         # Build system prompt
         self._system_prompt = f"""You are an expert SEO content writer. Generate a high-quality blog post.
 
@@ -470,12 +485,11 @@ Write 200+ words:
 - Include call-to-action with {req.phone}
 
 <h2>Frequently Asked Questions</h2>
-Write 5 Q&As in body (NOT in faq_items):
-<h3>Question about cost?</h3><p>Detailed answer...</p>
-<h3>Question about timeline?</h3><p>Detailed answer...</p>
-<h3>Question about process?</h3><p>Detailed answer...</p>
-<h3>Question about credentials?</h3><p>Detailed answer...</p>
-<h3>Question about service area?</h3><p>Detailed answer...</p>
+Write {faq_count} Q&As in body (NOT in faq_items):
+<h3>Question 1 about the service?</h3><p>Detailed answer...</p>
+<h3>Question 2 about cost?</h3><p>Detailed answer...</p>
+<h3>Question 3 about timeline?</h3><p>Detailed answer...</p>
+(Continue for {faq_count} total FAQs)
 
 <h2>Schedule Your Service</h2>
 Write 150+ words:
@@ -489,13 +503,7 @@ RETURN THIS JSON (fill in ALL content):
   "meta_title": "{keyword} | {req.company_name}",
   "meta_description": "[150-160 chars using keyword naturally, with CTA]",
   "body": "<h2>Understanding...</h2><p>[300+ words of expert content]</p><h2>Warning Signs...</h2><p>[250+ words]</p>...[COMPLETE ALL SECTIONS]...",
-  "faq_items": [
-    {{"question": "[Specific question about {keyword}]", "answer": "[60-80 word expert answer]"}},
-    {{"question": "[Question about cost/pricing]", "answer": "[60-80 word answer]"}},
-    {{"question": "[Question about timeline]", "answer": "[60-80 word answer]"}},
-    {{"question": "[Question about {req.company_name}]", "answer": "[60-80 word answer]"}},
-    {{"question": "[Question about service area]", "answer": "[60-80 word answer]"}}
-  ],
+  "faq_items": [{faq_items_template}],
   "cta": {{"company_name": "{req.company_name}", "phone": "{req.phone}", "email": "{req.email}"}}
 }}
 

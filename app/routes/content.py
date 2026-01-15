@@ -211,7 +211,7 @@ def _generate_blog_background(task_id, app, client_id, keyword, word_count, incl
                 tone=client.tone or 'professional',
                 business_name=client.business_name or '',
                 include_faq=include_faq,
-                faq_count=max(faq_count, 5),
+                faq_count=faq_count,
                 internal_links=service_pages,
                 usps=client.get_unique_selling_points(),
                 contact_name=contact_name,
@@ -434,7 +434,8 @@ def generate_blog_sync(current_user):
             phone=phone or '',
             email=email or '',
             industry=client.industry or 'Local Services',
-            internal_links=internal_links
+            internal_links=internal_links,
+            faq_count=faq_count
         )
         
         result = blog_gen.generate(blog_request)
@@ -658,7 +659,7 @@ def generate_content(current_user):
         'tone': data.get('tone', current_app.config['DEFAULT_TONE']),
         'business_name': client.business_name or '',
         'include_faq': data.get('include_faq', True),
-        'faq_count': max(data.get('faq_count', 5), 5),
+        'faq_count': data.get('faq_count', 5),
         'internal_links': internal_links,
         'usps': client.get_unique_selling_points() or [],
         'contact_name': contact_name,
@@ -836,7 +837,7 @@ def bulk_generate(current_user):
                 'tone': client.tone or 'professional',
                 'business_name': client.business_name or '',
                 'include_faq': True,
-                'faq_count': max(topic.get('faq_count', 5), 5),
+                'faq_count': topic.get('faq_count', 5),
                 'internal_links': service_pages,
                 'usps': client.get_unique_selling_points() or [],
                 'contact_name': contact_name,
