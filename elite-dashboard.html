@@ -371,15 +371,15 @@
                         </button>
                     </div>
                     <div class="overflow-x-auto">
-                        <table class="w-full text-sm">
+                        <table class="w-full text-sm" id="keywordGapTableContainer">
                             <thead>
                                 <tr class="text-gray-400 border-b border-white/10">
-                                    <th class="text-left py-3 px-2">Keyword</th>
-                                    <th class="text-center py-3 px-2">You</th>
-                                    <th class="text-center py-3 px-2" id="gapComp1Header">Competitor 1</th>
-                                    <th class="text-center py-3 px-2" id="gapComp2Header">Competitor 2</th>
-                                    <th class="text-center py-3 px-2">Volume</th>
-                                    <th class="text-center py-3 px-2">Priority</th>
+                                    <th class="text-left py-3 px-2 cursor-pointer hover:text-white" onclick="sortGapTable('keyword')">Keyword <i class="fas fa-sort ml-1"></i></th>
+                                    <th class="text-center py-3 px-2 cursor-pointer hover:text-white" onclick="sortGapTable('you')">You <i class="fas fa-sort ml-1"></i></th>
+                                    <th class="text-center py-3 px-2 cursor-pointer hover:text-white" onclick="sortGapTable('comp1')" id="gapComp1Header">Competitor 1 <i class="fas fa-sort ml-1"></i></th>
+                                    <th class="text-center py-3 px-2 cursor-pointer hover:text-white" onclick="sortGapTable('comp2')" id="gapComp2Header">Competitor 2 <i class="fas fa-sort ml-1"></i></th>
+                                    <th class="text-center py-3 px-2 cursor-pointer hover:text-white" onclick="sortGapTable('volume')">Volume <i class="fas fa-sort ml-1"></i></th>
+                                    <th class="text-center py-3 px-2 cursor-pointer hover:text-white" onclick="sortGapTable('priority')">Priority <i class="fas fa-sort ml-1"></i></th>
                                     <th class="text-center py-3 px-2">Action</th>
                                 </tr>
                             </thead>
@@ -938,6 +938,14 @@
 
                 const keywords = data.keywords || [];
                 
+                // Sort by position (top rankings first, unranked at bottom)
+                keywords.sort((a, b) => {
+                    if (!a.position && !b.position) return 0;
+                    if (!a.position) return 1;
+                    if (!b.position) return -1;
+                    return a.position - b.position;
+                });
+                
                 if (keywords.length === 0) {
                     container.innerHTML = `<div class="glass-card rounded-xl p-4 text-center text-gray-400">No keywords configured</div>`;
                     return;
@@ -1394,6 +1402,70 @@
                     </tr>
                 `;
             }).join('');
+            
+            // Store gaps for sorting
+            window.currentGapData = gaps;
+        }
+        
+        // Gap table sort state
+        let gapSortColumn = 'priority';
+        let gapSortAsc = true;
+        
+        function sortGapTable(column) {
+            if (!window.currentGapData) return;
+            
+            // Toggle direction if same column
+            if (gapSortColumn === column) {
+                gapSortAsc = !gapSortAsc;
+            } else {
+                gapSortColumn = column;
+                gapSortAsc = true;
+            }
+            
+            const gaps = [...window.currentGapData];
+            
+            gaps.sort((a, b) => {
+                let valA, valB;
+                
+                switch (column) {
+                    case 'keyword':
+                        valA = a.keyword || '';
+                        valB = b.keyword || '';
+                        return gapSortAsc ? valA.localeCompare(valB) : valB.localeCompare(valA);
+                    case 'you':
+                        valA = a.you || 999;
+                        valB = b.you || 999;
+                        break;
+                    case 'comp1':
+                        valA = a.comp1 || 999;
+                        valB = b.comp1 || 999;
+                        break;
+                    case 'comp2':
+                        valA = a.comp2 || 999;
+                        valB = b.comp2 || 999;
+                        break;
+                    case 'volume':
+                        valA = a.volume || 0;
+                        valB = b.volume || 0;
+                        break;
+                    case 'priority':
+                        const order = { HIGH: 0, MEDIUM: 1, LOW: 2 };
+                        valA = order[a.priority] ?? 2;
+                        valB = order[b.priority] ?? 2;
+                        break;
+                    default:
+                        return 0;
+                }
+                
+                if (column === 'volume') {
+                    // Volume: higher is better, so descending by default
+                    return gapSortAsc ? valB - valA : valA - valB;
+                }
+                return gapSortAsc ? valA - valB : valB - valA;
+            });
+            
+            window.currentGapData = gaps;
+            renderKeywordGapTable(gaps);
         }
         
         function createContentFor(keyword) {

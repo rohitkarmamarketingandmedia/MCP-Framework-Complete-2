@@ -111,16 +111,99 @@ class BlogAISingle:
         
         # 6) Validate and fix any other wrong cities (enterprise-level validation)
         result = self._validate_and_fix_cities(result, req.city)
+        
+        # 7) Fix duplicate locations in titles
+        result = self._fix_duplicate_locations(result, req.city, req.state)
 
-        # 7) Build HTML
+        # 8) Build HTML
         result["html"] = result.get("body", "")
         
-        # 8) Calculate word count
+        # 9) Calculate word count
         result["word_count"] = self._word_count(result.get("body", ""))
+        
+        # 10) Final validation
+        validation_result = self._validate_output(result, req)
+        if validation_result['errors']:
+            logger.warning(f"Validation errors: {validation_result['errors']}")
         
         logger.info(f"BlogAISingle.generate complete: {result['word_count']} words")
 
         return result
+    
+    def _fix_duplicate_locations(self, result: Dict[str, Any], city: str, state: str) -> Dict[str, Any]:
+        """Fix duplicate location patterns in titles like 'in Sarasota Florida in Sarasota'"""
+        import re
+        
+        city_escaped = re.escape(city)
+        
+        # Patterns to fix
+        patterns = [
+            # "in Sarasota Florida in Sarasota" -> "in Sarasota, Florida"
+            (rf'in\s+{city_escaped}\s+Florida\s+in\s+{city_escaped}', f'in {city}, Florida'),
+            (rf'in\s+{city_escaped}\s+FL\s+in\s+{city_escaped}', f'in {city}, FL'),
+            (rf'in\s+{city_escaped},?\s*{state}\s+in\s+{city_escaped}', f'in {city}, {state}'),
+            # "Sarasota Sarasota" -> "Sarasota"
+            (rf'{city_escaped}\s+{city_escaped}', city),
+            # "in Sarasota in Sarasota" -> "in Sarasota"
+            (rf'in\s+{city_escaped}\s+in\s+{city_escaped}', f'in {city}'),
+        ]
+        
+        for field in ['title', 'h1', 'meta_title', 'meta_description']:
+            if field in result and isinstance(result[field], str):
+                original = result[field]
+                for pattern, replacement in patterns:
+                    result[field] = re.sub(pattern, replacement, result[field], flags=re.IGNORECASE)
+                if result[field] != original:
+                    logger.info(f"Fixed duplicate location in {field}: '{original}' -> '{result[field]}'")
+        
+        return result
+    
+    def _validate_output(self, result: Dict[str, Any], req: BlogRequest) -> Dict[str, Any]:
+        """Validate output meets all requirements"""
+        errors = []
+        warnings = []
+        
+        # 1. Required keys check
+        required_keys = ['title', 'h1', 'meta_title', 'meta_description', 'body', 'faq_items', 'cta']
+        for key in required_keys:
+            if key not in result or not result[key]:
+                errors.append(f"Missing required key: {key}")
+        
+        # 2. Word count validation
+        word_count = result.get('word_count', 0)
+        if word_count < req.target_words * 0.7:
+            errors.append(f"Word count too low: {word_count} (need {req.target_words})")
+        elif word_count < req.target_words * 0.85:
+            warnings.append(f"Word count below target: {word_count}/{req.target_words}")
+        
+        # 3. City validation - check for wrong cities in body
+        body = result.get('body', '')
+        correct_city = req.city.lower()
+        for other_city in self.KNOWN_CITIES:
+            if other_city.lower() != correct_city and other_city.lower() in body.lower():
+                errors.append(f"Wrong city found in body: {other_city}")
+        
+        # 4. Heading structure validation
+        h2_count = len(re.findall(r'<h2', body, re.IGNORECASE))
+        if h2_count < 4:
+            warnings.append(f"Low H2 count: {h2_count} (recommend 5+)")
+        
+        # 5. FAQ count validation
+        faq_items = result.get('faq_items', [])
+        if len(faq_items) < 5:
+            warnings.append(f"Low FAQ count: {len(faq_items)} (need 5-7)")
+        
+        # 6. Internal links validation
+        link_count = len(re.findall(r'<a\s+href=', body, re.IGNORECASE))
+        if link_count < 3:
+            warnings.append(f"Low internal link count: {link_count} (need 3+)")
+        
+        # 7. Meta description length
+        meta_desc = result.get('meta_description', '')
+        if len(meta_desc) < 120 or len(meta_desc) > 165:
+            warnings.append(f"Meta description length: {len(meta_desc)} (ideal: 150-160)")
+        
+        return {'errors': errors, 'warnings': warnings}
     
     def _detect_city(self, req: BlogRequest):
         """Detect city from keyword and store for later correction"""
@@ -139,6 +222,34 @@ class BlogAISingle:
         if keyword_city:
             logger.info(f"Detected city '{keyword_city}' from keyword (ignoring settings city '{req.city}')")
             req.city = keyword_city
+            
+            # DEDUPLICATE: Remove duplicate city from keyword
+            # e.g., "Bridges Sarasota Sarasota" -> "Bridges Sarasota"
+            req.keyword = self._deduplicate_city_in_keyword(req.keyword, keyword_city)
+    
+    def _deduplicate_city_in_keyword(self, keyword: str, city: str) -> str:
+        """Remove duplicate city names from keyword"""
+        import re
+        
+        # Count occurrences of city (case-insensitive)
+        city_pattern = re.compile(re.escape(city), re.IGNORECASE)
+        matches = city_pattern.findall(keyword)
+        
+        if len(matches) > 1:
+            # Remove all but one occurrence
+            # Replace all with placeholder, then put one back
+            temp = city_pattern.sub('__CITY__', keyword)
+            # Remove duplicate placeholders
+            while '__CITY__ __CITY__' in temp:
+                temp = temp.replace('__CITY__ __CITY__', '__CITY__')
+            # Also handle "Keyword __CITY__ __CITY__" pattern
+            temp = re.sub(r'__CITY__\s+__CITY__', '__CITY__', temp)
+            # Put the city back (with proper case)
+            result = temp.replace('__CITY__', city.title())
+            logger.info(f"Deduplicated keyword: '{keyword}' -> '{result}'")
+            return result.strip()
+        
+        return keyword
 
     def _call_model(self, model: str, prompt: str, system_prompt: str = None) -> str:
         """Call OpenAI API with hardened settings"""

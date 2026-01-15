@@ -3487,6 +3487,9 @@
                 }
                 const data = await res.json();
                 const clients = data.clients || [];
+                
+                // Sort clients alphabetically by business_name
+                clients.sort((a, b) => (a.business_name || '').localeCompare(b.business_name || ''));
 
                 const selector = document.getElementById('clientSelector');
                 selector.innerHTML = '<option value="">Select Client</option>';
