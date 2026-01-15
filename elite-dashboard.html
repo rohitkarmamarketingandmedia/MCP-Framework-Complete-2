@@ -577,6 +577,7 @@
         let currentClientId = '';
         let currentClient = null;
         let currentQueueItem = null;
+        let competitors = [];  // Competitor data for gap analysis
         
         // ==========================================
         // UTILITY FUNCTIONS
@@ -696,7 +697,8 @@
                 document.getElementById('statAlerts').textContent = data.stats?.unread_alerts || 0;
 
                 // Render competitors
-                renderCompetitors(data.competitors || [], data.new_competitor_pages || []);
+                competitors = data.competitors || [];  // Store globally for gap analysis
+                renderCompetitors(competitors, data.new_competitor_pages || []);
 
                 // Render alerts
                 renderAlerts(data.recent_alerts || []);
@@ -1417,7 +1419,7 @@
                             <span class="px-2 py-1 rounded text-xs ${priorityClass[gap.priority] || ''}">${escapeHtml(gap.priority) || 'LOW'}</span>
                         </td>
                         <td class="py-3 px-2 text-center">
-                            <button onclick="createContentFor('${escapeHtml(gap.keyword)}')" class="px-2 py-1 bg-purple-500/20 text-purple-400 rounded text-xs hover:bg-purple-500/30">
+                            <button onclick="createContentFor('${escapeHtml(gap.keyword)}', this)" class="px-2 py-1 bg-purple-500/20 text-purple-400 rounded text-xs hover:bg-purple-500/30">
                                 <i class="fas fa-plus mr-1"></i>Create
                             </button>
                         </td>
@@ -1490,7 +1492,7 @@
             renderKeywordGapTable(gaps);
         }
         
-        async function createContentFor(keyword) {
+        async function createContentFor(keyword, btn) {
             if (!currentClient) {
                 alert('Please select a client first');
                 return;
@@ -1517,10 +1519,11 @@
             }
             
             // Show loading state
-            const btn = event.target.closest('button');
-            const originalText = btn.innerHTML;
-            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
-            btn.disabled = true;
+            const originalText = btn ? btn.innerHTML : '';
+            if (btn) {
+                btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+                btn.disabled = true;
+            }
             
             try {
                 const response = await fetch(`${API_URL}/api/content/blog/generate-sync`, {
@@ -1540,15 +1543,17 @@
                 
                 if (response.ok && data.post_id) {
                     alert(`✅ Blog post created!\n\nKeyword: ${cleanKeyword}\nWord Count: ${data.word_count || 'N/A'}\n\nView it in the Content section.`);
-                    btn.innerHTML = '<i class="fas fa-check text-green-400"></i>';
+                    if (btn) btn.innerHTML = '<i class="fas fa-check text-green-400"></i>';
                 } else {
-                    throw new Error(data.error || 'Failed to create content');
+                    throw new Error(data.error || data.message || 'Failed to create content');
                 }
             } catch (e) {
                 console.error('Content creation failed:', e);
                 alert(`❌ Failed to create content:\n${e.message}`);
-                btn.innerHTML = originalText;
-                btn.disabled = false;
+                if (btn) {
+                    btn.innerHTML = originalText;
+                    btn.disabled = false;
+                }
             }
         }
         
