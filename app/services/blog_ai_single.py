@@ -339,145 +339,176 @@ Return: {{"body_append": "<h2>Title</h2><p>Content...</p>"}}"""
             return ""
 
     def _build_prompt(self, req: BlogRequest) -> str:
-        """Build hardened prompt with strict guardrails"""
-        city = req.city
-        state = req.state.upper() if len(req.state) == 2 else req.state
+        """Build hardened prompt - keyword-driven, no settings city/state injection"""
+        
+        # Extract location from keyword itself - DO NOT use settings
+        keyword = req.keyword.strip()
         
         # Build internal links
         internal = req.internal_links or []
         internal_links_text = ""
         if internal:
-            internal_links_text = "INTERNAL LINKS (insert 3+ as <a href> tags):\n"
+            internal_links_text = "INTERNAL LINKS (weave 3+ naturally into body as <a href> tags):\n"
             for link in internal[:6]:
                 if link.get("url") and link.get("title"):
                     internal_links_text += f'- <a href="{link["url"]}">{link["title"]}</a>\n'
         
-        # Build system prompt (kept short as recommended)
-        self._system_prompt = f"""You are an expert SEO content writer generating high-quality, location-specific blog posts for service-based businesses.
+        # Industry-specific expertise
+        industry = (req.industry or '').lower()
+        if 'dent' in industry:
+            expertise = """
+DENTAL INDUSTRY EXPERTISE:
+- Reference specific procedures: cleanings, fillings, crowns, implants, root canals, extractions
+- Mention sedation options, insurance acceptance, emergency availability
+- Discuss preventive care importance, oral health connection to overall health
+- Include patient comfort features: modern equipment, gentle techniques
+- Address common fears: pain, cost, time commitment"""
+        elif 'hvac' in industry or 'air' in industry or 'ac' in industry:
+            expertise = """
+HVAC INDUSTRY EXPERTISE:
+- Reference SEER ratings, refrigerant types (R-410A), energy efficiency
+- Mention common issues: refrigerant leaks, compressor failures, frozen coils
+- Discuss seasonal maintenance, filter changes, duct cleaning
+- Include emergency 24/7 service, warranty information
+- Address Florida-specific: humidity control, salt air corrosion, hurricane prep"""
+        elif 'electric' in industry:
+            expertise = """
+ELECTRICAL INDUSTRY EXPERTISE:
+- Reference NEC code compliance, panel amperage, GFCI/AFCI protection
+- Mention common issues: circuit overloads, flickering lights, outlet problems
+- Discuss EV charger installation, whole-home generators, surge protection
+- Include licensing, permits, safety inspections
+- Address emergency services, 24/7 availability"""
+        elif 'plumb' in industry:
+            expertise = """
+PLUMBING INDUSTRY EXPERTISE:
+- Reference pipe materials, water pressure PSI, water heater types
+- Mention common issues: drain clogs, leaks, water heater failures
+- Discuss repiping, fixture installation, water quality/softeners
+- Include emergency services, camera inspections
+- Address local water quality issues, older home challenges"""
+        else:
+            expertise = """
+LOCAL SERVICE EXPERTISE:
+- Reference industry-specific certifications and licensing
+- Mention common problems customers face and solutions
+- Discuss service process, timeline, pricing factors
+- Include guarantees, warranties, customer satisfaction
+- Address why local expertise matters"""
 
-STRICT GUARDRAILS (DO NOT BREAK):
-- Use ONLY the city "{city}" and state "{state}"
-- Never substitute, infer, or replace the city
-- Never mix cities (e.g., Sarasota ≠ Port Charlotte)
-- If the city appears in both keyword and headings, deduplicate it
-- Do NOT put city name in H2 or H3 headings
-- Convert all titles to Proper Title Case
-- Generate original, human-sounding content
-- NO filler, NO placeholders, NO markdown
-- NEVER explain your reasoning
+        # Build system prompt
+        self._system_prompt = f"""You are an expert SEO content writer. Generate a high-quality blog post.
 
-OUTPUT FORMAT RULE:
-- Return ONLY valid JSON
-- Do NOT wrap JSON in markdown
-- Do NOT include commentary
+CRITICAL RULES:
+1. The keyword is: "{keyword}" - use it EXACTLY as written
+2. Do NOT add any city/state beyond what's in the keyword
+3. Do NOT duplicate location names (if keyword has "Sarasota FL", don't add more "Sarasota" or "FL")
+4. Do NOT put location in H2/H3 headings
+5. Write like an industry expert, NOT generic AI
+6. Return ONLY valid JSON - no markdown, no commentary
 
-FAILURE TO FOLLOW THESE RULES INVALIDATES THE RESPONSE"""
+CONTENT QUALITY:
+- Sound like a human expert wrote it
+- Include specific technical details
+- Address real customer concerns
+- Avoid generic filler phrases like "it's important to note" or "when it comes to"
+- Each paragraph should have unique, valuable information"""
 
-        # Build user prompt
-        return f"""INPUT VARIABLES:
-Primary Keyword: {req.keyword}
-Service: {req.industry or 'Professional Service'}
-City: {city}
-State: {state}
-Business Name: {req.company_name}
-Phone: {req.phone}
-Email: {req.email}
-Target Audience: Homeowners and businesses in {city}
-Minimum Word Count: {req.target_words}
+        # Build user prompt - keyword driven, no settings injection
+        return f"""GENERATE SEO BLOG POST
+
+PRIMARY KEYWORD: {keyword}
+BUSINESS: {req.company_name}
+INDUSTRY: {req.industry or 'Professional Services'}
+CONTACT: {req.phone} | {req.email}
+WORD COUNT: {req.target_words}+ words (CRITICAL!)
+
+{expertise}
 
 {internal_links_text}
 
-OUTPUT REQUIREMENTS:
+CONTENT STRUCTURE (write detailed, expert-level content):
 
-1. SEO TITLE (H1)
-- Proper Title Case
-- Include primary keyword + city ONCE
-- 55-65 characters
+<h2>Understanding [Service from Keyword]</h2>
+Write 300+ words:
+- What the service involves in plain terms
+- When customers typically need this service
+- What makes quality service different from poor service
+- Include ONE mention of location naturally
 
-2. META TITLE
-- 50-60 characters
-- Include keyword + company name
+<h2>Warning Signs You Need This Service</h2>
+Write 250+ words:
+- List 5-7 specific warning signs with detailed explanations
+- Explain consequences of ignoring each sign
+- Help readers self-diagnose their situation
 
-3. META DESCRIPTION
-- 150-160 characters
-- Include service + city ONCE
-- Click-optimized with CTA
-
-4. BODY CONTENT ({req.target_words}+ words - CRITICAL!)
-Use this structure with H2/H3 headings (NO city in headings):
-
-<h2>What Is {req.keyword}?</h2>
-<p>250+ words defining service, when needed, what's involved. Mention {city} once.</p>
-
-<h2>Signs You Need Professional Help</h2>
-<p>200+ words with 5-7 warning signs and explanations.</p>
-
-<h2>Benefits Of Expert Service</h2>
-<h3>Benefit One</h3><p>80+ words</p>
-<h3>Benefit Two</h3><p>80+ words</p>
-<h3>Benefit Three</h3><p>80+ words</p>
+<h2>Benefits Of Professional Service</h2>
+Write 300+ words with subheadings:
+<h3>Expert Diagnosis</h3> - 80+ words on professional assessment
+<h3>Quality Results</h3> - 80+ words on outcome differences
+<h3>Long-Term Value</h3> - 80+ words on cost savings over time
+<h3>Safety And Compliance</h3> - 80+ words on regulations/standards
 
 <h2>Our Service Process</h2>
-<p>200+ words explaining step-by-step process.</p>
+Write 200+ words:
+- Step-by-step what happens during service
+- Timeline expectations
+- What customers should prepare
 
-<h2>Cost And Pricing Factors</h2>
-<p>200+ words about pricing considerations.</p>
+<h2>Investment And Pricing</h2>
+Write 200+ words:
+- Factors that affect pricing
+- Why cheapest isn't always best
+- Value of quality service
+- Mention {req.company_name} commitment to fair pricing
 
-<h2>Why Choose {req.company_name}</h2>
-<p>200+ words with company benefits. Include CTA with {req.phone}.</p>
+<h2>Why Customers Choose {req.company_name}</h2>
+Write 200+ words:
+- Specific company strengths
+- Experience and credentials
+- Customer satisfaction focus
+- Include call-to-action with {req.phone}
 
-<h2>Get Started Today</h2>
-<p>150+ words with strong CTA. Phone: {req.phone}, Email: {req.email}</p>
+<h2>Frequently Asked Questions</h2>
+Write 5 Q&As in body (NOT in faq_items):
+<h3>Question about cost?</h3><p>Detailed answer...</p>
+<h3>Question about timeline?</h3><p>Detailed answer...</p>
+<h3>Question about process?</h3><p>Detailed answer...</p>
+<h3>Question about credentials?</h3><p>Detailed answer...</p>
+<h3>Question about service area?</h3><p>Detailed answer...</p>
 
-5. FAQ SECTION (MANDATORY)
-- 5-7 high-intent FAQs specific to {req.keyword}
-- Clear, concise answers (50-80 words each)
+<h2>Schedule Your Service</h2>
+Write 150+ words:
+- Strong call-to-action
+- Contact: {req.phone}, {req.email}
+- What happens when they call
 
-6. INTERNAL LINKS
-- Insert 3+ links from the list above naturally into body content
-
-7. SEO QUALITY
-- Short paragraphs (3-4 sentences max)
-- Active voice
-- Keyword density 1-2%
-- SEO score target: 90+
-
-RETURN THIS EXACT JSON STRUCTURE:
+RETURN THIS JSON (fill in ALL content):
 {{
-  "h1": "{req.keyword} in {city} - Expert Service | {req.company_name}",
-  "meta_title": "{req.keyword} {city} | {req.company_name}",
-  "meta_description": "Need {req.keyword.lower()} in {city}? {req.company_name} provides expert service. Call {req.phone or 'today'}!",
-  "body": "<h2>What Is {req.keyword}?</h2><p>[250+ words]</p><h2>Signs You Need Professional Help</h2><p>[200+ words]</p>...[ALL SECTIONS WITH FULL WORD COUNTS]...",
+  "h1": "[Compelling title using keyword - 55-65 chars]",
+  "meta_title": "{keyword} | {req.company_name}",
+  "meta_description": "[150-160 chars using keyword naturally, with CTA]",
+  "body": "<h2>Understanding...</h2><p>[300+ words of expert content]</p><h2>Warning Signs...</h2><p>[250+ words]</p>...[COMPLETE ALL SECTIONS]...",
   "faq_items": [
-    {{"question": "How much does {req.keyword.lower()} cost in {city}?", "answer": "[50-80 word answer]"}},
-    {{"question": "How long does the service take?", "answer": "[50-80 word answer]"}},
-    {{"question": "Is {req.company_name} licensed?", "answer": "[50-80 word answer]"}},
-    {{"question": "Do you offer emergency service?", "answer": "[50-80 word answer]"}},
-    {{"question": "What areas do you serve?", "answer": "[50-80 word answer]"}}
+    {{"question": "[Specific question about {keyword}]", "answer": "[60-80 word expert answer]"}},
+    {{"question": "[Question about cost/pricing]", "answer": "[60-80 word answer]"}},
+    {{"question": "[Question about timeline]", "answer": "[60-80 word answer]"}},
+    {{"question": "[Question about {req.company_name}]", "answer": "[60-80 word answer]"}},
+    {{"question": "[Question about service area]", "answer": "[60-80 word answer]"}}
   ],
-  "faq_schema": {{
-    "@context": "https://schema.org",
-    "@type": "FAQPage",
-    "mainEntity": [
-      {{"@type": "Question", "name": "...", "acceptedAnswer": {{"@type": "Answer", "text": "..."}}}},
-      {{"@type": "Question", "name": "...", "acceptedAnswer": {{"@type": "Answer", "text": "..."}}}},
-      {{"@type": "Question", "name": "...", "acceptedAnswer": {{"@type": "Answer", "text": "..."}}}},
-      {{"@type": "Question", "name": "...", "acceptedAnswer": {{"@type": "Answer", "text": "..."}}}},
-      {{"@type": "Question", "name": "...", "acceptedAnswer": {{"@type": "Answer", "text": "..."}}}}
-    ]
-  }},
   "cta": {{"company_name": "{req.company_name}", "phone": "{req.phone}", "email": "{req.email}"}}
 }}
 
-FINAL CHECK BEFORE RESPONDING:
-✓ City is "{city}" ONLY - no other cities
-✓ No city name in H2/H3 headings
+VALIDATION BEFORE OUTPUT:
+✓ Keyword "{keyword}" used naturally (not stuffed)
+✓ Location NOT duplicated anywhere
+✓ NO location in H2/H3 headings
 ✓ Word count >= {req.target_words}
-✓ All headings are Proper Title Case
-✓ 3+ internal links included
-✓ Content is human and authoritative
+✓ Content sounds like industry expert, not generic AI
+✓ 3+ internal links woven into body
+✓ Valid JSON only
 
-ONLY OUTPUT JSON - NO OTHER TEXT"""
+OUTPUT JSON ONLY:"""
 
     def _robust_parse_json(self, text: str) -> Dict[str, Any]:
         """Parse JSON robustly, handling common issues"""
@@ -646,21 +677,18 @@ ONLY OUTPUT JSON - NO OTHER TEXT"""
         return result
 
     def _seo_autofix(self, result: Dict[str, Any], req: BlogRequest) -> Dict[str, Any]:
-        """Auto-fix common SEO issues"""
+        """Auto-fix common SEO issues - keyword driven, no location injection"""
         kw = req.keyword.strip()
         kw_l = kw.lower()
-        state_upper = req.state.upper() if len(req.state) == 2 else req.state
 
-        # Fix H1 if keyword missing
+        # Fix H1 if keyword missing - use keyword as-is, don't add more location
         h1 = (result.get("h1") or "").strip()
         if kw_l not in h1.lower():
-            result["h1"] = f"{kw} - Expert Service in {req.city}"
+            result["h1"] = f"{kw} | {req.company_name}"
             logger.info(f"Fixed H1 to include keyword")
 
-        # Fix meta title - ensure proper format and uppercase state
+        # Fix meta title - use keyword, don't add location
         meta_title = result.get("meta_title", "")
-        # Fix lowercase state abbreviations (Fl -> FL)
-        meta_title = re.sub(r'\b([A-Z][a-z])\b', lambda m: m.group(1).upper(), meta_title)
         if len(meta_title) > 65:
             result["meta_title"] = meta_title[:60] + "..."
         elif len(meta_title) < 30:
@@ -668,13 +696,13 @@ ONLY OUTPUT JSON - NO OTHER TEXT"""
         else:
             result["meta_title"] = meta_title
 
-        # Fix meta description - ensure proper length and uppercase state
+        # Fix meta description - use keyword as-is, don't duplicate location
         meta_desc = result.get("meta_description", "")
-        meta_desc = re.sub(r'\b([A-Z][a-z])\b(?=\.|\s|$)', lambda m: m.group(1).upper(), meta_desc)
         if len(meta_desc) > 165:
             result["meta_description"] = meta_desc[:157] + "..."
         elif len(meta_desc) < 120:
-            result["meta_description"] = f"Professional {kw.lower()} in {req.city}, {state_upper}. {req.company_name} provides expert service. Call today for a free estimate."[:160]
+            # Use keyword which already contains location
+            result["meta_description"] = f"Looking for {kw.lower()}? {req.company_name} provides expert service. Call {req.phone or 'today'} for a free estimate."[:160]
         else:
             result["meta_description"] = meta_desc
 
