@@ -497,9 +497,16 @@ def client_keyword_gap(current_user, client_id):
         gaps = []
         keywords = client.get_primary_keywords() + client.get_secondary_keywords()
         geo = client.geo or ''
+        geo_lower = geo.lower().strip()
         
         for kw in keywords[:15]:
-            full_kw = f"{kw} {geo}".strip()
+            # Only append geo if keyword doesn't already contain it
+            kw_lower = kw.lower()
+            if geo_lower and geo_lower not in kw_lower:
+                full_kw = f"{kw} {geo}".strip()
+            else:
+                full_kw = kw.strip()
+            
             gaps.append({
                 'keyword': full_kw,
                 'you': None if len(gaps) % 3 == 0 else (len(gaps) % 20 + 5),

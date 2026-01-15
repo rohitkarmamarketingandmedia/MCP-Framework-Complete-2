@@ -131,23 +131,32 @@ class BlogAISingle:
         return result
     
     def _fix_duplicate_locations(self, result: Dict[str, Any], city: str, state: str) -> Dict[str, Any]:
-        """Fix duplicate location patterns in titles like 'in Sarasota Florida in Sarasota'"""
+        """Fix duplicate location patterns in titles and body"""
         import re
         
         city_escaped = re.escape(city)
+        state_escaped = re.escape(state)
         
-        # Patterns to fix
+        # Patterns to fix (order matters - more specific patterns first)
         patterns = [
-            # "in Sarasota Florida in Sarasota" -> "in Sarasota, Florida"
+            # "Top 10 Dentist in Sarasota Florida in Sarasota" -> "Top 10 Dentist in Sarasota, Florida"
             (rf'in\s+{city_escaped}\s+Florida\s+in\s+{city_escaped}', f'in {city}, Florida'),
             (rf'in\s+{city_escaped}\s+FL\s+in\s+{city_escaped}', f'in {city}, FL'),
-            (rf'in\s+{city_escaped},?\s*{state}\s+in\s+{city_escaped}', f'in {city}, {state}'),
+            (rf'in\s+{city_escaped},?\s*{state_escaped}\s+in\s+{city_escaped}', f'in {city}, {state}'),
+            # "Service Sarasota Sarasota" -> "Service Sarasota"
+            (rf'(\w+)\s+{city_escaped}\s+{city_escaped}', rf'\1 {city}'),
             # "Sarasota Sarasota" -> "Sarasota"
-            (rf'{city_escaped}\s+{city_escaped}', city),
+            (rf'\b{city_escaped}\s+{city_escaped}\b', city),
             # "in Sarasota in Sarasota" -> "in Sarasota"
             (rf'in\s+{city_escaped}\s+in\s+{city_escaped}', f'in {city}'),
+            # "Sarasota, Florida Sarasota" -> "Sarasota, Florida"
+            (rf'{city_escaped},?\s*Florida\s+{city_escaped}', f'{city}, Florida'),
+            (rf'{city_escaped},?\s*FL\s+{city_escaped}', f'{city}, FL'),
+            # "| Sarasota Sarasota" -> "| Sarasota"
+            (rf'\|\s*{city_escaped}\s+{city_escaped}', f'| {city}'),
         ]
         
+        # Apply to title fields
         for field in ['title', 'h1', 'meta_title', 'meta_description']:
             if field in result and isinstance(result[field], str):
                 original = result[field]
@@ -155,6 +164,14 @@ class BlogAISingle:
                     result[field] = re.sub(pattern, replacement, result[field], flags=re.IGNORECASE)
                 if result[field] != original:
                     logger.info(f"Fixed duplicate location in {field}: '{original}' -> '{result[field]}'")
+        
+        # Also fix in body content
+        if 'body' in result and isinstance(result['body'], str):
+            original_body = result['body']
+            for pattern, replacement in patterns:
+                result['body'] = re.sub(pattern, replacement, result['body'], flags=re.IGNORECASE)
+            if result['body'] != original_body:
+                logger.info("Fixed duplicate location patterns in body content")
         
         return result
     
