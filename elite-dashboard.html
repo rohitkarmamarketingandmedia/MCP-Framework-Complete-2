@@ -1541,8 +1541,8 @@
                 
                 const data = await response.json();
                 
-                if (response.ok && data.post_id) {
-                    alert(`✅ Blog post created!\n\nKeyword: ${cleanKeyword}\nWord Count: ${data.word_count || 'N/A'}\n\nView it in the Content section.`);
+                if (response.ok && (data.post_id || data.blog_id || data.success)) {
+                    alert(`✅ Blog post created!\n\nKeyword: ${cleanKeyword}\nWord Count: ${data.word_count || 'N/A'}\nSEO Score: ${data.seo_score || 'N/A'}\n\nView it in the Content section.`);
                     if (btn) btn.innerHTML = '<i class="fas fa-check text-green-400"></i>';
                 } else {
                     throw new Error(data.error || data.message || 'Failed to create content');
