@@ -3615,6 +3615,9 @@
                 
                 // Load system status (with error handling)
                 try { loadSystemStatus(); } catch(e) { console.error('loadSystemStatus error:', e); }
+                
+                // Load social connections (with error handling)
+                try { loadSocialConnections(); } catch(e) { console.error('loadSocialConnections error:', e); }
 
             } catch (e) {
                 console.error('Failed to load client:', e);
@@ -3963,6 +3966,7 @@
             // Load social when social tab is shown
             if (tab === 'social') {
                 loadSocialPosts();
+                loadSocialConnections();
             }
             
             // Load SEO data when SEO tab is shown
@@ -10721,6 +10725,11 @@
         }
         
         function renderSocialConnections(connections) {
+            if (!connections) {
+                console.warn('No connections data received');
+                return;
+            }
+            
             const platforms = ['gbp', 'facebook', 'instagram', 'linkedin'];
             
             platforms.forEach(platform => {
@@ -10728,7 +10737,7 @@
                 const statusEl = document.getElementById(`${platform}-status`);
                 const btnEl = document.getElementById(`${platform}-btn`);
                 
-                if (statusEl && btnEl) {
+                if (statusEl && btnEl && conn) {
                     if (conn.connected) {
                         statusEl.textContent = 'Connected';
                         statusEl.classList.remove('text-gray-500');
