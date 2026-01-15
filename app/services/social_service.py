@@ -179,7 +179,12 @@ class SocialService:
                 if link:
                     data['link'] = link
             
-            logger.info(f"Publishing to Facebook page {page_id}")
+            logger.info(f"Publishing to Facebook page {page_id}, token_length={len(access_token) if access_token else 0}")
+            
+            # Debug: Check token type (page tokens are typically longer)
+            if access_token and len(access_token) < 100:
+                logger.warning(f"Short token detected - might be user token instead of page token")
+            
             response = requests.post(endpoint, data=data, timeout=30)
             
             if response.status_code == 401 or response.status_code == 190:
@@ -189,8 +194,21 @@ class SocialService:
             
             if 'error' in result:
                 error_msg = result['error'].get('message', 'Unknown error')
-                logger.error(f"Facebook API error: {error_msg}")
-                return {'success': False, 'error': f'Facebook: {error_msg}'}
+                error_code = result['error'].get('code', 0)
+                logger.error(f"Facebook API error ({error_code}): {error_msg}")
+                
+                # Provide helpful error messages for common issues
+                if error_code == 200 or 'pages_manage_posts' in error_msg:
+                    return {
+                        'success': False, 
+                        'error': 'Facebook permissions not granted. Please disconnect and reconnect Facebook, making sure to grant "Manage Posts" permission when prompted.'
+                    }
+                elif error_code == 190:
+                    return {'success': False, 'error': 'Facebook token expired - please reconnect in Settings'}
+                elif 'OAuthException' in str(result['error'].get('type', '')):
+                    return {'success': False, 'error': 'Facebook authentication error - please reconnect'}
+                
+                return {'success': False, 'error': f'Facebook error: {error_msg}'}
             
             response.raise_for_status()
             
