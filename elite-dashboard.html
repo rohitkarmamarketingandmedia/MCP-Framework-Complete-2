@@ -804,46 +804,82 @@
 
         async function loadContentQueue() {
             try {
-                const res = await fetch(`${API_URL}/api/monitoring/queue?client_id=${currentClientId}&status=pending`, {
+                // Get content queue items (from competitor monitoring)
+                const queueRes = await fetch(`${API_URL}/api/monitoring/queue?client_id=${currentClientId}&status=pending`, {
                     headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
                 });
-                const data = await res.json();
-                const queue = data.queue || [];
+                const queueData = await queueRes.json();
+                const queue = queueData.queue || [];
+                
+                // Also get draft blog posts
+                const draftsRes = await fetch(`${API_URL}/api/content/client/${currentClientId}?type=blog&status=draft`, {
+                    headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
+                });
+                const draftsData = await draftsRes.json();
+                const drafts = (draftsData.posts || []).filter(p => p.status === 'draft').slice(0, 10);
 
-                document.getElementById('queueCount').textContent = `${queue.length} pending`;
+                const totalPending = queue.length + drafts.length;
+                document.getElementById('queueCount').textContent = `${totalPending} pending`;
 
                 const container = document.getElementById('contentQueue');
 
-                if (queue.length === 0) {
+                if (totalPending === 0) {
                     container.innerHTML = `
                         <div class="glass-card rounded-xl p-8 text-center">
                             <i class="fas fa-inbox text-4xl text-gray-600 mb-4"></i>
                             <p class="text-gray-400">No content in queue</p>
-                            <p class="text-xs text-gray-500 mt-2">Content will appear here when competitors post new content</p>
+                            <p class="text-xs text-gray-500 mt-2">Content will appear here when you create blogs or competitors post new content</p>
                         </div>
                     `;
                     return;
                 }
 
-                container.innerHTML = queue.map(item => `
-                    <div class="glass-card rounded-xl p-4 queue-item cursor-pointer" onclick="showContent('${item.id}')">
-                        <div class="flex items-start justify-between mb-2">
-                            <span class="px-2 py-1 bg-purple-500/20 text-purple-400 rounded text-xs">
-                                ${item.trigger_type === 'competitor_post' ? 'Counter-Content' : item.trigger_type}
-                            </span>
-                            <div class="flex items-center gap-2">
-                                <span class="text-green-400 text-sm font-bold">${item.our_seo_score}</span>
-                                <span class="text-gray-500">vs</span>
-                                <span class="text-orange-400 text-sm">${item.competitor_seo_score}</span>
+                // Combine queue items and drafts
+                let html = '';
+                
+                // Show draft blog posts first
+                drafts.forEach(draft => {
+                    html += `
+                        <div class="glass-card rounded-xl p-4 queue-item cursor-pointer hover:bg-white/5" onclick="window.location.href='/client?view=content&post=${draft.id}'">
+                            <div class="flex items-start justify-between mb-2">
+                                <span class="px-2 py-1 bg-blue-500/20 text-blue-400 rounded text-xs">
+                                    <i class="fas fa-edit mr-1"></i>Draft
+                                </span>
+                                <span class="text-green-400 text-sm font-bold">SEO: ${draft.seo_score || '--'}</span>
+                            </div>
+                            <h3 class="font-medium mb-1 line-clamp-2">${escapeHtml(draft.title || 'Untitled')}</h3>
+                            <div class="flex items-center justify-between text-xs text-gray-400">
+                                <span><i class="fas fa-key mr-1"></i>${escapeHtml(draft.primary_keyword || 'N/A')}</span>
+                                <span>${draft.word_count || 0} words</span>
                             </div>
                         </div>
-                        <h3 class="font-medium mb-1 line-clamp-2">${item.title || 'Untitled'}</h3>
-                        <div class="flex items-center justify-between text-xs text-gray-400">
-                            <span><i class="fas fa-key mr-1"></i>${item.primary_keyword || 'N/A'}</span>
-                            <span>${item.word_count} words</span>
+                    `;
+                });
+                
+                // Show queue items (from competitor monitoring)
+                queue.forEach(item => {
+                    html += `
+                        <div class="glass-card rounded-xl p-4 queue-item cursor-pointer hover:bg-white/5" onclick="showContent('${item.id}')">
+                            <div class="flex items-start justify-between mb-2">
+                                <span class="px-2 py-1 bg-purple-500/20 text-purple-400 rounded text-xs">
+                                    ${item.trigger_type === 'competitor_post' ? 'Counter-Content' : item.trigger_type}
+                                </span>
+                                <div class="flex items-center gap-2">
+                                    <span class="text-green-400 text-sm font-bold">${item.our_seo_score}</span>
+                                    <span class="text-gray-500">vs</span>
+                                    <span class="text-orange-400 text-sm">${item.competitor_seo_score}</span>
+                                </div>
+                            </div>
+                            <h3 class="font-medium mb-1 line-clamp-2">${item.title || 'Untitled'}</h3>
+                            <div class="flex items-center justify-between text-xs text-gray-400">
+                                <span><i class="fas fa-key mr-1"></i>${item.primary_keyword || 'N/A'}</span>
+                                <span>${item.word_count} words</span>
+                            </div>
                         </div>
-                    </div>
-                `).join('');
+                    `;
+                });
+                
+                container.innerHTML = html;
 
             } catch (e) {
                 console.error('Failed to load queue:', e);

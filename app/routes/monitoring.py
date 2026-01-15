@@ -1129,11 +1129,20 @@ def get_dashboard_data(current_user):
         DBCompetitorPage.discovered_at >= seven_days_ago
     ).order_by(DBCompetitorPage.discovered_at.desc()).limit(10).all()
     
-    # Content queue
+    # Content queue (from competitor monitoring)
     pending_content = DBContentQueue.query.filter_by(
         client_id=client_id,
         status='pending'
     ).count()
+    
+    # Also count draft blog posts as "content ready for review"
+    draft_posts = DBBlogPost.query.filter_by(
+        client_id=client_id,
+        status=ContentStatus.DRAFT
+    ).count()
+    
+    # Total content ready = queue items + draft posts
+    total_content_ready = pending_content + draft_posts
     
     # Recent alerts
     alerts = DBAlert.query.filter_by(
@@ -1173,7 +1182,8 @@ def get_dashboard_data(current_user):
         'stats': {
             'competitors_tracked': len(competitors),
             'new_content_detected': len(new_pages),
-            'content_pending_review': pending_content,
+            'content_pending_review': total_content_ready,
+            'draft_posts': draft_posts,
             'unread_alerts': len(alerts),
             'keywords_tracked': len(keywords)
         },
