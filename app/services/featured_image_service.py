@@ -71,6 +71,16 @@ class FeaturedImageConfig:
             'use_brand_color': True,
             'banner_height': 120
         },
+        'branded_right': {
+            'name': 'Pro Branded (Right)',
+            'description': 'Professional style - blue box on right with title, CTA, and logo',
+            'text_position': 'right_box',
+            'text_color': (255, 255, 255),
+            'box_color': (0, 102, 178),  # Professional blue
+            'use_brand_color': True,
+            'include_cta': True,
+            'include_logo': True
+        },
         'split_left': {
             'name': 'Split Left',
             'description': 'Text on left side with gradient',
@@ -198,6 +208,155 @@ class FeaturedImageService:
         
         return img
     
+    def _to_title_case(self, text: str) -> str:
+        """Convert text to proper Title Case, preserving certain words lowercase"""
+        # Words that should stay lowercase (unless first word)
+        lowercase_words = {'a', 'an', 'the', 'and', 'but', 'or', 'for', 'nor', 
+                          'on', 'at', 'to', 'from', 'by', 'in', 'of', 'with'}
+        
+        words = text.split()
+        result = []
+        
+        for i, word in enumerate(words):
+            # Check if word has special characters
+            if word.upper() == word and len(word) <= 4:
+                # Keep acronyms as-is (AC, HVAC, etc.)
+                result.append(word)
+            elif i == 0 or word.lower() not in lowercase_words:
+                # Capitalize first word and important words
+                result.append(word.capitalize())
+            else:
+                # Keep prepositions lowercase
+                result.append(word.lower())
+        
+        return ' '.join(result)
+    
+    def _draw_branded_right_box(self, img: 'Image.Image', title: str, 
+                                 brand_color: Tuple[int, int, int],
+                                 phone: str = None, cta_text: str = None,
+                                 logo_url: str = None) -> 'Image.Image':
+        """
+        Draw professional branded box on right side of image
+        Like Nandip's style - blue box with title, CTA, phone, and logo
+        """
+        width, height = img.size
+        
+        # Box dimensions - right 45% of image
+        box_width = int(width * 0.45)
+        box_x = width - box_width
+        box_padding = 30
+        
+        # Create overlay for the box
+        overlay = Image.new('RGBA', img.size, (0, 0, 0, 0))
+        draw = ImageDraw.Draw(overlay)
+        
+        # Draw the colored box (semi-transparent)
+        box_color_with_alpha = (*brand_color, 230)  # 90% opacity
+        draw.rectangle(
+            [(box_x, 0), (width, height)],
+            fill=box_color_with_alpha
+        )
+        
+        # Composite overlay onto image
+        if img.mode != 'RGBA':
+            img = img.convert('RGBA')
+        img = Image.alpha_composite(img, overlay)
+        
+        # Now draw text on the composited image
+        draw = ImageDraw.Draw(img)
+        
+        # Title - wrap to fit box
+        title_font_size = 42
+        if len(title) > 60:
+            title_font_size = 36
+        if len(title) > 80:
+            title_font_size = 32
+            
+        title_font = self._get_font(title_font_size)
+        max_title_width = box_width - (box_padding * 2)
+        
+        # Wrap title
+        title_lines = self._wrap_text(title, title_font, max_title_width)
+        
+        # Calculate vertical positioning
+        title_line_height = title_font_size + 8
+        title_total_height = len(title_lines) * title_line_height
+        
+        # Start title from top with padding
+        current_y = box_padding + 20
+        
+        # Draw title lines
+        for line in title_lines:
+            draw.text(
+                (box_x + box_padding, current_y),
+                line,
+                font=title_font,
+                fill=(255, 255, 255)
+            )
+            current_y += title_line_height
+        
+        # Add CTA text if provided
+        if cta_text or phone:
+            current_y += 30  # Space after title
+            
+            cta_font = self._get_font(22)
+            cta_display = cta_text or "Call to schedule an appointment"
+            draw.text(
+                (box_x + box_padding, current_y),
+                cta_display,
+                font=cta_font,
+                fill=(255, 255, 255)
+            )
+            current_y += 30
+            
+            # Phone number - larger and bold
+            if phone:
+                phone_font = self._get_font(38)
+                draw.text(
+                    (box_x + box_padding, current_y),
+                    phone,
+                    font=phone_font,
+                    fill=(255, 255, 255)
+                )
+                current_y += 50
+        
+        # Add logo at bottom if provided
+        if logo_url:
+            try:
+                logo_img = self._load_image(logo_url)
+                if logo_img:
+                    # Resize logo to fit
+                    logo_max_width = box_width - (box_padding * 2)
+                    logo_max_height = 80
+                    logo_ratio = logo_img.width / logo_img.height
+                    
+                    if logo_img.width > logo_max_width:
+                        new_width = logo_max_width
+                        new_height = int(new_width / logo_ratio)
+                    else:
+                        new_width = logo_img.width
+                        new_height = logo_img.height
+                    
+                    if new_height > logo_max_height:
+                        new_height = logo_max_height
+                        new_width = int(new_height * logo_ratio)
+                    
+                    logo_img = logo_img.resize((new_width, new_height), Image.Resampling.LANCZOS)
+                    
+                    # Position logo at bottom of box
+                    logo_y = height - new_height - box_padding
+                    logo_x = box_x + box_padding
+                    
+                    # Paste logo (handle transparency)
+                    if logo_img.mode == 'RGBA':
+                        img.paste(logo_img, (logo_x, logo_y), logo_img)
+                    else:
+                        img.paste(logo_img, (logo_x, logo_y))
+            except Exception as e:
+                logger.warning(f"Could not add logo: {e}")
+        
+        return img
+    
     def _wrap_text(self, text: str, font: 'ImageFont', max_width: int) -> List[str]:
         """Wrap text to fit within max_width"""
         words = text.split()
@@ -286,7 +445,10 @@ class FeaturedImageService:
         brand_color: Tuple[int, int, int] = None,
         width: int = None,
         height: int = None,
-        output_filename: str = None
+        output_filename: str = None,
+        phone: str = None,
+        cta_text: str = None,
+        logo_url: str = None
     ) -> Dict:
         """
         Create featured image with text overlay
@@ -300,6 +462,9 @@ class FeaturedImageService:
             width: Output width (default 1200)
             height: Output height (default 630)
             output_filename: Custom filename (auto-generated if not provided)
+            phone: Phone number for CTA
+            cta_text: Call to action text (default: "Call to schedule an appointment")
+            logo_url: URL to client logo image
         
         Returns:
             Dict with success status, file_path, file_url
@@ -309,6 +474,9 @@ class FeaturedImageService:
                 'success': False,
                 'error': 'PIL/Pillow not installed. Install with: pip install Pillow'
             }
+        
+        # Convert title to proper Title Case
+        title = self._to_title_case(title)
         
         # Set defaults
         width = width or self.config.DEFAULT_WIDTH
@@ -334,78 +502,88 @@ class FeaturedImageService:
             # Apply template effects
             text_position = template_config.get('text_position', 'bottom')
             
-            if template_config.get('overlay_color'):
-                img = self._add_overlay(img, template_config['overlay_color'])
-            
-            if 'gradient_height' in template_config:
-                img = self._add_gradient_bottom(img, template_config['gradient_height'])
-            
-            if 'banner_height' in template_config:
-                banner_color = brand_color if template_config.get('use_brand_color') and brand_color else template_config.get('banner_color', (30, 64, 175))
-                img = self._add_banner(img, template_config['banner_height'], banner_color)
-            
-            # Prepare for drawing
-            draw = ImageDraw.Draw(img)
-            text_color = template_config.get('text_color', (255, 255, 255))
-            
-            # Calculate text size based on title length
-            max_text_width = int(width * 0.85)
-            title_font_size = 64
-            if len(title) > 50:
-                title_font_size = 48
-            if len(title) > 80:
-                title_font_size = 40
-            
-            title_font = self._get_font(title_font_size)
-            subtitle_font = self._get_font(28)
-            
-            # Wrap text
-            title_lines = self._wrap_text(title, title_font, max_text_width)
-            
-            # Calculate total text height
-            line_height = title_font_size + 10
-            total_text_height = len(title_lines) * line_height
-            if subtitle:
-                total_text_height += 50  # Space for subtitle
-            
-            # Position text
-            padding = 40
-            
-            if text_position == 'bottom' or text_position == 'bottom_banner':
+            # Handle branded_right template separately (full custom rendering)
+            if text_position == 'right_box':
+                box_color = brand_color if template_config.get('use_brand_color') and brand_color else template_config.get('box_color', (0, 102, 178))
+                img = self._draw_branded_right_box(
+                    img, title, box_color,
+                    phone=phone, cta_text=cta_text, logo_url=logo_url
+                )
+                # Skip normal text rendering - go straight to save
+            else:
+                # Normal template processing
+                if template_config.get('overlay_color'):
+                    img = self._add_overlay(img, template_config['overlay_color'])
+                
+                if 'gradient_height' in template_config:
+                    img = self._add_gradient_bottom(img, template_config['gradient_height'])
+                
                 if 'banner_height' in template_config:
-                    y_start = height - template_config['banner_height'] + (template_config['banner_height'] - total_text_height) // 2
+                    banner_color = brand_color if template_config.get('use_brand_color') and brand_color else template_config.get('banner_color', (30, 64, 175))
+                    img = self._add_banner(img, template_config['banner_height'], banner_color)
+                
+                # Prepare for drawing
+                draw = ImageDraw.Draw(img)
+                text_color = template_config.get('text_color', (255, 255, 255))
+                
+                # Calculate text size based on title length
+                max_text_width = int(width * 0.85)
+                title_font_size = 64
+                if len(title) > 50:
+                    title_font_size = 48
+                if len(title) > 80:
+                    title_font_size = 40
+                
+                title_font = self._get_font(title_font_size)
+                subtitle_font = self._get_font(28)
+                
+                # Wrap text
+                title_lines = self._wrap_text(title, title_font, max_text_width)
+                
+                # Calculate total text height
+                line_height = title_font_size + 10
+                total_text_height = len(title_lines) * line_height
+                if subtitle:
+                    total_text_height += 50  # Space for subtitle
+                
+                # Position text
+                padding = 40
+                
+                if text_position == 'bottom' or text_position == 'bottom_banner':
+                    if 'banner_height' in template_config:
+                        y_start = height - template_config['banner_height'] + (template_config['banner_height'] - total_text_height) // 2
+                    else:
+                        y_start = height - total_text_height - padding
+                    x_start = padding
+                elif text_position == 'center':
+                    y_start = (height - total_text_height) // 2
+                    x_start = padding
+                elif text_position == 'bottom_left':
+                    y_start = height - total_text_height - padding
+                    x_start = padding
+                elif text_position == 'left':
+                    y_start = (height - total_text_height) // 2
+                    x_start = padding
                 else:
                     y_start = height - total_text_height - padding
-                x_start = padding
-            elif text_position == 'center':
-                y_start = (height - total_text_height) // 2
-                x_start = padding
-            elif text_position == 'bottom_left':
-                y_start = height - total_text_height - padding
-                x_start = padding
-            elif text_position == 'left':
-                y_start = (height - total_text_height) // 2
-                x_start = padding
-            else:
-                y_start = height - total_text_height - padding
-                x_start = padding
-            
-            # Draw title lines
-            current_y = y_start
-            for line in title_lines:
-                if template_config.get('shadow_only'):
-                    self._draw_text_with_shadow(draw, line, (x_start, current_y), title_font, text_color)
-                else:
-                    draw.text((x_start, current_y), line, font=title_font, fill=text_color)
-                current_y += line_height
-            
-            # Draw subtitle
-            if subtitle:
-                current_y += 10
-                if template_config.get('shadow_only'):
-                    self._draw_text_with_shadow(draw, subtitle, (x_start, current_y), subtitle_font, text_color)
-                else:
-                    draw.text((x_start, current_y), subtitle, font=subtitle_font, fill=(*text_color[:3], 200))
+                    x_start = padding
+                
+                # Draw title lines
+                current_y = y_start
+                for line in title_lines:
+                    if template_config.get('shadow_only'):
+                        self._draw_text_with_shadow(draw, line, (x_start, current_y), title_font, text_color)
+                    else:
+                        draw.text((x_start, current_y), line, font=title_font, fill=text_color)
+                    current_y += line_height
+                
+                # Draw subtitle
+                if subtitle:
+                    current_y += 10
+                    if template_config.get('shadow_only'):
+                        self._draw_text_with_shadow(draw, subtitle, (x_start, current_y), subtitle_font, text_color)
+                    else:
+                        draw.text((x_start, current_y), subtitle, font=subtitle_font, fill=(*text_color[:3], 200))
             
             # Generate output filename
             if not output_filename:

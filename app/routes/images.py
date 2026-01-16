@@ -784,9 +784,12 @@ def create_featured_image(current_user, client_id):
     template = data.get('template', 'gradient_bottom')
     subtitle = data.get('subtitle')
     
-    # Get client for brand color
+    # Get client for brand color, phone, and logo
     client = data_service.get_client(client_id)
     brand_color = None
+    phone = None
+    logo_url = None
+    
     if client:
         try:
             integrations = json.loads(client.integrations) if client.integrations else {}
@@ -794,8 +797,19 @@ def create_featured_image(current_user, client_id):
             if brand_hex:
                 brand_hex = brand_hex.lstrip('#')
                 brand_color = tuple(int(brand_hex[i:i+2], 16) for i in (0, 2, 4))
+            
+            # Get phone from client
+            phone = client.phone or integrations.get('phone')
+            
+            # Get logo URL from client
+            logo_url = integrations.get('logo_url')
         except (ValueError, TypeError, KeyError):
             pass
+    
+    # Override with request data if provided
+    phone = data.get('phone') or phone
+    logo_url = data.get('logo_url') or logo_url
+    cta_text = data.get('cta_text')  # Custom CTA text
     
     # Determine source image
     source_image = None
@@ -839,7 +853,10 @@ def create_featured_image(current_user, client_id):
         title=title,
         template=template,
         subtitle=subtitle,
-        brand_color=brand_color
+        brand_color=brand_color,
+        phone=phone,
+        cta_text=cta_text,
+        logo_url=logo_url
     )
     
     return jsonify(result), 200 if result.get('success') else 400

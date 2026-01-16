@@ -2854,8 +2854,9 @@
                             <label class="text-xs font-medium text-gray-600 mb-1 block">Title Overlay (burned into image)</label>
                             <input type="text" id="featuredTitleOverlay" placeholder="Enter title to overlay on image..." 
                                 class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:border-amber-500 focus:ring-2 focus:ring-amber-200 mb-2">
-                            <div class="flex gap-2 items-center">
-                                <select id="featuredOverlayTemplate" class="flex-1 px-2 py-1.5 border border-gray-300 rounded-lg text-sm">
+                            <div class="flex gap-2 items-center mb-2">
+                                <select id="featuredOverlayTemplate" class="flex-1 px-2 py-1.5 border border-gray-300 rounded-lg text-sm" onchange="toggleProBrandedOptions()">
+                                    <option value="branded_right">⭐ Pro Branded (Right Box)</option>
                                     <option value="gradient_bottom">Gradient Bottom</option>
                                     <option value="gradient_full">Full Overlay</option>
                                     <option value="banner_bottom">Solid Banner</option>
@@ -2865,6 +2866,18 @@
                                 <button onclick="createFeaturedWithOverlay()" class="px-3 py-1.5 bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600 text-white text-sm rounded-lg transition flex items-center gap-1">
                                     <i class="fas fa-fire"></i> Burn Title
                                 </button>
+                            </div>
+                            <!-- Pro Branded Options (shown when branded_right selected) -->
+                            <div id="proBrandedOptions" class="mt-2 p-2 bg-blue-50 rounded-lg border border-blue-200">
+                                <div class="grid grid-cols-2 gap-2">
+                                    <input type="text" id="featuredPhone" placeholder="Phone: (941) 629-2863" 
+                                        class="px-2 py-1.5 border border-gray-300 rounded text-sm">
+                                    <input type="text" id="featuredCTA" placeholder="CTA: Call to schedule..." 
+                                        class="px-2 py-1.5 border border-gray-300 rounded text-sm">
+                                </div>
+                                <input type="text" id="featuredLogoUrl" placeholder="Logo URL (optional)" 
+                                    class="w-full px-2 py-1.5 border border-gray-300 rounded text-sm mt-2">
+                                <p class="text-xs text-blue-600 mt-1">💡 Pro template: Title + Phone + Logo like Nandip's style</p>
                             </div>
                             <p class="text-xs text-gray-400 mt-1">💡 First select an image from library, then burn the title onto it</p>
                         </div>
@@ -7472,6 +7485,16 @@
             document.getElementById('sourceImagePreview').classList.add('hidden');
         }
         
+        function toggleProBrandedOptions() {
+            const template = document.getElementById('featuredOverlayTemplate').value;
+            const proBrandedOptions = document.getElementById('proBrandedOptions');
+            if (template === 'branded_right') {
+                proBrandedOptions.classList.remove('hidden');
+            } else {
+                proBrandedOptions.classList.add('hidden');
+            }
+        }
+        
         async function createFeaturedWithOverlay() {
             if (!currentClient) {
                 showToast('Please select a client first', 'warning');
@@ -7491,23 +7514,37 @@
             
             const template = document.getElementById('featuredOverlayTemplate').value;
             
+            // Get pro branded options
+            const phone = document.getElementById('featuredPhone')?.value.trim() || currentClient.phone || '';
+            const ctaText = document.getElementById('featuredCTA')?.value.trim() || '';
+            const logoUrl = document.getElementById('featuredLogoUrl')?.value.trim() || '';
+            
             // Show loading
             document.getElementById('featuredImageLoading').classList.remove('hidden');
             document.getElementById('featuredImageEmpty').classList.add('hidden');
             
             try {
+                const requestBody = {
+                    title: title,
+                    source_image_id: selectedSourceImage.id,
+                    template: template,
+                    subtitle: currentClient.geo || ''
+                };
+                
+                // Add pro branded options if using that template
+                if (template === 'branded_right') {
+                    if (phone) requestBody.phone = phone;
+                    if (ctaText) requestBody.cta_text = ctaText;
+                    if (logoUrl) requestBody.logo_url = logoUrl;
+                }
+                
                 const response = await fetch(`${API_URL}/api/images/featured/${currentClient.id}`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                         'Authorization': `Bearer ${AUTH_TOKEN}`
                     },
-                    body: JSON.stringify({
-                        title: title,
-                        source_image_id: selectedSourceImage.id,
-                        template: template,
-                        subtitle: currentClient.geo || ''
-                    })
+                    body: JSON.stringify(requestBody)
                 });
                 
                 const data = await response.json();
