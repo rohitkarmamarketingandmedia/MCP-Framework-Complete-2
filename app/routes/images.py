@@ -458,18 +458,28 @@ def upload_to_library(current_user, client_id):
         original_filename = secure_filename(file.filename)
         ext = original_filename.rsplit('.', 1)[1].lower()
         
+        logger.info(f"Image upload: client_id={client_id}, filename={original_filename}, size={len(file_data)} bytes")
+        
         # Try FTP first if configured
         ftp_result = None
         try:
             from app.services.ftp_storage_service import get_ftp_service
             ftp = get_ftp_service()
+            logger.info(f"FTP service obtained, is_configured={ftp.is_configured()}")
             if ftp.is_configured():
                 category = request.form.get('category', 'general')
+                logger.info(f"Attempting FTP upload: category={category}")
                 ftp_result = ftp.upload_file(file_data, original_filename, client_id, category)
                 if ftp_result:
                     logger.info(f"Image uploaded to FTP: {ftp_result['file_url']}")
+                else:
+                    logger.warning(f"FTP upload returned None - will fall back to local storage")
+            else:
+                logger.info("FTP not configured - using local storage")
         except Exception as e:
             logger.warning(f"FTP upload failed, falling back to local: {e}")
+            import traceback
+            logger.warning(f"FTP upload traceback: {traceback.format_exc()}")
         
         if ftp_result:
             # Use FTP storage

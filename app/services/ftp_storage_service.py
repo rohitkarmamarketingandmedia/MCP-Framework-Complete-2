@@ -140,9 +140,13 @@ class FTPStorageService:
         Returns:
             dict with file_url and file_path, or None on failure
         """
+        logger.info(f"FTP upload_file called: filename={filename}, client_id={client_id}, category={category}, data_size={len(file_data)} bytes")
+        
         if not self.is_configured():
-            logger.warning("FTP not configured, falling back to local storage")
+            logger.warning(f"FTP not configured. host={self.host}, username={self.username}, base_url={self.base_url}")
             return None
+        
+        logger.info(f"FTP is configured: host={self.host}, protocol={self.protocol}, remote_path={self.remote_path}")
         
         try:
             # Generate unique filename
@@ -155,30 +159,45 @@ class FTPStorageService:
             remote_dir = f"{self.remote_path}/{client_id}/{category}"
             remote_file = f"{remote_dir}/{safe_filename}"
             
+            logger.info(f"FTP upload target: remote_dir={remote_dir}, remote_file={remote_file}")
+            
             if self.protocol == 'sftp':
-                return self._upload_sftp(file_data, remote_dir, remote_file, safe_filename, client_id, category)
+                result = self._upload_sftp(file_data, remote_dir, remote_file, safe_filename, client_id, category)
             else:
-                return self._upload_ftp(file_data, remote_dir, remote_file, safe_filename, client_id, category)
+                result = self._upload_ftp(file_data, remote_dir, remote_file, safe_filename, client_id, category)
+            
+            if result:
+                logger.info(f"FTP upload SUCCESS: {result}")
+            else:
+                logger.error(f"FTP upload returned None")
+            
+            return result
                 
         except Exception as e:
-            logger.error(f"FTP upload failed: {e}")
+            logger.error(f"FTP upload failed with exception: {type(e).__name__}: {e}")
+            import traceback
+            logger.error(f"FTP upload traceback: {traceback.format_exc()}")
             return None
     
     def _upload_ftp(self, file_data: bytes, remote_dir: str, remote_file: str, 
                     safe_filename: str, client_id: str, category: str) -> Optional[dict]:
         """Upload via FTP"""
+        logger.info(f"_upload_ftp: Connecting to FTP server...")
         ftp = self._get_ftp_connection()
         try:
+            logger.info(f"_upload_ftp: Creating directory {remote_dir}")
             self._ensure_ftp_directory(ftp, remote_dir)
             
             # Upload using BytesIO
+            logger.info(f"_upload_ftp: Uploading {len(file_data)} bytes to {remote_file}")
             file_obj = BytesIO(file_data)
             ftp.storbinary(f'STOR {remote_file}', file_obj)
             
-            logger.info(f"Uploaded file to FTP: {remote_file}")
+            logger.info(f"_upload_ftp: File uploaded successfully to FTP: {remote_file}")
             
             # Build public URL
             public_url = f"{self.base_url.rstrip('/')}/{client_id}/{category}/{safe_filename}"
+            logger.info(f"_upload_ftp: Public URL will be: {public_url}")
             
             return {
                 'file_url': public_url,
@@ -186,24 +205,36 @@ class FTPStorageService:
                 'filename': safe_filename,
                 'storage': 'ftp'
             }
+        except Exception as e:
+            logger.error(f"_upload_ftp: Upload error: {type(e).__name__}: {e}")
+            import traceback
+            logger.error(f"_upload_ftp traceback: {traceback.format_exc()}")
+            raise
         finally:
-            ftp.quit()
+            try:
+                ftp.quit()
+            except:
+                pass
     
     def _upload_sftp(self, file_data: bytes, remote_dir: str, remote_file: str,
                      safe_filename: str, client_id: str, category: str) -> Optional[dict]:
         """Upload via SFTP"""
+        logger.info(f"_upload_sftp: Connecting to SFTP server...")
         ssh, sftp = self._get_sftp_connection()
         try:
+            logger.info(f"_upload_sftp: Creating directory {remote_dir}")
             self._ensure_sftp_directory(sftp, remote_dir)
             
             # Upload using BytesIO
+            logger.info(f"_upload_sftp: Uploading {len(file_data)} bytes to {remote_file}")
             file_obj = BytesIO(file_data)
             sftp.putfo(file_obj, remote_file)
             
-            logger.info(f"Uploaded file to SFTP: {remote_file}")
+            logger.info(f"_upload_sftp: File uploaded successfully to SFTP: {remote_file}")
             
             # Build public URL
             public_url = f"{self.base_url.rstrip('/')}/{client_id}/{category}/{safe_filename}"
+            logger.info(f"_upload_sftp: Public URL will be: {public_url}")
             
             return {
                 'file_url': public_url,
@@ -211,9 +242,17 @@ class FTPStorageService:
                 'filename': safe_filename,
                 'storage': 'sftp'
             }
+        except Exception as e:
+            logger.error(f"_upload_sftp: Upload error: {type(e).__name__}: {e}")
+            import traceback
+            logger.error(f"_upload_sftp traceback: {traceback.format_exc()}")
+            raise
         finally:
-            sftp.close()
-            ssh.close()
+            try:
+                sftp.close()
+                ssh.close()
+            except:
+                pass
     
     def upload_from_path(self, local_path: str, client_id: str, 
                          category: str = 'images') -> Optional[dict]:
