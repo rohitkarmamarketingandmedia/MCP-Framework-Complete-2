@@ -411,7 +411,10 @@ class FeaturedImageService:
             if not output_filename:
                 output_filename = f"featured_{uuid.uuid4().hex[:8]}.jpg"
             
-            # Save image
+            # Ensure output directory exists
+            os.makedirs(self.config.OUTPUT_DIR, exist_ok=True)
+            
+            # Save image locally first
             output_path = os.path.join(self.config.OUTPUT_DIR, output_filename)
             
             # Convert to RGB for JPEG
@@ -422,10 +425,30 @@ class FeaturedImageService:
             
             img.save(output_path, 'JPEG', quality=90, optimize=True)
             
-            # Build URL
+            # Default to local URL
             output_url = f"{self.config.OUTPUT_URL}/{output_filename}"
             
-            logger.info(f"Created featured image: {output_path}")
+            # Try to upload to FTP if configured
+            try:
+                from app.services.ftp_storage_service import get_ftp_service
+                ftp = get_ftp_service()
+                if ftp.is_configured():
+                    with open(output_path, 'rb') as f:
+                        file_data = f.read()
+                    
+                    # Extract client_id from source_image path if possible
+                    client_id = 'featured'  # Default category
+                    if hasattr(self, '_current_client_id'):
+                        client_id = self._current_client_id
+                    
+                    ftp_result = ftp.upload_file(file_data, output_filename, client_id, 'featured')
+                    if ftp_result:
+                        output_url = ftp_result['file_url']
+                        logger.info(f"Featured image uploaded to FTP: {output_url}")
+            except Exception as e:
+                logger.warning(f"FTP upload for featured image failed, using local: {e}")
+            
+            logger.info(f"Created featured image: {output_path} -> {output_url}")
             
             return {
                 'success': True,

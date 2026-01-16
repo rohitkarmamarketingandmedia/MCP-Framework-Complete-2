@@ -2839,13 +2839,55 @@
                             <h4 class="font-medium text-gray-800 flex items-center gap-2">
                                 <i class="fas fa-image text-amber-500"></i>Featured Image
                             </h4>
-                            <button onclick="generateBlogImage()" id="btnGenerateBlogImage" class="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white text-sm rounded-lg transition flex items-center gap-2">
-                                <i class="fas fa-wand-magic-sparkles"></i> Generate
-                            </button>
-                        </div>
-                        <div id="featuredImagePreview" class="hidden">
-                            <img id="modalFeaturedImage" src="" alt="Featured Image" class="w-full h-48 object-cover rounded-lg mb-2">
                             <div class="flex gap-2">
+                                <button onclick="openImagePicker()" class="px-3 py-1.5 bg-blue-500 hover:bg-blue-600 text-white text-sm rounded-lg transition flex items-center gap-2">
+                                    <i class="fas fa-images"></i> Select from Library
+                                </button>
+                                <button onclick="generateBlogImage()" id="btnGenerateBlogImage" class="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white text-sm rounded-lg transition flex items-center gap-2">
+                                    <i class="fas fa-wand-magic-sparkles"></i> AI Generate
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- Title Overlay Options -->
+                        <div id="titleOverlaySection" class="mb-3 p-3 bg-white/80 rounded-lg border border-amber-200">
+                            <label class="text-xs font-medium text-gray-600 mb-1 block">Title Overlay (burned into image)</label>
+                            <input type="text" id="featuredTitleOverlay" placeholder="Enter title to overlay on image..." 
+                                class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:border-amber-500 focus:ring-2 focus:ring-amber-200 mb-2">
+                            <div class="flex gap-2 items-center">
+                                <select id="featuredOverlayTemplate" class="flex-1 px-2 py-1.5 border border-gray-300 rounded-lg text-sm">
+                                    <option value="gradient_bottom">Gradient Bottom</option>
+                                    <option value="gradient_full">Full Overlay</option>
+                                    <option value="banner_bottom">Solid Banner</option>
+                                    <option value="banner_branded">Branded Banner</option>
+                                    <option value="minimal">Minimal</option>
+                                </select>
+                                <button onclick="createFeaturedWithOverlay()" class="px-3 py-1.5 bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600 text-white text-sm rounded-lg transition flex items-center gap-1">
+                                    <i class="fas fa-fire"></i> Burn Title
+                                </button>
+                            </div>
+                            <p class="text-xs text-gray-400 mt-1">💡 First select an image from library, then burn the title onto it</p>
+                        </div>
+                        
+                        <!-- Selected Source Image Preview -->
+                        <div id="sourceImagePreview" class="hidden mb-3">
+                            <label class="text-xs font-medium text-gray-600 mb-1 block">Source Image Selected:</label>
+                            <div class="relative inline-block">
+                                <img id="sourceImageThumb" src="" alt="Source" class="h-20 rounded-lg border-2 border-blue-400">
+                                <button onclick="clearSourceImage()" class="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white rounded-full text-xs hover:bg-red-600">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- Final Featured Image Preview -->
+                        <div id="featuredImagePreview" class="hidden">
+                            <label class="text-xs font-medium text-gray-600 mb-1 block">Final Featured Image:</label>
+                            <img id="modalFeaturedImage" src="" alt="Featured Image" class="w-full h-48 object-cover rounded-lg mb-2 border-2 border-green-400">
+                            <div class="flex gap-2">
+                                <a id="featuredImageDownloadLink" href="#" download class="text-xs text-blue-600 hover:text-blue-700">
+                                    <i class="fas fa-download mr-1"></i>Download
+                                </a>
                                 <button onclick="removeFeaturedImage()" class="text-xs text-red-600 hover:text-red-700">
                                     <i class="fas fa-trash mr-1"></i>Remove
                                 </button>
@@ -2854,11 +2896,11 @@
                         <div id="featuredImageEmpty" class="text-center py-6 text-gray-400">
                             <i class="fas fa-image text-3xl mb-2 opacity-50"></i>
                             <p class="text-sm">No featured image yet</p>
-                            <p class="text-xs">Click "Generate" to create one with AI</p>
+                            <p class="text-xs">Select from library or generate with AI</p>
                         </div>
                         <div id="featuredImageLoading" class="hidden text-center py-6">
                             <div class="spinner w-8 h-8 mx-auto mb-2 border-amber-500"></div>
-                            <p class="text-sm text-amber-600">Generating image...</p>
+                            <p class="text-sm text-amber-600">Creating featured image...</p>
                         </div>
                     </div>
                     
@@ -2928,6 +2970,65 @@
                         </button>
                         <button onclick="saveBlogEdits()" class="px-6 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-lg text-sm font-medium hover:opacity-90 transition">
                             <i class="fas fa-save mr-1"></i>Save Changes
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Image Picker Modal -->
+    <div id="imagePickerModal" class="hidden fixed inset-0 bg-black/90 z-[60] overflow-y-auto" onclick="if(event.target === this) closeImagePicker()">
+        <div class="min-h-screen py-8 px-4">
+            <div class="max-w-4xl mx-auto bg-white rounded-2xl shadow-2xl overflow-hidden">
+                <div class="p-4 border-b flex items-center justify-between bg-gradient-to-r from-blue-500 to-cyan-500">
+                    <h3 class="text-lg font-bold text-white">
+                        <i class="fas fa-images mr-2"></i>Select Image from Library
+                    </h3>
+                    <button onclick="closeImagePicker()" class="text-white/80 hover:text-white text-xl">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                
+                <div class="p-4">
+                    <!-- Category Filter -->
+                    <div class="flex gap-2 mb-4 overflow-x-auto pb-2">
+                        <button onclick="filterPickerImages('all')" class="picker-category-btn active px-3 py-1.5 bg-blue-500 text-white text-sm rounded-full whitespace-nowrap" data-category="all">
+                            All Images
+                        </button>
+                        <button onclick="filterPickerImages('hero')" class="picker-category-btn px-3 py-1.5 bg-gray-200 text-gray-700 text-sm rounded-full whitespace-nowrap" data-category="hero">
+                            Hero
+                        </button>
+                        <button onclick="filterPickerImages('blog')" class="picker-category-btn px-3 py-1.5 bg-gray-200 text-gray-700 text-sm rounded-full whitespace-nowrap" data-category="blog">
+                            Blog
+                        </button>
+                        <button onclick="filterPickerImages('team')" class="picker-category-btn px-3 py-1.5 bg-gray-200 text-gray-700 text-sm rounded-full whitespace-nowrap" data-category="team">
+                            Team
+                        </button>
+                        <button onclick="filterPickerImages('service')" class="picker-category-btn px-3 py-1.5 bg-gray-200 text-gray-700 text-sm rounded-full whitespace-nowrap" data-category="service">
+                            Service
+                        </button>
+                        <button onclick="filterPickerImages('general')" class="picker-category-btn px-3 py-1.5 bg-gray-200 text-gray-700 text-sm rounded-full whitespace-nowrap" data-category="general">
+                            General
+                        </button>
+                    </div>
+                    
+                    <!-- Image Grid -->
+                    <div id="pickerImageGrid" class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3 max-h-[60vh] overflow-y-auto">
+                        <div class="col-span-full text-center py-8 text-gray-400">
+                            <i class="fas fa-spinner fa-spin text-2xl mb-2"></i>
+                            <p>Loading images...</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="p-4 border-t bg-gray-50 flex justify-between items-center">
+                    <p class="text-sm text-gray-500">
+                        <span id="pickerImageCount">0</span> images available
+                    </p>
+                    <div class="flex gap-2">
+                        <button onclick="closeImagePicker()" class="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg text-sm font-medium transition">
+                            Cancel
                         </button>
                     </div>
                 </div>
@@ -7256,6 +7357,220 @@
                 alert('Error removing image: ' + error.message);
             }
         }
+        
+        // ========== IMAGE PICKER FOR FEATURED IMAGES ==========
+        let selectedSourceImage = null; // Store selected source image for overlay
+        let pickerImages = [];
+        
+        async function openImagePicker() {
+            if (!currentClient) {
+                showToast('Please select a client first', 'warning');
+                return;
+            }
+            
+            document.getElementById('imagePickerModal').classList.remove('hidden');
+            await loadPickerImages();
+        }
+        
+        function closeImagePicker() {
+            document.getElementById('imagePickerModal').classList.add('hidden');
+        }
+        
+        async function loadPickerImages(category = 'all') {
+            const grid = document.getElementById('pickerImageGrid');
+            grid.innerHTML = `<div class="col-span-full text-center py-8 text-gray-400">
+                <i class="fas fa-spinner fa-spin text-2xl mb-2"></i>
+                <p>Loading images...</p>
+            </div>`;
+            
+            try {
+                let url = `${API_URL}/api/images/library/${currentClient.id}`;
+                if (category && category !== 'all') {
+                    url += `?category=${category}`;
+                }
+                
+                const response = await fetch(url, {
+                    headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
+                });
+                
+                const data = await response.json();
+                pickerImages = data.images || [];
+                
+                document.getElementById('pickerImageCount').textContent = pickerImages.length;
+                
+                if (pickerImages.length === 0) {
+                    grid.innerHTML = `<div class="col-span-full text-center py-8 text-gray-400">
+                        <i class="fas fa-image text-4xl mb-2 opacity-50"></i>
+                        <p>No images found</p>
+                        <p class="text-xs mt-1">Upload images in the Image Library tab</p>
+                    </div>`;
+                    return;
+                }
+                
+                renderPickerImages(pickerImages);
+            } catch (error) {
+                grid.innerHTML = `<div class="col-span-full text-center py-8 text-red-400">
+                    <i class="fas fa-exclamation-circle text-2xl mb-2"></i>
+                    <p>Error loading images</p>
+                </div>`;
+            }
+        }
+        
+        function renderPickerImages(images) {
+            const grid = document.getElementById('pickerImageGrid');
+            
+            grid.innerHTML = images.map(img => `
+                <div class="picker-image-item cursor-pointer group relative aspect-square rounded-lg overflow-hidden border-2 border-transparent hover:border-blue-500 transition-all"
+                     onclick="selectPickerImage('${img.id}', '${img.file_url}')"
+                     data-id="${img.id}" data-url="${img.file_url}">
+                    <img src="${img.file_url}" alt="${img.alt_text || ''}" 
+                         class="w-full h-full object-cover" loading="lazy"
+                         onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect fill=%22%23f0f0f0%22 width=%22100%22 height=%22100%22/><text x=%2250%22 y=%2250%22 text-anchor=%22middle%22 dy=%22.3em%22 fill=%22%23999%22 font-size=%2212%22>No Image</text></svg>'">
+                    <div class="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                        <i class="fas fa-check-circle text-white text-2xl"></i>
+                    </div>
+                    <div class="absolute bottom-0 left-0 right-0 bg-black/70 text-white text-xs p-1 truncate">
+                        ${img.category || 'general'}
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+        function filterPickerImages(category) {
+            // Update button styles
+            document.querySelectorAll('.picker-category-btn').forEach(btn => {
+                if (btn.dataset.category === category) {
+                    btn.classList.remove('bg-gray-200', 'text-gray-700');
+                    btn.classList.add('bg-blue-500', 'text-white', 'active');
+                } else {
+                    btn.classList.remove('bg-blue-500', 'text-white', 'active');
+                    btn.classList.add('bg-gray-200', 'text-gray-700');
+                }
+            });
+            
+            loadPickerImages(category);
+        }
+        
+        function selectPickerImage(imageId, imageUrl) {
+            selectedSourceImage = { id: imageId, url: imageUrl };
+            
+            // Show selected source image preview
+            document.getElementById('sourceImageThumb').src = imageUrl;
+            document.getElementById('sourceImagePreview').classList.remove('hidden');
+            
+            // Auto-fill title from blog if available
+            if (currentBlog && currentBlog.title) {
+                document.getElementById('featuredTitleOverlay').value = currentBlog.title;
+            }
+            
+            closeImagePicker();
+            showToast('Image selected! Now enter a title and click "Burn Title"', 'success');
+        }
+        
+        function clearSourceImage() {
+            selectedSourceImage = null;
+            document.getElementById('sourceImagePreview').classList.add('hidden');
+        }
+        
+        async function createFeaturedWithOverlay() {
+            if (!currentClient) {
+                showToast('Please select a client first', 'warning');
+                return;
+            }
+            
+            const title = document.getElementById('featuredTitleOverlay').value.trim();
+            if (!title) {
+                showToast('Please enter a title to overlay', 'warning');
+                return;
+            }
+            
+            if (!selectedSourceImage) {
+                showToast('Please select a source image first', 'warning');
+                return;
+            }
+            
+            const template = document.getElementById('featuredOverlayTemplate').value;
+            
+            // Show loading
+            document.getElementById('featuredImageLoading').classList.remove('hidden');
+            document.getElementById('featuredImageEmpty').classList.add('hidden');
+            
+            try {
+                const response = await fetch(`${API_URL}/api/images/featured/${currentClient.id}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${AUTH_TOKEN}`
+                    },
+                    body: JSON.stringify({
+                        title: title,
+                        source_image_id: selectedSourceImage.id,
+                        template: template,
+                        subtitle: currentClient.geo || ''
+                    })
+                });
+                
+                const data = await response.json();
+                
+                document.getElementById('featuredImageLoading').classList.add('hidden');
+                
+                if (data.success) {
+                    // Show the featured image
+                    document.getElementById('modalFeaturedImage').src = data.file_url;
+                    document.getElementById('featuredImageDownloadLink').href = data.file_url;
+                    document.getElementById('featuredImagePreview').classList.remove('hidden');
+                    document.getElementById('featuredImageEmpty').classList.add('hidden');
+                    
+                    // Update blog with featured image
+                    if (currentBlog) {
+                        await updateBlogFeaturedImage(data.file_url);
+                    }
+                    
+                    // Clear source image selection
+                    clearSourceImage();
+                    
+                    showToast('Featured image created with title overlay!', 'success');
+                } else {
+                    document.getElementById('featuredImageEmpty').classList.remove('hidden');
+                    showToast('Failed: ' + (data.error || 'Unknown error'), 'error');
+                }
+            } catch (error) {
+                document.getElementById('featuredImageLoading').classList.add('hidden');
+                document.getElementById('featuredImageEmpty').classList.remove('hidden');
+                showToast('Error: ' + error.message, 'error');
+            }
+        }
+        
+        async function updateBlogFeaturedImage(imageUrl) {
+            if (!currentBlog) return;
+            
+            try {
+                const response = await fetch(`${API_URL}/api/content/blog/${currentBlog.id}`, {
+                    method: 'PATCH',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${AUTH_TOKEN}`
+                    },
+                    body: JSON.stringify({
+                        featured_image_url: imageUrl
+                    })
+                });
+                
+                if (response.ok) {
+                    currentBlog.featured_image_url = imageUrl;
+                    
+                    // Update the blog in allBlogs array
+                    const blogIndex = allBlogs.findIndex(b => b.id === currentBlog.id);
+                    if (blogIndex >= 0) {
+                        allBlogs[blogIndex].featured_image_url = imageUrl;
+                        renderBlogs();
+                    }
+                }
+            } catch (error) {
+                console.error('Error updating blog featured image:', error);
+            }
+        }
+        // ========== END IMAGE PICKER ==========
 
         function copyBlogContent() {
             if (!currentBlog) return;

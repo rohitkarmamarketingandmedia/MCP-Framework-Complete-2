@@ -831,6 +831,9 @@ def create_featured_image(current_user, client_id):
     if not source_image:
         return jsonify({'error': 'No source image provided or found'}), 400
     
+    # Pass client_id to service for FTP upload
+    featured_image_service._current_client_id = client_id
+    
     result = featured_image_service.create_featured_image(
         source_image=source_image,
         title=title,
