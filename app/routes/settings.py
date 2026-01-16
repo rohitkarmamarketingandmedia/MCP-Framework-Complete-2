@@ -597,7 +597,11 @@ def get_integrations_status(current_user):
         'sendgrid_configured': bool(os.environ.get('SENDGRID_API_KEY')),
         'facebook_configured': bool(os.environ.get('FACEBOOK_APP_ID')),
         'google_configured': bool(os.environ.get('GOOGLE_CLIENT_ID')),
-        'ga4_configured': bool(os.environ.get('GA4_PROPERTY_ID')),  # Global default
+        'ga4_configured': bool(os.environ.get('GA4_PROPERTY_ID')),
+        'ftp_configured': bool(
+            (os.environ.get('FTP_HOST') or os.environ.get('SFTP_HOST')) and
+            (os.environ.get('FTP_BASE_URL') or os.environ.get('SFTP_BASE_URL'))
+        ),
     })
 
 
@@ -677,4 +681,46 @@ def get_system_status(current_user):
             'minimum_required': ['OPENAI_API_KEY', 'ADMIN_EMAIL', 'ADMIN_PASSWORD'],
             'recommended': ['OPENAI_API_KEY', 'SEMRUSH_API_KEY', 'SENDGRID_API_KEY']
         }
+    })
+
+
+@settings_bp.route('/ftp/test', methods=['GET'])
+@token_required
+def test_ftp_connection(current_user):
+    """
+    Test FTP/SFTP connection
+    
+    GET /api/settings/ftp/test
+    
+    Returns connection status and configuration details
+    """
+    from app.services.ftp_storage_service import get_ftp_service
+    
+    ftp_service = get_ftp_service()
+    result = ftp_service.test_connection()
+    
+    return jsonify(result)
+
+
+@settings_bp.route('/ftp/status', methods=['GET'])
+@token_required
+def get_ftp_status(current_user):
+    """
+    Get FTP configuration status
+    
+    GET /api/settings/ftp/status
+    """
+    import os
+    
+    return jsonify({
+        'configured': bool(
+            (os.environ.get('FTP_HOST') or os.environ.get('SFTP_HOST')) and
+            (os.environ.get('FTP_USERNAME') or os.environ.get('SFTP_USERNAME')) and
+            (os.environ.get('FTP_PASSWORD') or os.environ.get('SFTP_PASSWORD')) and
+            (os.environ.get('FTP_BASE_URL') or os.environ.get('SFTP_BASE_URL'))
+        ),
+        'host': os.environ.get('FTP_HOST') or os.environ.get('SFTP_HOST') or 'Not set',
+        'protocol': os.environ.get('FTP_PROTOCOL', 'ftp').upper(),
+        'remote_path': os.environ.get('FTP_REMOTE_PATH') or os.environ.get('SFTP_REMOTE_PATH') or '/public_html/uploads',
+        'base_url': os.environ.get('FTP_BASE_URL') or os.environ.get('SFTP_BASE_URL') or 'Not set'
     })
