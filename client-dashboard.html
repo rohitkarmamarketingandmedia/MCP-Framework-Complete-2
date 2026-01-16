@@ -959,11 +959,24 @@
                         
                         <!-- Upload Area -->
                         <div class="border-2 border-dashed border-white/20 rounded-xl p-6 text-center hover:border-pink-500/50 transition cursor-pointer" 
-                             onclick="document.getElementById('libraryImageUpload').click()">
-                            <input type="file" id="libraryImageUpload" accept="image/*" class="hidden" onchange="uploadLibraryImage(event)">
+                             onclick="document.getElementById('libraryImageUpload').click()"
+                             ondragover="event.preventDefault(); this.classList.add('border-pink-500')"
+                             ondragleave="this.classList.remove('border-pink-500')"
+                             ondrop="handleImageDrop(event)">
+                            <input type="file" id="libraryImageUpload" accept="image/*" multiple class="hidden" onchange="uploadLibraryImages(event)">
                             <i class="fas fa-cloud-upload-alt text-3xl text-gray-400 mb-2"></i>
                             <p class="text-gray-400">Click to upload or drag & drop</p>
-                            <p class="text-xs text-gray-500 mt-1">JPG, PNG, WebP (max 10MB)</p>
+                            <p class="text-xs text-gray-500 mt-1">JPG, PNG, WebP (max 10MB) • Multiple files supported</p>
+                        </div>
+                        
+                        <!-- Upload Progress -->
+                        <div id="uploadProgress" class="hidden mt-2">
+                            <div class="flex items-center gap-2">
+                                <div class="flex-1 bg-white/10 rounded-full h-2">
+                                    <div id="uploadProgressBar" class="bg-pink-500 h-2 rounded-full transition-all" style="width: 0%"></div>
+                                </div>
+                                <span id="uploadProgressText" class="text-xs text-gray-400">0/0</span>
+                            </div>
                         </div>
                         
                         <!-- Category Selection -->
@@ -8737,56 +8750,117 @@
             renderImageLibrary();
         }
         
-        async function uploadLibraryImage(event) {
-            const file = event.target.files[0];
-            if (!file) return;
+        // Handle drag and drop
+        function handleImageDrop(event) {
+            event.preventDefault();
+            event.target.classList.remove('border-pink-500');
+            
+            const files = event.dataTransfer.files;
+            if (files.length > 0) {
+                uploadLibraryImages({ target: { files: files } });
+            }
+        }
+        
+        async function uploadLibraryImages(event) {
+            const files = Array.from(event.target.files);
+            if (!files.length) return;
             
             if (!currentClient) {
                 showToast('Please select a client first', 'warning');
                 return;
             }
             
-            // Validate file type
+            // Validate file types
             const validTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
-            if (!validTypes.includes(file.type)) {
-                alert('Please upload a JPG, PNG, GIF, or WebP image');
-                return;
-            }
+            const validFiles = files.filter(file => {
+                if (!validTypes.includes(file.type)) {
+                    showToast(`Skipped ${file.name}: invalid type`, 'warning');
+                    return false;
+                }
+                if (file.size > 10 * 1024 * 1024) {
+                    showToast(`Skipped ${file.name}: too large`, 'warning');
+                    return false;
+                }
+                return true;
+            });
             
-            // Validate file size (10MB max)
-            if (file.size > 10 * 1024 * 1024) {
-                alert('File too large. Maximum size is 10MB.');
+            if (!validFiles.length) {
+                showToast('No valid files to upload', 'error');
                 return;
             }
             
             const category = document.getElementById('uploadCategory').value;
             
-            const formData = new FormData();
-            formData.append('file', file);
-            formData.append('category', category);
-            formData.append('title', file.name.replace(/\.[^/.]+$/, ''));
+            // Show progress
+            const progressDiv = document.getElementById('uploadProgress');
+            const progressBar = document.getElementById('uploadProgressBar');
+            const progressText = document.getElementById('uploadProgressText');
+            progressDiv.classList.remove('hidden');
             
-            try {
-                const response = await fetch(`${API_URL}/api/images/library/${currentClient.id}/upload`, {
-                    method: 'POST',
-                    headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` },
-                    body: formData
-                });
+            let uploaded = 0;
+            let failed = 0;
+            
+            // Upload files one by one for better progress tracking
+            for (let i = 0; i < validFiles.length; i++) {
+                const file = validFiles[i];
+                const progress = Math.round(((i) / validFiles.length) * 100);
+                progressBar.style.width = `${progress}%`;
+                progressText.textContent = `${i}/${validFiles.length}`;
                 
-                const data = await response.json();
+                const formData = new FormData();
+                formData.append('file', file);
+                formData.append('category', category);
+                formData.append('title', file.name.replace(/\.[^/.]+$/, ''));
                 
-                if (data.success) {
-                    showToast('Image uploaded!', 'success');
-                    loadImageLibrary();
-                } else {
-                    alert('Upload failed: ' + (data.error || 'Unknown error'));
+                try {
+                    const response = await fetch(`${API_URL}/api/images/library/${currentClient.id}/upload`, {
+                        method: 'POST',
+                        headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` },
+                        body: formData
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        uploaded++;
+                        // Show storage type
+                        if (data.storage === 'ftp') {
+                            console.log(`${file.name} uploaded to FTP: ${data.image.file_url}`);
+                        }
+                    } else {
+                        failed++;
+                        console.error(`Failed to upload ${file.name}:`, data.error);
+                    }
+                } catch (error) {
+                    failed++;
+                    console.error(`Upload error for ${file.name}:`, error);
                 }
-            } catch (error) {
-                alert('Upload error: ' + error.message);
+            }
+            
+            // Complete
+            progressBar.style.width = '100%';
+            progressText.textContent = `${validFiles.length}/${validFiles.length}`;
+            
+            setTimeout(() => {
+                progressDiv.classList.add('hidden');
+                progressBar.style.width = '0%';
+            }, 1000);
+            
+            // Show result
+            if (uploaded > 0) {
+                showToast(`Uploaded ${uploaded} image${uploaded > 1 ? 's' : ''}${failed > 0 ? `, ${failed} failed` : ''}`, 'success');
+                loadImageLibrary();
+            } else {
+                showToast('All uploads failed', 'error');
             }
             
             // Reset file input
-            event.target.value = '';
+            if (event.target.value) event.target.value = '';
+        }
+        
+        // Keep old function name for compatibility
+        async function uploadLibraryImage(event) {
+            return uploadLibraryImages(event);
         }
         
         async function deleteLibraryImage(imageId) {

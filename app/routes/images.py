@@ -458,25 +458,25 @@ def upload_to_library(current_user, client_id):
         original_filename = secure_filename(file.filename)
         ext = original_filename.rsplit('.', 1)[1].lower()
         
-        # Try SFTP first if configured
-        sftp_result = None
+        # Try FTP first if configured
+        ftp_result = None
         try:
-            from app.services.sftp_storage_service import get_sftp_service
-            sftp = get_sftp_service()
-            if sftp.is_configured():
+            from app.services.ftp_storage_service import get_ftp_service
+            ftp = get_ftp_service()
+            if ftp.is_configured():
                 category = request.form.get('category', 'general')
-                sftp_result = sftp.upload_file(file_data, original_filename, client_id, category)
-                if sftp_result:
-                    logger.info(f"Image uploaded to SFTP: {sftp_result['file_url']}")
+                ftp_result = ftp.upload_file(file_data, original_filename, client_id, category)
+                if ftp_result:
+                    logger.info(f"Image uploaded to FTP: {ftp_result['file_url']}")
         except Exception as e:
-            logger.warning(f"SFTP upload failed, falling back to local: {e}")
+            logger.warning(f"FTP upload failed, falling back to local: {e}")
         
-        if sftp_result:
-            # Use SFTP storage
-            file_url = sftp_result['file_url']
-            file_path = sftp_result['file_path']
-            filename = sftp_result['filename']
-            storage_type = 'sftp'
+        if ftp_result:
+            # Use FTP storage
+            file_url = ftp_result['file_url']
+            file_path = ftp_result['file_path']
+            filename = ftp_result['filename']
+            storage_type = 'ftp'
         else:
             # Fall back to local storage
             upload_dir = os.path.join(current_app.config.get('UPLOAD_FOLDER', 'static/uploads'), 'client_images', client_id)
@@ -545,6 +545,140 @@ def upload_to_library(current_user, client_id):
         import traceback
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500
+
+
+@images_bp.route('/library/<client_id>/upload-multiple', methods=['POST'])
+@token_required
+def upload_multiple_to_library(current_user, client_id):
+    """
+    Upload multiple images to client's library
+    
+    POST /api/images/library/{client_id}/upload-multiple
+    Form data:
+        files[] - Multiple image files
+        category - Category (hero, work, team, logo, general)
+    """
+    from app.models.db_models import DBClientImage
+    from flask import current_app
+    
+    if not current_user.has_access_to_client(client_id):
+        return jsonify({'error': 'Access denied'}), 403
+    
+    files = request.files.getlist('files[]')
+    if not files or len(files) == 0:
+        # Also try 'file' for single file
+        files = request.files.getlist('file')
+    
+    if not files or len(files) == 0:
+        return jsonify({'error': 'No files provided'}), 400
+    
+    category = request.form.get('category', 'general')
+    
+    # Get FTP service
+    ftp = None
+    try:
+        from app.services.ftp_storage_service import get_ftp_service
+        ftp = get_ftp_service()
+        if not ftp.is_configured():
+            ftp = None
+    except Exception as e:
+        logger.warning(f"FTP service not available: {e}")
+    
+    results = []
+    errors = []
+    
+    for file in files:
+        if file.filename == '':
+            continue
+            
+        if not allowed_file(file.filename):
+            errors.append({'filename': file.filename, 'error': 'File type not allowed'})
+            continue
+        
+        try:
+            # Read file data
+            file_data = file.read()
+            original_filename = secure_filename(file.filename)
+            ext = original_filename.rsplit('.', 1)[1].lower() if '.' in original_filename else 'jpg'
+            
+            # Try FTP first
+            ftp_result = None
+            if ftp:
+                try:
+                    ftp_result = ftp.upload_file(file_data, original_filename, client_id, category)
+                    if ftp_result:
+                        logger.info(f"Multi-upload: {original_filename} -> FTP: {ftp_result['file_url']}")
+                except Exception as e:
+                    logger.warning(f"FTP upload failed for {original_filename}: {e}")
+            
+            if ftp_result:
+                file_url = ftp_result['file_url']
+                file_path = ftp_result['file_path']
+                filename = ftp_result['filename']
+                storage_type = 'ftp'
+            else:
+                # Fall back to local storage
+                upload_dir = os.path.join(current_app.config.get('UPLOAD_FOLDER', 'static/uploads'), 'client_images', client_id)
+                os.makedirs(upload_dir, exist_ok=True)
+                
+                filename = f"{uuid.uuid4().hex[:12]}.{ext}"
+                file_path = os.path.join(upload_dir, filename)
+                
+                with open(file_path, 'wb') as f:
+                    f.write(file_data)
+                
+                file_url = f"/static/uploads/client_images/{client_id}/{filename}"
+                storage_type = 'local'
+            
+            # Get file info
+            file_size = len(file_data)
+            
+            # Get image dimensions
+            width, height = 0, 0
+            try:
+                from PIL import Image
+                from io import BytesIO
+                with Image.open(BytesIO(file_data)) as img:
+                    width, height = img.size
+            except:
+                pass
+            
+            # Create database record
+            image = DBClientImage(
+                client_id=client_id,
+                filename=filename,
+                file_path=file_path,
+                original_filename=original_filename,
+                file_url=file_url,
+                file_size=file_size,
+                mime_type=file.content_type or f'image/{ext}',
+                width=width,
+                height=height,
+                category=category,
+                uploaded_by=current_user.id
+            )
+            
+            db.session.add(image)
+            db.session.commit()
+            
+            results.append({
+                'filename': original_filename,
+                'storage': storage_type,
+                'url': file_url,
+                'image': image.to_dict()
+            })
+            
+        except Exception as e:
+            logger.error(f"Failed to upload {file.filename}: {e}")
+            errors.append({'filename': file.filename, 'error': str(e)})
+    
+    return jsonify({
+        'success': len(results) > 0,
+        'uploaded': len(results),
+        'failed': len(errors),
+        'results': results,
+        'errors': errors
+    }), 201 if results else 400
 
 
 @images_bp.route('/library/<client_id>/<image_id>', methods=['PUT'])
