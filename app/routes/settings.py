@@ -684,6 +684,35 @@ def get_system_status(current_user):
     })
 
 
+@settings_bp.route('/ftp/test-public', methods=['GET'])
+def test_ftp_connection_public():
+    """
+    Test FTP/SFTP connection (public endpoint for debugging)
+    
+    GET /api/settings/ftp/test-public
+    
+    Returns connection status and configuration details
+    """
+    from app.services.ftp_storage_service import get_ftp_service
+    import os
+    
+    ftp_service = get_ftp_service()
+    result = ftp_service.test_connection()
+    
+    # Add config info (hide password)
+    result['config'] = {
+        'host': os.environ.get('FTP_HOST') or os.environ.get('SFTP_HOST') or 'NOT SET',
+        'port': os.environ.get('FTP_PORT') or os.environ.get('SFTP_PORT') or '21',
+        'username': os.environ.get('FTP_USERNAME') or os.environ.get('SFTP_USERNAME') or 'NOT SET',
+        'password': '***' if (os.environ.get('FTP_PASSWORD') or os.environ.get('SFTP_PASSWORD')) else 'NOT SET',
+        'remote_path': os.environ.get('FTP_REMOTE_PATH') or os.environ.get('SFTP_REMOTE_PATH') or '/public_html/uploads',
+        'base_url': os.environ.get('FTP_BASE_URL') or os.environ.get('SFTP_BASE_URL') or 'NOT SET',
+        'protocol': os.environ.get('FTP_PROTOCOL', 'ftp').upper()
+    }
+    
+    return jsonify(result)
+
+
 @settings_bp.route('/ftp/test', methods=['GET'])
 @token_required
 def test_ftp_connection(current_user):
