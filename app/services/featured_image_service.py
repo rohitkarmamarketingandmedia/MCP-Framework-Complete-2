@@ -120,49 +120,79 @@ class FeaturedImageService:
         return self.config.TEMPLATES
     
     def _get_font(self, size: int) -> 'ImageFont':
-        """Get font, with caching and fallback"""
+        """Get font, with caching and fallback
+        
+        DEBUG: This method logs extensively to help diagnose font size issues.
+        The font MUST be a TrueType font to support large sizes.
+        """
         cache_key = f"{size}"
         if cache_key in self._font_cache:
+            logger.info(f"_get_font: Returning cached font for size={size}")
             return self._font_cache[cache_key]
         
         font = None
+        font_source = None
         
         # Try custom font
         font_path = os.path.join(self.config.FONT_DIR, self.config.DEFAULT_FONT)
+        logger.info(f"_get_font: Trying custom font at {font_path}, exists={os.path.exists(font_path)}")
         if os.path.exists(font_path):
             try:
                 font = ImageFont.truetype(font_path, size)
+                font_source = f"custom:{font_path}"
+                logger.info(f"_get_font: SUCCESS loaded custom font {font_path} at size={size}")
             except Exception as e:
-                logger.warning(f"Could not load font {font_path}: {e}")
+                logger.warning(f"_get_font: FAILED to load font {font_path}: {e}")
         
         # Try fallback font
         if not font:
             fallback_path = os.path.join(self.config.FONT_DIR, self.config.FALLBACK_FONT)
+            logger.info(f"_get_font: Trying fallback font at {fallback_path}, exists={os.path.exists(fallback_path)}")
             if os.path.exists(fallback_path):
                 try:
                     font = ImageFont.truetype(fallback_path, size)
-                except Exception:
-                    pass
+                    font_source = f"fallback:{fallback_path}"
+                    logger.info(f"_get_font: SUCCESS loaded fallback font at size={size}")
+                except Exception as e:
+                    logger.warning(f"_get_font: FAILED to load fallback font: {e}")
         
         # Try system fonts
         if not font:
             system_fonts = [
                 '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf',
+                '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',
                 '/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf',
+                '/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf',
+                '/usr/share/fonts/truetype/freefont/FreeSansBold.ttf',
+                '/usr/share/fonts/truetype/freefont/FreeSans.ttf',
+                '/usr/share/fonts/TTF/DejaVuSans-Bold.ttf',
+                '/usr/share/fonts/TTF/DejaVuSans.ttf',
                 '/System/Library/Fonts/Helvetica.ttc',
-                'C:\\Windows\\Fonts\\arial.ttf'
+                'C:\\Windows\\Fonts\\arial.ttf',
+                'C:\\Windows\\Fonts\\arialbd.ttf'
             ]
             for sys_font in system_fonts:
-                if os.path.exists(sys_font):
+                exists = os.path.exists(sys_font)
+                logger.info(f"_get_font: Checking system font {sys_font}, exists={exists}")
+                if exists:
                     try:
                         font = ImageFont.truetype(sys_font, size)
+                        font_source = f"system:{sys_font}"
+                        logger.info(f"_get_font: SUCCESS loaded system font {sys_font} at size={size}")
                         break
-                    except Exception:
+                    except Exception as e:
+                        logger.warning(f"_get_font: FAILED to load system font {sys_font}: {e}")
                         continue
         
-        # Ultimate fallback - default PIL font
+        # Ultimate fallback - default PIL font (WARNING: This is tiny and doesn't scale!)
         if not font:
+            logger.error(f"_get_font: CRITICAL - No TrueType fonts found! Using PIL default (will be TINY)")
+            logger.error(f"_get_font: Requested size={size} but default font ignores size parameter")
             font = ImageFont.load_default()
+            font_source = "PIL_DEFAULT_TINY"
+        
+        # Log final result
+        logger.info(f"_get_font: FINAL font_source={font_source}, requested_size={size}")
         
         self._font_cache[cache_key] = font
         return font
@@ -276,6 +306,8 @@ class FeaturedImageService:
         
         CRITICAL: Font sizes must match the visual prominence of the left side content.
         The right side should have the SAME visual impact as left side text overlays.
+        
+        DEBUG: Extensive logging added to diagnose font size issues.
         """
         width, height = img.size
         
@@ -284,7 +316,13 @@ class FeaturedImageService:
         box_x = width - box_width
         box_padding = 35  # Slightly reduced padding for more text space
         
-        logger.info(f"_draw_branded_right_box: image={width}x{height}, box_width={box_width}, box_x={box_x}")
+        logger.info(f"=" * 60)
+        logger.info(f"_draw_branded_right_box: START")
+        logger.info(f"_draw_branded_right_box: image_size={width}x{height}")
+        logger.info(f"_draw_branded_right_box: box_width={box_width}, box_x={box_x}, box_padding={box_padding}")
+        logger.info(f"_draw_branded_right_box: title='{title}'")
+        logger.info(f"_draw_branded_right_box: brand_color={brand_color}")
+        logger.info(f"=" * 60)
         
         # Create overlay for the box
         overlay = Image.new('RGBA', img.size, (0, 0, 0, 0))
@@ -306,6 +344,7 @@ class FeaturedImageService:
         draw = ImageDraw.Draw(img)
         
         # Use dynamic font scaling - auto-fit title to box
+        logger.info(f"_draw_branded_right_box: Calling _fit_title_font...")
         title_font, title_lines, title_line_height = self._fit_title_font(
             title,
             box_width,
@@ -313,13 +352,31 @@ class FeaturedImageService:
             box_padding
         )
         
+        logger.info(f"_draw_branded_right_box: title_lines={title_lines}")
+        logger.info(f"_draw_branded_right_box: title_line_height={title_line_height}")
+        logger.info(f"_draw_branded_right_box: title_font type={type(title_font)}")
+        
+        # Try to get actual font size info
+        try:
+            if hasattr(title_font, 'size'):
+                logger.info(f"_draw_branded_right_box: title_font.size={title_font.size}")
+            if hasattr(title_font, 'getbbox'):
+                test_bbox = title_font.getbbox("Test")
+                logger.info(f"_draw_branded_right_box: title_font bbox for 'Test'={test_bbox}")
+        except Exception as e:
+            logger.warning(f"_draw_branded_right_box: Could not get font info: {e}")
+        
         # Start title from top with padding
         current_y = box_padding + 15
         
         # Draw title lines
-        for line in title_lines:
+        logger.info(f"_draw_branded_right_box: Drawing {len(title_lines)} title lines starting at y={current_y}")
+        for i, line in enumerate(title_lines):
+            draw_x = box_x + box_padding
+            draw_y = current_y
+            logger.info(f"_draw_branded_right_box: Drawing line {i}: '{line}' at ({draw_x}, {draw_y})")
             draw.text(
-                (box_x + box_padding, current_y),
+                (draw_x, draw_y),
                 line,
                 font=title_font,
                 fill=(255, 255, 255)
@@ -334,7 +391,7 @@ class FeaturedImageService:
             cta_font_size = max(int(box_width * 0.14), 56)   # ~64pt for 456px box (was 0.11)
             phone_font_size = max(int(box_width * 0.20), 72)  # ~90pt for 456px box (was 0.18)
             
-            logger.info(f"_draw_branded_right_box: cta_font={cta_font_size}pt, phone_font={phone_font_size}pt")
+            logger.info(f"_draw_branded_right_box: CTA section - cta_font_size={cta_font_size}, phone_font_size={phone_font_size}")
             
             cta_font = self._get_font(cta_font_size)
             phone_font = self._get_font(phone_font_size)
@@ -344,6 +401,7 @@ class FeaturedImageService:
             cta_y = height - bottom_section_height - box_padding
             
             cta_display = cta_text or "Call to schedule"
+            logger.info(f"_draw_branded_right_box: Drawing CTA '{cta_display}' at y={cta_y}")
             draw.text(
                 (box_x + box_padding, cta_y),
                 cta_display,
@@ -354,6 +412,7 @@ class FeaturedImageService:
             # Phone number - large and prominent
             if phone:
                 phone_y = cta_y + cta_font_size + 15
+                logger.info(f"_draw_branded_right_box: Drawing phone '{phone}' at y={phone_y}")
                 draw.text(
                     (box_x + box_padding, phone_y),
                     phone,
@@ -363,6 +422,7 @@ class FeaturedImageService:
         
         # Add logo in MIDDLE section (between title and CTA) if provided
         if logo_url:
+            logger.info(f"_draw_branded_right_box: Loading logo from {logo_url}")
             try:
                 logo_img = self._load_image(logo_url)
                 if logo_img:
@@ -388,6 +448,8 @@ class FeaturedImageService:
                     logo_y = current_y + 30  # Below title area
                     logo_x = box_x + box_padding
                     
+                    logger.info(f"_draw_branded_right_box: Placing logo at ({logo_x}, {logo_y}), size={new_width}x{new_height}")
+                    
                     # Paste logo (handle transparency)
                     if logo_img.mode == 'RGBA':
                         img.paste(logo_img, (logo_x, logo_y), logo_img)
@@ -396,18 +458,31 @@ class FeaturedImageService:
             except Exception as e:
                 logger.warning(f"Could not add logo: {e}")
         
+        logger.info(f"_draw_branded_right_box: END")
+        return img
+        
         return img
     
     def _wrap_text(self, text: str, font: 'ImageFont', max_width: int) -> List[str]:
-        """Wrap text to fit within max_width"""
+        """Wrap text to fit within max_width
+        
+        DEBUG: Added logging to diagnose text wrapping issues.
+        """
         words = text.split()
         lines = []
         current_line = []
         
+        logger.debug(f"_wrap_text: text='{text}', max_width={max_width}, words={words}")
+        
         for word in words:
             test_line = ' '.join(current_line + [word])
-            bbox = font.getbbox(test_line)
-            text_width = bbox[2] - bbox[0]
+            try:
+                bbox = font.getbbox(test_line)
+                text_width = bbox[2] - bbox[0]
+            except Exception as e:
+                logger.warning(f"_wrap_text: getbbox failed: {e}, using fallback width estimate")
+                # Fallback: estimate width based on character count
+                text_width = len(test_line) * 20  # rough estimate
             
             if text_width <= max_width:
                 current_line.append(word)
@@ -419,6 +494,7 @@ class FeaturedImageService:
         if current_line:
             lines.append(' '.join(current_line))
         
+        logger.debug(f"_wrap_text: result lines={lines}")
         return lines
     
     def _fit_title_font(self, text: str, box_width: int, box_height: int, padding: int):
@@ -430,12 +506,21 @@ class FeaturedImageService:
         Font sizes are relative to box dimensions:
         - For 1200x630 image with 38% box = ~456px box width
         - Target: 72-120pt title font (same visual weight as left side)
+        
+        DEBUG: Extensive logging to diagnose font size issues.
         """
+        logger.info(f"=" * 60)
+        logger.info(f"_fit_title_font: START")
+        logger.info(f"_fit_title_font: text='{text}'")
+        logger.info(f"_fit_title_font: box_width={box_width}, box_height={box_height}, padding={padding}")
+        
         # Use more of the box width for text (was 0.85, now 0.90)
         max_width = int(box_width * 0.90) - (padding * 2)
         
         # Allow title to use up to 50% of box height
         max_height = box_height * 0.50
+        
+        logger.info(f"_fit_title_font: max_width={max_width}, max_height={max_height}")
         
         # Calculate font sizes relative to box dimensions for consistency
         # For a 456px wide box, these give us: max=120, min=72
@@ -446,22 +531,32 @@ class FeaturedImageService:
         max_font_size = max(max_font_size, 100)
         min_font_size = max(min_font_size, 64)
         
-        logger.info(f"_fit_title_font: box_width={box_width}, max_font={max_font_size}, min_font={min_font_size}, max_width={max_width}")
+        logger.info(f"_fit_title_font: max_font_size={max_font_size}, min_font_size={min_font_size}")
+        logger.info(f"_fit_title_font: Trying font sizes from {max_font_size} down to {min_font_size}")
 
         for size in range(max_font_size, min_font_size - 1, -4):  # try big → small
+            logger.info(f"_fit_title_font: Testing size={size}pt")
             font = self._get_font(size)
             lines = self._wrap_text(text, font, max_width)
             line_height = int(size * 1.15)
             total_height = len(lines) * line_height
+            
+            logger.info(f"_fit_title_font: size={size}pt -> {len(lines)} lines, line_height={line_height}, total_height={total_height}")
 
             if total_height <= max_height:
-                logger.info(f"_fit_title_font: Using size={size}pt for {len(lines)} lines")
+                logger.info(f"_fit_title_font: SUCCESS - Using size={size}pt for {len(lines)} lines")
+                logger.info(f"_fit_title_font: Lines: {lines}")
+                logger.info(f"_fit_title_font: END")
+                logger.info(f"=" * 60)
                 return font, lines, line_height
 
         # Fallback: use minimum font size even if it overflows slightly
-        logger.info(f"_fit_title_font: Fallback to min_font_size={min_font_size}")
+        logger.info(f"_fit_title_font: FALLBACK - No size fit, using min_font_size={min_font_size}")
         font = self._get_font(min_font_size)
         lines = self._wrap_text(text, font, max_width)
+        logger.info(f"_fit_title_font: Fallback lines: {lines}")
+        logger.info(f"_fit_title_font: END")
+        logger.info(f"=" * 60)
         return font, lines, int(min_font_size * 1.15)
     
     def _add_gradient_bottom(self, img: 'Image.Image', height_ratio: float = 0.5) -> 'Image.Image':
@@ -556,7 +651,21 @@ class FeaturedImageService:
         Returns:
             Dict with success status, file_path, file_url
         """
+        logger.info(f"#" * 80)
+        logger.info(f"create_featured_image: START")
+        logger.info(f"create_featured_image: title='{title}'")
+        logger.info(f"create_featured_image: template='{template}'")
+        logger.info(f"create_featured_image: subtitle='{subtitle}'")
+        logger.info(f"create_featured_image: brand_color={brand_color}")
+        logger.info(f"create_featured_image: width={width}, height={height}")
+        logger.info(f"create_featured_image: phone='{phone}', cta_text='{cta_text}'")
+        logger.info(f"create_featured_image: logo_url='{logo_url}'")
+        logger.info(f"create_featured_image: source_image='{source_image}'")
+        logger.info(f"create_featured_image: source_image_data={'present' if source_image_data else 'None'}")
+        logger.info(f"#" * 80)
+        
         if not PIL_AVAILABLE:
+            logger.error("create_featured_image: PIL/Pillow not available!")
             return {
                 'success': False,
                 'error': 'PIL/Pillow not installed. Install with: pip install Pillow'
@@ -564,36 +673,45 @@ class FeaturedImageService:
         
         # Convert title to proper Title Case
         title = self._to_title_case(title)
+        logger.info(f"create_featured_image: After title case: '{title}'")
         
         # Set defaults
         width = width or self.config.DEFAULT_WIDTH
         height = height or self.config.DEFAULT_HEIGHT
         template_config = self.config.TEMPLATES.get(template, self.config.TEMPLATES['gradient_bottom'])
         
+        logger.info(f"create_featured_image: Final dimensions: {width}x{height}")
+        logger.info(f"create_featured_image: template_config={template_config}")
+        
         try:
             # Load source image - from bytes or from URL/path
             img = None
             if source_image_data:
                 # Load from raw bytes
-                logger.info(f"Loading image from {len(source_image_data)} bytes of data")
+                logger.info(f"create_featured_image: Loading image from {len(source_image_data)} bytes of data")
                 try:
                     img = Image.open(io.BytesIO(source_image_data))
-                    logger.info(f"Successfully loaded image from bytes: {img.size}")
+                    logger.info(f"create_featured_image: Successfully loaded image from bytes: {img.size}")
                 except Exception as e:
-                    logger.error(f"Failed to load image from bytes: {e}")
+                    logger.error(f"create_featured_image: Failed to load image from bytes: {e}")
             
             if not img and source_image:
                 # Load from URL or path
+                logger.info(f"create_featured_image: Loading image from source: {source_image}")
                 img = self._load_image(source_image)
             
             if not img:
+                logger.error(f"create_featured_image: FAILED to load any image")
                 return {
                     'success': False,
                     'error': f'Could not load source image: {source_image or "from bytes"}'
                 }
             
+            logger.info(f"create_featured_image: Image loaded, original size: {img.size}")
+            
             # Resize and crop to exact dimensions
             img = self._resize_and_crop(img, width, height)
+            logger.info(f"create_featured_image: After resize/crop: {img.size}")
             
             # Ensure RGBA mode
             if img.mode != 'RGBA':
@@ -601,10 +719,13 @@ class FeaturedImageService:
             
             # Apply template effects
             text_position = template_config.get('text_position', 'bottom')
+            logger.info(f"create_featured_image: text_position='{text_position}'")
             
             # Handle branded_right template separately (full custom rendering)
             if text_position == 'right_box':
+                logger.info(f"create_featured_image: Using RIGHT_BOX template (branded_right)")
                 box_color = brand_color if template_config.get('use_brand_color') and brand_color else template_config.get('box_color', (0, 102, 178))
+                logger.info(f"create_featured_image: box_color={box_color}")
                 img = self._draw_branded_right_box(
                     img, title, box_color,
                     phone=phone, cta_text=cta_text, logo_url=logo_url
