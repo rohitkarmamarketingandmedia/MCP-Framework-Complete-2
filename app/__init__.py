@@ -12,7 +12,7 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 import os
 import logging
 
-__version__ = "5.5.190"
+__version__ = "5.5.191"
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
