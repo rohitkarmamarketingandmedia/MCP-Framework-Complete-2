@@ -279,7 +279,7 @@ class FeaturedImageService:
         # Box dimensions - right 50% of image for more space
         box_width = int(width * 0.50)
         box_x = width - box_width
-        box_padding = 40
+        box_padding = 50
         
         # Create overlay for the box
         overlay = Image.new('RGBA', img.size, (0, 0, 0, 0))
@@ -300,15 +300,15 @@ class FeaturedImageService:
         # Now draw text on the composited image
         draw = ImageDraw.Draw(img)
         
-        # Title - MUCH LARGER fonts like Nandip's style
-        # Base size 72, scale down for longer titles
-        title_font_size = 72
+        # Title - VERY LARGE fonts like Nandip's reference
+        # These sizes are for 1200x630 image - title should dominate the box
+        title_font_size = 110  # Much larger base size
         if len(title) > 40:
-            title_font_size = 64
+            title_font_size = 95
         if len(title) > 60:
-            title_font_size = 56
+            title_font_size = 80
         if len(title) > 80:
-            title_font_size = 48
+            title_font_size = 70
             
         title_font = self._get_font(title_font_size)
         max_title_width = box_width - (box_padding * 2)
@@ -316,12 +316,12 @@ class FeaturedImageService:
         # Wrap title
         title_lines = self._wrap_text(title, title_font, max_title_width)
         
-        # Calculate vertical positioning - center title in top 60% of box
-        title_line_height = title_font_size + 12
+        # Calculate vertical positioning
+        title_line_height = title_font_size + 15
         title_total_height = len(title_lines) * title_line_height
         
-        # Start title from top with good padding
-        current_y = box_padding + 30
+        # Start title from top with padding
+        current_y = box_padding + 20
         
         # Draw title lines
         for line in title_lines:
@@ -335,15 +335,15 @@ class FeaturedImageService:
         
         # Add CTA text and phone at BOTTOM of box
         if cta_text or phone:
-            # Position CTA and phone at bottom
-            cta_font_size = 32
-            phone_font_size = 52
+            # Position CTA and phone at bottom - LARGER fonts
+            cta_font_size = 42  # Increased from 32
+            phone_font_size = 72  # Increased from 52
             
             cta_font = self._get_font(cta_font_size)
             phone_font = self._get_font(phone_font_size)
             
             # Calculate bottom positioning
-            bottom_section_height = cta_font_size + phone_font_size + 40
+            bottom_section_height = cta_font_size + phone_font_size + 50
             cta_y = height - bottom_section_height - box_padding
             
             cta_display = cta_text or "Call to schedule an appointment"
