@@ -818,13 +818,15 @@ def create_featured_image(current_user, client_id):
     if data.get('source_image_id'):
         img = DBClientImage.query.filter_by(id=data['source_image_id'], client_id=client_id).first()
         if img:
-            logger.info(f"Found image record: file_path={img.file_path}, file_url={img.file_url}, storage={img.storage}")
+            # Get storage type safely (may not exist in older records)
+            storage_type = getattr(img, 'storage', None) or 'local'
+            logger.info(f"Found image record: file_path={img.file_path}, file_url={img.file_url}, storage={storage_type}")
             
             # Prefer file_path (filesystem) over file_url
             if img.file_path and os.path.exists(img.file_path):
                 source_image = img.file_path
                 logger.info(f"Using local file path: {source_image}")
-            elif img.storage == 'ftp' and img.file_url and img.file_url.startswith('http'):
+            elif storage_type == 'ftp' and img.file_url and img.file_url.startswith('http'):
                 # For FTP storage, download the image bytes directly via FTP
                 logger.info(f"Image is on FTP, attempting to download via FTP protocol...")
                 try:
@@ -863,8 +865,43 @@ def create_featured_image(current_user, client_id):
                     logger.error(f"FTP download failed: {e}, falling back to HTTP URL")
                     source_image = img.file_url
             elif img.file_url and img.file_url.startswith('http'):
-                source_image = img.file_url
-                logger.info(f"Using HTTP URL: {source_image}")
+                # Check if URL is from our FTP server and try FTP download
+                ftp_base_url = os.getenv('FTP_BASE_URL', '')
+                if ftp_base_url and img.file_url.startswith(ftp_base_url):
+                    logger.info(f"URL matches FTP base, attempting FTP download...")
+                    try:
+                        from app.services.ftp_storage_service import get_ftp_service
+                        ftp = get_ftp_service()
+                        if ftp.is_configured():
+                            import urllib.parse
+                            parsed = urllib.parse.urlparse(img.file_url)
+                            url_path = parsed.path
+                            
+                            ftp_remote_path = os.getenv('FTP_REMOTE_PATH', '/public_html/images')
+                            ftp_base_url_path = urllib.parse.urlparse(ftp_base_url).path
+                            
+                            if ftp_base_url_path and url_path.startswith(ftp_base_url_path):
+                                relative_path = url_path[len(ftp_base_url_path):]
+                            else:
+                                relative_path = url_path.lstrip('/')
+                                if relative_path.startswith('images/'):
+                                    relative_path = relative_path[7:]
+                            
+                            remote_file = f"{ftp_remote_path}/{relative_path}".replace('//', '/')
+                            logger.info(f"Downloading from FTP path: {remote_file}")
+                            
+                            source_image_data = ftp.download_file(remote_file)
+                            if source_image_data:
+                                logger.info(f"Successfully downloaded {len(source_image_data)} bytes from FTP")
+                            else:
+                                logger.warning("FTP download returned None, falling back to HTTP")
+                                source_image = img.file_url
+                    except Exception as e:
+                        logger.error(f"FTP download failed: {e}, falling back to HTTP URL")
+                        source_image = img.file_url
+                else:
+                    source_image = img.file_url
+                    logger.info(f"Using HTTP URL: {source_image}")
             elif img.file_url and img.file_url.startswith('/static/'):
                 # Convert /static/uploads/... to static/uploads/...
                 source_image = img.file_url.lstrip('/')
