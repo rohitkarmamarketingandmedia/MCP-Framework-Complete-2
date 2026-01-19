@@ -266,6 +266,78 @@ class FTPStorageService:
             logger.error(f"Failed to read local file for FTP upload: {e}")
             return None
     
+    def download_file(self, remote_path: str) -> Optional[bytes]:
+        """Download a file from FTP server and return its bytes"""
+        if not self.is_configured():
+            logger.error("download_file: FTP not configured")
+            return None
+        
+        logger.info(f"download_file: Downloading from {remote_path}")
+        
+        try:
+            if self.protocol == 'sftp':
+                return self._download_sftp(remote_path)
+            else:
+                return self._download_ftp(remote_path)
+        except Exception as e:
+            logger.error(f"download_file: Error downloading: {e}")
+            import traceback
+            logger.error(f"download_file traceback: {traceback.format_exc()}")
+            return None
+    
+    def _download_ftp(self, remote_path: str) -> Optional[bytes]:
+        """Download file via FTP"""
+        ftp = None
+        try:
+            ftp = self._get_ftp_connection()
+            logger.info(f"_download_ftp: Connected, retrieving {remote_path}")
+            
+            # Download to BytesIO
+            buffer = BytesIO()
+            ftp.retrbinary(f'RETR {remote_path}', buffer.write)
+            buffer.seek(0)
+            data = buffer.read()
+            
+            logger.info(f"_download_ftp: Downloaded {len(data)} bytes")
+            return data
+        except Exception as e:
+            logger.error(f"_download_ftp: Error: {e}")
+            return None
+        finally:
+            if ftp:
+                try:
+                    ftp.quit()
+                except:
+                    pass
+    
+    def _download_sftp(self, remote_path: str) -> Optional[bytes]:
+        """Download file via SFTP"""
+        ssh = None
+        sftp = None
+        try:
+            ssh, sftp = self._get_sftp_connection()
+            logger.info(f"_download_sftp: Connected, retrieving {remote_path}")
+            
+            # Download to BytesIO
+            buffer = BytesIO()
+            sftp.getfo(remote_path, buffer)
+            buffer.seek(0)
+            data = buffer.read()
+            
+            logger.info(f"_download_sftp: Downloaded {len(data)} bytes")
+            return data
+        except Exception as e:
+            logger.error(f"_download_sftp: Error: {e}")
+            return None
+        finally:
+            try:
+                if sftp:
+                    sftp.close()
+                if ssh:
+                    ssh.close()
+            except:
+                pass
+    
     def delete_file(self, remote_path: str) -> bool:
         """Delete a file from FTP server"""
         if not self.is_configured():

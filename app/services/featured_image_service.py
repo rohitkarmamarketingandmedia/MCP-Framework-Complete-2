@@ -172,16 +172,51 @@ class FeaturedImageService:
         if not PIL_AVAILABLE:
             return None
         
+        logger.info(f"_load_image: Attempting to load from: {source}")
+        
         try:
             if source.startswith('http://') or source.startswith('https://'):
-                response = requests.get(source, timeout=30)
+                logger.info(f"_load_image: Fetching from URL...")
+                # Add headers to mimic browser request
+                headers = {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                    'Accept': 'image/*,*/*'
+                }
+                response = requests.get(source, timeout=30, headers=headers, verify=True)
+                logger.info(f"_load_image: Response status: {response.status_code}, content-type: {response.headers.get('content-type', 'unknown')}")
+                
                 if response.status_code == 200:
-                    return Image.open(io.BytesIO(response.content))
+                    img = Image.open(io.BytesIO(response.content))
+                    logger.info(f"_load_image: Successfully loaded image {img.size}")
+                    return img
+                else:
+                    logger.error(f"_load_image: HTTP error {response.status_code} for {source}")
             else:
+                logger.info(f"_load_image: Loading from file path...")
                 if os.path.exists(source):
-                    return Image.open(source)
+                    img = Image.open(source)
+                    logger.info(f"_load_image: Successfully loaded image {img.size}")
+                    return img
+                else:
+                    logger.error(f"_load_image: File not found: {source}")
+        except requests.exceptions.SSLError as e:
+            logger.error(f"_load_image: SSL error loading {source}: {e}")
+            # Try without SSL verification as fallback
+            try:
+                logger.info(f"_load_image: Retrying without SSL verification...")
+                response = requests.get(source, timeout=30, headers=headers, verify=False)
+                if response.status_code == 200:
+                    img = Image.open(io.BytesIO(response.content))
+                    logger.info(f"_load_image: Successfully loaded image (no SSL verify) {img.size}")
+                    return img
+            except Exception as e2:
+                logger.error(f"_load_image: Retry failed: {e2}")
+        except requests.exceptions.RequestException as e:
+            logger.error(f"_load_image: Request error loading {source}: {e}")
         except Exception as e:
-            logger.error(f"Failed to load image from {source}: {e}")
+            logger.error(f"_load_image: Failed to load image from {source}: {e}")
+            import traceback
+            traceback.print_exc()
         
         return None
     
@@ -447,8 +482,8 @@ class FeaturedImageService:
     
     def create_featured_image(
         self,
-        source_image: str,  # URL or file path
-        title: str,
+        source_image: str = None,  # URL or file path
+        title: str = None,
         template: str = 'gradient_bottom',
         subtitle: str = None,
         brand_color: Tuple[int, int, int] = None,
@@ -457,7 +492,8 @@ class FeaturedImageService:
         output_filename: str = None,
         phone: str = None,
         cta_text: str = None,
-        logo_url: str = None
+        logo_url: str = None,
+        source_image_data: bytes = None  # Raw image bytes (alternative to source_image)
     ) -> Dict:
         """
         Create featured image with text overlay
@@ -473,6 +509,8 @@ class FeaturedImageService:
             output_filename: Custom filename (auto-generated if not provided)
             phone: Phone number for CTA
             cta_text: Call to action text (default: "Call to schedule an appointment")
+            logo_url: URL to client logo image
+            source_image_data: Raw image bytes (used instead of source_image if provided)
             logo_url: URL to client logo image
         
         Returns:
@@ -493,12 +531,25 @@ class FeaturedImageService:
         template_config = self.config.TEMPLATES.get(template, self.config.TEMPLATES['gradient_bottom'])
         
         try:
-            # Load source image
-            img = self._load_image(source_image)
+            # Load source image - from bytes or from URL/path
+            img = None
+            if source_image_data:
+                # Load from raw bytes
+                logger.info(f"Loading image from {len(source_image_data)} bytes of data")
+                try:
+                    img = Image.open(io.BytesIO(source_image_data))
+                    logger.info(f"Successfully loaded image from bytes: {img.size}")
+                except Exception as e:
+                    logger.error(f"Failed to load image from bytes: {e}")
+            
+            if not img and source_image:
+                # Load from URL or path
+                img = self._load_image(source_image)
+            
             if not img:
                 return {
                     'success': False,
-                    'error': f'Could not load source image: {source_image}'
+                    'error': f'Could not load source image: {source_image or "from bytes"}'
                 }
             
             # Resize and crop to exact dimensions

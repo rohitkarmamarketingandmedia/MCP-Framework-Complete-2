@@ -813,22 +813,66 @@ def create_featured_image(current_user, client_id):
     
     # Determine source image
     source_image = None
+    source_image_data = None  # For FTP images, we'll pass raw bytes
     
     if data.get('source_image_id'):
         img = DBClientImage.query.filter_by(id=data['source_image_id'], client_id=client_id).first()
         if img:
+            logger.info(f"Found image record: file_path={img.file_path}, file_url={img.file_url}, storage={img.storage}")
+            
             # Prefer file_path (filesystem) over file_url
             if img.file_path and os.path.exists(img.file_path):
                 source_image = img.file_path
+                logger.info(f"Using local file path: {source_image}")
+            elif img.storage == 'ftp' and img.file_url and img.file_url.startswith('http'):
+                # For FTP storage, download the image bytes directly via FTP
+                logger.info(f"Image is on FTP, attempting to download via FTP protocol...")
+                try:
+                    from app.services.ftp_storage_service import get_ftp_service
+                    ftp = get_ftp_service()
+                    if ftp.is_configured():
+                        # Extract the remote path from the URL
+                        # URL: https://www.karmamarketing.com/images/client_xxx/hero/filename.jpg
+                        # Path: /public_html/images/client_xxx/hero/filename.jpg
+                        import urllib.parse
+                        parsed = urllib.parse.urlparse(img.file_url)
+                        url_path = parsed.path  # /images/client_xxx/hero/filename.jpg
+                        
+                        # Convert URL path to FTP path
+                        ftp_remote_path = os.getenv('FTP_REMOTE_PATH', '/public_html/images')
+                        ftp_base_url_path = urllib.parse.urlparse(os.getenv('FTP_BASE_URL', '')).path
+                        
+                        if ftp_base_url_path and url_path.startswith(ftp_base_url_path):
+                            relative_path = url_path[len(ftp_base_url_path):]
+                        else:
+                            relative_path = url_path.lstrip('/')
+                            if relative_path.startswith('images/'):
+                                relative_path = relative_path[7:]  # Remove 'images/'
+                        
+                        remote_file = f"{ftp_remote_path}/{relative_path}".replace('//', '/')
+                        logger.info(f"Downloading from FTP path: {remote_file}")
+                        
+                        # Download file from FTP
+                        source_image_data = ftp.download_file(remote_file)
+                        if source_image_data:
+                            logger.info(f"Successfully downloaded {len(source_image_data)} bytes from FTP")
+                        else:
+                            logger.warning("FTP download returned None, falling back to HTTP")
+                            source_image = img.file_url
+                except Exception as e:
+                    logger.error(f"FTP download failed: {e}, falling back to HTTP URL")
+                    source_image = img.file_url
             elif img.file_url and img.file_url.startswith('http'):
                 source_image = img.file_url
+                logger.info(f"Using HTTP URL: {source_image}")
             elif img.file_url and img.file_url.startswith('/static/'):
                 # Convert /static/uploads/... to static/uploads/...
                 source_image = img.file_url.lstrip('/')
-            logger.info(f"Source image for featured: {source_image}")
+                logger.info(f"Using static path: {source_image}")
     
     elif data.get('source_image_url'):
         source_image = data['source_image_url']
+        logger.info(f"Using provided URL: {source_image}")
     
     else:
         # Pick from client library
@@ -842,7 +886,7 @@ def create_featured_image(current_user, client_id):
         )
         return jsonify(result), 200 if result.get('success') else 400
     
-    if not source_image:
+    if not source_image and not source_image_data:
         return jsonify({'error': 'No source image provided or found'}), 400
     
     # Pass client_id to service for FTP upload
@@ -856,7 +900,8 @@ def create_featured_image(current_user, client_id):
         brand_color=brand_color,
         phone=phone,
         cta_text=cta_text,
-        logo_url=logo_url
+        logo_url=logo_url,
+        source_image_data=source_image_data
     )
     
     return jsonify(result), 200 if result.get('success') else 400
