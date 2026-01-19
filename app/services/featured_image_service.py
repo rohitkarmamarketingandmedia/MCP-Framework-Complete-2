@@ -273,13 +273,18 @@ class FeaturedImageService:
         """
         Draw professional branded box on right side of image
         Like Nandip's style - blue box with title, CTA, phone, and logo
+        
+        CRITICAL: Font sizes must match the visual prominence of the left side content.
+        The right side should have the SAME visual impact as left side text overlays.
         """
         width, height = img.size
         
         # Box dimensions - right 38% of image (narrower = bigger looking text)
         box_width = int(width * 0.38)
         box_x = width - box_width
-        box_padding = 40
+        box_padding = 35  # Slightly reduced padding for more text space
+        
+        logger.info(f"_draw_branded_right_box: image={width}x{height}, box_width={box_width}, box_x={box_x}")
         
         # Create overlay for the box
         overlay = Image.new('RGBA', img.size, (0, 0, 0, 0))
@@ -309,7 +314,7 @@ class FeaturedImageService:
         )
         
         # Start title from top with padding
-        current_y = box_padding + 20
+        current_y = box_padding + 15
         
         # Draw title lines
         for line in title_lines:
@@ -324,17 +329,21 @@ class FeaturedImageService:
         # Add CTA text and phone at BOTTOM of box
         if cta_text or phone:
             # Scale font sizes relative to box width for consistency
-            cta_font_size = int(box_width * 0.11)  # ~50pt for 456px box
-            phone_font_size = int(box_width * 0.18)  # ~82pt for 456px box
+            # INCREASED sizes to match left side visual impact
+            # For 456px box: cta=~64pt, phone=~90pt
+            cta_font_size = max(int(box_width * 0.14), 56)   # ~64pt for 456px box (was 0.11)
+            phone_font_size = max(int(box_width * 0.20), 72)  # ~90pt for 456px box (was 0.18)
+            
+            logger.info(f"_draw_branded_right_box: cta_font={cta_font_size}pt, phone_font={phone_font_size}pt")
             
             cta_font = self._get_font(cta_font_size)
             phone_font = self._get_font(phone_font_size)
             
             # Calculate bottom positioning
-            bottom_section_height = cta_font_size + phone_font_size + 50
+            bottom_section_height = cta_font_size + phone_font_size + 60
             cta_y = height - bottom_section_height - box_padding
             
-            cta_display = cta_text or "Call to schedule an appointment"
+            cta_display = cta_text or "Call to schedule"
             draw.text(
                 (box_x + box_padding, cta_y),
                 cta_display,
@@ -358,8 +367,8 @@ class FeaturedImageService:
                 logo_img = self._load_image(logo_url)
                 if logo_img:
                     # Resize logo to fit - larger size
-                    logo_max_width = int((box_width - (box_padding * 2)) * 0.8)
-                    logo_max_height = 100
+                    logo_max_width = int((box_width - (box_padding * 2)) * 0.85)
+                    logo_max_height = 120  # Increased from 100
                     logo_ratio = logo_img.width / logo_img.height
                     
                     if logo_img.width > logo_max_width:
@@ -376,7 +385,7 @@ class FeaturedImageService:
                     logo_img = logo_img.resize((new_width, new_height), Image.Resampling.LANCZOS)
                     
                     # Position logo in middle section (after title, before CTA)
-                    logo_y = current_y + 40  # Below title area
+                    logo_y = current_y + 30  # Below title area
                     logo_x = box_x + box_padding
                     
                     # Paste logo (handle transparency)
@@ -413,23 +422,47 @@ class FeaturedImageService:
         return lines
     
     def _fit_title_font(self, text: str, box_width: int, box_height: int, padding: int):
-        """Auto-scale font to fill vertical space - tries big to small until it fits"""
-        max_width = int(box_width * 0.85)
-        max_height = box_height * 0.55  # title should dominate upper half
+        """Auto-scale font to fill vertical space - tries big to small until it fits
+        
+        IMPORTANT: This ensures the title text on the right side is LARGE and prominent,
+        matching the visual impact of the left side content overlay.
+        
+        Font sizes are relative to box dimensions:
+        - For 1200x630 image with 38% box = ~456px box width
+        - Target: 72-120pt title font (same visual weight as left side)
+        """
+        # Use more of the box width for text (was 0.85, now 0.90)
+        max_width = int(box_width * 0.90) - (padding * 2)
+        
+        # Allow title to use up to 50% of box height
+        max_height = box_height * 0.50
+        
+        # Calculate font sizes relative to box dimensions for consistency
+        # For a 456px wide box, these give us: max=120, min=72
+        max_font_size = int(box_width * 0.26)  # ~120pt for 456px box
+        min_font_size = int(box_width * 0.16)  # ~72pt for 456px box (MUCH larger minimum)
+        
+        # Ensure reasonable bounds
+        max_font_size = max(max_font_size, 100)
+        min_font_size = max(min_font_size, 64)
+        
+        logger.info(f"_fit_title_font: box_width={box_width}, max_font={max_font_size}, min_font={min_font_size}, max_width={max_width}")
 
-        for size in range(160, 60, -4):  # try big → small
+        for size in range(max_font_size, min_font_size - 1, -4):  # try big → small
             font = self._get_font(size)
             lines = self._wrap_text(text, font, max_width)
             line_height = int(size * 1.15)
             total_height = len(lines) * line_height
 
             if total_height <= max_height:
+                logger.info(f"_fit_title_font: Using size={size}pt for {len(lines)} lines")
                 return font, lines, line_height
 
-        # fallback
-        font = self._get_font(60)
+        # Fallback: use minimum font size even if it overflows slightly
+        logger.info(f"_fit_title_font: Fallback to min_font_size={min_font_size}")
+        font = self._get_font(min_font_size)
         lines = self._wrap_text(text, font, max_width)
-        return font, lines, int(60 * 1.15)
+        return font, lines, int(min_font_size * 1.15)
     
     def _add_gradient_bottom(self, img: 'Image.Image', height_ratio: float = 0.5) -> 'Image.Image':
         """Add gradient overlay at bottom"""
