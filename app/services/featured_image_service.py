@@ -241,17 +241,17 @@ class FeaturedImageService:
         """
         width, height = img.size
         
-        # Box dimensions - right 45% of image
-        box_width = int(width * 0.45)
+        # Box dimensions - right 50% of image for more space
+        box_width = int(width * 0.50)
         box_x = width - box_width
-        box_padding = 30
+        box_padding = 40
         
         # Create overlay for the box
         overlay = Image.new('RGBA', img.size, (0, 0, 0, 0))
         draw = ImageDraw.Draw(overlay)
         
         # Draw the colored box (semi-transparent)
-        box_color_with_alpha = (*brand_color, 230)  # 90% opacity
+        box_color_with_alpha = (*brand_color, 220)  # 86% opacity
         draw.rectangle(
             [(box_x, 0), (width, height)],
             fill=box_color_with_alpha
@@ -265,12 +265,15 @@ class FeaturedImageService:
         # Now draw text on the composited image
         draw = ImageDraw.Draw(img)
         
-        # Title - wrap to fit box
-        title_font_size = 42
+        # Title - MUCH LARGER fonts like Nandip's style
+        # Base size 72, scale down for longer titles
+        title_font_size = 72
+        if len(title) > 40:
+            title_font_size = 64
         if len(title) > 60:
-            title_font_size = 36
+            title_font_size = 56
         if len(title) > 80:
-            title_font_size = 32
+            title_font_size = 48
             
         title_font = self._get_font(title_font_size)
         max_title_width = box_width - (box_padding * 2)
@@ -278,12 +281,12 @@ class FeaturedImageService:
         # Wrap title
         title_lines = self._wrap_text(title, title_font, max_title_width)
         
-        # Calculate vertical positioning
-        title_line_height = title_font_size + 8
+        # Calculate vertical positioning - center title in top 60% of box
+        title_line_height = title_font_size + 12
         title_total_height = len(title_lines) * title_line_height
         
-        # Start title from top with padding
-        current_y = box_padding + 20
+        # Start title from top with good padding
+        current_y = box_padding + 30
         
         # Draw title lines
         for line in title_lines:
@@ -295,39 +298,45 @@ class FeaturedImageService:
             )
             current_y += title_line_height
         
-        # Add CTA text if provided
+        # Add CTA text and phone at BOTTOM of box
         if cta_text or phone:
-            current_y += 30  # Space after title
+            # Position CTA and phone at bottom
+            cta_font_size = 32
+            phone_font_size = 52
             
-            cta_font = self._get_font(22)
+            cta_font = self._get_font(cta_font_size)
+            phone_font = self._get_font(phone_font_size)
+            
+            # Calculate bottom positioning
+            bottom_section_height = cta_font_size + phone_font_size + 40
+            cta_y = height - bottom_section_height - box_padding
+            
             cta_display = cta_text or "Call to schedule an appointment"
             draw.text(
-                (box_x + box_padding, current_y),
+                (box_x + box_padding, cta_y),
                 cta_display,
                 font=cta_font,
                 fill=(255, 255, 255)
             )
-            current_y += 30
             
-            # Phone number - larger and bold
+            # Phone number - large and prominent
             if phone:
-                phone_font = self._get_font(38)
+                phone_y = cta_y + cta_font_size + 15
                 draw.text(
-                    (box_x + box_padding, current_y),
+                    (box_x + box_padding, phone_y),
                     phone,
                     font=phone_font,
                     fill=(255, 255, 255)
                 )
-                current_y += 50
         
-        # Add logo at bottom if provided
+        # Add logo in MIDDLE section (between title and CTA) if provided
         if logo_url:
             try:
                 logo_img = self._load_image(logo_url)
                 if logo_img:
-                    # Resize logo to fit
-                    logo_max_width = box_width - (box_padding * 2)
-                    logo_max_height = 80
+                    # Resize logo to fit - larger size
+                    logo_max_width = int((box_width - (box_padding * 2)) * 0.8)
+                    logo_max_height = 100
                     logo_ratio = logo_img.width / logo_img.height
                     
                     if logo_img.width > logo_max_width:
@@ -343,8 +352,8 @@ class FeaturedImageService:
                     
                     logo_img = logo_img.resize((new_width, new_height), Image.Resampling.LANCZOS)
                     
-                    # Position logo at bottom of box
-                    logo_y = height - new_height - box_padding
+                    # Position logo in middle section (after title, before CTA)
+                    logo_y = current_y + 40  # Below title area
                     logo_x = box_x + box_padding
                     
                     # Paste logo (handle transparency)
