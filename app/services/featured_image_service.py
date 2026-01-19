@@ -300,15 +300,15 @@ class FeaturedImageService:
         # Now draw text on the composited image
         draw = ImageDraw.Draw(img)
         
-        # Title - VERY LARGE fonts like Nandip's reference
-        # These sizes are for 1200x630 image - title should dominate the box
-        title_font_size = 110  # Much larger base size
-        if len(title) > 40:
-            title_font_size = 95
-        if len(title) > 60:
-            title_font_size = 80
-        if len(title) > 80:
-            title_font_size = 70
+        # Title - HUGE fonts to match Nandip's reference exactly
+        # For 1200x630 image, title needs to be ~140pt to fill the space
+        title_font_size = 140  # Massive base size
+        if len(title) > 35:
+            title_font_size = 120
+        if len(title) > 50:
+            title_font_size = 100
+        if len(title) > 70:
+            title_font_size = 85
             
         title_font = self._get_font(title_font_size)
         max_title_width = box_width - (box_padding * 2)
@@ -317,11 +317,11 @@ class FeaturedImageService:
         title_lines = self._wrap_text(title, title_font, max_title_width)
         
         # Calculate vertical positioning
-        title_line_height = title_font_size + 15
+        title_line_height = int(title_font_size * 1.15)
         title_total_height = len(title_lines) * title_line_height
         
         # Start title from top with padding
-        current_y = box_padding + 20
+        current_y = box_padding + 30
         
         # Draw title lines
         for line in title_lines:
@@ -335,15 +335,15 @@ class FeaturedImageService:
         
         # Add CTA text and phone at BOTTOM of box
         if cta_text or phone:
-            # Position CTA and phone at bottom - LARGER fonts
-            cta_font_size = 42  # Increased from 32
-            phone_font_size = 72  # Increased from 52
+            # Position CTA and phone at bottom - HUGE fonts like reference
+            cta_font_size = 52  # Bigger CTA
+            phone_font_size = 90  # Massive phone number
             
             cta_font = self._get_font(cta_font_size)
             phone_font = self._get_font(phone_font_size)
             
             # Calculate bottom positioning
-            bottom_section_height = cta_font_size + phone_font_size + 50
+            bottom_section_height = cta_font_size + phone_font_size + 60
             cta_y = height - bottom_section_height - box_padding
             
             cta_display = cta_text or "Call to schedule an appointment"
@@ -356,7 +356,7 @@ class FeaturedImageService:
             
             # Phone number - large and prominent
             if phone:
-                phone_y = cta_y + cta_font_size + 15
+                phone_y = cta_y + cta_font_size + 20
                 draw.text(
                     (box_x + box_padding, phone_y),
                     phone,
