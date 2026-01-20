@@ -3,8 +3,11 @@ MCP Framework - Analytics Service
 Google Analytics 4 integration
 """
 import os
+import logging
 from typing import Dict, List, Any, Optional
 from datetime import datetime, timedelta
+
+logger = logging.getLogger(__name__)
 
 
 class AnalyticsService:
@@ -738,6 +741,157 @@ class ComparativeAnalytics:
         }
 
 
+class SearchConsoleService:
+    """
+    Google Search Console API integration for search terms data
+    
+    Requires:
+    - GSC_CREDENTIALS_JSON environment variable with service account credentials
+    - Site verified in Google Search Console
+    """
+    
+    def __init__(self):
+        self._client = None
+    
+    def _get_client(self):
+        """Get or create Search Console API client"""
+        if self._client:
+            return self._client
+        
+        try:
+            import json
+            import os
+            from google.oauth2 import service_account
+            from googleapiclient.discovery import build
+            
+            credentials_json = os.environ.get('GSC_CREDENTIALS_JSON') or os.environ.get('GA4_CREDENTIALS_JSON')
+            if not credentials_json:
+                logger.debug("No GSC_CREDENTIALS_JSON or GA4_CREDENTIALS_JSON found")
+                return None
+            
+            credentials_info = json.loads(credentials_json)
+            credentials = service_account.Credentials.from_service_account_info(
+                credentials_info,
+                scopes=['https://www.googleapis.com/auth/webmasters.readonly']
+            )
+            
+            self._client = build('searchconsole', 'v1', credentials=credentials)
+            return self._client
+            
+        except ImportError:
+            logger.warning("Google API client not installed. Run: pip install google-api-python-client")
+            return None
+        except Exception as e:
+            logger.error(f"Failed to create Search Console client: {e}")
+            return None
+    
+    def get_search_terms(
+        self,
+        site_url: str,
+        start_date: datetime = None,
+        end_date: datetime = None,
+        limit: int = 10
+    ) -> List[Dict[str, Any]]:
+        """
+        Get top search terms from Google Search Console
+        
+        Args:
+            site_url: Site URL (e.g., 'https://example.com' or 'sc-domain:example.com')
+            start_date: Start date
+            end_date: End date
+            limit: Max number of terms to return
+        
+        Returns:
+            [{'term': str, 'clicks': int, 'impressions': int, 'ctr': float, 'position': float}]
+        """
+        if not site_url:
+            return []
+        
+        client = self._get_client()
+        if not client:
+            return []
+        
+        start_date = start_date or (datetime.utcnow() - timedelta(days=30))
+        end_date = end_date or datetime.utcnow()
+        
+        try:
+            request = {
+                'startDate': start_date.strftime('%Y-%m-%d'),
+                'endDate': end_date.strftime('%Y-%m-%d'),
+                'dimensions': ['query'],
+                'rowLimit': limit,
+                'startRow': 0
+            }
+            
+            response = client.searchanalytics().query(
+                siteUrl=site_url,
+                body=request
+            ).execute()
+            
+            terms = []
+            for row in response.get('rows', []):
+                terms.append({
+                    'term': row['keys'][0],
+                    'clicks': int(row.get('clicks', 0)),
+                    'impressions': int(row.get('impressions', 0)),
+                    'ctr': round(row.get('ctr', 0) * 100, 1),
+                    'position': round(row.get('position', 0), 1)
+                })
+            
+            return terms
+            
+        except Exception as e:
+            logger.error(f"Search Console API error: {e}")
+            return []
+    
+    def get_top_pages(
+        self,
+        site_url: str,
+        start_date: datetime = None,
+        end_date: datetime = None,
+        limit: int = 10
+    ) -> List[Dict[str, Any]]:
+        """Get top pages from Search Console"""
+        if not site_url:
+            return []
+        
+        client = self._get_client()
+        if not client:
+            return []
+        
+        start_date = start_date or (datetime.utcnow() - timedelta(days=30))
+        end_date = end_date or datetime.utcnow()
+        
+        try:
+            request = {
+                'startDate': start_date.strftime('%Y-%m-%d'),
+                'endDate': end_date.strftime('%Y-%m-%d'),
+                'dimensions': ['page'],
+                'rowLimit': limit
+            }
+            
+            response = client.searchanalytics().query(
+                siteUrl=site_url,
+                body=request
+            ).execute()
+            
+            pages = []
+            for row in response.get('rows', []):
+                pages.append({
+                    'page': row['keys'][0],
+                    'clicks': int(row.get('clicks', 0)),
+                    'impressions': int(row.get('impressions', 0)),
+                    'position': round(row.get('position', 0), 1)
+                })
+            
+            return pages
+            
+        except Exception as e:
+            logger.error(f"Search Console API error: {e}")
+            return []
+
+
 # Singleton instances
 analytics_service = AnalyticsService()
 comparative_analytics = ComparativeAnalytics()
+search_console_service = SearchConsoleService()

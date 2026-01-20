@@ -1443,6 +1443,9 @@
                                     <div id="ga4SearchTerms" class="space-y-2 text-sm">
                                         <p class="text-gray-500">Loading...</p>
                                     </div>
+                                    <p class="text-xs text-gray-600 mt-2" id="searchTermsNote" style="display: none;">
+                                        <i class="fas fa-info-circle mr-1"></i>Requires Google Search Console
+                                    </p>
                                 </div>
                             </div>
                         </div>
@@ -10068,15 +10071,21 @@
                         document.getElementById('ga4TopPages').innerHTML = topPagesHtml;
                         
                         // Update search terms
-                        const searchTermsHtml = data.search_terms?.length 
+                        const searchTermsHtml = data.search_terms?.length && data.search_terms[0]?.term !== '(not provided)'
                             ? data.search_terms.slice(0, 5).map(t => `
                                 <div class="flex justify-between text-gray-300">
                                     <span class="truncate flex-1">${t.term}</span>
-                                    <span class="text-gray-500 ml-2">${t.clicks}</span>
+                                    <span class="text-gray-500 ml-2">${t.clicks || t.impressions || ''}</span>
                                 </div>
                             `).join('') 
-                            : '<p class="text-gray-500">No search data</p>';
+                            : '<p class="text-gray-500 text-xs">Connect Google Search Console in Settings to see search terms</p>';
                         document.getElementById('ga4SearchTerms').innerHTML = searchTermsHtml;
+                        
+                        // Show note if no search data
+                        const searchNote = document.getElementById('searchTermsNote');
+                        if (searchNote && (!data.search_terms?.length || data.search_terms[0]?.term === '(not provided)')) {
+                            searchNote.style.display = 'block';
+                        }
                     } else {
                         document.getElementById('ga4NotConfigured').classList.remove('hidden');
                         document.getElementById('ga4Data').classList.add('hidden');

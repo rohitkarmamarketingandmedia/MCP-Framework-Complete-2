@@ -3,12 +3,15 @@ MCP Framework - Analytics Routes
 Traffic, rankings, and performance metrics
 """
 import os
+import logging
 from flask import Blueprint, request, jsonify, current_app
 from app.routes.auth import token_required, admin_required
 from app.services.analytics_service import AnalyticsService, ComparativeAnalytics
 from app.services.seo_service import SEOService
 from app.services.db_service import DataService
 from datetime import datetime, timedelta
+
+logger = logging.getLogger(__name__)
 
 analytics_bp = Blueprint('analytics', __name__)
 analytics_service = AnalyticsService()
@@ -148,6 +151,22 @@ def get_traffic(current_user, client_id):
         total_sessions = sum(c.get('sessions', 0) for c in channels)
         total_users = sum(c.get('users', 0) for c in channels)
         
+        # Try to get search terms from Google Search Console
+        search_terms = []
+        try:
+            from app.services.analytics_service import search_console_service
+            gsc_site_url = getattr(client, 'gsc_site_url', None) or getattr(client, 'website_url', None)
+            if gsc_site_url:
+                search_terms = search_console_service.get_search_terms(
+                    site_url=gsc_site_url,
+                    start_date=start_date,
+                    end_date=end_date,
+                    limit=10
+                )
+                logger.info(f"Got {len(search_terms)} search terms from GSC for {gsc_site_url}")
+        except Exception as e:
+            logger.debug(f"Could not fetch GSC search terms: {e}")
+        
         return jsonify({
             'configured': True,
             'client_id': client_id,
@@ -159,7 +178,7 @@ def get_traffic(current_user, client_id):
             'bounce_rate': traffic.get('bounce_rate', 0),
             'avg_session_duration': traffic.get('avg_session_duration', 0),
             'top_pages': traffic.get('top_pages', []),
-            'search_terms': traffic.get('search_terms', []),
+            'search_terms': search_terms,
             'channels': channels,
             'metrics': traffic
         })
