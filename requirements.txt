@@ -28,6 +28,7 @@ lxml>=5.0.0
 # Google Analytics (optional)
 google-analytics-data>=0.18.0
 google-auth>=2.23.0
+google-api-python-client>=2.100.0
 
 # Environment variables
 python-dotenv>=1.0.0

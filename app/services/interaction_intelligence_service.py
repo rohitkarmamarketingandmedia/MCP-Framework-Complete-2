@@ -902,6 +902,64 @@ class InteractionIntelligenceService:
         """
         questions = []
         
+        # Industry aliases - map common variations to our standard keys
+        INDUSTRY_ALIASES = {
+            'dentist': 'dental',
+            'dentistry': 'dental',
+            'dental office': 'dental',
+            'dental clinic': 'dental',
+            'orthodontist': 'dental',
+            'hvac contractor': 'hvac',
+            'air conditioning': 'hvac',
+            'heating and cooling': 'hvac',
+            'plumber': 'plumbing',
+            'electrician': 'electrical',
+            'roofer': 'roofing',
+            'lawyer': 'legal',
+            'attorney': 'legal',
+            'law firm': 'legal',
+            'accountant': 'accounting',
+            'cpa': 'accounting',
+            'tax preparer': 'accounting',
+            'realtor': 'real_estate',
+            'real estate agent': 'real_estate',
+            'realty': 'real_estate',
+            'auto repair': 'automotive',
+            'mechanic': 'automotive',
+            'car repair': 'automotive',
+            'hair salon': 'salon',
+            'barber': 'salon',
+            'beauty salon': 'salon',
+            'massage': 'spa',
+            'wellness': 'spa',
+            'gym': 'fitness',
+            'personal trainer': 'fitness',
+            'vet': 'veterinary',
+            'animal hospital': 'veterinary',
+            'pet clinic': 'veterinary',
+            'chiropractor': 'chiropractic',
+            'eye doctor': 'optometry',
+            'optician': 'optometry',
+            'therapist': 'mental_health',
+            'counselor': 'mental_health',
+            'psychologist': 'mental_health',
+            'pest': 'pest_control',
+            'exterminator': 'pest_control',
+            'maid service': 'cleaning',
+            'house cleaning': 'cleaning',
+            'janitorial': 'cleaning',
+            'contractor': 'construction',
+            'builder': 'construction',
+            'remodeling': 'construction',
+            'painter': 'painting',
+            'flooring': 'flooring',
+            'carpet': 'flooring',
+            'computer repair': 'it_services',
+            'tech support': 'it_services',
+            'web developer': 'web_design',
+            'website design': 'web_design',
+        }
+        
         # Get client's industry for relevance filtering
         industry = None
         if client_id:
@@ -911,6 +969,18 @@ class InteractionIntelligenceService:
                     industry = client.industry.lower() if client.industry else None
             except:
                 pass
+        
+        # Normalize industry using aliases
+        if industry:
+            # Check aliases first
+            if industry in INDUSTRY_ALIASES:
+                industry = INDUSTRY_ALIASES[industry]
+            else:
+                # Try partial match on aliases
+                for alias, standard in INDUSTRY_ALIASES.items():
+                    if alias in industry or industry in alias:
+                        industry = standard
+                        break
         
         # Build relevance keywords: UNIVERSAL + industry-specific
         relevance_keywords = set(self.UNIVERSAL_KEYWORDS)
@@ -1218,14 +1288,40 @@ class InteractionIntelligenceService:
             ],
         }
         
+        # Industry aliases - map common variations to standard keys
+        INDUSTRY_ALIASES = {
+            'dentist': 'dental', 'dentistry': 'dental', 'orthodontist': 'dental',
+            'hvac contractor': 'hvac', 'air conditioning': 'hvac',
+            'plumber': 'plumbing', 'electrician': 'electrical', 'roofer': 'roofing',
+            'lawyer': 'legal', 'attorney': 'legal', 'law firm': 'legal',
+            'accountant': 'accounting', 'cpa': 'accounting',
+            'realtor': 'real_estate', 'realty': 'real_estate',
+            'auto repair': 'automotive', 'mechanic': 'automotive',
+            'hair salon': 'salon', 'barber': 'salon',
+            'vet': 'veterinary', 'animal hospital': 'veterinary',
+            'gym': 'fitness', 'trainer': 'fitness',
+            'maid service': 'cleaning', 'janitorial': 'cleaning',
+        }
+        
+        # Normalize industry using aliases
+        normalized_industry = industry
+        if industry:
+            if industry in INDUSTRY_ALIASES:
+                normalized_industry = INDUSTRY_ALIASES[industry]
+            else:
+                for alias, standard in INDUSTRY_ALIASES.items():
+                    if alias in industry or industry in alias:
+                        normalized_industry = standard
+                        break
+        
         # Choose patterns based on industry
         patterns_to_use = []
-        if industry and industry in SERVICE_PATTERNS:
-            patterns_to_use = SERVICE_PATTERNS[industry]
+        if normalized_industry and normalized_industry in SERVICE_PATTERNS:
+            patterns_to_use = SERVICE_PATTERNS[normalized_industry]
         else:
             # Try partial match
             for ind_key, patterns in SERVICE_PATTERNS.items():
-                if industry and (ind_key in industry or industry in ind_key):
+                if normalized_industry and (ind_key in normalized_industry or normalized_industry in ind_key):
                     patterns_to_use = patterns
                     break
         
