@@ -1327,9 +1327,11 @@
                     data = await res.json();
                 }
                 
-                // If no real data, generate sample data for demo
-                if (!data || !data.history || data.history.length === 0) {
-                    data = generateSampleRankHistory(keyword);
+                // If no real data or only 1 point, generate sample data for demo
+                if (!data || !data.history || data.history.length < 2) {
+                    // If we have 1 real point, use it as the base
+                    const realPosition = data?.history?.[0]?.position || null;
+                    data = generateSampleRankHistory(keyword, realPosition);
                 }
                 
                 if (data.history && data.history.length > 0) {
@@ -1351,7 +1353,7 @@
                     const best = Math.min(...positions);
                     const current = positions[positions.length - 1] || 0;
                     const avg = positions.length > 0 ? Math.round(positions.reduce((a, b) => a + b, 0) / positions.length) : 0;
-                    const change = (positions[0] || 0) - current; // Positive = improved
+                    const change = positions.length > 1 ? (positions[0] || 0) - current : 0; // Positive = improved
                     
                     // Determine chart color based on trend
                     let borderColor = '#3b82f6'; // blue default
@@ -1372,12 +1374,15 @@
                     const avgEl = document.getElementById('chartAvgRank');
                     const trendEl = document.getElementById('chartTrend');
                     
-                    if (bestEl) bestEl.textContent = best <= 100 ? `#${best}` : 'Not ranking';
-                    if (currentEl) currentEl.textContent = current <= 100 ? `#${current}` : 'Not in Top 100';
+                    if (bestEl) bestEl.textContent = best <= 100 ? `#${best}` : 'N/R';
+                    if (currentEl) currentEl.textContent = current <= 100 ? `#${current}` : 'N/R';
                     if (avgEl) avgEl.textContent = avg <= 100 ? `#${avg}` : '--';
                     
                     if (trendEl) {
-                        if (change > 0) {
+                        if (data.source === 'demo') {
+                            trendEl.textContent = 'Demo';
+                            trendEl.className = 'text-lg font-bold text-amber-400';
+                        } else if (change > 0) {
                             trendEl.textContent = `+${change} ↑`;
                             trendEl.className = 'text-2xl font-bold text-green-400';
                         } else if (change < 0) {
@@ -1394,24 +1399,31 @@
             }
         }
         
-        function generateSampleRankHistory(keyword) {
+        function generateSampleRankHistory(keyword, realPosition = null) {
             // Generate realistic sample data for demo
+            // If we have a real current position, use it as the end point
             const history = [];
-            const basePosition = Math.floor(Math.random() * 20) + 5;
+            const endPosition = realPosition || (Math.floor(Math.random() * 20) + 5);
+            const startPosition = endPosition + Math.floor(Math.random() * 10) - 5; // Slight variation
             const now = new Date();
             
             for (let i = 29; i >= 0; i--) {
                 const date = new Date(now);
                 date.setDate(date.getDate() - i);
-                const variation = Math.floor(Math.random() * 10) - 5;
-                const position = Math.max(1, Math.min(50, basePosition + variation - Math.floor(i / 5)));
+                
+                // Gradual change from start to end position with some noise
+                const progress = (29 - i) / 29;
+                const basePos = startPosition + (endPosition - startPosition) * progress;
+                const noise = Math.floor(Math.random() * 6) - 3;
+                const position = Math.max(1, Math.min(100, Math.round(basePos + noise)));
+                
                 history.push({
                     date: date.toISOString(),
                     position: position
                 });
             }
             
-            return { history };
+            return { history, source: 'demo' };
         }
         
         // ==========================================
