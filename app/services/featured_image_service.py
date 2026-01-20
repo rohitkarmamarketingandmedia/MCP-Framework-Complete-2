@@ -431,11 +431,12 @@ class FeaturedImageService:
         
         # Add CTA text and phone at BOTTOM of box
         if cta_text or phone:
-            # Scale font sizes relative to box width for consistency
-            # INCREASED sizes to match left side visual impact
-            # For 456px box: cta=~64pt, phone=~90pt
-            cta_font_size = max(int(box_width * 0.14), 56)   # ~64pt for 456px box (was 0.11)
-            phone_font_size = max(int(box_width * 0.20), 72)  # ~90pt for 456px box (was 0.18)
+            # Font sizes REDUCED to fit within box width
+            # For 456px box: cta=~28pt, phone=~36pt
+            cta_font_size = min(int(box_width * 0.07), 32)    # ~32pt max
+            cta_font_size = max(cta_font_size, 20)            # ~20pt min
+            phone_font_size = min(int(box_width * 0.09), 42)  # ~42pt max  
+            phone_font_size = max(phone_font_size, 28)        # ~28pt min
             
             logger.info(f"_draw_branded_right_box: CTA section - cta_font_size={cta_font_size}, phone_font_size={phone_font_size}")
             
@@ -443,7 +444,7 @@ class FeaturedImageService:
             phone_font = self._get_font(phone_font_size)
             
             # Calculate bottom positioning
-            bottom_section_height = cta_font_size + phone_font_size + 60
+            bottom_section_height = cta_font_size + phone_font_size + 40
             cta_y = height - bottom_section_height - box_padding
             
             cta_display = cta_text or "Call to schedule"
@@ -455,9 +456,9 @@ class FeaturedImageService:
                 fill=(255, 255, 255)
             )
             
-            # Phone number - large and prominent
+            # Phone number - prominent but fits
             if phone:
-                phone_y = cta_y + cta_font_size + 15
+                phone_y = cta_y + cta_font_size + 10
                 logger.info(f"_draw_branded_right_box: Drawing phone '{phone}' at y={phone_y}")
                 draw.text(
                     (box_x + box_padding, phone_y),
@@ -546,64 +547,45 @@ class FeaturedImageService:
     def _fit_title_font(self, text: str, box_width: int, box_height: int, padding: int):
         """Auto-scale font to fill vertical space - tries big to small until it fits
         
-        IMPORTANT: This ensures the title text on the right side is LARGE and prominent,
-        matching the visual impact of the left side content overlay.
-        
-        Font sizes are relative to box dimensions:
-        - For 1200x630 image with 38% box = ~456px box width
-        - Target: 72-120pt title font (same visual weight as left side)
-        
-        DEBUG: Extensive logging to diagnose font size issues.
+        Font sizes are calibrated to fit nicely within the right-side box.
+        For 1200x630 image with 38% box = ~456px box width
+        Target: 48-72pt title font for good readability without overflow
         """
-        logger.info(f"=" * 60)
-        logger.info(f"_fit_title_font: START")
-        logger.info(f"_fit_title_font: text='{text}'")
-        logger.info(f"_fit_title_font: box_width={box_width}, box_height={box_height}, padding={padding}")
+        logger.info(f"_fit_title_font: text='{text}', box={box_width}x{box_height}")
         
-        # Use more of the box width for text (was 0.85, now 0.90)
-        max_width = int(box_width * 0.90) - (padding * 2)
+        # Calculate available text width (box width minus padding on both sides)
+        max_width = box_width - (padding * 2) - 20  # Extra margin for safety
         
-        # Allow title to use up to 50% of box height
-        max_height = box_height * 0.50
+        # Allow title to use up to 45% of box height (leave room for CTA/phone)
+        max_height = box_height * 0.45
         
-        logger.info(f"_fit_title_font: max_width={max_width}, max_height={max_height}")
-        
-        # Calculate font sizes relative to box dimensions for consistency
-        # For a 456px wide box, these give us: max=120, min=72
-        max_font_size = int(box_width * 0.26)  # ~120pt for 456px box
-        min_font_size = int(box_width * 0.16)  # ~72pt for 456px box (MUCH larger minimum)
+        # Font size range - REDUCED to prevent overflow
+        # For 456px box: max=72pt, min=36pt
+        max_font_size = int(box_width * 0.16)  # ~72pt for 456px box
+        min_font_size = int(box_width * 0.08)  # ~36pt for 456px box
         
         # Ensure reasonable bounds
-        max_font_size = max(max_font_size, 100)
-        min_font_size = max(min_font_size, 64)
+        max_font_size = min(max_font_size, 72)  # Cap at 72pt
+        max_font_size = max(max_font_size, 48)  # At least 48pt
+        min_font_size = max(min_font_size, 32)  # At least 32pt
         
-        logger.info(f"_fit_title_font: max_font_size={max_font_size}, min_font_size={min_font_size}")
-        logger.info(f"_fit_title_font: Trying font sizes from {max_font_size} down to {min_font_size}")
+        logger.info(f"_fit_title_font: max_width={max_width}, max_height={max_height}, font_range={max_font_size}-{min_font_size}")
 
-        for size in range(max_font_size, min_font_size - 1, -4):  # try big → small
-            logger.info(f"_fit_title_font: Testing size={size}pt")
+        for size in range(max_font_size, min_font_size - 1, -2):  # Step by 2 for finer control
             font = self._get_font(size)
             lines = self._wrap_text(text, font, max_width)
-            line_height = int(size * 1.15)
+            line_height = int(size * 1.2)
             total_height = len(lines) * line_height
-            
-            logger.info(f"_fit_title_font: size={size}pt -> {len(lines)} lines, line_height={line_height}, total_height={total_height}")
 
             if total_height <= max_height:
-                logger.info(f"_fit_title_font: SUCCESS - Using size={size}pt for {len(lines)} lines")
-                logger.info(f"_fit_title_font: Lines: {lines}")
-                logger.info(f"_fit_title_font: END")
-                logger.info(f"=" * 60)
+                logger.info(f"_fit_title_font: Using size={size}pt for {len(lines)} lines, total_height={total_height}")
                 return font, lines, line_height
 
-        # Fallback: use minimum font size even if it overflows slightly
-        logger.info(f"_fit_title_font: FALLBACK - No size fit, using min_font_size={min_font_size}")
+        # Fallback: use minimum font size
+        logger.info(f"_fit_title_font: Fallback to min_font_size={min_font_size}")
         font = self._get_font(min_font_size)
         lines = self._wrap_text(text, font, max_width)
-        logger.info(f"_fit_title_font: Fallback lines: {lines}")
-        logger.info(f"_fit_title_font: END")
-        logger.info(f"=" * 60)
-        return font, lines, int(min_font_size * 1.15)
+        return font, lines, int(min_font_size * 1.2)
     
     def _add_gradient_bottom(self, img: 'Image.Image', height_ratio: float = 0.5) -> 'Image.Image':
         """Add gradient overlay at bottom"""
