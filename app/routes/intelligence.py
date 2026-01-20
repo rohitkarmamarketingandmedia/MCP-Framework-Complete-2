@@ -275,17 +275,26 @@ def get_intelligence_report(current_user, client_id):
     total_calls = 0
     all_calls = []
     
+    # Get client info for validation
+    client = DBClient.query.get(client_id)
+    client_name = client.business_name if client else 'Unknown'
+    client_industry = client.industry.lower() if client and client.industry else None
+    
     try:
         from app.services.callrail_service import CallRailConfig, get_callrail_service
         
         if CallRailConfig.is_configured():
-            client = DBClient.query.get(client_id)
             callrail_company_id = getattr(client, 'callrail_company_id', None)
             callrail_account_id = getattr(client, 'callrail_account_id', None)
             
             # STRICT: Only fetch if company_id is set for THIS client
             if callrail_company_id:
-                logger.info(f"Intelligence report for client {client_id} ({client.business_name}): using CallRail company_id={callrail_company_id}")
+                logger.info(f"=" * 60)
+                logger.info(f"Intelligence report for: {client_name} (ID: {client_id})")
+                logger.info(f"Industry: {client_industry}")
+                logger.info(f"CallRail company_id: {callrail_company_id}")
+                logger.info(f"CallRail account_id: {callrail_account_id or 'global'}")
+                logger.info(f"=" * 60)
                 
                 callrail = get_callrail_service()
                 all_calls = callrail.get_recent_calls(
@@ -295,23 +304,40 @@ def get_intelligence_report(current_user, client_id):
                     limit=100
                 )
                 total_calls = len(all_calls)
-                logger.info(f"Intelligence report: got {total_calls} calls from CallRail for company {callrail_company_id}")
+                logger.info(f"Got {total_calls} calls from CallRail")
+                
+                # Log first few calls for debugging
+                for i, call in enumerate(all_calls[:3]):
+                    logger.info(f"Call {i+1}: date={call.get('date')}, duration={call.get('duration')}, has_transcript={call.get('has_transcript')}")
+                    if call.get('transcript'):
+                        preview = call.get('transcript', '')[:100]
+                        logger.info(f"  Transcript preview: {preview}...")
                 
                 # Extract transcripts from calls that have them
                 call_transcripts = [
-                    {'id': c['id'], 'transcript': c.get('transcript', '') or c.get('transcript_preview', ''), 'date': c['date']}
-                    for c in all_calls if c.get('has_transcript')
+                    {
+                        'id': c['id'], 
+                        'transcript': c.get('transcript', '') or c.get('transcript_preview', ''), 
+                        'date': c['date'],
+                        'duration': c.get('duration', 0)
+                    }
+                    for c in all_calls if c.get('has_transcript') and (c.get('transcript') or c.get('transcript_preview'))
                 ]
-                logger.info(f"Intelligence report: {len(call_transcripts or [])} calls have transcripts")
+                logger.info(f"{len(call_transcripts or [])} calls have transcripts")
+                
                 if call_transcripts:
-                    # Log first transcript length for debugging
-                    first_len = len(call_transcripts[0].get('transcript', ''))
-                    logger.info(f"First transcript length: {first_len} chars")
+                    # Log first transcript for debugging
+                    first = call_transcripts[0]
+                    first_transcript = first.get('transcript', '')
+                    logger.info(f"First transcript ({len(first_transcript)} chars): {first_transcript[:200]}...")
             else:
-                logger.info(f"Intelligence report for client {client_id} ({client.business_name}): NO CallRail company_id set - skipping CallRail data")
+                logger.info(f"Intelligence report for {client_name}: NO CallRail company_id set - skipping CallRail data")
     except Exception as e:
         logger.warning(f"Could not fetch CallRail data: {e}")
+        import traceback
+        traceback.print_exc()
     
+    # Pass client industry to the service for better filtering
     report = service.get_full_intelligence_report(
         client_id,
         call_transcripts=call_transcripts,
@@ -319,9 +345,11 @@ def get_intelligence_report(current_user, client_id):
         all_calls=all_calls
     )
     
-    # Add call count to report (even if no transcripts)
+    # Add metadata to report
     report['call_count'] = total_calls
     report['calls_with_transcripts'] = len(call_transcripts) if call_transcripts else 0
+    report['client_name'] = client_name
+    report['client_industry'] = client_industry
     
     # If we have calls but no transcripts, generate metadata-based insights
     if total_calls > 0 and not call_transcripts:

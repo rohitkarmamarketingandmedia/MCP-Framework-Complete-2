@@ -86,28 +86,12 @@ class InteractionIntelligenceService:
         r'\?',  # Direct questions
     ]
     
-    # Generic phrases to EXCLUDE from questions (agent/greeting phrases)
+    # Generic phrases to EXCLUDE from questions (agent/greeting phrases, intake questions)
+    # These are NOT customer questions - they are AGENT questions for data collection
     EXCLUDED_QUESTION_PHRASES = [
+        # Greetings and small talk
         'how can i help',
         'how may i help',
-        'what is your name',
-        'what\'s your name',
-        'what is your phone',
-        'what\'s your phone',
-        'what is your number',
-        'what\'s your number',
-        'what is your address',
-        'what\'s your address',
-        'what is your email',
-        'what\'s your email',
-        'can i get your',
-        'can i have your',
-        'may i have your',
-        'is this cliff',
-        'is this the',
-        'who am i speaking',
-        'thank you for calling',
-        'thanks for calling',
         'how are you',
         'are you there',
         'can you hear me',
@@ -116,6 +100,93 @@ class InteractionIntelligenceService:
         'good morning',
         'good afternoon',
         'good evening',
+        'thank you for calling',
+        'thanks for calling',
+        
+        # Personal info collection (AGENT asking CUSTOMER)
+        'what is your name',
+        'what\'s your name',
+        'can i get your name',
+        'may i have your name',
+        'who am i speaking',
+        'spell your',
+        'how do you spell',
+        
+        # Phone number collection
+        'what is your phone',
+        'what\'s your phone',
+        'what is your number',
+        'what\'s your number',
+        'what is the best phone',
+        'what\'s the best phone',
+        'best number to reach',
+        'call you back at',
+        'contact number',
+        'phone number for',
+        
+        # Address collection
+        'what is your address',
+        'what\'s your address',
+        'what is the address',
+        'what\'s the address',
+        'where are you located',
+        'service address',
+        'property address',
+        
+        # Email collection
+        'what is your email',
+        'what\'s your email',
+        'email address',
+        
+        # Personal details (spouse, DOB, etc.)
+        'what is your husband',
+        'what\'s your husband',
+        'what is your wife',
+        'what\'s your wife',
+        'what is his',
+        'what\'s his',
+        'what is her',
+        'what\'s her',
+        'date of birth',
+        'birth date',
+        'when were you born',
+        'social security',
+        'last four',
+        
+        # Insurance/billing questions (agent asking)
+        'do you have insurance',
+        'what insurance',
+        'insurance company',
+        'insurance card',
+        'verify the benefits',
+        'insurance information',
+        'policy number',
+        'member id',
+        'group number',
+        
+        # Scheduling logistics (agent questions)
+        'do you have a pen',
+        'do you have something to write',
+        'let me get you scheduled',
+        'when would you like',
+        'what time works',
+        'does that work for you',
+        'how does that sound',
+        'would you prefer',
+        'morning or afternoon',
+        'do you have two o\'clock',
+        'does that time work',
+        'can you come in',
+        'would you be able to come',
+        'looking at a time',
+        'get you scheduled',
+        
+        # Clarification (agent)
+        'can i get your',
+        'can i have your',
+        'may i have your',
+        'is this the',
+        'is this cliff',
         'one moment',
         'hold on',
         'please hold',
@@ -125,8 +196,38 @@ class InteractionIntelligenceService:
         'can you repeat',
         'sorry what',
         'excuse me',
-        'caller:',  # Filter out caller labels
-        'agent:',   # Filter out agent labels
+        'i didn\'t catch',
+        'you said',
+        'did you say',
+        
+        # Generic agent phrases
+        'caller:',
+        'agent:',
+        'representative:',
+        'how long she\'ll take',
+        'how long will it take',
+        'we\'ll check what\'s going on',
+        'and then we\'ll',
+        
+        # Legal/court unrelated content (if showing up)
+        'the courts are',
+        'court date',
+        'properly notified',
+        'other explanation',
+        'why you were absent',
+        'trouble getting in contact',
+        'in trouble or anything',
+        
+        # Payment logistics
+        'form of payment',
+        'credit card',
+        'do you want to pay',
+        
+        # Verification
+        'verify your',
+        'confirm your',
+        'is that correct',
+        'did i get that right',
     ]
     
     # Pain point indicators
@@ -146,44 +247,261 @@ class InteractionIntelligenceService:
     ]
     
     # Service-related keywords by industry
+    # This is used to filter questions for relevance to the business
     INDUSTRY_KEYWORDS = {
+        # Home Services
         'hvac': [
             'air conditioning', 'ac', 'heating', 'furnace', 'heat pump',
             'thermostat', 'ductwork', 'refrigerant', 'freon', 'compressor',
             'maintenance', 'tune-up', 'filter', 'installation', 'repair',
-            'replacement', 'efficiency', 'seer', 'humidity', 'ventilation'
+            'replacement', 'efficiency', 'seer', 'humidity', 'ventilation',
+            'cooling', 'not cooling', 'not heating', 'frozen', 'freeze'
         ],
         'plumbing': [
-            'leak', 'drain', 'clog', 'pipe', 'water heater', 'toilet',
-            'faucet', 'sewer', 'septic', 'garbage disposal', 'water pressure',
-            'backup', 'flooding', 'burst pipe', 'tankless', 'repiping'
+            'leak', 'drain', 'clog', 'clogged', 'pipe', 'pipes', 'water heater', 
+            'toilet', 'faucet', 'sewer', 'septic', 'garbage disposal', 'water pressure',
+            'backup', 'flooding', 'burst pipe', 'tankless', 'repiping', 'plumber',
+            'sink', 'shower', 'bathtub', 'water line', 'gas line', 'sump pump'
         ],
         'electrical': [
             'outlet', 'circuit', 'breaker', 'panel', 'wiring', 'lighting',
             'generator', 'surge protector', 'electrical fire', 'flickering',
-            'power outage', 'rewiring', 'code', 'inspection', 'ev charger'
+            'power outage', 'rewiring', 'code', 'inspection', 'ev charger',
+            'electrician', 'switch', 'dimmer', 'ceiling fan', 'electrical'
         ],
+        'roofing': [
+            'roof', 'roofing', 'shingle', 'shingles', 'leak', 'leaking',
+            'gutter', 'gutters', 'flashing', 'soffit', 'fascia', 'skylight',
+            'storm damage', 'hail damage', 'wind damage', 'replacement', 'repair',
+            'inspection', 'estimate', 'insurance claim', 'tile', 'metal roof'
+        ],
+        'landscaping': [
+            'lawn', 'grass', 'mowing', 'tree', 'trees', 'shrub', 'shrubs',
+            'mulch', 'fertilizer', 'irrigation', 'sprinkler', 'landscape',
+            'hardscape', 'patio', 'pavers', 'sod', 'planting', 'trimming',
+            'removal', 'stump', 'hedge', 'garden', 'drainage'
+        ],
+        'pest_control': [
+            'pest', 'pests', 'bug', 'bugs', 'insect', 'insects', 'termite',
+            'termites', 'ant', 'ants', 'roach', 'roaches', 'rodent', 'mouse',
+            'mice', 'rat', 'rats', 'bed bug', 'spider', 'wasp', 'bee',
+            'exterminator', 'infestation', 'treatment', 'spray', 'fumigation'
+        ],
+        'cleaning': [
+            'clean', 'cleaning', 'maid', 'housekeeping', 'deep clean',
+            'carpet', 'carpet cleaning', 'upholstery', 'window', 'windows',
+            'pressure wash', 'power wash', 'janitorial', 'sanitize', 'disinfect',
+            'move out', 'move in', 'recurring', 'one time', 'weekly', 'monthly'
+        ],
+        'garage_door': [
+            'garage', 'garage door', 'opener', 'spring', 'springs', 'track',
+            'remote', 'sensor', 'stuck', 'won\'t open', 'won\'t close',
+            'noisy', 'installation', 'replacement', 'repair', 'maintenance'
+        ],
+        'appliance_repair': [
+            'appliance', 'refrigerator', 'fridge', 'washer', 'dryer', 'dishwasher',
+            'oven', 'stove', 'range', 'microwave', 'freezer', 'ice maker',
+            'not working', 'broken', 'repair', 'fix', 'service', 'warranty'
+        ],
+        
+        # Healthcare
         'dental': [
             'teeth', 'tooth', 'crown', 'filling', 'root canal', 'extraction',
             'cleaning', 'whitening', 'implant', 'dentures', 'braces', 'invisalign',
-            'cavity', 'gum', 'periodontal', 'emergency', 'pain', 'sensitivity'
+            'cavity', 'cavities', 'gum', 'gums', 'periodontal', 'periodontist',
+            'oral', 'dental', 'dentist', 'hygienist', 'orthodontist',
+            'toothache', 'tooth pain', 'sensitive', 'sensitivity', 'bleeding gums',
+            'bad breath', 'halitosis', 'swelling', 'abscess', 'infection',
+            'chipped', 'cracked', 'broken tooth', 'missing tooth', 'loose tooth',
+            'veneer', 'veneers', 'bonding', 'bridge', 'dental bridge',
+            'deep cleaning', 'scaling', 'fluoride', 'sealant', 'x-ray', 'xray',
+            'sedation', 'nitrous', 'numbing', 'anesthesia', 'novocaine',
+            'smile', 'cosmetic', 'teeth whitening', 'bleaching',
+            'dental insurance', 'dental plan', 'dental coverage',
+            'emergency', 'urgent', 'pain', 'same day'
         ],
         'medical': [
             'appointment', 'consultation', 'treatment', 'diagnosis', 'symptoms',
             'insurance', 'coverage', 'specialist', 'referral', 'prescription',
-            'follow-up', 'test', 'results', 'procedure', 'surgery', 'recovery'
+            'follow-up', 'test', 'results', 'procedure', 'surgery', 'recovery',
+            'doctor', 'physician', 'nurse', 'clinic', 'patient', 'health',
+            'checkup', 'physical', 'lab', 'blood work', 'medication'
+        ],
+        'chiropractic': [
+            'back', 'back pain', 'spine', 'spinal', 'neck', 'neck pain',
+            'adjustment', 'alignment', 'chiropractor', 'chiropractic',
+            'posture', 'sciatica', 'disc', 'herniated', 'pinched nerve',
+            'headache', 'migraine', 'joint', 'muscle', 'therapy', 'x-ray'
+        ],
+        'optometry': [
+            'eye', 'eyes', 'vision', 'glasses', 'contacts', 'contact lenses',
+            'exam', 'eye exam', 'prescription', 'optometrist', 'ophthalmologist',
+            'frames', 'lenses', 'bifocal', 'progressive', 'sunglasses',
+            'dry eye', 'glaucoma', 'cataract', 'lasik', 'blurry'
+        ],
+        'veterinary': [
+            'pet', 'dog', 'cat', 'puppy', 'kitten', 'animal', 'vet',
+            'veterinarian', 'vaccine', 'vaccination', 'shots', 'checkup',
+            'spay', 'neuter', 'surgery', 'sick', 'injury', 'emergency',
+            'grooming', 'boarding', 'dental', 'teeth cleaning'
+        ],
+        'physical_therapy': [
+            'therapy', 'physical therapy', 'pt', 'rehab', 'rehabilitation',
+            'exercise', 'stretching', 'strength', 'mobility', 'flexibility',
+            'injury', 'recovery', 'pain', 'sports', 'post surgery',
+            'knee', 'shoulder', 'hip', 'ankle', 'back', 'neck'
+        ],
+        'mental_health': [
+            'therapy', 'therapist', 'counseling', 'counselor', 'psychologist',
+            'psychiatrist', 'mental health', 'anxiety', 'depression', 'stress',
+            'appointment', 'session', 'insurance', 'sliding scale', 'telehealth',
+            'couples', 'family', 'individual', 'group'
+        ],
+        
+        # Professional Services
+        'legal': [
+            'lawyer', 'attorney', 'legal', 'case', 'lawsuit', 'consultation',
+            'settlement', 'court', 'trial', 'deposition', 'discovery',
+            'representation', 'fees', 'retainer', 'contract', 'liability',
+            'damages', 'defense', 'prosecution', 'divorce', 'custody',
+            'personal injury', 'criminal', 'civil', 'estate', 'will', 'trust'
+        ],
+        'accounting': [
+            'tax', 'taxes', 'accountant', 'cpa', 'bookkeeping', 'payroll',
+            'filing', 'return', 'refund', 'audit', 'irs', 'deduction',
+            'business', 'personal', 'quarterly', 'annual', 'financial',
+            'statement', 'balance sheet', 'income', 'expense'
         ],
         'real_estate': [
             'listing', 'showing', 'offer', 'closing', 'inspection', 'appraisal',
             'mortgage', 'pre-approval', 'commission', 'contract', 'escrow',
-            'contingency', 'negotiation', 'market', 'price', 'neighborhood'
+            'contingency', 'negotiation', 'market', 'price', 'neighborhood',
+            'buy', 'sell', 'rent', 'lease', 'property', 'home', 'house',
+            'condo', 'townhouse', 'realtor', 'agent', 'broker'
         ],
-        'legal': [
-            'consultation', 'case', 'lawsuit', 'settlement', 'court', 'trial',
-            'deposition', 'discovery', 'representation', 'fees', 'retainer',
-            'contract', 'liability', 'damages', 'defense', 'prosecution'
-        ]
+        'insurance': [
+            'policy', 'coverage', 'premium', 'deductible', 'claim', 'quote',
+            'auto', 'home', 'life', 'health', 'business', 'liability',
+            'umbrella', 'agent', 'broker', 'renew', 'cancel', 'add', 'remove'
+        ],
+        'financial': [
+            'investment', 'retirement', 'portfolio', 'stocks', 'bonds', 'mutual fund',
+            '401k', 'ira', 'roth', 'advisor', 'planner', 'wealth', 'estate',
+            'loan', 'mortgage', 'refinance', 'credit', 'debt', 'savings'
+        ],
+        
+        # Automotive
+        'automotive': [
+            'car', 'vehicle', 'auto', 'truck', 'suv', 'repair', 'service',
+            'oil change', 'brake', 'brakes', 'tire', 'tires', 'transmission',
+            'engine', 'battery', 'alignment', 'inspection', 'diagnostic',
+            'check engine', 'maintenance', 'tune up', 'warranty', 'recall'
+        ],
+        'auto_body': [
+            'body', 'collision', 'accident', 'dent', 'scratch', 'paint',
+            'bumper', 'fender', 'frame', 'insurance', 'claim', 'estimate',
+            'repair', 'restoration', 'custom', 'detail', 'detailing'
+        ],
+        
+        # Beauty & Wellness
+        'salon': [
+            'hair', 'haircut', 'color', 'highlight', 'balayage', 'perm',
+            'straightening', 'keratin', 'stylist', 'appointment', 'walk-in',
+            'blowout', 'trim', 'style', 'updo', 'extensions', 'treatment'
+        ],
+        'spa': [
+            'massage', 'facial', 'spa', 'relaxation', 'treatment', 'body',
+            'skin', 'skincare', 'wax', 'waxing', 'nail', 'manicure', 'pedicure',
+            'appointment', 'package', 'gift card', 'couples', 'prenatal'
+        ],
+        'fitness': [
+            'gym', 'membership', 'class', 'classes', 'trainer', 'training',
+            'workout', 'exercise', 'fitness', 'weight', 'cardio', 'strength',
+            'yoga', 'pilates', 'spin', 'crossfit', 'schedule', 'cancel'
+        ],
+        
+        # Food & Hospitality
+        'restaurant': [
+            'reservation', 'table', 'menu', 'order', 'delivery', 'takeout',
+            'catering', 'private event', 'party', 'hours', 'location',
+            'allergy', 'vegetarian', 'vegan', 'gluten free', 'special'
+        ],
+        'catering': [
+            'catering', 'event', 'wedding', 'corporate', 'party', 'menu',
+            'quote', 'tasting', 'headcount', 'dietary', 'setup', 'delivery',
+            'buffet', 'plated', 'appetizer', 'dessert', 'beverage'
+        ],
+        
+        # Education
+        'tutoring': [
+            'tutor', 'tutoring', 'lesson', 'lessons', 'subject', 'math',
+            'reading', 'writing', 'science', 'test prep', 'sat', 'act',
+            'homework', 'grade', 'schedule', 'online', 'in person', 'rates'
+        ],
+        'music_lessons': [
+            'lesson', 'lessons', 'music', 'piano', 'guitar', 'violin', 'drums',
+            'voice', 'singing', 'instrument', 'teacher', 'instructor',
+            'beginner', 'intermediate', 'advanced', 'recital', 'schedule'
+        ],
+        
+        # Construction & Trades
+        'construction': [
+            'build', 'building', 'construction', 'contractor', 'remodel',
+            'renovation', 'addition', 'permit', 'estimate', 'bid', 'project',
+            'timeline', 'materials', 'labor', 'commercial', 'residential'
+        ],
+        'painting': [
+            'paint', 'painting', 'painter', 'interior', 'exterior', 'color',
+            'estimate', 'quote', 'prep', 'primer', 'coat', 'finish',
+            'cabinet', 'trim', 'ceiling', 'wall', 'deck', 'stain'
+        ],
+        'flooring': [
+            'floor', 'flooring', 'hardwood', 'laminate', 'tile', 'carpet',
+            'vinyl', 'installation', 'refinish', 'repair', 'estimate',
+            'measurement', 'material', 'labor', 'subfloor', 'transition'
+        ],
+        
+        # Technology
+        'it_services': [
+            'computer', 'laptop', 'desktop', 'server', 'network', 'wifi',
+            'internet', 'email', 'software', 'hardware', 'virus', 'malware',
+            'backup', 'recovery', 'support', 'repair', 'upgrade', 'install'
+        ],
+        'web_design': [
+            'website', 'web', 'design', 'development', 'hosting', 'domain',
+            'seo', 'mobile', 'responsive', 'ecommerce', 'update', 'maintenance',
+            'redesign', 'quote', 'portfolio', 'cms', 'wordpress'
+        ],
     }
+    
+    # Universal keywords that apply to ALL industries
+    UNIVERSAL_KEYWORDS = [
+        # Pricing & Cost
+        'cost', 'price', 'pricing', 'rate', 'rates', 'fee', 'fees',
+        'charge', 'charges', 'estimate', 'quote', 'afford', 'budget',
+        'payment', 'financing', 'deposit', 'discount', 'special', 'deal',
+        
+        # Scheduling & Time
+        'appointment', 'schedule', 'available', 'availability', 'book',
+        'reschedule', 'cancel', 'time', 'when', 'how long', 'how soon',
+        'wait', 'waiting', 'urgent', 'emergency', 'asap', 'same day',
+        'next day', 'weekend', 'evening', 'morning', 'afternoon',
+        
+        # Service Actions
+        'repair', 'fix', 'replace', 'install', 'service', 'maintain',
+        'maintenance', 'inspect', 'inspection', 'diagnose', 'assess',
+        
+        # Quality & Warranty
+        'warranty', 'guarantee', 'insured', 'licensed', 'certified',
+        'experience', 'years', 'reviews', 'rating', 'recommend',
+        
+        # Process & Procedure
+        'how do', 'how does', 'what happens', 'process', 'steps',
+        'what should', 'what do', 'need to', 'have to', 'required',
+        
+        # Location & Coverage
+        'area', 'location', 'travel', 'service area', 'come to', 'on site'
+    ]
     
     def __init__(self):
         pass  # API key read at runtime via property
@@ -221,11 +539,11 @@ class InteractionIntelligenceService:
             if client:
                 industry = client.industry.lower() if client.industry else None
         
-        # Extract questions
-        questions = self._extract_questions(transcript)
+        # Extract questions (pass client_id for relevance filtering)
+        questions = self._extract_questions(transcript, client_id)
         
-        # Identify pain points
-        pain_points = self._extract_pain_points(transcript)
+        # Identify pain points (pass client_id for relevance filtering)
+        pain_points = self._extract_pain_points(transcript, client_id)
         
         # Extract keywords
         keywords = self._extract_keywords(transcript, industry)
@@ -572,9 +890,48 @@ class InteractionIntelligenceService:
     # EXTRACTION HELPERS
     # ==========================================
     
-    def _extract_questions(self, text: str) -> List[str]:
-        """Extract meaningful customer questions from text (excludes agent/generic questions)"""
+    def _extract_questions(self, text: str, client_id: str = None) -> List[str]:
+        """Extract meaningful CUSTOMER questions from text (excludes agent/generic questions)
+        
+        This method filters aggressively to only return questions that:
+        1. Are asked by the CUSTOMER (not agent intake questions)
+        2. Are relevant to the business services
+        3. Would make good FAQ or blog content
+        
+        Uses UNIVERSAL_KEYWORDS (apply to all industries) + industry-specific keywords
+        """
         questions = []
+        
+        # Get client's industry for relevance filtering
+        industry = None
+        if client_id:
+            try:
+                client = DBClient.query.get(client_id)
+                if client:
+                    industry = client.industry.lower() if client.industry else None
+            except:
+                pass
+        
+        # Build relevance keywords: UNIVERSAL + industry-specific
+        relevance_keywords = set(self.UNIVERSAL_KEYWORDS)
+        
+        # Add industry-specific keywords if industry is known
+        if industry:
+            # Try exact match first
+            if industry in self.INDUSTRY_KEYWORDS:
+                relevance_keywords.update(self.INDUSTRY_KEYWORDS[industry])
+            else:
+                # Try partial match (e.g., "dental clinic" matches "dental")
+                for ind_key, ind_keywords in self.INDUSTRY_KEYWORDS.items():
+                    if ind_key in industry or industry in ind_key:
+                        relevance_keywords.update(ind_keywords)
+                        break
+        
+        # If still no industry match, add keywords from ALL industries
+        # This ensures we catch relevant questions even if industry isn't set
+        if not industry or industry not in self.INDUSTRY_KEYWORDS:
+            for ind_keywords in self.INDUSTRY_KEYWORDS.values():
+                relevance_keywords.update(ind_keywords)
         
         # Split into sentences
         sentences = re.split(r'[.!?\n]', text)
@@ -611,6 +968,21 @@ class InteractionIntelligenceService:
                 # Skip very short questions after cleanup
                 if len(question) < 15:
                     continue
+                
+                # Check for relevance - must contain at least one relevant keyword
+                question_lower = question.lower()
+                is_relevant = False
+                
+                # Check against all relevance keywords (universal + industry)
+                for kw in relevance_keywords:
+                    if kw in question_lower:
+                        is_relevant = True
+                        break
+                
+                # Skip non-relevant questions
+                if not is_relevant:
+                    logger.debug(f"Skipping non-relevant question: {question[:50]}...")
+                    continue
                     
                 if not question.endswith('?'):
                     question += '?'
@@ -618,10 +990,25 @@ class InteractionIntelligenceService:
         
         return questions
     
-    def _extract_pain_points(self, text: str) -> List[str]:
-        """Extract customer pain points and concerns from text"""
+    def _extract_pain_points(self, text: str, client_id: str = None) -> List[str]:
+        """Extract customer pain points and concerns from text
+        
+        Filters out:
+        - Agent statements
+        - Non-business related concerns (legal, personal issues)
+        - Generic statements
+        """
         pain_points = []
         text_lower = text.lower()
+        
+        # Phrases that indicate non-relevant content
+        irrelevant_phrases = [
+            'court', 'judge', 'attorney', 'lawyer', 'legal',
+            'notified about that', 'absent', 'missed court',
+            'trouble getting in contact', 'in trouble or anything',
+            'custody', 'divorce', 'hearing',
+            'police', 'arrested', 'jail',
+        ]
         
         # Split into sentences
         sentences = re.split(r'[.!?\n]', text)
@@ -635,6 +1022,15 @@ class InteractionIntelligenceService:
             
             # Skip agent statements - we want CALLER pain points
             if sentence_lower.startswith('agent:') or 'thank you for calling' in sentence_lower:
+                continue
+            
+            # Skip irrelevant content (legal issues, etc.)
+            is_irrelevant = False
+            for phrase in irrelevant_phrases:
+                if phrase in sentence_lower:
+                    is_irrelevant = True
+                    break
+            if is_irrelevant:
                 continue
             
             # Check for pain indicators
@@ -694,25 +1090,151 @@ class InteractionIntelligenceService:
         return keywords
     
     def _extract_services(self, text: str, industry: str = None) -> List[str]:
-        """Extract service mentions from text"""
+        """Extract service mentions from text based on industry"""
         services = []
         text_lower = text.lower()
         
-        # HVAC-specific service patterns (more precise)
-        hvac_services = [
-            r'\b(ac|air conditioner|air conditioning)\s*(repair|service|installation|replacement|maintenance|tune.?up)',
-            r'\b(heating|furnace|heat pump)\s*(repair|service|installation|replacement|maintenance)',
-            r'\b(thermostat)\s*(repair|replacement|installation|programming)',
-            r'\b(duct|ductwork)\s*(cleaning|repair|installation)',
-            r'\b(freon|refrigerant)\s*(recharge|leak|check)',
-            r'\bnew\s+(ac|air conditioner|unit|system|furnace)',
-            r'\b(repair|fix|replace|install|service)\s+(?:my|the|our|their)?\s*(ac|air conditioner|unit|furnace|thermostat|system)',
-            r'\b(not cooling|not heating|won\'t turn on|stopped working)',
-            r'\b(emergency|same.?day|urgent)\s*(service|repair)',
-            r'\bget\s+(?:a|an)?\s*(quote|estimate|bid)',
-        ]
+        # Industry-specific service patterns
+        SERVICE_PATTERNS = {
+            'dental': [
+                r'\b(teeth?\s*cleaning|dental\s*cleaning|prophylaxis)',
+                r'\b(teeth?\s*whitening|bleaching|zoom\s*whitening)',
+                r'\b(root\s*canal|endodontic)',
+                r'\b(crown|dental\s*crown|cap)',
+                r'\b(filling|cavity\s*filling|composite)',
+                r'\b(extraction|tooth\s*extraction|pull\s*(?:a\s*)?tooth)',
+                r'\b(implant|dental\s*implant)',
+                r'\b(veneers?|dental\s*veneers?)',
+                r'\b(bridge|dental\s*bridge)',
+                r'\b(dentures?|partial\s*dentures?|full\s*dentures?)',
+                r'\b(braces|invisalign|orthodontic)',
+                r'\b(deep\s*cleaning|scaling|root\s*planing)',
+                r'\b(exam|dental\s*exam|check.?up|checkup)',
+                r'\b(x.?ray|dental\s*x.?ray)',
+                r'\b(emergency\s*dental|dental\s*emergency|tooth\s*pain)',
+                r'\b(cosmetic\s*dentistry|smile\s*makeover)',
+                r'\b(gum\s*treatment|periodontal|gum\s*disease)',
+                r'\b(night\s*guard|mouth\s*guard|bite\s*guard)',
+                r'\b(sedation\s*dentistry|sleep\s*dentistry)',
+            ],
+            'hvac': [
+                r'\b(ac|air conditioner|air conditioning)\s*(repair|service|installation|replacement|maintenance|tune.?up)',
+                r'\b(heating|furnace|heat pump)\s*(repair|service|installation|replacement|maintenance)',
+                r'\b(thermostat)\s*(repair|replacement|installation|programming)',
+                r'\b(duct|ductwork)\s*(cleaning|repair|installation)',
+                r'\b(freon|refrigerant)\s*(recharge|leak|check)',
+                r'\bnew\s+(ac|air conditioner|unit|system|furnace)',
+                r'\b(not cooling|not heating|won\'t turn on|stopped working)',
+                r'\b(emergency|same.?day|urgent)\s*(hvac|ac|heating)',
+            ],
+            'plumbing': [
+                r'\b(drain)\s*(cleaning|unclog|repair)',
+                r'\b(pipe)\s*(repair|replacement|leak)',
+                r'\b(water heater)\s*(repair|replacement|installation)',
+                r'\b(toilet)\s*(repair|replacement|installation|unclog)',
+                r'\b(faucet)\s*(repair|replacement|installation)',
+                r'\b(garbage disposal)\s*(repair|replacement|installation)',
+                r'\b(sewer)\s*(line|cleaning|repair)',
+                r'\b(leak)\s*(detection|repair)',
+                r'\b(emergency)\s*(plumbing|plumber)',
+            ],
+            'electrical': [
+                r'\b(electrical)\s*(repair|service|installation|inspection)',
+                r'\b(outlet)\s*(repair|replacement|installation)',
+                r'\b(panel)\s*(upgrade|repair|replacement)',
+                r'\b(wiring)\s*(repair|replacement|installation)',
+                r'\b(lighting)\s*(installation|repair)',
+                r'\b(generator)\s*(installation|repair|service)',
+                r'\b(ev charger)\s*(installation)',
+                r'\b(circuit breaker)\s*(repair|replacement)',
+            ],
+            'roofing': [
+                r'\b(roof)\s*(repair|replacement|inspection|installation)',
+                r'\b(shingle)\s*(repair|replacement)',
+                r'\b(gutter)\s*(cleaning|repair|installation)',
+                r'\b(leak)\s*(repair|detection)',
+                r'\b(storm damage)\s*(repair)',
+                r'\b(roof)\s*(estimate|inspection)',
+            ],
+            'legal': [
+                r'\b(legal)\s*(consultation|advice|representation)',
+                r'\b(case)\s*(review|evaluation)',
+                r'\b(personal injury)\s*(case|claim)',
+                r'\b(divorce)\s*(consultation|filing)',
+                r'\b(estate)\s*(planning|will|trust)',
+                r'\b(contract)\s*(review|drafting)',
+                r'\b(criminal)\s*(defense)',
+            ],
+            'automotive': [
+                r'\b(oil)\s*(change)',
+                r'\b(brake)\s*(repair|replacement|service)',
+                r'\b(tire)\s*(rotation|replacement|repair)',
+                r'\b(transmission)\s*(repair|service)',
+                r'\b(engine)\s*(repair|diagnostic)',
+                r'\b(check engine)\s*(light|diagnostic)',
+                r'\b(ac)\s*(repair|recharge)',
+                r'\b(alignment)',
+            ],
+            'salon': [
+                r'\b(haircut|hair\s*cut)',
+                r'\b(hair)\s*(color|coloring|dye)',
+                r'\b(highlights?|balayage)',
+                r'\b(blowout|blow\s*dry)',
+                r'\b(trim)',
+                r'\b(perm|straightening|keratin)',
+                r'\b(extensions)',
+            ],
+            'spa': [
+                r'\b(massage)\s*(therapy|treatment)?',
+                r'\b(facial)\s*(treatment)?',
+                r'\b(manicure|pedicure)',
+                r'\b(wax|waxing)',
+                r'\b(body)\s*(treatment|wrap)',
+            ],
+            'real_estate': [
+                r'\b(home)\s*(buying|selling|valuation)',
+                r'\b(listing)\s*(consultation)?',
+                r'\b(market)\s*(analysis)',
+                r'\b(property)\s*(search|showing)',
+            ],
+            'cleaning': [
+                r'\b(house|home)\s*(cleaning)',
+                r'\b(deep)\s*(clean|cleaning)',
+                r'\b(carpet)\s*(cleaning)',
+                r'\b(window)\s*(cleaning)',
+                r'\b(move.?in|move.?out)\s*(cleaning)?',
+            ],
+            'veterinary': [
+                r'\b(pet|dog|cat)\s*(checkup|exam|vaccination|surgery)',
+                r'\b(spay|neuter)',
+                r'\b(dental)\s*(cleaning)',
+                r'\b(emergency)\s*(vet|animal)',
+            ],
+            'fitness': [
+                r'\b(gym)\s*(membership)',
+                r'\b(personal)\s*(training|trainer)',
+                r'\b(fitness)\s*(class|assessment)',
+                r'\b(yoga|pilates|crossfit)\s*(class)?',
+            ],
+        }
         
-        for pattern in hvac_services:
+        # Choose patterns based on industry
+        patterns_to_use = []
+        if industry and industry in SERVICE_PATTERNS:
+            patterns_to_use = SERVICE_PATTERNS[industry]
+        else:
+            # Try partial match
+            for ind_key, patterns in SERVICE_PATTERNS.items():
+                if industry and (ind_key in industry or industry in ind_key):
+                    patterns_to_use = patterns
+                    break
+        
+        # If no industry match, use all patterns
+        if not patterns_to_use:
+            for patterns in SERVICE_PATTERNS.values():
+                patterns_to_use.extend(patterns)
+        
+        for pattern in patterns_to_use:
             matches = re.findall(pattern, text_lower)
             for match in matches:
                 if isinstance(match, tuple):
@@ -733,8 +1255,6 @@ class InteractionIntelligenceService:
             for match in matches:
                 if match and len(match) > 3:
                     services.append(match.strip().title())
-        
-        return services
         
         return services
     

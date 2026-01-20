@@ -4637,21 +4637,32 @@
                         console.log('Showing transcript-based insights');
                         const insights = report.combined_insights || {};
                         
-                        // Get services from top_services or content_opportunities
+                        // Get services from top_services (actual services customers asked about)
                         // top_services format: [{service: 'name', count: n}]
-                        // content_opportunities format: [{type: 'x', title: 'y', service: 'z', ...}]
-                        let services = (insights.top_services || []).map(s => {
-                            if (typeof s === 'string') return s;
-                            return s.service || s.title || s.name || JSON.stringify(s);
-                        });
+                        let services = [];
                         
-                        // If no top_services, try content_opportunities
+                        // First try combined_insights.services_requested (from transcript analysis)
+                        if (insights.services_requested && insights.services_requested.length > 0) {
+                            services = insights.services_requested.map(s => {
+                                if (typeof s === 'string') return s;
+                                return s.service || s.name || s;
+                            }).filter(s => s && typeof s === 'string' && s.length < 50);
+                        }
+                        
+                        // Fallback to top_services
+                        if (services.length === 0 && insights.top_services && insights.top_services.length > 0) {
+                            services = insights.top_services.map(s => {
+                                if (typeof s === 'string') return s;
+                                return s.service || s.name || s;
+                            }).filter(s => s && typeof s === 'string' && s.length < 50);
+                        }
+                        
+                        // Only use content_opportunities as LAST resort, and only show service-type ones
                         if (services.length === 0 && report.content_opportunities) {
-                            services = report.content_opportunities.map(o => {
-                                if (typeof o === 'string') return o;
-                                // For content opportunities, show the service or title
-                                return o.service || o.title || o.description || JSON.stringify(o);
-                            }).filter(s => s && !s.startsWith('{'));
+                            services = report.content_opportunities
+                                .filter(o => o.type === 'service_page' || o.service)
+                                .map(o => o.service || o.title)
+                                .filter(s => s && !s.includes('|') && !s.includes('FAQ') && s.length < 50);
                         }
                         
                         const opportunities = services.slice(0, 6); // Limit to 6
