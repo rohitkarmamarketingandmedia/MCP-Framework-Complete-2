@@ -805,6 +805,42 @@ def get_rankings(current_user):
         if result.get('error') and not result.get('demo_mode'):
             return jsonify({'error': result['error']}), 500
         
+        # Get previous rankings from database to calculate changes if not provided by SEMrush
+        try:
+            # Get last ranking check for each keyword (from 1-7 days ago)
+            from sqlalchemy import func
+            seven_days_ago = datetime.utcnow() - timedelta(days=7)
+            one_day_ago = datetime.utcnow() - timedelta(days=1)
+            
+            # Get the most recent previous position for each keyword
+            previous_rankings = {}
+            for kw_data in result.get('keywords', []):
+                keyword = kw_data['keyword']
+                # Find the last recorded position (at least 1 day old to avoid same-day duplicates)
+                last_record = DBRankHistory.query.filter(
+                    DBRankHistory.client_id == client_id,
+                    DBRankHistory.keyword == keyword,
+                    DBRankHistory.checked_at < one_day_ago,
+                    DBRankHistory.checked_at >= seven_days_ago
+                ).order_by(DBRankHistory.checked_at.desc()).first()
+                
+                if last_record and last_record.position:
+                    previous_rankings[keyword] = last_record.position
+            
+            # Update keywords with calculated changes if SEMrush didn't provide them
+            for kw_data in result.get('keywords', []):
+                keyword = kw_data['keyword']
+                current_pos = kw_data.get('position')
+                
+                # If no change from SEMrush but we have historical data
+                if kw_data.get('change', 0) == 0 and current_pos and keyword in previous_rankings:
+                    prev_pos = previous_rankings[keyword]
+                    kw_data['previous_position'] = prev_pos
+                    kw_data['change'] = prev_pos - current_pos  # Positive = improved
+                    logger.debug(f"Calculated change for '{keyword}': {prev_pos} -> {current_pos} = {kw_data['change']}")
+        except Exception as e:
+            logger.warning(f"Could not calculate historical changes: {e}")
+        
         # Save to history (only if not demo mode)
         if not result.get('demo_mode'):
             for kw_data in result.get('keywords', []):
