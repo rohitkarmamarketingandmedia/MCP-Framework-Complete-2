@@ -533,14 +533,43 @@ def client_keyword_gap(current_user, client_id):
             'gaps': []
         }), 400
     
-    result = semrush_service.get_keyword_gap(client_domain, competitor_domains, 30)
+    result = semrush_service.get_keyword_gap(client_domain, competitor_domains, 50)  # Get more, then filter
     
     if result.get('error'):
         return jsonify(result), 500
     
+    # Filter keywords by industry relevance
+    gaps = result.get('gap_keywords', []) or result.get('gaps', [])
+    industry = (client.industry or '').lower()
+    
+    # Industry keyword filters - keep only relevant keywords
+    industry_filters = {
+        'dental': ['dental', 'dentist', 'teeth', 'tooth', 'orthodon', 'braces', 'implant', 'crown', 'filling', 'whitening', 'gum', 'oral', 'smile', 'cavity', 'root canal', 'extraction', 'cleaning', 'hygiene', 'periodon', 'enamel', 'veneer', 'denture'],
+        'dentist': ['dental', 'dentist', 'teeth', 'tooth', 'orthodon', 'braces', 'implant', 'crown', 'filling', 'whitening', 'gum', 'oral', 'smile', 'cavity', 'root canal', 'extraction', 'cleaning', 'hygiene', 'periodon', 'enamel', 'veneer', 'denture'],
+        'hvac': ['hvac', 'ac ', 'air condition', 'heating', 'cooling', 'furnace', 'heat pump', 'thermostat', 'duct', 'refrigerant', 'compressor', 'ventilation', 'climate', 'temperature'],
+        'plumbing': ['plumb', 'drain', 'pipe', 'water heater', 'faucet', 'toilet', 'sewer', 'leak', 'clog', 'sink', 'shower', 'bathroom', 'kitchen', 'disposal'],
+        'legal': ['lawyer', 'attorney', 'legal', 'law firm', 'injury', 'accident', 'divorce', 'criminal', 'defense', 'estate', 'bankruptcy', 'litigation', 'case', 'court'],
+        'roofing': ['roof', 'shingle', 'gutter', 'leak', 'repair', 'replace', 'storm damage', 'metal roof', 'tile'],
+        'electrical': ['electric', 'wiring', 'outlet', 'panel', 'circuit', 'lighting', 'generator', 'voltage'],
+    }
+    
+    # Get filter terms for this industry
+    filter_terms = industry_filters.get(industry, [])
+    
+    if filter_terms:
+        # Filter to only keep industry-relevant keywords
+        filtered_gaps = []
+        for gap in gaps:
+            keyword = (gap.get('keyword') or '').lower()
+            # Check if keyword contains any industry-relevant term
+            if any(term in keyword for term in filter_terms):
+                filtered_gaps.append(gap)
+        gaps = filtered_gaps if filtered_gaps else gaps[:15]  # Fallback to first 15 if no matches
+    
     return jsonify({
         'client_id': client_id,
-        'gaps': result.get('gap_keywords', []),
+        'gaps': gaps[:30],  # Limit to 30 results
         'competitors': competitor_domains,
-        'source': 'semrush'
+        'source': 'semrush',
+        'filtered_by_industry': bool(filter_terms)
     })

@@ -1433,7 +1433,7 @@
             }
             
             const table = document.getElementById('keywordGapTable');
-            table.innerHTML = '<tr><td colspan="7" class="text-center py-4"><div class="spinner mx-auto"></div></td></tr>';
+            table.innerHTML = '<tr><td colspan="7" class="text-center py-4"><div class="spinner mx-auto"></div><p class="text-gray-400 text-sm mt-2">Analyzing keywords...</p></td></tr>';
             
             try {
                 const res = await fetch(`${API_URL}/api/semrush/keyword-gap/${currentClient.id}`, {
@@ -1443,6 +1443,19 @@
                 let data;
                 if (res.ok) {
                     data = await res.json();
+                    
+                    // Show data source indicator
+                    const sourceText = data.source === 'semrush' ? 'SEMrush Data' : 
+                                      data.source === 'gsc' ? 'Google Search Console Data' : 
+                                      data.source === 'simulated' ? 'Sample Data (Configure SEMrush for real data)' : 'Demo Data';
+                    const sourceClass = data.source === 'semrush' ? 'text-green-400' : 
+                                       data.source === 'gsc' ? 'text-blue-400' : 'text-amber-400';
+                    
+                    const headerEl = document.querySelector('#panel-keywordGap h3');
+                    if (headerEl) {
+                        headerEl.innerHTML = `<i class="fas fa-th-list mr-2 text-purple-400"></i>Keyword Gap Analysis 
+                            <span class="text-xs ${sourceClass} ml-2">(${sourceText})</span>`;
+                    }
                 } else {
                     // Generate sample data for demo
                     data = generateSampleKeywordGap();
@@ -1456,24 +1469,46 @@
         }
         
         function generateSampleKeywordGap() {
-            const keywords = currentClient?.primary_keywords || ['ac repair', 'hvac service', 'air conditioning'];
-            const gaps = keywords.map(kw => ({
-                keyword: kw + ' ' + (currentClient?.geo || 'local'),
-                you: Math.random() > 0.3 ? Math.floor(Math.random() * 30) + 1 : null,
-                comp1: Math.random() > 0.2 ? Math.floor(Math.random() * 20) + 1 : null,
-                comp2: Math.random() > 0.4 ? Math.floor(Math.random() * 25) + 1 : null,
-                volume: Math.floor(Math.random() * 5000) + 100,
-                priority: ['HIGH', 'MEDIUM', 'LOW'][Math.floor(Math.random() * 3)]
-            }));
+            // Use client's industry to generate relevant sample keywords
+            const industry = currentClient?.industry?.toLowerCase() || '';
+            const geo = currentClient?.geo || 'local';
+            const clientKeywords = currentClient?.primary_keywords || [];
             
-            // Add some keywords where competitors rank but you don't
-            gaps.push(
-                { keyword: 'emergency ac repair', you: null, comp1: 3, comp2: 7, volume: 1200, priority: 'HIGH' },
-                { keyword: '24 hour hvac', you: null, comp1: 5, comp2: null, volume: 800, priority: 'HIGH' },
-                { keyword: 'affordable ac service', you: 25, comp1: 2, comp2: 4, volume: 1500, priority: 'MEDIUM' }
-            );
+            // Industry-specific keyword templates
+            const industryKeywords = {
+                'dental': ['dentist', 'dental cleaning', 'teeth whitening', 'emergency dentist', 'dental implants', 'cosmetic dentistry', 'family dentist', 'pediatric dentist', 'dental crown', 'root canal'],
+                'dentist': ['dentist', 'dental cleaning', 'teeth whitening', 'emergency dentist', 'dental implants', 'cosmetic dentistry', 'family dentist', 'pediatric dentist', 'dental crown', 'root canal'],
+                'hvac': ['ac repair', 'hvac service', 'air conditioning', 'furnace repair', 'heating and cooling', 'ac installation', 'emergency ac', '24 hour hvac', 'ac maintenance', 'duct cleaning'],
+                'plumbing': ['plumber', 'drain cleaning', 'water heater repair', 'emergency plumber', 'leak repair', 'sewer line', 'toilet repair', 'faucet installation', 'pipe repair', 'clogged drain'],
+                'legal': ['attorney', 'lawyer', 'personal injury', 'divorce lawyer', 'criminal defense', 'estate planning', 'family law', 'bankruptcy attorney', 'car accident lawyer', 'legal consultation'],
+                'default': clientKeywords.length > 0 ? clientKeywords : ['service', 'repair', 'professional', 'near me', 'best', 'affordable', 'emergency', 'local', 'expert', 'quality']
+            };
             
-            return { gaps };
+            // Get keywords for this industry
+            let keywords = industryKeywords[industry] || industryKeywords['default'];
+            
+            // Mix with client's actual keywords if available
+            if (clientKeywords.length > 0) {
+                keywords = [...new Set([...clientKeywords.slice(0, 5), ...keywords])];
+            }
+            
+            const gaps = keywords.slice(0, 10).map((kw, i) => {
+                // Add geo if not already present
+                const kwLower = kw.toLowerCase();
+                const geoLower = geo.toLowerCase();
+                const fullKw = geoLower && !kwLower.includes(geoLower) ? `${kw} ${geo}` : kw;
+                
+                return {
+                    keyword: fullKw,
+                    you: Math.random() > 0.3 ? Math.floor(Math.random() * 30) + 1 : null,
+                    comp1: Math.random() > 0.2 ? Math.floor(Math.random() * 20) + 1 : null,
+                    comp2: Math.random() > 0.4 ? Math.floor(Math.random() * 25) + 1 : null,
+                    volume: Math.floor(Math.random() * 5000) + 100,
+                    priority: i < 3 ? 'HIGH' : (i < 6 ? 'MEDIUM' : 'LOW')
+                };
+            });
+            
+            return { gaps, source: 'demo' };
         }
         
         function renderKeywordGapTable(gaps) {
