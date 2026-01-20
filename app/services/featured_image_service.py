@@ -122,77 +122,123 @@ class FeaturedImageService:
     def _get_font(self, size: int) -> 'ImageFont':
         """Get font, with caching and fallback
         
-        DEBUG: This method logs extensively to help diagnose font size issues.
-        The font MUST be a TrueType font to support large sizes.
+        CRITICAL: The font MUST be a TrueType font to support large sizes.
+        PIL's default font is a tiny bitmap that ignores the size parameter!
+        
+        This method tries multiple approaches to get a scalable font:
+        1. Custom fonts in FONT_DIR
+        2. System fonts (various Linux paths)
+        3. Download a font from web if available
+        4. Use PIL's new default_font with size (Pillow 10.1+)
         """
-        cache_key = f"{size}"
+        cache_key = f"font_{size}"
         if cache_key in self._font_cache:
-            logger.info(f"_get_font: Returning cached font for size={size}")
             return self._font_cache[cache_key]
         
         font = None
-        font_source = None
+        font_source = "none"
         
-        # Try custom font
-        font_path = os.path.join(self.config.FONT_DIR, self.config.DEFAULT_FONT)
-        logger.info(f"_get_font: Trying custom font at {font_path}, exists={os.path.exists(font_path)}")
-        if os.path.exists(font_path):
-            try:
-                font = ImageFont.truetype(font_path, size)
-                font_source = f"custom:{font_path}"
-                logger.info(f"_get_font: SUCCESS loaded custom font {font_path} at size={size}")
-            except Exception as e:
-                logger.warning(f"_get_font: FAILED to load font {font_path}: {e}")
+        # List of all fonts to try
+        font_paths_to_try = [
+            # Custom fonts
+            os.path.join(self.config.FONT_DIR, self.config.DEFAULT_FONT),
+            os.path.join(self.config.FONT_DIR, self.config.FALLBACK_FONT),
+            # Common Linux system fonts - DejaVu (most common on Ubuntu/Debian)
+            '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf',
+            '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',
+            '/usr/share/fonts/truetype/dejavu/DejaVuSansMono-Bold.ttf',
+            '/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf',
+            # Liberation fonts
+            '/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf',
+            '/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf',
+            '/usr/share/fonts/truetype/liberation2/LiberationSans-Bold.ttf',
+            '/usr/share/fonts/truetype/liberation2/LiberationSans-Regular.ttf',
+            # FreeFonts
+            '/usr/share/fonts/truetype/freefont/FreeSansBold.ttf',
+            '/usr/share/fonts/truetype/freefont/FreeSans.ttf',
+            # Ubuntu fonts
+            '/usr/share/fonts/truetype/ubuntu/Ubuntu-Bold.ttf',
+            '/usr/share/fonts/truetype/ubuntu/Ubuntu-Regular.ttf',
+            # Noto fonts
+            '/usr/share/fonts/truetype/noto/NotoSans-Bold.ttf',
+            '/usr/share/fonts/truetype/noto/NotoSans-Regular.ttf',
+            # Alternative paths
+            '/usr/share/fonts/TTF/DejaVuSans-Bold.ttf',
+            '/usr/share/fonts/TTF/DejaVuSans.ttf',
+            # Arch Linux paths
+            '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf',
+            '/usr/share/fonts/dejavu/DejaVuSans-Bold.ttf',
+            # macOS
+            '/System/Library/Fonts/Helvetica.ttc',
+            '/System/Library/Fonts/Arial.ttf',
+            '/Library/Fonts/Arial.ttf',
+            # Windows
+            'C:\\Windows\\Fonts\\arial.ttf',
+            'C:\\Windows\\Fonts\\arialbd.ttf',
+        ]
         
-        # Try fallback font
-        if not font:
-            fallback_path = os.path.join(self.config.FONT_DIR, self.config.FALLBACK_FONT)
-            logger.info(f"_get_font: Trying fallback font at {fallback_path}, exists={os.path.exists(fallback_path)}")
-            if os.path.exists(fallback_path):
+        logger.info(f"_get_font: Looking for font at size={size}")
+        
+        for font_path in font_paths_to_try:
+            if os.path.exists(font_path):
                 try:
-                    font = ImageFont.truetype(fallback_path, size)
-                    font_source = f"fallback:{fallback_path}"
-                    logger.info(f"_get_font: SUCCESS loaded fallback font at size={size}")
+                    font = ImageFont.truetype(font_path, size)
+                    font_source = font_path
+                    logger.info(f"_get_font: SUCCESS - Loaded '{font_path}' at size={size}")
+                    break
                 except Exception as e:
-                    logger.warning(f"_get_font: FAILED to load fallback font: {e}")
+                    logger.warning(f"_get_font: Failed to load '{font_path}': {e}")
         
-        # Try system fonts
+        # If no font found, try to use Pillow 10.1+ built-in font with size
         if not font:
-            system_fonts = [
-                '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf',
-                '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',
-                '/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf',
-                '/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf',
-                '/usr/share/fonts/truetype/freefont/FreeSansBold.ttf',
-                '/usr/share/fonts/truetype/freefont/FreeSans.ttf',
-                '/usr/share/fonts/TTF/DejaVuSans-Bold.ttf',
-                '/usr/share/fonts/TTF/DejaVuSans.ttf',
-                '/System/Library/Fonts/Helvetica.ttc',
-                'C:\\Windows\\Fonts\\arial.ttf',
-                'C:\\Windows\\Fonts\\arialbd.ttf'
-            ]
-            for sys_font in system_fonts:
-                exists = os.path.exists(sys_font)
-                logger.info(f"_get_font: Checking system font {sys_font}, exists={exists}")
-                if exists:
-                    try:
-                        font = ImageFont.truetype(sys_font, size)
-                        font_source = f"system:{sys_font}"
-                        logger.info(f"_get_font: SUCCESS loaded system font {sys_font} at size={size}")
-                        break
-                    except Exception as e:
-                        logger.warning(f"_get_font: FAILED to load system font {sys_font}: {e}")
-                        continue
+            try:
+                # Pillow 10.1+ has a load_default() that accepts size
+                font = ImageFont.load_default(size=size)
+                font_source = "pillow_default_with_size"
+                logger.info(f"_get_font: Using Pillow load_default(size={size})")
+            except TypeError:
+                # Older Pillow doesn't support size parameter
+                logger.warning(f"_get_font: Pillow load_default() doesn't support size parameter")
+            except Exception as e:
+                logger.warning(f"_get_font: Failed to use load_default with size: {e}")
         
-        # Ultimate fallback - default PIL font (WARNING: This is tiny and doesn't scale!)
+        # Last resort - download a font
         if not font:
-            logger.error(f"_get_font: CRITICAL - No TrueType fonts found! Using PIL default (will be TINY)")
-            logger.error(f"_get_font: Requested size={size} but default font ignores size parameter")
+            logger.warning(f"_get_font: No system fonts found, attempting to download DejaVuSans...")
+            try:
+                # Try to download DejaVuSans from a reliable source
+                import requests
+                font_url = "https://github.com/dejavu-fonts/dejavu-fonts/raw/master/ttf/DejaVuSans-Bold.ttf"
+                downloaded_font_path = os.path.join(self.config.FONT_DIR, "DejaVuSans-Bold-Downloaded.ttf")
+                
+                if not os.path.exists(downloaded_font_path):
+                    logger.info(f"_get_font: Downloading font from {font_url}")
+                    response = requests.get(font_url, timeout=10)
+                    if response.status_code == 200:
+                        os.makedirs(self.config.FONT_DIR, exist_ok=True)
+                        with open(downloaded_font_path, 'wb') as f:
+                            f.write(response.content)
+                        logger.info(f"_get_font: Downloaded font to {downloaded_font_path}")
+                
+                if os.path.exists(downloaded_font_path):
+                    font = ImageFont.truetype(downloaded_font_path, size)
+                    font_source = "downloaded_dejavu"
+                    logger.info(f"_get_font: SUCCESS - Using downloaded font at size={size}")
+            except Exception as e:
+                logger.error(f"_get_font: Failed to download font: {e}")
+        
+        # ABSOLUTE last resort - use default (will be tiny but at least won't crash)
+        if not font:
+            logger.error(f"=" * 60)
+            logger.error(f"_get_font: CRITICAL ERROR - NO SCALABLE FONT AVAILABLE!")
+            logger.error(f"_get_font: The text will appear TINY because PIL's default")
+            logger.error(f"_get_font: bitmap font IGNORES the size parameter!")
+            logger.error(f"_get_font: Install fonts on server: apt-get install fonts-dejavu-core")
+            logger.error(f"=" * 60)
             font = ImageFont.load_default()
-            font_source = "PIL_DEFAULT_TINY"
+            font_source = "PIL_DEFAULT_TINY_BITMAP"
         
-        # Log final result
-        logger.info(f"_get_font: FINAL font_source={font_source}, requested_size={size}")
+        logger.info(f"_get_font: FINAL RESULT - font_source='{font_source}', size={size}")
         
         self._font_cache[cache_key] = font
         return font

@@ -12,11 +12,17 @@ ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 ENV FLASK_ENV=production
 
-# Install system dependencies
+# Install system dependencies INCLUDING FONTS for image generation
+# fonts-dejavu-core provides DejaVuSans-Bold.ttf which is required for
+# featured image text overlays to render at proper sizes
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
     curl \
-    && rm -rf /var/lib/apt/lists/*
+    fonts-dejavu-core \
+    fonts-liberation \
+    fontconfig \
+    && rm -rf /var/lib/apt/lists/* \
+    && fc-cache -f -v
 
 # Copy requirements first for caching
 COPY requirements.txt .

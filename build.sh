@@ -10,6 +10,41 @@ echo "  KARMA MARKETING + MEDIA"
 echo "  MCP Framework Build v4.5"
 echo "=============================================="
 
+# Install system fonts for image generation
+# CRITICAL: Without these fonts, featured image text will be TINY
+echo ""
+echo "🔤 Installing system fonts..."
+if command -v apt-get &> /dev/null; then
+    apt-get update -qq || true
+    apt-get install -y --no-install-recommends fonts-dejavu-core fonts-liberation fontconfig || true
+    fc-cache -f -v || true
+    echo "  ✓ Fonts installed (DejaVu, Liberation)"
+else
+    echo "  ⚠ apt-get not available, fonts may need manual installation"
+fi
+
+# Verify font availability
+echo ""
+echo "🔍 Checking font availability..."
+python -c "
+import os
+font_paths = [
+    '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf',
+    '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',
+    '/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf',
+]
+found = False
+for p in font_paths:
+    if os.path.exists(p):
+        print(f'  ✓ Font found: {p}')
+        found = True
+        break
+if not found:
+    print('  ⚠ WARNING: No TrueType fonts found!')
+    print('    Featured image text may appear very small.')
+    print('    The system will attempt to download fonts at runtime.')
+"
+
 # Install dependencies
 echo ""
 echo "📦 Installing dependencies..."
