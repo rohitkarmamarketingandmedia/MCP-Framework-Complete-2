@@ -1538,14 +1538,122 @@
                         </div>
                     </div>
                     
-                    <!-- Position History Chart -->
+                    <!-- Keyword Rank History Module -->
                     <div class="glass rounded-2xl p-6">
-                        <h3 class="text-lg font-bold text-white mb-4">Position History</h3>
-                        <div class="h-64">
-                            <canvas id="rankHistoryChart"></canvas>
+                        <!-- Tabs -->
+                        <div class="flex flex-wrap gap-2 mb-6">
+                            <button onclick="switchRankTab('history')" id="rankTab-history" class="rank-tab px-4 py-2 rounded-lg text-sm font-medium transition bg-blue-600 text-white">
+                                <i class="fas fa-chart-line mr-2"></i>Rank History
+                            </button>
+                            <button onclick="switchRankTab('gap')" id="rankTab-gap" class="rank-tab px-4 py-2 rounded-lg text-sm font-medium transition bg-slate-700 text-gray-300 hover:bg-slate-600">
+                                <i class="fas fa-table mr-2"></i>Keyword Gap
+                            </button>
+                            <button onclick="switchRankTab('compare')" id="rankTab-compare" class="rank-tab px-4 py-2 rounded-lg text-sm font-medium transition bg-slate-700 text-gray-300 hover:bg-slate-600">
+                                <i class="fas fa-balance-scale mr-2"></i>Compare
+                            </button>
+                            <button onclick="switchRankTab('changes')" id="rankTab-changes" class="rank-tab px-4 py-2 rounded-lg text-sm font-medium transition bg-slate-700 text-gray-300 hover:bg-slate-600">
+                                <i class="fas fa-history mr-2"></i>Content Changes
+                            </button>
                         </div>
-                        <div class="mt-4 space-y-2" id="rankHistoryList">
-                            <p class="text-gray-500 text-sm text-center">Historical data will appear after multiple checks</p>
+                        
+                        <!-- Tab: Rank History -->
+                        <div id="rankTabContent-history" class="rank-tab-content">
+                            <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-4">
+                                <h3 class="text-lg font-bold text-white flex items-center">
+                                    <i class="fas fa-chart-line mr-2 text-blue-400"></i>
+                                    Keyword Rank History (30 Days)
+                                </h3>
+                                <select id="keywordHistorySelect" onchange="updateKeywordHistoryChart()" class="bg-slate-800 border border-slate-600 rounded-lg px-4 py-2 text-white text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
+                                    <option value="">Select keyword...</option>
+                                </select>
+                            </div>
+                            
+                            <!-- Chart Area -->
+                            <div class="h-80 mb-6 relative">
+                                <canvas id="rankHistoryChart"></canvas>
+                                <div id="rankHistoryEmpty" class="absolute inset-0 flex items-center justify-center text-gray-500">
+                                    <div class="text-center">
+                                        <i class="fas fa-chart-line text-4xl mb-3 opacity-30"></i>
+                                        <p>Select a keyword to view ranking history</p>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Metric Cards -->
+                            <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                                <div class="bg-slate-800/50 rounded-xl p-4 text-center">
+                                    <div class="text-2xl font-bold text-green-400" id="kwBestPosition">--</div>
+                                    <div class="text-xs text-gray-400 mt-1">Best Position</div>
+                                </div>
+                                <div class="bg-slate-800/50 rounded-xl p-4 text-center">
+                                    <div class="text-2xl font-bold text-blue-400" id="kwCurrentPosition">--</div>
+                                    <div class="text-xs text-gray-400 mt-1">Current</div>
+                                </div>
+                                <div class="bg-slate-800/50 rounded-xl p-4 text-center">
+                                    <div class="text-2xl font-bold text-purple-400" id="kwAveragePosition">--</div>
+                                    <div class="text-xs text-gray-400 mt-1">Average</div>
+                                </div>
+                                <div class="bg-slate-800/50 rounded-xl p-4 text-center">
+                                    <div class="text-2xl font-bold" id="kwPositionChange">--</div>
+                                    <div class="text-xs text-gray-400 mt-1">30d Change</div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Tab: Keyword Gap -->
+                        <div id="rankTabContent-gap" class="rank-tab-content hidden">
+                            <div class="flex justify-between items-center mb-4">
+                                <h3 class="text-lg font-bold text-white flex items-center">
+                                    <i class="fas fa-table mr-2 text-amber-400"></i>
+                                    Keyword Gap Analysis
+                                </h3>
+                            </div>
+                            <p class="text-gray-400 mb-4">Keywords your competitors rank for that you don't</p>
+                            <div id="keywordGapContent" class="space-y-2">
+                                <div class="text-center py-8 text-gray-500">
+                                    <i class="fas fa-search text-3xl mb-2 opacity-30"></i>
+                                    <p>Add competitors to see keyword gap analysis</p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Tab: Compare -->
+                        <div id="rankTabContent-compare" class="rank-tab-content hidden">
+                            <div class="flex justify-between items-center mb-4">
+                                <h3 class="text-lg font-bold text-white flex items-center">
+                                    <i class="fas fa-balance-scale mr-2 text-cyan-400"></i>
+                                    Compare Keywords
+                                </h3>
+                            </div>
+                            <div class="grid md:grid-cols-2 gap-4 mb-4">
+                                <select id="compareKeyword1" onchange="updateKeywordComparison()" class="bg-slate-800 border border-slate-600 rounded-lg px-4 py-2 text-white text-sm">
+                                    <option value="">Select first keyword...</option>
+                                </select>
+                                <select id="compareKeyword2" onchange="updateKeywordComparison()" class="bg-slate-800 border border-slate-600 rounded-lg px-4 py-2 text-white text-sm">
+                                    <option value="">Select second keyword...</option>
+                                </select>
+                            </div>
+                            <div class="h-64">
+                                <canvas id="compareChart"></canvas>
+                            </div>
+                        </div>
+                        
+                        <!-- Tab: Content Changes -->
+                        <div id="rankTabContent-changes" class="rank-tab-content hidden">
+                            <div class="flex justify-between items-center mb-4">
+                                <h3 class="text-lg font-bold text-white flex items-center">
+                                    <i class="fas fa-history mr-2 text-emerald-400"></i>
+                                    Content Change Log
+                                </h3>
+                            </div>
+                            <p class="text-gray-400 mb-4">Track how content updates affect rankings</p>
+                            <div id="contentChangesTimeline" class="space-y-3">
+                                <div class="text-center py-8 text-gray-500">
+                                    <i class="fas fa-edit text-3xl mb-2 opacity-30"></i>
+                                    <p>Content changes will be tracked here</p>
+                                    <p class="text-sm mt-1">Updates to titles, meta descriptions, and content are logged automatically</p>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -10323,79 +10431,320 @@
                     </div>
                 `).join('')
                 : '<p class="text-gray-500 text-sm">No declines detected</p>';
+            
+            // Populate keyword dropdowns for the new tabs
+            populateKeywordDropdowns(keywords);
         }
         
-        function renderRankingHistory(history) {
-            // Group by keyword and date
-            const byKeyword = {};
-            history.forEach(h => {
-                if (!byKeyword[h.keyword]) {
-                    byKeyword[h.keyword] = [];
+        // ==========================================
+        // KEYWORD RANK HISTORY TABS
+        // ==========================================
+        
+        let keywordHistoryData = {};
+        let compareChart = null;
+        
+        function switchRankTab(tabName) {
+            // Update tab buttons
+            document.querySelectorAll('.rank-tab').forEach(tab => {
+                tab.classList.remove('bg-blue-600', 'text-white');
+                tab.classList.add('bg-slate-700', 'text-gray-300');
+            });
+            document.getElementById(`rankTab-${tabName}`).classList.remove('bg-slate-700', 'text-gray-300');
+            document.getElementById(`rankTab-${tabName}`).classList.add('bg-blue-600', 'text-white');
+            
+            // Update tab content
+            document.querySelectorAll('.rank-tab-content').forEach(content => {
+                content.classList.add('hidden');
+            });
+            document.getElementById(`rankTabContent-${tabName}`).classList.remove('hidden');
+        }
+        
+        function populateKeywordDropdowns(keywords) {
+            const selects = [
+                document.getElementById('keywordHistorySelect'),
+                document.getElementById('compareKeyword1'),
+                document.getElementById('compareKeyword2')
+            ];
+            
+            selects.forEach(select => {
+                if (!select) return;
+                const currentValue = select.value;
+                select.innerHTML = '<option value="">Select keyword...</option>';
+                
+                // Group keywords by intent/type
+                const rankedKeywords = keywords.filter(k => k.position && k.position <= 100);
+                const unrankedKeywords = keywords.filter(k => !k.position || k.position > 100);
+                
+                if (rankedKeywords.length > 0) {
+                    const optgroup = document.createElement('optgroup');
+                    optgroup.label = `Ranked (${rankedKeywords.length})`;
+                    rankedKeywords.forEach(kw => {
+                        const option = document.createElement('option');
+                        option.value = kw.keyword;
+                        option.textContent = `${kw.keyword} (#${kw.position})`;
+                        optgroup.appendChild(option);
+                    });
+                    select.appendChild(optgroup);
                 }
-                byKeyword[h.keyword].push({
-                    date: h.checked_at,
-                    position: h.position
-                });
-            });
-            
-            // Get top 5 keywords by frequency
-            const topKeywords = Object.entries(byKeyword)
-                .sort((a, b) => b[1].length - a[1].length)
-                .slice(0, 5);
-            
-            if (topKeywords.length === 0) return;
-            
-            // Get unique dates
-            const allDates = [...new Set(history.map(h => h.checked_at.split('T')[0]))].sort();
-            const recentDates = allDates.slice(-14); // Last 14 days
-            
-            // Prepare chart data
-            const datasets = topKeywords.map(([keyword, data], idx) => {
-                const colors = ['#8b5cf6', '#3b82f6', '#10b981', '#f59e0b', '#ef4444'];
                 
-                const positions = recentDates.map(date => {
-                    const match = data.find(d => d.date.startsWith(date));
-                    return match ? match.position : null;
-                });
+                if (unrankedKeywords.length > 0) {
+                    const optgroup = document.createElement('optgroup');
+                    optgroup.label = `Not Ranking (${unrankedKeywords.length})`;
+                    unrankedKeywords.forEach(kw => {
+                        const option = document.createElement('option');
+                        option.value = kw.keyword;
+                        option.textContent = kw.keyword;
+                        optgroup.appendChild(option);
+                    });
+                    select.appendChild(optgroup);
+                }
                 
-                return {
-                    label: keyword.length > 20 ? keyword.substring(0, 20) + '...' : keyword,
-                    data: positions,
-                    borderColor: colors[idx % colors.length],
-                    backgroundColor: colors[idx % colors.length] + '20',
-                    tension: 0.3,
-                    fill: false
-                };
+                // Restore selection if possible
+                if (currentValue) {
+                    select.value = currentValue;
+                }
             });
+        }
+        
+        async function updateKeywordHistoryChart() {
+            const select = document.getElementById('keywordHistorySelect');
+            const keyword = select.value;
+            const emptyState = document.getElementById('rankHistoryEmpty');
             
-            // Create or update chart
+            if (!keyword) {
+                // Show empty state
+                emptyState?.classList.remove('hidden');
+                if (rankHistoryChart) {
+                    rankHistoryChart.destroy();
+                    rankHistoryChart = null;
+                }
+                // Reset metric cards
+                document.getElementById('kwBestPosition').textContent = '--';
+                document.getElementById('kwCurrentPosition').textContent = '--';
+                document.getElementById('kwAveragePosition').textContent = '--';
+                document.getElementById('kwPositionChange').textContent = '--';
+                document.getElementById('kwPositionChange').className = 'text-2xl font-bold text-gray-400';
+                return;
+            }
+            
+            // Hide empty state
+            emptyState?.classList.add('hidden');
+            
+            // Check if we have cached data for this keyword
+            if (!keywordHistoryData[keyword]) {
+                // Fetch from API (using existing history endpoint)
+                try {
+                    const response = await fetch(`${API_URL}/api/monitoring/rankings/history?client_id=${currentClient.id}&days=30&keyword=${encodeURIComponent(keyword)}`, {
+                        headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
+                    });
+                    
+                    if (response.ok) {
+                        const data = await response.json();
+                        keywordHistoryData[keyword] = data.history?.filter(h => h.keyword === keyword) || [];
+                    } else {
+                        keywordHistoryData[keyword] = [];
+                    }
+                } catch (e) {
+                    console.error('Failed to fetch keyword history:', e);
+                    keywordHistoryData[keyword] = [];
+                }
+            }
+            
+            const historyData = keywordHistoryData[keyword];
+            renderSingleKeywordChart(keyword, historyData);
+        }
+        
+        function renderSingleKeywordChart(keyword, historyData) {
             const ctx = document.getElementById('rankHistoryChart').getContext('2d');
             
             if (rankHistoryChart) {
                 rankHistoryChart.destroy();
             }
             
+            // Generate last 30 days
+            const dates = [];
+            const positions = [];
+            const today = new Date();
+            
+            for (let i = 29; i >= 0; i--) {
+                const date = new Date(today);
+                date.setDate(date.getDate() - i);
+                const dateStr = date.toISOString().split('T')[0];
+                dates.push(dateStr);
+                
+                // Find matching history entry
+                const match = historyData.find(h => h.checked_at?.startsWith(dateStr));
+                positions.push(match ? match.position : null);
+            }
+            
+            // Calculate metrics
+            const validPositions = positions.filter(p => p !== null && p <= 100);
+            const bestPosition = validPositions.length > 0 ? Math.min(...validPositions) : null;
+            const currentPosition = positions[positions.length - 1];
+            const avgPosition = validPositions.length > 0 
+                ? Math.round(validPositions.reduce((a, b) => a + b, 0) / validPositions.length) 
+                : null;
+            
+            // 30d change (current - first available)
+            const firstPosition = positions.find(p => p !== null);
+            let change30d = null;
+            if (currentPosition && firstPosition) {
+                change30d = firstPosition - currentPosition; // Positive = improved
+            }
+            
+            // Update metric cards
+            document.getElementById('kwBestPosition').textContent = bestPosition ? `#${bestPosition}` : 'Not ranking';
+            document.getElementById('kwCurrentPosition').textContent = currentPosition && currentPosition <= 100 ? `#${currentPosition}` : 'Not in Top 100';
+            document.getElementById('kwAveragePosition').textContent = avgPosition ? `#${avgPosition}` : '--';
+            
+            const changeEl = document.getElementById('kwPositionChange');
+            if (change30d !== null) {
+                if (change30d > 0) {
+                    changeEl.textContent = `+${change30d} ↑`;
+                    changeEl.className = 'text-2xl font-bold text-green-400';
+                } else if (change30d < 0) {
+                    changeEl.textContent = `${change30d} ↓`;
+                    changeEl.className = 'text-2xl font-bold text-red-400';
+                } else {
+                    changeEl.textContent = '0';
+                    changeEl.className = 'text-2xl font-bold text-gray-400';
+                }
+            } else {
+                changeEl.textContent = 'Insufficient data';
+                changeEl.className = 'text-sm font-medium text-gray-500';
+            }
+            
+            // Determine trend color
+            let borderColor = '#3b82f6'; // blue default
+            if (change30d !== null) {
+                if (change30d > 0) borderColor = '#10b981'; // green
+                else if (change30d < 0) borderColor = '#ef4444'; // red
+            }
+            
             rankHistoryChart = new Chart(ctx, {
                 type: 'line',
                 data: {
-                    labels: recentDates.map(d => new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })),
-                    datasets: datasets
+                    labels: dates.map(d => new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })),
+                    datasets: [{
+                        label: keyword,
+                        data: positions,
+                        borderColor: borderColor,
+                        backgroundColor: borderColor + '20',
+                        tension: 0.3,
+                        fill: true,
+                        spanGaps: true,
+                        pointRadius: 3,
+                        pointHoverRadius: 6
+                    }]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
                     plugins: {
                         legend: {
-                            display: true,
-                            position: 'bottom',
-                            labels: { color: '#9ca3af', font: { size: 10 } }
+                            display: false
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const pos = context.raw;
+                                    if (pos === null) return 'No data';
+                                    return `Position: #${pos}`;
+                                },
+                                afterLabel: function(context) {
+                                    const idx = context.dataIndex;
+                                    if (idx > 0) {
+                                        const prev = positions[idx - 1];
+                                        const curr = positions[idx];
+                                        if (prev && curr) {
+                                            const diff = prev - curr;
+                                            if (diff > 0) return `Change: +${diff} ↑`;
+                                            if (diff < 0) return `Change: ${diff} ↓`;
+                                        }
+                                    }
+                                    return '';
+                                }
+                            }
                         }
                     },
                     scales: {
                         y: {
-                            reverse: true, // Lower position = better
+                            reverse: true, // 1 at top, 100 at bottom
                             min: 1,
-                            max: 50,
+                            max: 100,
+                            grid: { color: 'rgba(255,255,255,0.1)' },
+                            ticks: { 
+                                color: '#9ca3af',
+                                callback: function(value) {
+                                    return '#' + value;
+                                }
+                            }
+                        },
+                        x: {
+                            grid: { color: 'rgba(255,255,255,0.05)' },
+                            ticks: { 
+                                color: '#9ca3af',
+                                maxRotation: 45,
+                                minRotation: 45
+                            }
+                        }
+                    }
+                }
+            });
+        }
+        
+        function updateKeywordComparison() {
+            const kw1 = document.getElementById('compareKeyword1').value;
+            const kw2 = document.getElementById('compareKeyword2').value;
+            
+            if (!kw1 && !kw2) return;
+            
+            const ctx = document.getElementById('compareChart').getContext('2d');
+            
+            if (compareChart) {
+                compareChart.destroy();
+            }
+            
+            // Get current positions from rankingsData
+            const kw1Data = rankingsData?.keywords?.find(k => k.keyword === kw1);
+            const kw2Data = rankingsData?.keywords?.find(k => k.keyword === kw2);
+            
+            compareChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['Position', 'Search Volume', 'Difficulty'],
+                    datasets: [
+                        {
+                            label: kw1 || 'Keyword 1',
+                            data: [
+                                kw1Data?.position || 100,
+                                (kw1Data?.search_volume || 0) / 100,
+                                kw1Data?.keyword_difficulty || 0
+                            ],
+                            backgroundColor: '#3b82f6'
+                        },
+                        {
+                            label: kw2 || 'Keyword 2',
+                            data: [
+                                kw2Data?.position || 100,
+                                (kw2Data?.search_volume || 0) / 100,
+                                kw2Data?.keyword_difficulty || 0
+                            ],
+                            backgroundColor: '#8b5cf6'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: { color: '#9ca3af' }
+                        }
+                    },
+                    scales: {
+                        y: {
                             grid: { color: 'rgba(255,255,255,0.1)' },
                             ticks: { color: '#9ca3af' }
                         },
@@ -10406,6 +10755,26 @@
                     }
                 }
             });
+        }
+        
+        function renderRankingHistory(history) {
+            // Store all history data for keyword lookups
+            history.forEach(h => {
+                if (!keywordHistoryData[h.keyword]) {
+                    keywordHistoryData[h.keyword] = [];
+                }
+                keywordHistoryData[h.keyword].push({
+                    date: h.checked_at,
+                    position: h.position,
+                    checked_at: h.checked_at
+                });
+            });
+            
+            // If a keyword is already selected, update the chart
+            const selectedKeyword = document.getElementById('keywordHistorySelect')?.value;
+            if (selectedKeyword) {
+                updateKeywordHistoryChart();
+            }
         }
         
         // ==========================================
