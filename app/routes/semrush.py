@@ -499,10 +499,17 @@ def client_keyword_gap(current_user, client_id):
         geo = client.geo or ''
         geo_lower = geo.lower().strip()
         
+        # Extract just the city name (before comma or state)
+        city_name = geo_lower.split(',')[0].strip() if ',' in geo_lower else geo_lower.split()[0] if geo_lower else ''
+        
         for kw in keywords[:15]:
-            # Only append geo if keyword doesn't already contain it
+            # Only append geo if keyword doesn't already contain the city name
             kw_lower = kw.lower()
-            if geo_lower and geo_lower not in kw_lower:
+            
+            # Check if city is already in keyword (handles "sarasota seo" case)
+            already_has_geo = city_name and city_name in kw_lower
+            
+            if geo and not already_has_geo:
                 full_kw = f"{kw} {geo}".strip()
             else:
                 full_kw = kw.strip()

@@ -1471,8 +1471,11 @@
         function generateSampleKeywordGap() {
             // Use client's industry to generate relevant sample keywords
             const industry = currentClient?.industry?.toLowerCase() || '';
-            const geo = currentClient?.geo || 'local';
+            const geo = currentClient?.geo || '';
             const clientKeywords = currentClient?.primary_keywords || [];
+            
+            // Extract just the city name (before comma)
+            const cityName = geo.includes(',') ? geo.split(',')[0].trim().toLowerCase() : geo.split(' ')[0].toLowerCase();
             
             // Industry-specific keyword templates
             const industryKeywords = {
@@ -1493,10 +1496,12 @@
             }
             
             const gaps = keywords.slice(0, 10).map((kw, i) => {
-                // Add geo if not already present
+                // Check if keyword already contains the city name
                 const kwLower = kw.toLowerCase();
-                const geoLower = geo.toLowerCase();
-                const fullKw = geoLower && !kwLower.includes(geoLower) ? `${kw} ${geo}` : kw;
+                const alreadyHasGeo = cityName && kwLower.includes(cityName);
+                
+                // Only add geo if keyword doesn't already have the city
+                const fullKw = geo && !alreadyHasGeo ? `${kw} ${geo}` : kw;
                 
                 return {
                     keyword: fullKw,
@@ -1519,21 +1524,33 @@
                 return;
             }
             
-            // Deduplicate city names in keywords
+            // Clean up keywords - remove duplicate city/geo references
             const geo = currentClient?.geo || '';
             if (geo) {
+                const cityName = geo.includes(',') ? geo.split(',')[0].trim() : geo.split(' ')[0];
+                const cityLower = cityName.toLowerCase();
+                
                 gaps = gaps.map(gap => {
                     let kw = gap.keyword || '';
-                    const geoRegex = new RegExp(`\\b${geo}\\b`, 'gi');
-                    const matches = kw.match(geoRegex);
+                    const kwLower = kw.toLowerCase();
+                    
+                    // Check if keyword contains city name multiple times or both city and full geo
+                    // e.g., "sarasota seo Sarasota, FL" -> "sarasota seo"
+                    // e.g., "dentist Sarasota, FL Sarasota, FL" -> "dentist Sarasota, FL"
+                    
+                    // Count occurrences of city name
+                    const cityRegex = new RegExp(cityName, 'gi');
+                    const matches = kw.match(cityRegex);
+                    
                     if (matches && matches.length > 1) {
-                        // Remove duplicate geo
-                        kw = kw.replace(geoRegex, '__GEO__');
-                        kw = kw.replace(/__GEO__\s+__GEO__/g, '__GEO__');
-                        kw = kw.replace('__GEO__', geo);
-                        kw = kw.replace(/__GEO__/g, '').trim();
-                        kw = kw.replace(/\s+/g, ' ');
+                        // Multiple city references - remove the appended geo suffix
+                        // Check if geo is at the end
+                        const geoSuffixRegex = new RegExp(`[,\\s]*(${geo.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})\\s*$`, 'i');
+                        if (geoSuffixRegex.test(kw)) {
+                            kw = kw.replace(geoSuffixRegex, '').trim();
+                        }
                     }
+                    
                     return { ...gap, keyword: kw };
                 });
             }
