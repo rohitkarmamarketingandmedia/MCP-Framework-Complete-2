@@ -390,12 +390,23 @@ def generate_blog_sync(current_user):
         # Build internal links list from multiple sources
         internal_links = []
         
+        # Helper to ensure URL has protocol
+        def ensure_full_url(url):
+            if not url:
+                return ''
+            url = url.strip()
+            if url.startswith('//'):
+                return 'https:' + url
+            if not url.startswith('http://') and not url.startswith('https://'):
+                return 'https://' + url
+            return url
+        
         # 1. Add service pages
         for sp in service_pages[:4]:
             if isinstance(sp, dict) and sp.get('url'):
                 internal_links.append({
                     'title': sp.get('title') or sp.get('keyword', ''),
-                    'url': sp.get('url', '')
+                    'url': ensure_full_url(sp.get('url', ''))
                 })
         
         # 2. Add published blog posts
@@ -403,12 +414,12 @@ def generate_blog_sync(current_user):
             if post.published_url:
                 internal_links.append({
                     'title': post.title or post.primary_keyword or '',
-                    'url': post.published_url
+                    'url': ensure_full_url(post.published_url)
                 })
         
         # 3. If still not enough links, create from website URL
         if len(internal_links) < 3 and client.website_url:
-            base_url = client.website_url.rstrip('/')
+            base_url = ensure_full_url(client.website_url).rstrip('/')
             # Add common service page URLs
             default_pages = [
                 {'title': 'Our Services', 'url': f'{base_url}/services'},
