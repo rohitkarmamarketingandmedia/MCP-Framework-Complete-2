@@ -477,198 +477,114 @@ AVOID GENERIC PHRASES:
         ]
         faq_items_template = ',\n    '.join(faq_questions[:faq_count])
 
-        # Build system prompt - Professional Content Generator
-        self._system_prompt = f"""You are a SENIOR TECHNICAL WRITER who has spent 20+ years working IN the {req.industry or 'service industry'} - not writing about it, but actually doing the work.
+        # Build system prompt - Clear, focused instructions
+        self._system_prompt = f"""You are an expert SEO content writer specializing in {req.industry or 'local service'} businesses.
 
-YOUR IDENTITY:
-- You've personally done thousands of {req.industry or 'service'} jobs
-- You know the tools, the common mistakes, the real costs
-- You write like you're explaining to a smart friend, not selling to a stranger
-- You hate generic marketing fluff - it insults customers' intelligence
+WRITING GUIDELINES:
+- Write helpful, informative content that answers real customer questions
+- Be specific with numbers, timeframes, and processes
+- Sound like a knowledgeable professional, not a salesperson
+- Use simple, clear language that homeowners understand
 
-WRITING RULES (MANDATORY):
+AVOID THESE PHRASES (they sound generic):
+- "It's important to note..."
+- "When it comes to..."
+- "In today's world..."
+- "Rest assured..."
+- "Look no further..."
+- "We pride ourselves..."
+- "State-of-the-art"
+- "Top-notch"
+- "Your satisfaction is our priority"
 
-1. EVERY PARAGRAPH MUST CONTAIN AT LEAST ONE OF:
-   ✓ A specific number (PSI, degrees, dollars, hours, years, percentages)
-   ✓ A technical term with explanation
-   ✓ A step-by-step process
-   ✓ A real-world example or scenario
-   ✓ A common mistake and how to avoid it
-   
-   NO paragraph should be generic advice that could apply to any service.
+INSTEAD, BE SPECIFIC:
+✓ Include actual price ranges when discussing costs
+✓ Mention specific timeframes for services
+✓ Describe what actually happens during the service
+✓ Explain why things matter (the "why" behind advice)
 
-2. KEYWORD USAGE:
-   - Primary keyword: "{keyword}" - use EXACTLY as written 4-6 times
-   - Do NOT add extra locations or duplicate place names
-   - Weave naturally - forced repetition is obvious and hurts rankings
+OUTPUT: Return ONLY valid JSON. No markdown code blocks."""
 
-3. BANNED PHRASES (Using these = FAILURE - content will be rejected):
-   
-   NEVER START SENTENCES WITH:
-   ❌ "It's important to..." / "When it comes to..." / "In today's world..."
-   ❌ "As a homeowner..." / "If you're looking for..." / "Are you tired of..."
-   ❌ "Let's face it..." / "The truth is..." / "Here's the thing..."
-   ❌ "We pride ourselves..." / "Rest assured..." / "Look no further..."
-   
-   NEVER USE THESE WORDS/PHRASES:
-   ❌ "state-of-the-art" / "top-notch" / "second to none" / "world-class"
-   ❌ "exceptional service" / "unmatched quality" / "industry-leading"
-   ❌ "peace of mind" / "trusted professionals" / "years of experience"
-   ❌ "your satisfaction is our priority" / "we go above and beyond"
-   ❌ "don't hesitate to call" / "feel free to contact" / "we're here to help"
-   ❌ "whatever your needs" / "from X to Y, we've got you covered"
-   
-   INSTEAD, BE SPECIFIC:
-   ✅ "A 3-ton AC unit typically costs $4,500-$7,000 installed, depending on SEER rating and ductwork modifications"
-   ✅ "We pull permits same-day through the county portal - inspections usually happen within 48 hours"
-   ✅ "Low refrigerant means there's a leak - adding more without finding it wastes money and harms the compressor"
+        # Build user prompt - using simpler, proven format from v5_5_175
+        from datetime import datetime
+        current_year = datetime.utcnow().year
+        
+        # Build internal links section
+        links_section = ""
+        if internal_links_text:
+            links_section = internal_links_text
+        
+        return f"""You are an expert SEO content writer for {req.industry or 'local service'} businesses.
 
-4. STRUCTURE REQUIREMENTS:
-   - H2 headings: Descriptive, keyword-rich, NOT salesy
-   - Each section: Must have unique, valuable content (no repetition)
-   - Paragraphs: 3-5 sentences each, dense with information
-   - No filler: If a sentence doesn't add value, delete it
-
-5. TONE:
-   - Write like This Old House or Mayo Clinic - authoritative but accessible
-   - Explain the "why" behind recommendations
-   - Acknowledge trade-offs honestly (cheap vs quality, DIY vs pro)
-   - Don't be afraid to say "this job needs a professional because..."
-
-QUALITY TEST (ask yourself before outputting):
-□ Would I be embarrassed if a competitor read this? (Should be NO)
-□ Does every paragraph have specific, checkable facts?
-□ Is there anything a high schooler could have written? (Remove it)
-□ Would this help a real person make an informed decision?
-
-OUTPUT: Return ONLY valid JSON. No markdown. No commentary."""
-
-        # Build user prompt - keyword driven, SEO optimized
-        return f"""GENERATE SEO-OPTIMIZED BLOG POST (Target: 90+ SEO Score)
-
-PRIMARY KEYWORD: {keyword}
-BUSINESS: {req.company_name}
-INDUSTRY: {req.industry or 'Professional Services'}
-LOCATION: {req.city or 'your area'}, {req.state or ''}
-CONTACT: {req.phone} | {req.email}
-WORD COUNT: {req.target_words}+ words (CRITICAL - aim for 2200+)
+CURRENT YEAR: {current_year}
+BUSINESS: {req.company_name} in {req.city or 'your area'}, {req.state or ''}
+PRIMARY KEYWORD: "{keyword}"
+TARGET LOCATION: {req.city or 'local area'}
+MINIMUM WORD COUNT: {req.target_words} words (CRITICAL - must reach this)
 
 {expertise}
 
-{internal_links_text}
+{links_section}
 
-═══════════════════════════════════════════════════════════════
-SEO REQUIREMENTS (FOLLOW EXACTLY FOR 90+ SCORE)
-═══════════════════════════════════════════════════════════════
+===== CONTENT STRUCTURE =====
 
-1. META TITLE (55-60 chars):
-   Format: "[Keyword] in [City] | Cost, Process & Benefits"
-   - Primary keyword FIRST
-   - Include location
-   - Add hook (Cost, Process, Benefits)
+1. H1 HEADING: Include "{keyword}" and location
+   Example: "{keyword.title()} in {req.city or 'Your Area'}: Complete Guide"
 
-2. META DESCRIPTION (150-160 chars):
-   Include: keyword + benefit + CTA + location
-   Example: "Learn how [service] works in [city], costs, and types. Call [company] for professional [service]. Free estimates available."
+2. INTRODUCTION (150+ words):
+   - Hook reader with a problem/solution
+   - Primary keyword in first sentence
+   - Mention location naturally
+   - Preview article content
 
-3. INTRO (First 100 words - CRITICAL FOR SEO):
-   MUST contain in first paragraph:
-   - Primary keyword in FIRST sentence
-   - Location mention
-   - User intent addressed
-   - E-E-A-T statement: "This guide was written by [industry] professionals at {req.company_name}, serving {req.city or 'the area'} for over X years."
+3. BODY SECTIONS (5-7 H2 sections, each 150-200 words):
+   Good H2 examples:
+   - "What Is {keyword.title()} and Why Does It Matter?"
+   - "Signs You Need {keyword.title()}"
+   - "The {keyword.title()} Process Explained"
+   - "Cost of {keyword.title()} in {req.city or 'Your Area'}"
+   - "DIY vs Professional {keyword.title()}"
+   - "Why Choose {req.company_name}"
 
-═══════════════════════════════════════════════════════════════
-CONTENT STRUCTURE (Use these EXACT H2s - keyword variations)
-═══════════════════════════════════════════════════════════════
+4. Use H3 subheadings under H2s for detailed breakdowns
 
-<h2>What Is [Service from keyword]?</h2>
-200+ words: Definition, how it works, why it matters
+5. CONCLUSION (100+ words):
+   - Summarize key points
+   - Call-to-action with contact info
+   - Phone: {req.phone}
 
-<h2>Signs You Need [Service]</h2>
-200+ words: 5-7 warning signs with explanations
+===== SEO REQUIREMENTS =====
+✓ Keyword "{keyword}" appears 5-8 times naturally
+✓ Location mentioned 3-5 times
+✓ Keyword in first 100 words
+✓ Meta title: 55-60 chars, keyword first
+✓ Meta description: 150-160 chars with keyword + CTA
 
-<h2>Types of [Service/Equipment] for {req.city or 'Local'} Homes</h2>
-200+ words: Options, pros/cons, best for climate
+===== OUTPUT FORMAT =====
+Return ONLY valid JSON:
 
-<h2>Professional [Service] Process</h2>
-250+ words with H3 subheadings:
-<h3>Initial Assessment</h3>
-<h3>Preparation and Setup</h3>
-<h3>The [Service] Process</h3>
-<h3>Testing and Verification</h3>
-
-<h2>Cost of [Service] in {req.city or 'Your Area'}</h2>
-200+ words: Price factors, ranges, value proposition
-
-<h2>DIY vs Professional [Service]</h2>
-150+ words: What homeowners can do, what needs pros
-
-<h2>Benefits of Professional [Service]</h2>
-200+ words: Warranty, safety, efficiency, savings
-
-<h2>Common [Service] Problems</h2>
-150+ words: Frequent issues, causes, prevention
-
-<h2>Why Choose {req.company_name} for [Service]?</h2>
-200+ words: Credentials, certifications, guarantees, contact info ({req.phone})
-
-IMPORTANT: Do NOT include FAQ section in the body - FAQs go ONLY in the faq_items array.
-
-═══════════════════════════════════════════════════════════════
-INTERNAL LINKS (4-6 required)
-═══════════════════════════════════════════════════════════════
-Weave naturally into content:
-- "Learn more about our <a href='/services'>[related service]</a>"
-- "<a href='/contact'>Contact us</a> for a free estimate"
-- "See our <a href='/service-area'>{req.city or 'service area'} coverage</a>"
-
-═══════════════════════════════════════════════════════════════
-KEYWORD OPTIMIZATION
-═══════════════════════════════════════════════════════════════
-- Primary keyword: 4-6 times naturally
-- In first 100 words: YES
-- In 2+ H2 headings: YES
-- In conclusion: YES
-
-NLP/Supporting keywords to include:
-- professional [service]
-- [service] cost/pricing
-- licensed [professional type]
-- [equipment] types
-- energy efficient
-- [city] [service]
-
-═══════════════════════════════════════════════════════════════
-RETURN THIS JSON
-═══════════════════════════════════════════════════════════════
 {{
-  "h1": "[Keyword] in [City]: How It Works, Cost & Benefits",
-  "meta_title": "[Keyword] in [City] | Cost, Process & Benefits",
-  "meta_description": "Learn how [keyword] works in [city], costs, types, and when to call. Contact {req.company_name} for professional service. [150-160 chars]",
-  "body": "[FULL HTML - All H2 sections listed above, 2000+ words, NO FAQ section in body]",
-  "faq_items": [{faq_items_template}],
-  "cta": {{"company_name": "{req.company_name}", "phone": "{req.phone}", "email": "{req.email}"}}
+    "h1": "Main heading with {keyword} and {req.city or 'location'}",
+    "meta_title": "{keyword.title()} in {req.city or 'City'} | {req.company_name}",
+    "meta_description": "Professional {keyword} in {req.city or 'your area'}. {req.company_name} provides expert service. Call {req.phone} for a free estimate.",
+    "body": "<p>Introduction paragraph...</p><h2>Section 1</h2><p>Content...</p><h2>Section 2</h2><p>Content...</p>...",
+    "faq_items": [
+        {{"question": "How much does {keyword} cost?", "answer": "50-80 word answer..."}},
+        {{"question": "How long does {keyword} take?", "answer": "50-80 word answer..."}},
+        {{"question": "Do I need professional {keyword}?", "answer": "50-80 word answer..."}}
+    ],
+    "cta": {{"company_name": "{req.company_name}", "phone": "{req.phone}", "email": "{req.email}"}}
 }}
 
-FAQ ITEMS RULES:
-- {faq_count} questions total in faq_items array
-- Each answer: 40-60 words, direct and specific
-- Include numbers, timeframes, or prices where relevant
-- These will be displayed separately AND used for schema markup
+IMPORTANT:
+- Write {req.target_words}+ words of REAL content
+- NO placeholder text like "Content..." or "Details here"
+- Include actual helpful information
+- Use proper HTML: <p>, <h2>, <h3>, <ul>, <li>
+- Do NOT include FAQ section in body - put FAQs only in faq_items array
+- Return ONLY JSON, no markdown blocks
 
-FINAL CHECKLIST:
-✓ Keyword in first sentence of intro
-✓ E-E-A-T credibility statement in intro
-✓ Keyword in meta title (first position)
-✓ Keyword in 2+ H2 headings
-✓ Location in intro, cost section, why choose section
-✓ NO FAQ section in body (FAQs only in faq_items array)
-✓ 4-6 internal links woven naturally
-✓ Word count 2000+
-✓ Valid JSON only
-
-OUTPUT JSON ONLY:"""
+OUTPUT JSON:"""
 
     def _robust_parse_json(self, text: str) -> Dict[str, Any]:
         """Parse JSON robustly, handling common issues"""
