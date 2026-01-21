@@ -478,54 +478,70 @@ AVOID GENERIC PHRASES:
         faq_items_template = ',\n    '.join(faq_questions[:faq_count])
 
         # Build system prompt - Professional Content Generator
-        self._system_prompt = f"""You are a PROFESSIONAL CONTENT WRITER with 15+ years of experience in {req.industry or 'service industry'} marketing.
+        self._system_prompt = f"""You are a SENIOR TECHNICAL WRITER who has spent 20+ years working IN the {req.industry or 'service industry'} - not writing about it, but actually doing the work.
 
-YOUR WRITING STYLE:
-- Write like an industry expert explaining to an informed homeowner
-- Be specific and technical—vague content damages credibility
-- Use concrete numbers, timeframes, and measurable outcomes
-- Address real customer concerns with honest, helpful answers
-- Sound confident but not salesy—educate, don't pitch
+YOUR IDENTITY:
+- You've personally done thousands of {req.industry or 'service'} jobs
+- You know the tools, the common mistakes, the real costs
+- You write like you're explaining to a smart friend, not selling to a stranger
+- You hate generic marketing fluff - it insults customers' intelligence
 
-CRITICAL QUALITY RULES:
+WRITING RULES (MANDATORY):
 
-1. KEYWORD USAGE:
-   - Primary keyword: "{keyword}" - use EXACTLY as written
-   - Use 3-5 times naturally throughout (not forced)
-   - Do NOT add extra locations or duplicate place names
-
-2. NO GENERIC AI PHRASES - These destroy credibility:
-   ❌ BANNED: "it's important to note", "when it comes to", "in today's world"
-   ❌ BANNED: "rest assured", "look no further", "we pride ourselves"
-   ❌ BANNED: "state-of-the-art", "top-notch", "second to none"
-   ❌ BANNED: "your satisfaction is our priority", "we go above and beyond"
-   ❌ BANNED: "whether you need X or Y", "from A to Z"
+1. EVERY PARAGRAPH MUST CONTAIN AT LEAST ONE OF:
+   ✓ A specific number (PSI, degrees, dollars, hours, years, percentages)
+   ✓ A technical term with explanation
+   ✓ A step-by-step process
+   ✓ A real-world example or scenario
+   ✓ A common mistake and how to avoid it
    
-   ✅ INSTEAD: Use specific facts, numbers, processes, and outcomes
+   NO paragraph should be generic advice that could apply to any service.
 
-3. PROFESSIONAL TONE:
-   - Write like content from Mayo Clinic, This Old House, or Angi (formerly Angie's List)
-   - Each paragraph should teach the reader something specific
-   - Include technical details that demonstrate expertise
-   - Be helpful and educational, not promotional
+2. KEYWORD USAGE:
+   - Primary keyword: "{keyword}" - use EXACTLY as written 4-6 times
+   - Do NOT add extra locations or duplicate place names
+   - Weave naturally - forced repetition is obvious and hurts rankings
 
-4. STRUCTURE:
-   - H2 headings should be descriptive, not salesy
-   - Each section must have unique, valuable content
-   - No filler paragraphs—every sentence should add information
-   - Smooth transitions between sections
+3. BANNED PHRASES (Using these = FAILURE - content will be rejected):
+   
+   NEVER START SENTENCES WITH:
+   ❌ "It's important to..." / "When it comes to..." / "In today's world..."
+   ❌ "As a homeowner..." / "If you're looking for..." / "Are you tired of..."
+   ❌ "Let's face it..." / "The truth is..." / "Here's the thing..."
+   ❌ "We pride ourselves..." / "Rest assured..." / "Look no further..."
+   
+   NEVER USE THESE WORDS/PHRASES:
+   ❌ "state-of-the-art" / "top-notch" / "second to none" / "world-class"
+   ❌ "exceptional service" / "unmatched quality" / "industry-leading"
+   ❌ "peace of mind" / "trusted professionals" / "years of experience"
+   ❌ "your satisfaction is our priority" / "we go above and beyond"
+   ❌ "don't hesitate to call" / "feel free to contact" / "we're here to help"
+   ❌ "whatever your needs" / "from X to Y, we've got you covered"
+   
+   INSTEAD, BE SPECIFIC:
+   ✅ "A 3-ton AC unit typically costs $4,500-$7,000 installed, depending on SEER rating and ductwork modifications"
+   ✅ "We pull permits same-day through the county portal - inspections usually happen within 48 hours"
+   ✅ "Low refrigerant means there's a leak - adding more without finding it wastes money and harms the compressor"
 
-5. OUTPUT:
-   - Return ONLY valid JSON
-   - No markdown code blocks
-   - No commentary before or after JSON
+4. STRUCTURE REQUIREMENTS:
+   - H2 headings: Descriptive, keyword-rich, NOT salesy
+   - Each section: Must have unique, valuable content (no repetition)
+   - Paragraphs: 3-5 sentences each, dense with information
+   - No filler: If a sentence doesn't add value, delete it
 
-CONTENT EVALUATION CHECKLIST (mentally verify before outputting):
-□ Would a real industry expert approve this content?
-□ Does every paragraph contain specific, useful information?
-□ Are there concrete numbers, timeframes, or technical details?
-□ Is the writing free of generic AI-sounding phrases?
-□ Would this rank well AND convert visitors to customers?"""
+5. TONE:
+   - Write like This Old House or Mayo Clinic - authoritative but accessible
+   - Explain the "why" behind recommendations
+   - Acknowledge trade-offs honestly (cheap vs quality, DIY vs pro)
+   - Don't be afraid to say "this job needs a professional because..."
+
+QUALITY TEST (ask yourself before outputting):
+□ Would I be embarrassed if a competitor read this? (Should be NO)
+□ Does every paragraph have specific, checkable facts?
+□ Is there anything a high schooler could have written? (Remove it)
+□ Would this help a real person make an informed decision?
+
+OUTPUT: Return ONLY valid JSON. No markdown. No commentary."""
 
         # Build user prompt - keyword driven, SEO optimized
         return f"""GENERATE SEO-OPTIMIZED BLOG POST (Target: 90+ SEO Score)
@@ -885,43 +901,99 @@ OUTPUT JSON ONLY:"""
         body = body.replace('\\', '')
         
         # Remove/replace generic AI phrases that hurt credibility
+        # EXTENSIVE list of banned phrases - these DESTROY professional credibility
         generic_phrases = [
-            # Opening fillers
-            (r"[Ii]t'?s important to (note|understand|remember|recognize) that\s*", ""),
-            (r"[Ww]hen it comes to\s+", "For "),
-            (r"[Ii]n today'?s (world|day and age|fast-paced|modern)\s*,?\s*", ""),
-            (r"[Ii]n the (world|realm|field) of\s+", "In "),
-            (r"[Aa]s (we all know|you may know|mentioned earlier)\s*,?\s*", ""),
+            # === OPENING FILLERS (instant AI detection) ===
+            (r"[Ii]t'?s important to (note|understand|remember|recognize|mention) that\s*", ""),
+            (r"[Ww]hen it comes to\s+", ""),
+            (r"[Ii]n today'?s (world|day and age|fast-paced|modern|ever-changing)\s*,?\s*", ""),
+            (r"[Ii]n the (world|realm|field|area) of\s+", ""),
+            (r"[Aa]s (we all know|you may know|mentioned earlier|you can imagine)\s*,?\s*", ""),
+            (r"[Ii]f you'?re (looking for|searching for|in need of|considering)\s+", ""),
+            (r"[Aa]re you (looking for|searching for|in need of|tired of)\s+", ""),
+            (r"[Hh]ave you ever (wondered|thought about|considered)\s+", ""),
+            (r"[Ll]et'?s (face it|be honest|dive in|explore|take a look)\s*[,:]?\s*", ""),
+            (r"[Tt]he (truth|fact|reality) is\s*,?\s*", ""),
+            (r"[Hh]ere'?s (the thing|what you need to know|the deal)\s*[,:]?\s*", ""),
+            (r"[Yy]ou (may|might) (be wondering|have heard|already know)\s+", ""),
+            (r"[Ii]t'?s no secret that\s*", ""),
+            (r"[Tt]here'?s no denying that\s*", ""),
+            (r"[Ww]e all know (that )?\s*", ""),
+            (r"[Aa]s (a |an )?(homeowner|business owner|property owner),?\s*(you )?(know|understand)?\s*,?\s*", ""),
             
-            # Hyperbolic claims
+            # === HYPERBOLIC CLAIMS (destroys trust) ===
             (r"\b(second to none|top-notch|best in class|world-class|industry-leading)\b", "professional"),
-            (r"\b(state-of-the-art|cutting-edge|revolutionary)\b", "modern"),
-            (r"\b(unparalleled|unmatched|exceptional)\s+(service|quality|care)\b", r"quality \2"),
+            (r"\b(state-of-the-art|cutting-edge|revolutionary|groundbreaking)\b", "modern"),
+            (r"\b(unparalleled|unmatched|unsurpassed|unrivaled)\s+(service|quality|care|expertise)\b", r"quality \2"),
+            (r"\b(exceptional|outstanding|extraordinary|remarkable)\s+(service|quality|care|results)\b", r"quality \2"),
+            (r"\b(premier|elite|superior|finest)\s+(service|quality|team|professionals)\b", r"\2"),
+            (r"\bthe best (in |around |the )?(the )?(area|city|region|town|business)?\b", "quality"),
+            (r"\bsecond-to-none\b", "professional"),
+            (r"\bunmatched (expertise|experience|quality|service)\b", r"\1"),
             
-            # Salesy phrases
+            # === SALESY PHRASES (screams marketing) ===
             (r"[Ll]ook no further[,.]?\s*", ""),
             (r"[Rr]est assured\s*,?\s*", ""),
             (r"[Ww]e pride ourselves on\s+", "We provide "),
-            (r"[Ww]e go above and beyond\s*(to)?\s*", "We "),
-            (r"[Yy]our satisfaction is our (top |number one |#1 )?priority[,.]?\s*", ""),
-            (r"[Ww]e are committed to (providing |delivering )?(you with )?(the best |excellent |exceptional )?\s*", "We provide "),
+            (r"[Ww]e (go|went) above and beyond\s*(to)?\s*", "We "),
+            (r"[Yy]our satisfaction is our (top |number one |#1 |main )?priority[,.]?\s*", ""),
+            (r"[Ww]e are (committed|dedicated|devoted) to (providing |delivering )?(you with )?(the best |excellent |exceptional )?\s*", "We provide "),
+            (r"[Ww]e (strive|aim|work hard) to (provide|deliver|offer|ensure)\s+", "We "),
+            (r"[Oo]ur (team|staff|experts|professionals) (is|are) (here|ready|standing by|waiting) to\s+", "We can "),
+            (r"[Ww]e('ve| have) (built|earned) (a |our )?(reputation|name) (for|on|by)\s+", "We provide "),
+            (r"[Tt]rust us (to|for|with)\s+", ""),
+            (r"[Cc]hoose us (for|because)\s+", ""),
+            (r"[Ww]hy choose us\??\s*", ""),
+            (r"[Ww]hat (sets|makes) us (apart|different|unique|stand out)\s*(\?|is)?\s*", ""),
             
-            # Vague transitions
-            (r"[Ww]hether you need .+? or .+?,\s*", ""),
+            # === VAGUE TRANSITIONS (filler content) ===
+            (r"[Ww]hether you (need|want|'re looking for) .+? or .+?,\s*", ""),
             (r"[Ff]rom .+? to .+?,\s*we('ve| have)?\s*(got you covered|can help)[,.]?\s*", ""),
             (r"[Ww]hatever your .+? needs( may be)?,?\s*", ""),
+            (r"[Nn]o matter (what|your|the)\s+.+?,\s*we\s*", "We "),
+            (r"[Ww]e('ve| have) got you covered[,.]?\s*", ""),
+            (r"[Ww]e can (help|handle|take care of) (all |any )?(of )?your .+? needs[,.]?\s*", ""),
+            (r"[Ff]or all (of )?your .+? needs[,.]?\s*", ""),
             
-            # Weak conclusions
+            # === WEAK CONCLUSIONS (lazy CTAs) ===
             (r"[Dd]on'?t hesitate to\s+", ""),
             (r"[Ff]eel free to\s+", ""),
-            (r"[Ww]e'?d love to (help|hear from|serve) you[,.]?\s*", ""),
+            (r"[Ww]e'?d love to (help|hear from|serve|assist) you[,.]?\s*", ""),
             (r"[Rr]each out (to us )?(today )?to\s+", "Contact us to "),
+            (r"[Gg]ive us a call (today )?(to|and)\s+", "Call us to "),
+            (r"[Cc]ontact us today (to|for|and)\s+", "Contact us to "),
+            (r"[Ss]chedule (your )?a?(n )?(free )?(consultation|appointment|estimate|quote) today[,.]?\s*", ""),
+            (r"[Cc]all (us )?(now|today) (to|for|and)\s+", "Call us to "),
+            (r"[Ww]e('re| are) (just )?a (phone )?call away[,.]?\s*", ""),
+            (r"[Ll]et us (help|show|prove|demonstrate)\s+", "We can "),
             
-            # Filler words/phrases
-            (r"\b(basically|essentially|actually|literally|really|very|extremely|incredibly)\b\s*", ""),
+            # === FILLER WORDS (padding) ===
+            (r"\b(basically|essentially|actually|literally|really|very|extremely|incredibly|absolutely|definitely|certainly)\b\s*", ""),
             (r"\b[Ii]t goes without saying that\s*", ""),
             (r"\b[Nn]eedless to say\s*,?\s*", ""),
             (r"\b[Aa]t the end of the day\s*,?\s*", ""),
+            (r"\b[Aa]ll things considered\s*,?\s*", ""),
+            (r"\b[Ii]n (other words|summary|conclusion)\s*,?\s*", ""),
+            (r"\b[Tt]o put it simply\s*,?\s*", ""),
+            (r"\b[Ss]imply put\s*,?\s*", ""),
+            (r"\b[Tt]hat being said\s*,?\s*", ""),
+            (r"\b[Ww]ith that (being )?said\s*,?\s*", ""),
+            (r"\b[Hh]aving said that\s*,?\s*", ""),
+            
+            # === TRUST PHRASES (empty claims) ===
+            (r"\b(trusted|reliable|dependable|reputable) (service|company|team|professionals)\b", r"\2"),
+            (r"\b(years|decades) of (experience|expertise|service)\b", "experience"),
+            (r"\b(highly )(trained|skilled|experienced|qualified)\b", r"\2"),
+            (r"\b(fully )(licensed|insured|bonded|certified)\b", r"\2"),
+            (r"\bcustomer (satisfaction|service) (is )?(our )?(top |#1 |number one )?priority\b", ""),
+            (r"\b(peace of mind)\b", "confidence"),
+            
+            # === QUESTIONS THAT AREN'T REAL (rhetorical fluff) ===
+            (r"[Ss]o,? what (are you waiting for|do you have to lose)\??\s*", ""),
+            (r"[Ww]hy wait\??\s*", ""),
+            (r"[Rr]eady to (get started|take the next step|learn more)\??\s*", ""),
+            (r"[Ww]ant to (learn|know|find out) more\??\s*", ""),
+            (r"[Ii]nterested in (learning|hearing|finding out) more\??\s*", ""),
         ]
         
         for pattern, replacement in generic_phrases:
