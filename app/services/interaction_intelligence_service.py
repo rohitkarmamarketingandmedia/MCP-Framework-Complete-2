@@ -1036,12 +1036,12 @@ class InteractionIntelligenceService:
                 question = question.strip()
                 
                 # Skip very short questions after cleanup
-                if len(question) < 20:  # Increased from 15 to filter fragments
+                if len(question) < 15:  # Reduced back to 15
                     continue
                 
                 # Skip incomplete/cut-off questions
                 # These typically end with "or", "and", "the", "a", "to", etc.
-                trailing_words = ['or', 'and', 'the', 'a', 'to', 'for', 'with', 'at', 'in', 'on', 'is', 'are', 'was', 'were', 'be', 'if', 'that', 'this']
+                trailing_words = ['or', 'and', 'the', 'a', 'to', 'for', 'with', 'at', 'in', 'on']
                 words = question.lower().split()
                 if words and words[-1].rstrip('?') in trailing_words:
                     logger.debug(f"Skipping incomplete question: {question[:50]}...")
@@ -1049,13 +1049,8 @@ class InteractionIntelligenceService:
                 
                 # Skip questions that are too generic/vague
                 vague_patterns = [
-                    r'^(what|how|is|are|do|does|can|could|will|would)\s+(it|that|this)(\s|$|\?)',
-                    r'this thing',
-                    r'that stuff',
-                    r'or something',
-                    r'or anything',
-                    r'and stuff',
-                    r'all that',
+                    r'^(what|how|is|are|do|does|can|could|will|would)\s+(it|that|this)$',  # Only if it's the WHOLE question
+                    r'^is (it|that|this)\?$',
                 ]
                 is_vague = False
                 question_lower = question.lower()
@@ -1067,19 +1062,9 @@ class InteractionIntelligenceService:
                     logger.debug(f"Skipping vague question: {question[:50]}...")
                     continue
                 
-                # Check for relevance - must contain at least one relevant keyword
-                is_relevant = False
-                
-                # Check against all relevance keywords (universal + industry)
-                for kw in relevance_keywords:
-                    if kw in question_lower:
-                        is_relevant = True
-                        break
-                
-                # Skip non-relevant questions
-                if not is_relevant:
-                    logger.debug(f"Skipping non-relevant question: {question[:50]}...")
-                    continue
+                # REMOVED: strict keyword relevance check
+                # Now we accept all questions that pass the above filters
+                # The industry-specific filtering happens at display time
                     
                 if not question.endswith('?'):
                     question += '?'
@@ -1092,34 +1077,16 @@ class InteractionIntelligenceService:
         
         Filters out:
         - Agent statements
-        - Non-business related concerns (legal, personal issues)
-        - Generic/vague statements
-        - Incomplete sentences
+        - Non-business related concerns (legal, personal issues unrelated to service)
         """
         pain_points = []
         text_lower = text.lower()
         
-        # Phrases that indicate non-relevant content
+        # Phrases that indicate non-relevant content (legal issues, personal drama)
         irrelevant_phrases = [
-            'court', 'judge', 'attorney', 'lawyer', 'legal',
-            'notified about that', 'absent', 'missed court',
-            'trouble getting in contact', 'in trouble or anything',
-            'custody', 'divorce', 'hearing',
-            'police', 'arrested', 'jail',
-            'laid off', 'snowbirds', 'interviews', 'stick with the company',
-            'want to stay with', 'bad time', 'terrible time',  # Job interview noise
-        ]
-        
-        # Vague phrases that don't make good pain points
-        vague_phrases = [
-            'i think that would',
-            'kind of start',
-            'totally be a way',
-            'could kind of',
-            'or something',
-            'and stuff',
-            'all that good stuff',
-            'and all that',
+            'court date', 'judge', 'custody', 'divorce', 'hearing',
+            'police', 'arrested', 'jail', 'probation',
+            'notified about that', 'absent from',
         ]
         
         # Split into sentences
@@ -1127,7 +1094,7 @@ class InteractionIntelligenceService:
         
         for sentence in sentences:
             sentence = sentence.strip()
-            if not sentence or len(sentence) < 25:  # Increased minimum length
+            if not sentence or len(sentence) < 20:
                 continue
             
             sentence_lower = sentence.lower()
@@ -1136,22 +1103,13 @@ class InteractionIntelligenceService:
             if sentence_lower.startswith('agent:') or 'thank you for calling' in sentence_lower:
                 continue
             
-            # Skip irrelevant content (legal issues, job-related, etc.)
+            # Skip irrelevant content (legal issues unrelated to service)
             is_irrelevant = False
             for phrase in irrelevant_phrases:
                 if phrase in sentence_lower:
                     is_irrelevant = True
                     break
             if is_irrelevant:
-                continue
-            
-            # Skip vague/incomplete statements
-            is_vague = False
-            for phrase in vague_phrases:
-                if phrase in sentence_lower:
-                    is_vague = True
-                    break
-            if is_vague:
                 continue
             
             # Check for pain indicators
@@ -1161,14 +1119,8 @@ class InteractionIntelligenceService:
                     pain_point = re.sub(r'^(caller|agent|customer):\s*', '', sentence, flags=re.IGNORECASE)
                     pain_point = pain_point.strip()
                     
-                    # Skip if ends with incomplete words
-                    trailing_incomplete = ['or', 'and', 'the', 'a', 'to', 'for', 'with', 'at', 'in', 'is', 'ms', 'mr']
-                    words = pain_point.lower().split()
-                    if words and words[-1].rstrip('.,!?') in trailing_incomplete:
-                        continue
-                    
-                    # Only add if it's meaningful and complete
-                    if len(pain_point) >= 25 and len(pain_point) <= 200:
+                    # Only add if it's meaningful
+                    if len(pain_point) >= 20 and len(pain_point) <= 250:
                         pain_points.append(pain_point)
                     break
         
