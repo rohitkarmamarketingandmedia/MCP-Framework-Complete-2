@@ -1179,8 +1179,25 @@ class InteractionIntelligenceService:
         keywords = []
         text_lower = text.lower()
         
-        # Common words to exclude (expanded list) - MUST be very aggressive
-        STOP_WORDS = {
+        # Industry aliases - map common variations to standard keys
+        INDUSTRY_ALIASES = {
+            'dentist': 'dental',
+            'dentistry': 'dental',
+            'dental office': 'dental',
+            'dental clinic': 'dental',
+            'orthodontist': 'dental',
+            'hvac contractor': 'hvac',
+            'air conditioning': 'hvac',
+            'heating and cooling': 'hvac',
+            'plumber': 'plumbing',
+            'electrician': 'electrical',
+            'roofer': 'roofing',
+            'lawyer': 'legal',
+            'attorney': 'legal',
+        }
+        
+        # Common words to ALWAYS exclude - these are never relevant
+        GLOBAL_STOP_WORDS = {
             'about', 'would', 'could', 'should', 'there', 'their', 'where', 'which', 
             'these', 'those', 'going', 'trying', 'thing', 'think', 'things', 'getting',
             'really', 'actually', 'basically', 'probably', 'maybe', 'might', 'right',
@@ -1188,61 +1205,81 @@ class InteractionIntelligenceService:
             'know', 'just', 'like', 'well', 'good', 'great', 'want', 'need',
             'today', 'tomorrow', 'yesterday', 'morning', 'afternoon', 'evening',
             'number', 'phone', 'email', 'address', 'name', 'called', 'calling',
-            'office', 'company', 'business', 'customer', 'agent', 'caller',
+            'office', 'company', 'customer', 'agent', 'caller',
             'something', 'anything', 'nothing', 'everything', 'someone', 'anyone',
-            'here', 'come', 'coming', 'going', 'back', 'make', 'made', 'have',
+            'here', 'come', 'coming', 'going', 'make', 'made', 'have',
             'because', 'since', 'while', 'after', 'before', 'during', 'between',
             'include', 'included', 'excuse', 'sorry', 'happy', 'support', 'needs',
             'captured', 'chatbot', 'widget', 'spelled', 'checked', 'decided',
             'extension', 'another', 'kings', 'will', 'body', 'car', 'rent', 
-            'lease', 'irs', 'event', 'build', 'building', 'cat', 'act', 'bee',
-            'ant', 'ants', 'back', 'fix', 'clean', 'dent'  # Short generic words
+            'lease', 'irs', 'event', 'build', 'building', 'cat', 'act',
         }
         
-        # Minimum keyword length to avoid noise (e.g., "ac" is okay for HVAC, but not general)
+        # Words to filter UNLESS they match the specific industry
+        INDUSTRY_SPECIFIC_FILTER = {
+            'pest_control': {'ant', 'ants', 'bee', 'bees', 'bug', 'bugs', 'mouse', 'mice', 'rat', 'rats', 'roach', 'spider'},
+            'legal': {'attorney', 'lawyer', 'court', 'judge'},
+        }
+        
+        # Minimum keyword length to avoid noise
         MIN_KEYWORD_LENGTH = 3
         
         # Normalize industry using aliases
-        normalized_industry = industry
+        normalized_industry = None
         if industry:
-            if industry in INDUSTRY_ALIASES:
-                normalized_industry = INDUSTRY_ALIASES[industry]
+            industry_lower = industry.lower()
+            if industry_lower in INDUSTRY_ALIASES:
+                normalized_industry = INDUSTRY_ALIASES[industry_lower]
+            elif industry_lower in self.INDUSTRY_KEYWORDS:
+                normalized_industry = industry_lower
             else:
+                # Try fuzzy match
                 for alias, standard in INDUSTRY_ALIASES.items():
-                    if alias in industry or industry in alias:
+                    if alias in industry_lower or industry_lower in alias:
                         normalized_industry = standard
                         break
+                if not normalized_industry:
+                    for ind_key in self.INDUSTRY_KEYWORDS.keys():
+                        if ind_key in industry_lower or industry_lower in ind_key:
+                            normalized_industry = ind_key
+                            break
         
-        # Get ONLY industry-specific keywords (don't fall back to all industries)
+        # Build keyword list to search for
         industry_kws = []
+        
+        # 1. Always include universal keywords
+        industry_kws.extend(self.UNIVERSAL_KEYWORDS)
+        
+        # 2. If we have a specific industry, add those keywords
         if normalized_industry and normalized_industry in self.INDUSTRY_KEYWORDS:
-            industry_kws = self.INDUSTRY_KEYWORDS[normalized_industry]
+            industry_kws.extend(self.INDUSTRY_KEYWORDS[normalized_industry])
         else:
-            # Try fuzzy match on industry name
-            for ind_key, kws in self.INDUSTRY_KEYWORDS.items():
-                if industry and (ind_key in industry.lower() or industry.lower() in ind_key):
-                    industry_kws = kws
-                    break
+            # No specific industry - add keywords from ALL industries
+            # But we'll filter out problematic ones below
+            for ind_kws in self.INDUSTRY_KEYWORDS.values():
+                industry_kws.extend(ind_kws)
         
-        # If STILL no match, DON'T use all keywords - return empty list
-        # This prevents noise from unrelated industries
-        if not industry_kws:
-            # Only use universal keywords that apply to any business
-            industry_kws = self.UNIVERSAL_KEYWORDS if hasattr(self, 'UNIVERSAL_KEYWORDS') else []
+        # Build dynamic stop words based on industry
+        stop_words = set(GLOBAL_STOP_WORDS)
         
-        # Find industry keywords in text - these are always valuable
+        # Add industry-specific filtered words for NON-matching industries
+        for ind, words_to_filter in INDUSTRY_SPECIFIC_FILTER.items():
+            if normalized_industry != ind:
+                stop_words.update(words_to_filter)
+        
+        # Find keywords in text
         for kw in industry_kws:
             kw_lower = kw.lower()
-            # Skip very short keywords unless they're industry-specific (like "ac" for HVAC)
+            
+            # Skip very short keywords unless they're known industry-specific
             if len(kw_lower) < MIN_KEYWORD_LENGTH:
-                # Allow short keywords only for specific industries
                 if normalized_industry == 'hvac' and kw_lower in ['ac']:
                     pass  # Allow "ac" for HVAC
                 else:
                     continue
             
             # Skip stop words
-            if kw_lower in STOP_WORDS:
+            if kw_lower in stop_words:
                 continue
                 
             if kw_lower in text_lower:
