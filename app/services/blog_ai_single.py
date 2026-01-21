@@ -355,48 +355,114 @@ Return: {{"body_append": "<h2>Title</h2><p>Content...</p>"}}"""
                 if link.get("url") and link.get("title"):
                     internal_links_text += f'- <a href="{link["url"]}">{link["title"]}</a>\n'
         
-        # Industry-specific expertise
+        # Industry-specific expertise with REAL professional content
         industry = (req.industry or '').lower()
         if 'dent' in industry:
             expertise = """
-DENTAL INDUSTRY EXPERTISE:
-- Reference specific procedures: cleanings, fillings, crowns, implants, root canals, extractions
-- Mention sedation options, insurance acceptance, emergency availability
-- Discuss preventive care importance, oral health connection to overall health
-- Include patient comfort features: modern equipment, gentle techniques
-- Address common fears: pain, cost, time commitment"""
+DENTAL INDUSTRY EXPERTISE (Write like an experienced dentist):
+- Use proper dental terminology: prophylaxis (not just "cleaning"), composite resin restorations, endodontic therapy
+- Explain procedures: "During a root canal, we remove infected pulp tissue, clean and shape the root canals, then seal them with gutta-percha to prevent reinfection"
+- Discuss modern techniques: digital X-rays (90% less radiation), intraoral cameras, laser dentistry, same-day crowns with CEREC
+- Address patient concerns honestly: "Some sensitivity is normal for 24-48 hours after a filling"
+- Include specifics: "The American Dental Association recommends professional cleanings every 6 months"
+- Mention insurance: "We work with most PPO plans including Delta Dental, MetLife, and Cigna"
+- Emergency protocols: "For a knocked-out tooth, keep it moist in milk and call us within 30 minutes for the best chance of reimplantation"
+
+AVOID GENERIC PHRASES:
+❌ "oral health is important" → ✅ "Untreated cavities can progress to root infections requiring extraction"
+❌ "we care about your smile" → ✅ "Dr. [Name] has performed over 2,000 cosmetic procedures since 2015"
+❌ "state-of-the-art equipment" → ✅ "Our Planmeca ProMax 3D imaging provides detailed views for precise implant placement" """
+
         elif 'hvac' in industry or 'air' in industry or 'ac' in industry:
             expertise = """
-HVAC INDUSTRY EXPERTISE:
-- Reference SEER ratings, refrigerant types (R-410A), energy efficiency
-- Mention common issues: refrigerant leaks, compressor failures, frozen coils
-- Discuss seasonal maintenance, filter changes, duct cleaning
-- Include emergency 24/7 service, warranty information
-- Address Florida-specific: humidity control, salt air corrosion, hurricane prep"""
+HVAC INDUSTRY EXPERTISE (Write like a certified HVAC technician):
+- Use proper terminology: refrigerant charge, superheat/subcooling, static pressure, BTU calculations
+- Explain diagnostics: "We measure supply and return air temperature differential—it should be 15-20°F for cooling"
+- Discuss efficiency: "A 16 SEER system uses 25% less energy than a 12 SEER, saving approximately $200-400 annually in Florida"
+- System components: "The TXV (thermostatic expansion valve) meters refrigerant flow based on evaporator superheat"
+- Florida-specific: "Salt air corrosion attacks outdoor condenser coils—we recommend annual coil cleaning and protective coating"
+- Emergency signs: "Ice on refrigerant lines indicates low charge or airflow restriction—turn off the system to prevent compressor damage"
+- Maintenance specifics: "Replace 1" filters monthly, or 4" media filters every 6 months"
+
+AVOID GENERIC PHRASES:
+❌ "keeping your home comfortable" → ✅ "Maintaining indoor humidity between 45-55% prevents mold growth and reduces allergens"
+❌ "our technicians are trained" → ✅ "Our techs hold EPA Section 608 Universal certification and complete 40+ hours of manufacturer training annually"
+❌ "quality service" → ✅ "We perform a 21-point inspection including capacitor testing, refrigerant pressure analysis, and ductwork evaluation" """
+
         elif 'electric' in industry:
             expertise = """
-ELECTRICAL INDUSTRY EXPERTISE:
-- Reference NEC code compliance, panel amperage, GFCI/AFCI protection
-- Mention common issues: circuit overloads, flickering lights, outlet problems
-- Discuss EV charger installation, whole-home generators, surge protection
-- Include licensing, permits, safety inspections
-- Address emergency services, 24/7 availability"""
+ELECTRICAL INDUSTRY EXPERTISE (Write like a master electrician):
+- Use proper terminology: amperage, circuit breaker coordination, voltage drop calculations, ground fault protection
+- Code references: "NEC 2023 requires AFCI protection for all 15A and 20A branch circuits in habitable rooms"
+- Explain upgrades: "Upgrading from a 100A to 200A service involves replacing the meter base, main disconnect, and panel—typically a full-day job"
+- Safety specifics: "Aluminum wiring (common in 1965-1973 homes) requires COPALUM crimps or complete replacement due to oxidation issues"
+- Modern needs: "Level 2 EV chargers need a dedicated 50A circuit—we'll verify your panel has capacity and install a NEMA 14-50 outlet"
+- Warning signs: "Warm outlets, frequent breaker trips, or burning smell indicate dangerous conditions requiring immediate inspection"
+- Permit knowledge: "Florida requires permits for any circuit addition or panel work—we pull permits same-day"
+
+AVOID GENERIC PHRASES:
+❌ "electrical safety is important" → ✅ "Electrical fires cause 51,000 home fires annually—most from outdated wiring or overloaded circuits"
+❌ "licensed electricians" → ✅ "Florida EC13 license requires 8,000 hours of field experience plus passing a comprehensive exam" """
+
         elif 'plumb' in industry:
             expertise = """
-PLUMBING INDUSTRY EXPERTISE:
-- Reference pipe materials, water pressure PSI, water heater types
-- Mention common issues: drain clogs, leaks, water heater failures
-- Discuss repiping, fixture installation, water quality/softeners
-- Include emergency services, camera inspections
-- Address local water quality issues, older home challenges"""
-        else:
+PLUMBING INDUSTRY EXPERTISE (Write like a master plumber):
+- Use proper terminology: water pressure PSI, drain slope per foot, backflow prevention, water hammer arrestors
+- Explain diagnostics: "We camera-inspect drain lines to identify root intrusion, bellied pipes, or scale buildup before recommending solutions"
+- Material knowledge: "PEX-A tubing offers better freeze resistance than PEX-B due to its cross-linking method—critical for Florida attic runs"
+- Water heater specifics: "Tank heaters should be flushed annually to remove sediment that reduces efficiency and causes premature failure"
+- Local issues: "Hard water in this area (18+ grains) accelerates fixture deterioration—water softeners extend faucet and appliance life significantly"
+- Emergency response: "For a burst pipe, locate your main shutoff (typically near the meter) and turn clockwise immediately"
+- Code compliance: "Florida requires PRV (pressure reducing valves) when street pressure exceeds 80 PSI to protect fixtures and appliances"
+
+AVOID GENERIC PHRASES:
+❌ "plumbing problems" → ✅ "Slow drains often indicate venting issues or biofilm accumulation in the P-trap"
+❌ "experienced plumbers" → ✅ "Our team averages 15 years experience with specializations in repipe, water treatment, and gas line installation" """
+
+        elif 'roof' in industry:
             expertise = """
-LOCAL SERVICE EXPERTISE:
-- Reference industry-specific certifications and licensing
-- Mention common problems customers face and solutions
-- Discuss service process, timeline, pricing factors
-- Include guarantees, warranties, customer satisfaction
-- Address why local expertise matters"""
+ROOFING INDUSTRY EXPERTISE (Write like a certified roofing contractor):
+- Use proper terminology: underlayment, drip edge, starter strips, ice and water shield, ridge venting
+- Material specifics: "Architectural shingles carry 30-50 year warranties vs 20-25 years for 3-tab, with better wind ratings (130 mph vs 60 mph)"
+- Florida requirements: "Miami-Dade rated materials required within HVHZ zones—we verify your zone and pull proper permits"
+- Inspection details: "We check decking integrity, flashing condition, boot seals around penetrations, and soffit ventilation ratios"
+- Storm damage: "Hail damage often shows as granule loss or bruising—we document everything for your insurance claim"
+- Lifespan factors: "South-facing slopes degrade 20% faster due to UV exposure—we can specify higher-rated materials for these areas"
+
+AVOID GENERIC PHRASES:
+❌ "protect your home" → ✅ "Proper attic ventilation (1 sq ft per 150 sq ft of attic) prevents shingle blistering and ice dams"
+❌ "quality materials" → ✅ "We install GAF HDZ shingles with StainGuard Plus for algae resistance in Florida's humid climate" """
+
+        elif 'law' in industry or 'legal' in industry or 'attorney' in industry:
+            expertise = """
+LEGAL INDUSTRY EXPERTISE (Write like an experienced attorney):
+- Use proper legal terminology: statute of limitations, contingency basis, discovery process, deposition, settlement negotiation
+- Process explanation: "Personal injury cases typically proceed through demand letter, filing complaint, discovery (6-12 months), mediation, and potential trial"
+- Timeline honesty: "Most cases settle within 12-18 months, though complex litigation may take 2-3 years"
+- Fee structures: "Contingency means no upfront cost—we receive 33% of settlement, or 40% if litigation is required"
+- Case specifics: "Florida's comparative negligence law means your compensation is reduced by your percentage of fault"
+- Documentation importance: "Preserve all medical records, accident reports, photos, and witness contact information"
+- Statute awareness: "Florida personal injury claims must be filed within 2 years—delay can forfeit your right to compensation"
+
+AVOID GENERIC PHRASES:
+❌ "fighting for your rights" → ✅ "We've recovered over $15 million for clients in the past 5 years with a 94% success rate"
+❌ "experienced attorneys" → ✅ "Board Certified in Civil Trial Law by the Florida Bar, with 200+ jury trials" """
+
+        else:
+            expertise = f"""
+LOCAL SERVICE EXPERTISE (Write like a seasoned professional in {req.industry or 'this field'}):
+- Use industry-specific terminology that demonstrates real knowledge
+- Explain processes step-by-step so customers know what to expect
+- Include specific numbers, timeframes, and measurable outcomes
+- Reference certifications, licenses, and professional standards
+- Address common misconceptions with factual corrections
+- Explain pricing factors honestly without being evasive
+- Share specific examples from real service scenarios
+
+AVOID GENERIC PHRASES:
+❌ "quality service" → ✅ Describe specific quality measures you take
+❌ "experienced team" → ✅ State years of experience, certifications, number of projects completed
+❌ "customer satisfaction" → ✅ Mention specific review scores, warranty claims rate, repeat customer percentage"""
 
         # Build FAQ items template based on faq_count
         faq_count = req.faq_count if hasattr(req, 'faq_count') and req.faq_count else 5
@@ -411,23 +477,55 @@ LOCAL SERVICE EXPERTISE:
         ]
         faq_items_template = ',\n    '.join(faq_questions[:faq_count])
 
-        # Build system prompt
-        self._system_prompt = f"""You are an expert SEO content writer. Generate a high-quality blog post.
+        # Build system prompt - Professional Content Generator
+        self._system_prompt = f"""You are a PROFESSIONAL CONTENT WRITER with 15+ years of experience in {req.industry or 'service industry'} marketing.
 
-CRITICAL RULES:
-1. The keyword is: "{keyword}" - use it EXACTLY as written
-2. Do NOT add any city/state beyond what's in the keyword
-3. Do NOT duplicate location names (if keyword has "Sarasota FL", don't add more "Sarasota" or "FL")
-4. Do NOT put location in H2/H3 headings
-5. Write like an industry expert, NOT generic AI
-6. Return ONLY valid JSON - no markdown, no commentary
+YOUR WRITING STYLE:
+- Write like an industry expert explaining to an informed homeowner
+- Be specific and technical—vague content damages credibility
+- Use concrete numbers, timeframes, and measurable outcomes
+- Address real customer concerns with honest, helpful answers
+- Sound confident but not salesy—educate, don't pitch
 
-CONTENT QUALITY:
-- Sound like a human expert wrote it
-- Include specific technical details
-- Address real customer concerns
-- Avoid generic filler phrases like "it's important to note" or "when it comes to"
-- Each paragraph should have unique, valuable information"""
+CRITICAL QUALITY RULES:
+
+1. KEYWORD USAGE:
+   - Primary keyword: "{keyword}" - use EXACTLY as written
+   - Use 3-5 times naturally throughout (not forced)
+   - Do NOT add extra locations or duplicate place names
+
+2. NO GENERIC AI PHRASES - These destroy credibility:
+   ❌ BANNED: "it's important to note", "when it comes to", "in today's world"
+   ❌ BANNED: "rest assured", "look no further", "we pride ourselves"
+   ❌ BANNED: "state-of-the-art", "top-notch", "second to none"
+   ❌ BANNED: "your satisfaction is our priority", "we go above and beyond"
+   ❌ BANNED: "whether you need X or Y", "from A to Z"
+   
+   ✅ INSTEAD: Use specific facts, numbers, processes, and outcomes
+
+3. PROFESSIONAL TONE:
+   - Write like content from Mayo Clinic, This Old House, or Angi (formerly Angie's List)
+   - Each paragraph should teach the reader something specific
+   - Include technical details that demonstrate expertise
+   - Be helpful and educational, not promotional
+
+4. STRUCTURE:
+   - H2 headings should be descriptive, not salesy
+   - Each section must have unique, valuable content
+   - No filler paragraphs—every sentence should add information
+   - Smooth transitions between sections
+
+5. OUTPUT:
+   - Return ONLY valid JSON
+   - No markdown code blocks
+   - No commentary before or after JSON
+
+CONTENT EVALUATION CHECKLIST (mentally verify before outputting):
+□ Would a real industry expert approve this content?
+□ Does every paragraph contain specific, useful information?
+□ Are there concrete numbers, timeframes, or technical details?
+□ Is the writing free of generic AI-sounding phrases?
+□ Would this rank well AND convert visitors to customers?"""
 
         # Build user prompt - keyword driven, no settings injection
         return f"""GENERATE SEO BLOG POST
@@ -442,60 +540,66 @@ WORD COUNT: {req.target_words}+ words (CRITICAL!)
 
 {internal_links_text}
 
-CONTENT STRUCTURE (write detailed, expert-level content):
+CONTENT STRUCTURE (Write authoritative, educational content):
 
-<h2>Understanding [Service from Keyword]</h2>
-Write 300+ words:
-- What the service involves in plain terms
-- When customers typically need this service
-- What makes quality service different from poor service
-- Include ONE mention of location naturally
+<h2>What Is [Service] And How Does It Work?</h2>
+Write 300+ words explaining:
+- Technical definition in plain language (what actually happens)
+- The science/mechanics behind it (why it works)
+- Different types or variations customers should know about
+- When this service is typically needed (specific scenarios)
+- ONE natural mention of the service area
 
-<h2>Warning Signs You Need This Service</h2>
-Write 250+ words:
-- List 5-7 specific warning signs with detailed explanations
-- Explain consequences of ignoring each sign
-- Help readers self-diagnose their situation
+<h2>Signs You Need [Service]</h2>
+Write 250+ words with SPECIFIC indicators:
+- List 5-7 warning signs with technical explanations
+- Explain what each symptom actually indicates
+- Describe progression if ignored (consequences with timeframes)
+- Help readers assess urgency of their situation
 
-<h2>Benefits Of Professional Service</h2>
-Write 300+ words with subheadings:
-<h3>Expert Diagnosis</h3> - 80+ words on professional assessment
-<h3>Quality Results</h3> - 80+ words on outcome differences
-<h3>Long-Term Value</h3> - 80+ words on cost savings over time
-<h3>Safety And Compliance</h3> - 80+ words on regulations/standards
+<h2>The Professional [Service] Process</h2>
+Write 300+ words describing step-by-step:
+<h3>Initial Assessment</h3> - What professionals check first and why (80+ words)
+<h3>Diagnosis And Recommendations</h3> - How problems are identified (80+ words)
+<h3>The Service Itself</h3> - What happens during the work (80+ words)
+<h3>Quality Verification</h3> - How results are confirmed (80+ words)
 
-<h2>Our Service Process</h2>
-Write 200+ words:
-- Step-by-step what happens during service
-- Timeline expectations
-- What customers should prepare
+<h2>Cost Factors And Pricing</h2>
+Write 200+ words honestly:
+- What affects pricing (specific factors, not vague)
+- Typical price ranges for common scenarios (if appropriate)
+- Why quality service costs more (specific value provided)
+- Red flags in pricing that indicate poor service
+- How {req.company_name} approaches pricing transparency
 
-<h2>Investment And Pricing</h2>
-Write 200+ words:
-- Factors that affect pricing
-- Why cheapest isn't always best
-- Value of quality service
-- Mention {req.company_name} commitment to fair pricing
+<h2>DIY Vs Professional Service</h2>
+Write 200+ words balanced assessment:
+- What homeowners CAN safely do themselves
+- What requires professional expertise (and why)
+- Risks of improper DIY attempts
+- When calling a pro saves money long-term
 
-<h2>Why Customers Choose {req.company_name}</h2>
-Write 200+ words:
-- Specific company strengths
-- Experience and credentials
-- Customer satisfaction focus
-- Include call-to-action with {req.phone}
+<h2>Why Choose {req.company_name}</h2>
+Write 200+ words with SPECIFICS:
+- Actual credentials, certifications, years in business
+- Specific service guarantees or warranties
+- Real differentiators (not generic claims)
+- Service area coverage
+- How to contact: {req.phone}
 
-<h2>Frequently Asked Questions</h2>
-Write {faq_count} Q&As in body (NOT in faq_items):
-<h3>Question 1 about the service?</h3><p>Detailed answer...</p>
-<h3>Question 2 about cost?</h3><p>Detailed answer...</p>
-<h3>Question 3 about timeline?</h3><p>Detailed answer...</p>
-(Continue for {faq_count} total FAQs)
+<h2>Frequently Asked Questions About [Service]</h2>
+Write {faq_count} detailed Q&As as H3 headings:
+<h3>Specific technical question?</h3><p>Expert answer with details (60-80 words)...</p>
+<h3>Question about costs/timeline?</h3><p>Honest answer with ranges...</p>
+<h3>Question about preparation?</h3><p>Helpful guidance...</p>
+(Continue for {faq_count} total FAQs - each answer must be substantive)
 
-<h2>Schedule Your Service</h2>
-Write 150+ words:
-- Strong call-to-action
-- Contact: {req.phone}, {req.email}
+<h2>Ready To Get Started?</h2>
+Write 100+ words:
+- Clear next step for the reader
 - What happens when they call
+- Contact: {req.phone}, {req.email}
+- Hours/availability
 
 RETURN THIS JSON (fill in ALL content):
 {{
@@ -605,7 +709,7 @@ OUTPUT JSON ONLY:"""
         return out
     
     def _clean_body(self, body: str) -> str:
-        """Clean up body content"""
+        """Clean up body content and remove generic AI phrases"""
         if not body:
             return body
         
@@ -620,6 +724,57 @@ OUTPUT JSON ONLY:"""
         body = re.sub(r'\\+([<>])', r'\1', body)
         body = re.sub(r'\\([^\\])', r'\1', body)
         body = body.replace('\\', '')
+        
+        # Remove/replace generic AI phrases that hurt credibility
+        generic_phrases = [
+            # Opening fillers
+            (r"[Ii]t'?s important to (note|understand|remember|recognize) that\s*", ""),
+            (r"[Ww]hen it comes to\s+", "For "),
+            (r"[Ii]n today'?s (world|day and age|fast-paced|modern)\s*,?\s*", ""),
+            (r"[Ii]n the (world|realm|field) of\s+", "In "),
+            (r"[Aa]s (we all know|you may know|mentioned earlier)\s*,?\s*", ""),
+            
+            # Hyperbolic claims
+            (r"\b(second to none|top-notch|best in class|world-class|industry-leading)\b", "professional"),
+            (r"\b(state-of-the-art|cutting-edge|revolutionary)\b", "modern"),
+            (r"\b(unparalleled|unmatched|exceptional)\s+(service|quality|care)\b", r"quality \2"),
+            
+            # Salesy phrases
+            (r"[Ll]ook no further[,.]?\s*", ""),
+            (r"[Rr]est assured\s*,?\s*", ""),
+            (r"[Ww]e pride ourselves on\s+", "We provide "),
+            (r"[Ww]e go above and beyond\s*(to)?\s*", "We "),
+            (r"[Yy]our satisfaction is our (top |number one |#1 )?priority[,.]?\s*", ""),
+            (r"[Ww]e are committed to (providing |delivering )?(you with )?(the best |excellent |exceptional )?\s*", "We provide "),
+            
+            # Vague transitions
+            (r"[Ww]hether you need .+? or .+?,\s*", ""),
+            (r"[Ff]rom .+? to .+?,\s*we('ve| have)?\s*(got you covered|can help)[,.]?\s*", ""),
+            (r"[Ww]hatever your .+? needs( may be)?,?\s*", ""),
+            
+            # Weak conclusions
+            (r"[Dd]on'?t hesitate to\s+", ""),
+            (r"[Ff]eel free to\s+", ""),
+            (r"[Ww]e'?d love to (help|hear from|serve) you[,.]?\s*", ""),
+            (r"[Rr]each out (to us )?(today )?to\s+", "Contact us to "),
+            
+            # Filler words/phrases
+            (r"\b(basically|essentially|actually|literally|really|very|extremely|incredibly)\b\s*", ""),
+            (r"\b[Ii]t goes without saying that\s*", ""),
+            (r"\b[Nn]eedless to say\s*,?\s*", ""),
+            (r"\b[Aa]t the end of the day\s*,?\s*", ""),
+        ]
+        
+        for pattern, replacement in generic_phrases:
+            body = re.sub(pattern, replacement, body)
+        
+        # Clean up double spaces and weird punctuation after removals
+        body = re.sub(r'\s+', ' ', body)
+        body = re.sub(r'\s+([,.])', r'\1', body)
+        body = re.sub(r'([.!?])\s*([.!?])', r'\1', body)
+        body = re.sub(r'<p>\s*</p>', '', body)
+        body = re.sub(r'<p>\s+', '<p>', body)
+        body = re.sub(r'\s+</p>', '</p>', body)
         
         return body.strip()
 
