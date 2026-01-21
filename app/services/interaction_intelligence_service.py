@@ -1036,11 +1036,38 @@ class InteractionIntelligenceService:
                 question = question.strip()
                 
                 # Skip very short questions after cleanup
-                if len(question) < 15:
+                if len(question) < 20:  # Increased from 15 to filter fragments
+                    continue
+                
+                # Skip incomplete/cut-off questions
+                # These typically end with "or", "and", "the", "a", "to", etc.
+                trailing_words = ['or', 'and', 'the', 'a', 'to', 'for', 'with', 'at', 'in', 'on', 'is', 'are', 'was', 'were', 'be', 'if', 'that', 'this']
+                words = question.lower().split()
+                if words and words[-1].rstrip('?') in trailing_words:
+                    logger.debug(f"Skipping incomplete question: {question[:50]}...")
+                    continue
+                
+                # Skip questions that are too generic/vague
+                vague_patterns = [
+                    r'^(what|how|is|are|do|does|can|could|will|would)\s+(it|that|this)(\s|$|\?)',
+                    r'this thing',
+                    r'that stuff',
+                    r'or something',
+                    r'or anything',
+                    r'and stuff',
+                    r'all that',
+                ]
+                is_vague = False
+                question_lower = question.lower()
+                for vp in vague_patterns:
+                    if re.search(vp, question_lower):
+                        is_vague = True
+                        break
+                if is_vague:
+                    logger.debug(f"Skipping vague question: {question[:50]}...")
                     continue
                 
                 # Check for relevance - must contain at least one relevant keyword
-                question_lower = question.lower()
                 is_relevant = False
                 
                 # Check against all relevance keywords (universal + industry)
@@ -1066,7 +1093,8 @@ class InteractionIntelligenceService:
         Filters out:
         - Agent statements
         - Non-business related concerns (legal, personal issues)
-        - Generic statements
+        - Generic/vague statements
+        - Incomplete sentences
         """
         pain_points = []
         text_lower = text.lower()
@@ -1078,6 +1106,20 @@ class InteractionIntelligenceService:
             'trouble getting in contact', 'in trouble or anything',
             'custody', 'divorce', 'hearing',
             'police', 'arrested', 'jail',
+            'laid off', 'snowbirds', 'interviews', 'stick with the company',
+            'want to stay with', 'bad time', 'terrible time',  # Job interview noise
+        ]
+        
+        # Vague phrases that don't make good pain points
+        vague_phrases = [
+            'i think that would',
+            'kind of start',
+            'totally be a way',
+            'could kind of',
+            'or something',
+            'and stuff',
+            'all that good stuff',
+            'and all that',
         ]
         
         # Split into sentences
@@ -1085,7 +1127,7 @@ class InteractionIntelligenceService:
         
         for sentence in sentences:
             sentence = sentence.strip()
-            if not sentence or len(sentence) < 20:
+            if not sentence or len(sentence) < 25:  # Increased minimum length
                 continue
             
             sentence_lower = sentence.lower()
@@ -1094,13 +1136,22 @@ class InteractionIntelligenceService:
             if sentence_lower.startswith('agent:') or 'thank you for calling' in sentence_lower:
                 continue
             
-            # Skip irrelevant content (legal issues, etc.)
+            # Skip irrelevant content (legal issues, job-related, etc.)
             is_irrelevant = False
             for phrase in irrelevant_phrases:
                 if phrase in sentence_lower:
                     is_irrelevant = True
                     break
             if is_irrelevant:
+                continue
+            
+            # Skip vague/incomplete statements
+            is_vague = False
+            for phrase in vague_phrases:
+                if phrase in sentence_lower:
+                    is_vague = True
+                    break
+            if is_vague:
                 continue
             
             # Check for pain indicators
@@ -1110,8 +1161,14 @@ class InteractionIntelligenceService:
                     pain_point = re.sub(r'^(caller|agent|customer):\s*', '', sentence, flags=re.IGNORECASE)
                     pain_point = pain_point.strip()
                     
-                    # Only add if it's meaningful
-                    if len(pain_point) >= 20 and len(pain_point) <= 150:
+                    # Skip if ends with incomplete words
+                    trailing_incomplete = ['or', 'and', 'the', 'a', 'to', 'for', 'with', 'at', 'in', 'is', 'ms', 'mr']
+                    words = pain_point.lower().split()
+                    if words and words[-1].rstrip('.,!?') in trailing_incomplete:
+                        continue
+                    
+                    # Only add if it's meaningful and complete
+                    if len(pain_point) >= 25 and len(pain_point) <= 200:
                         pain_points.append(pain_point)
                     break
         
@@ -1122,7 +1179,7 @@ class InteractionIntelligenceService:
         keywords = []
         text_lower = text.lower()
         
-        # Common words to exclude (expanded list)
+        # Common words to exclude (expanded list) - MUST be very aggressive
         STOP_WORDS = {
             'about', 'would', 'could', 'should', 'there', 'their', 'where', 'which', 
             'these', 'those', 'going', 'trying', 'thing', 'think', 'things', 'getting',
@@ -1137,27 +1194,69 @@ class InteractionIntelligenceService:
             'because', 'since', 'while', 'after', 'before', 'during', 'between',
             'include', 'included', 'excuse', 'sorry', 'happy', 'support', 'needs',
             'captured', 'chatbot', 'widget', 'spelled', 'checked', 'decided',
-            'extension', 'another', 'kings'  # Location-specific noise
+            'extension', 'another', 'kings', 'will', 'body', 'car', 'rent', 
+            'lease', 'irs', 'event', 'build', 'building', 'cat', 'act', 'bee',
+            'ant', 'ants', 'back', 'fix', 'clean', 'dent'  # Short generic words
         }
         
-        # Get industry-specific keywords
+        # Minimum keyword length to avoid noise (e.g., "ac" is okay for HVAC, but not general)
+        MIN_KEYWORD_LENGTH = 3
+        
+        # Normalize industry using aliases
+        normalized_industry = industry
+        if industry:
+            if industry in INDUSTRY_ALIASES:
+                normalized_industry = INDUSTRY_ALIASES[industry]
+            else:
+                for alias, standard in INDUSTRY_ALIASES.items():
+                    if alias in industry or industry in alias:
+                        normalized_industry = standard
+                        break
+        
+        # Get ONLY industry-specific keywords (don't fall back to all industries)
         industry_kws = []
-        if industry and industry in self.INDUSTRY_KEYWORDS:
-            industry_kws = self.INDUSTRY_KEYWORDS[industry]
+        if normalized_industry and normalized_industry in self.INDUSTRY_KEYWORDS:
+            industry_kws = self.INDUSTRY_KEYWORDS[normalized_industry]
         else:
-            # Use all industry keywords if no specific industry
-            for kws in self.INDUSTRY_KEYWORDS.values():
-                industry_kws.extend(kws)
+            # Try fuzzy match on industry name
+            for ind_key, kws in self.INDUSTRY_KEYWORDS.items():
+                if industry and (ind_key in industry.lower() or industry.lower() in ind_key):
+                    industry_kws = kws
+                    break
+        
+        # If STILL no match, DON'T use all keywords - return empty list
+        # This prevents noise from unrelated industries
+        if not industry_kws:
+            # Only use universal keywords that apply to any business
+            industry_kws = self.UNIVERSAL_KEYWORDS if hasattr(self, 'UNIVERSAL_KEYWORDS') else []
         
         # Find industry keywords in text - these are always valuable
         for kw in industry_kws:
-            if kw.lower() in text_lower:
+            kw_lower = kw.lower()
+            # Skip very short keywords unless they're industry-specific (like "ac" for HVAC)
+            if len(kw_lower) < MIN_KEYWORD_LENGTH:
+                # Allow short keywords only for specific industries
+                if normalized_industry == 'hvac' and kw_lower in ['ac']:
+                    pass  # Allow "ac" for HVAC
+                else:
+                    continue
+            
+            # Skip stop words
+            if kw_lower in STOP_WORDS:
+                continue
+                
+            if kw_lower in text_lower:
                 keywords.append(kw)
         
-        # DON'T extract generic single words - they add noise
-        # Only use industry-specific keywords
+        # Remove duplicates while preserving order
+        seen = set()
+        unique_keywords = []
+        for kw in keywords:
+            if kw.lower() not in seen:
+                seen.add(kw.lower())
+                unique_keywords.append(kw)
         
-        return keywords
+        return unique_keywords
     
     def _extract_services(self, text: str, industry: str = None) -> List[str]:
         """Extract service mentions from text based on industry"""

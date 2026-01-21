@@ -527,106 +527,129 @@ CONTENT EVALUATION CHECKLIST (mentally verify before outputting):
 □ Is the writing free of generic AI-sounding phrases?
 □ Would this rank well AND convert visitors to customers?"""
 
-        # Build user prompt - keyword driven, no settings injection
-        return f"""GENERATE SEO BLOG POST
+        # Build user prompt - keyword driven, SEO optimized
+        return f"""GENERATE SEO-OPTIMIZED BLOG POST (Target: 90+ SEO Score)
 
 PRIMARY KEYWORD: {keyword}
 BUSINESS: {req.company_name}
 INDUSTRY: {req.industry or 'Professional Services'}
+LOCATION: {req.city or 'your area'}, {req.state or ''}
 CONTACT: {req.phone} | {req.email}
-WORD COUNT: {req.target_words}+ words (CRITICAL!)
+WORD COUNT: {req.target_words}+ words (CRITICAL - aim for 2200+)
 
 {expertise}
 
 {internal_links_text}
 
-CONTENT STRUCTURE (Write authoritative, educational content):
+═══════════════════════════════════════════════════════════════
+SEO REQUIREMENTS (FOLLOW EXACTLY FOR 90+ SCORE)
+═══════════════════════════════════════════════════════════════
 
-<h2>What Is [Service] And How Does It Work?</h2>
-Write 300+ words explaining:
-- Technical definition in plain language (what actually happens)
-- The science/mechanics behind it (why it works)
-- Different types or variations customers should know about
-- When this service is typically needed (specific scenarios)
-- ONE natural mention of the service area
+1. META TITLE (55-60 chars):
+   Format: "[Keyword] in [City] | Cost, Process & Benefits"
+   - Primary keyword FIRST
+   - Include location
+   - Add hook (Cost, Process, Benefits)
+
+2. META DESCRIPTION (150-160 chars):
+   Include: keyword + benefit + CTA + location
+   Example: "Learn how [service] works in [city], costs, and types. Call [company] for professional [service]. Free estimates available."
+
+3. INTRO (First 100 words - CRITICAL FOR SEO):
+   MUST contain in first paragraph:
+   - Primary keyword in FIRST sentence
+   - Location mention
+   - User intent addressed
+   - E-E-A-T statement: "This guide was written by [industry] professionals at {req.company_name}, serving {req.city or 'the area'} for over X years."
+
+═══════════════════════════════════════════════════════════════
+CONTENT STRUCTURE (Use these EXACT H2s - keyword variations)
+═══════════════════════════════════════════════════════════════
+
+<h2>What Is [Service from keyword]?</h2>
+200+ words: Definition, how it works, why it matters
 
 <h2>Signs You Need [Service]</h2>
-Write 250+ words with SPECIFIC indicators:
-- List 5-7 warning signs with technical explanations
-- Explain what each symptom actually indicates
-- Describe progression if ignored (consequences with timeframes)
-- Help readers assess urgency of their situation
+200+ words: 5-7 warning signs with explanations
 
-<h2>The Professional [Service] Process</h2>
-Write 300+ words describing step-by-step:
-<h3>Initial Assessment</h3> - What professionals check first and why (80+ words)
-<h3>Diagnosis And Recommendations</h3> - How problems are identified (80+ words)
-<h3>The Service Itself</h3> - What happens during the work (80+ words)
-<h3>Quality Verification</h3> - How results are confirmed (80+ words)
+<h2>Types of [Service/Equipment] for {req.city or 'Local'} Homes</h2>
+200+ words: Options, pros/cons, best for climate
 
-<h2>Cost Factors And Pricing</h2>
-Write 200+ words honestly:
-- What affects pricing (specific factors, not vague)
-- Typical price ranges for common scenarios (if appropriate)
-- Why quality service costs more (specific value provided)
-- Red flags in pricing that indicate poor service
-- How {req.company_name} approaches pricing transparency
+<h2>Professional [Service] Process</h2>
+250+ words with H3 subheadings:
+<h3>Initial Assessment</h3>
+<h3>Preparation and Setup</h3>
+<h3>The [Service] Process</h3>
+<h3>Testing and Verification</h3>
 
-<h2>DIY Vs Professional Service</h2>
-Write 200+ words balanced assessment:
-- What homeowners CAN safely do themselves
-- What requires professional expertise (and why)
-- Risks of improper DIY attempts
-- When calling a pro saves money long-term
+<h2>Cost of [Service] in {req.city or 'Your Area'}</h2>
+200+ words: Price factors, ranges, value proposition
 
-<h2>Why Choose {req.company_name}</h2>
-Write 200+ words with SPECIFICS:
-- Actual credentials, certifications, years in business
-- Specific service guarantees or warranties
-- Real differentiators (not generic claims)
-- Service area coverage
-- How to contact: {req.phone}
+<h2>DIY vs Professional [Service]</h2>
+150+ words: What homeowners can do, what needs pros
 
-<h2>Frequently Asked Questions About [Service]</h2>
-Write {faq_count} detailed Q&As as H3 headings:
-<h3>Specific technical question?</h3><p>Expert answer with details (60-80 words)...</p>
-<h3>Question about costs/timeline?</h3><p>Honest answer with ranges...</p>
-<h3>Question about preparation?</h3><p>Helpful guidance...</p>
-(Continue for {faq_count} total FAQs - each answer must be substantive)
+<h2>Benefits of Professional [Service]</h2>
+200+ words: Warranty, safety, efficiency, savings
 
-<h2>Ready To Get Started?</h2>
-Write 100+ words:
-- Clear next step for the reader
-- What happens when they call
-- Contact: {req.phone}, {req.email}
-- Hours/availability
+<h2>Common [Service] Problems</h2>
+150+ words: Frequent issues, causes, prevention
 
-RETURN THIS JSON (fill in ALL content):
+<h2>Why Choose {req.company_name} for [Service]?</h2>
+200+ words: Credentials, certifications, guarantees, contact
+
+<h2>[Service] FAQs</h2>
+{faq_count} Q&As with 40-50 word answers (featured snippet optimized):
+<h3>How long does [service] take?</h3><p>Direct 40-50 word answer...</p>
+<h3>How much does [service] cost?</h3><p>Direct 40-50 word answer...</p>
+<h3>Do I need professional [service]?</h3><p>Direct 40-50 word answer...</p>
+
+═══════════════════════════════════════════════════════════════
+INTERNAL LINKS (4-6 required)
+═══════════════════════════════════════════════════════════════
+Weave naturally into content:
+- "Learn more about our <a href='/services'>[related service]</a>"
+- "<a href='/contact'>Contact us</a> for a free estimate"
+- "See our <a href='/service-area'>{req.city or 'service area'} coverage</a>"
+
+═══════════════════════════════════════════════════════════════
+KEYWORD OPTIMIZATION
+═══════════════════════════════════════════════════════════════
+- Primary keyword: 4-6 times naturally
+- In first 100 words: YES
+- In 2+ H2 headings: YES
+- In conclusion: YES
+
+NLP/Supporting keywords to include:
+- professional [service]
+- [service] cost/pricing
+- licensed [professional type]
+- [equipment] types
+- energy efficient
+- [city] [service]
+
+═══════════════════════════════════════════════════════════════
+RETURN THIS JSON
+═══════════════════════════════════════════════════════════════
 {{
-  "h1": "[Compelling headline using keyword - Title Case, 50-60 chars]",
-  "meta_title": "[Title Case Keyword Phrase] | {req.company_name} - [55-60 chars total]",
-  "meta_description": "[150-160 chars using keyword naturally, include benefit + CTA]",
-  "body": "<h2>Understanding...</h2><p>[300+ words of expert content]</p><h2>Warning Signs...</h2><p>[250+ words]</p>...[COMPLETE ALL SECTIONS]...",
+  "h1": "[Keyword] in [City]: How It Works, Cost & Benefits",
+  "meta_title": "[Keyword] in [City] | Cost, Process & Benefits",
+  "meta_description": "Learn how [keyword] works in [city], costs, types, and when to call. Contact {req.company_name} for professional service. [150-160 chars]",
+  "body": "[FULL HTML - All H2 sections, 2200+ words, 4-6 internal links, E-E-A-T statement in intro]",
   "faq_items": [{faq_items_template}],
-  "cta": {{"company_name": "{req.company_name}", "phone": "{req.phone}", "email": "{req.email}"}}
+  "cta": {{"company_name": "{req.company_name}", "phone": "{req.phone}", "email": "{req.email}"}},
+  "schema_keywords": ["primary keyword", "secondary keyword 1", "secondary keyword 2"]
 }}
 
-META TITLE RULES (55-60 characters):
-Format: "Primary Keyword in City | Brand Name"
-Example: "Expert HVAC Installation in Sarasota | Cliffs Air"
-- Use Title Case (capitalize main words)
-- Put keyword first for SEO
-- Include location naturally
-- Brand name after pipe symbol
-- Stay within 55-60 characters
-
-VALIDATION BEFORE OUTPUT:
-✓ Keyword "{keyword}" used naturally (not stuffed)
-✓ Location NOT duplicated anywhere
-✓ NO location in H2/H3 headings
-✓ Word count >= {req.target_words}
-✓ Content sounds like industry expert, not generic AI
-✓ 3+ internal links woven into body
+FINAL CHECKLIST:
+✓ Keyword in first sentence of intro
+✓ E-E-A-T credibility statement in intro
+✓ Keyword in meta title (first position)
+✓ Keyword in 2+ H2 headings
+✓ Location in intro, cost section, why choose section
+✓ NO duplicate content sections
+✓ 4-6 internal links woven naturally
+✓ FAQs with 40-50 word direct answers
+✓ Word count 2200+
 ✓ Valid JSON only
 
 OUTPUT JSON ONLY:"""
@@ -714,8 +737,135 @@ OUTPUT JSON ONLY:"""
             "phone": (cta.get("phone") or req.phone or "").strip(),
             "email": (cta.get("email") or req.email or "").strip(),
         }
+        
+        # Generate SEO schema markup
+        out["schema"] = self._generate_schema(out, req)
 
         return out
+    
+    def _generate_schema(self, content: Dict[str, Any], req: BlogRequest) -> Dict[str, Any]:
+        """Generate SEO schema markup for blog post (Article + FAQPage + LocalBusiness)"""
+        from datetime import datetime
+        
+        today = datetime.now().strftime("%Y-%m-%d")
+        
+        # Article Schema
+        article_schema = {
+            "@context": "https://schema.org",
+            "@type": "Article",
+            "headline": content.get("h1", content.get("title", req.keyword)),
+            "description": content.get("meta_description", ""),
+            "author": {
+                "@type": "Organization",
+                "name": req.company_name,
+                "url": f"https://www.{req.company_name.lower().replace(' ', '')}.com"
+            },
+            "publisher": {
+                "@type": "Organization",
+                "name": req.company_name
+            },
+            "datePublished": today,
+            "dateModified": today,
+            "mainEntityOfPage": {
+                "@type": "WebPage"
+            }
+        }
+        
+        # Add location if available
+        if req.city:
+            article_schema["about"] = {
+                "@type": "Service",
+                "areaServed": {
+                    "@type": "City",
+                    "name": req.city,
+                    "containedInPlace": {
+                        "@type": "State",
+                        "name": req.state or "Florida"
+                    }
+                }
+            }
+        
+        # FAQ Schema (if FAQs exist)
+        faq_schema = None
+        faq_items = content.get("faq_items", [])
+        if faq_items and len(faq_items) > 0:
+            faq_schema = {
+                "@context": "https://schema.org",
+                "@type": "FAQPage",
+                "mainEntity": []
+            }
+            for faq in faq_items:
+                if isinstance(faq, dict) and faq.get("question") and faq.get("answer"):
+                    faq_schema["mainEntity"].append({
+                        "@type": "Question",
+                        "name": faq["question"],
+                        "acceptedAnswer": {
+                            "@type": "Answer",
+                            "text": faq["answer"]
+                        }
+                    })
+        
+        # LocalBusiness Schema
+        local_schema = {
+            "@context": "https://schema.org",
+            "@type": "LocalBusiness",
+            "name": req.company_name,
+            "telephone": req.phone,
+            "email": req.email
+        }
+        if req.city:
+            local_schema["areaServed"] = req.city
+            local_schema["address"] = {
+                "@type": "PostalAddress",
+                "addressLocality": req.city,
+                "addressRegion": req.state or "FL"
+            }
+        
+        # HowTo Schema (for process-oriented content)
+        howto_schema = None
+        body = content.get("body", "")
+        if "<h3>" in body.lower() and ("process" in body.lower() or "step" in body.lower()):
+            # Extract steps from H3 headings
+            import re
+            h3_matches = re.findall(r'<h3[^>]*>([^<]+)</h3>', body, re.IGNORECASE)
+            if h3_matches and len(h3_matches) >= 3:
+                howto_schema = {
+                    "@context": "https://schema.org",
+                    "@type": "HowTo",
+                    "name": content.get("h1", req.keyword),
+                    "description": content.get("meta_description", ""),
+                    "step": []
+                }
+                for i, step_name in enumerate(h3_matches[:8], 1):  # Max 8 steps
+                    howto_schema["step"].append({
+                        "@type": "HowToStep",
+                        "position": i,
+                        "name": step_name.strip()
+                    })
+        
+        return {
+            "article": article_schema,
+            "faq": faq_schema,
+            "local_business": local_schema,
+            "howto": howto_schema,
+            "combined_json_ld": self._combine_schemas(article_schema, faq_schema, local_schema, howto_schema)
+        }
+    
+    def _combine_schemas(self, *schemas) -> str:
+        """Combine multiple schemas into a single JSON-LD script tag"""
+        import json
+        
+        valid_schemas = [s for s in schemas if s is not None]
+        
+        if len(valid_schemas) == 1:
+            return f'<script type="application/ld+json">\n{json.dumps(valid_schemas[0], indent=2)}\n</script>'
+        elif len(valid_schemas) > 1:
+            combined = {
+                "@context": "https://schema.org",
+                "@graph": valid_schemas
+            }
+            return f'<script type="application/ld+json">\n{json.dumps(combined, indent=2)}\n</script>'
+        return ""
     
     def _clean_body(self, body: str) -> str:
         """Clean up body content and remove generic AI phrases"""
