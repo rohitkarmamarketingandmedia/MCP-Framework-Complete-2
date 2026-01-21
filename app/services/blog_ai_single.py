@@ -611,13 +611,9 @@ CONTENT STRUCTURE (Use these EXACT H2s - keyword variations)
 150+ words: Frequent issues, causes, prevention
 
 <h2>Why Choose {req.company_name} for [Service]?</h2>
-200+ words: Credentials, certifications, guarantees, contact
+200+ words: Credentials, certifications, guarantees, contact info ({req.phone})
 
-<h2>[Service] FAQs</h2>
-{faq_count} Q&As with 40-50 word answers (featured snippet optimized):
-<h3>How long does [service] take?</h3><p>Direct 40-50 word answer...</p>
-<h3>How much does [service] cost?</h3><p>Direct 40-50 word answer...</p>
-<h3>Do I need professional [service]?</h3><p>Direct 40-50 word answer...</p>
+IMPORTANT: Do NOT include FAQ section in the body - FAQs go ONLY in the faq_items array.
 
 ═══════════════════════════════════════════════════════════════
 INTERNAL LINKS (4-6 required)
@@ -650,11 +646,16 @@ RETURN THIS JSON
   "h1": "[Keyword] in [City]: How It Works, Cost & Benefits",
   "meta_title": "[Keyword] in [City] | Cost, Process & Benefits",
   "meta_description": "Learn how [keyword] works in [city], costs, types, and when to call. Contact {req.company_name} for professional service. [150-160 chars]",
-  "body": "[FULL HTML - All H2 sections, 2200+ words, 4-6 internal links, E-E-A-T statement in intro]",
+  "body": "[FULL HTML - All H2 sections listed above, 2000+ words, NO FAQ section in body]",
   "faq_items": [{faq_items_template}],
-  "cta": {{"company_name": "{req.company_name}", "phone": "{req.phone}", "email": "{req.email}"}},
-  "schema_keywords": ["primary keyword", "secondary keyword 1", "secondary keyword 2"]
+  "cta": {{"company_name": "{req.company_name}", "phone": "{req.phone}", "email": "{req.email}"}}
 }}
+
+FAQ ITEMS RULES:
+- {faq_count} questions total in faq_items array
+- Each answer: 40-60 words, direct and specific
+- Include numbers, timeframes, or prices where relevant
+- These will be displayed separately AND used for schema markup
 
 FINAL CHECKLIST:
 ✓ Keyword in first sentence of intro
@@ -662,10 +663,9 @@ FINAL CHECKLIST:
 ✓ Keyword in meta title (first position)
 ✓ Keyword in 2+ H2 headings
 ✓ Location in intro, cost section, why choose section
-✓ NO duplicate content sections
+✓ NO FAQ section in body (FAQs only in faq_items array)
 ✓ 4-6 internal links woven naturally
-✓ FAQs with 40-50 word direct answers
-✓ Word count 2200+
+✓ Word count 2000+
 ✓ Valid JSON only
 
 OUTPUT JSON ONLY:"""
@@ -998,6 +998,16 @@ OUTPUT JSON ONLY:"""
         
         for pattern, replacement in generic_phrases:
             body = re.sub(pattern, replacement, body)
+        
+        # Remove any FAQ sections from body (FAQs should only be in faq_items array)
+        # Pattern matches: <h2>...FAQ...</h2> and everything until the next <h2> or end
+        faq_patterns = [
+            r'<h2[^>]*>[^<]*FAQ[^<]*</h2>.*?(?=<h2|$)',  # FAQ section header and content
+            r'<h2[^>]*>[^<]*Frequently Asked[^<]*</h2>.*?(?=<h2|$)',  # Frequently Asked Questions
+            r'<h2[^>]*>[^<]*Common Questions[^<]*</h2>.*?(?=<h2|$)',  # Common Questions
+        ]
+        for faq_pattern in faq_patterns:
+            body = re.sub(faq_pattern, '', body, flags=re.IGNORECASE | re.DOTALL)
         
         # Clean up double spaces and weird punctuation after removals
         body = re.sub(r'\s+', ' ', body)
