@@ -603,13 +603,22 @@ Write 100+ words:
 
 RETURN THIS JSON (fill in ALL content):
 {{
-  "h1": "[Compelling title using keyword - 55-65 chars]",
-  "meta_title": "{keyword} | {req.company_name}",
-  "meta_description": "[150-160 chars using keyword naturally, with CTA]",
+  "h1": "[Compelling headline using keyword - Title Case, 50-60 chars]",
+  "meta_title": "[Title Case Keyword Phrase] | {req.company_name} - [55-60 chars total]",
+  "meta_description": "[150-160 chars using keyword naturally, include benefit + CTA]",
   "body": "<h2>Understanding...</h2><p>[300+ words of expert content]</p><h2>Warning Signs...</h2><p>[250+ words]</p>...[COMPLETE ALL SECTIONS]...",
   "faq_items": [{faq_items_template}],
   "cta": {{"company_name": "{req.company_name}", "phone": "{req.phone}", "email": "{req.email}"}}
 }}
+
+META TITLE RULES (55-60 characters):
+Format: "Primary Keyword in City | Brand Name"
+Example: "Expert HVAC Installation in Sarasota | Cliffs Air"
+- Use Title Case (capitalize main words)
+- Put keyword first for SEO
+- Include location naturally
+- Brand name after pipe symbol
+- Stay within 55-60 characters
 
 VALIDATION BEFORE OUTPUT:
 ✓ Keyword "{keyword}" used naturally (not stuffed)
@@ -783,6 +792,90 @@ OUTPUT JSON ONLY:"""
         text = re.sub(r"<[^>]+>", " ", html)
         words = re.findall(r"\b[\w']+\b", text)
         return len(words)
+    
+    def _title_case(self, text: str) -> str:
+        """Convert text to Title Case, handling common exceptions"""
+        # Words that should stay lowercase (unless first word)
+        lowercase_words = {'a', 'an', 'the', 'and', 'but', 'or', 'for', 'nor', 
+                          'on', 'at', 'to', 'by', 'in', 'of', 'up', 'as'}
+        
+        words = text.split()
+        result = []
+        
+        for i, word in enumerate(words):
+            # First word always capitalized
+            if i == 0:
+                result.append(word.capitalize())
+            # Lowercase words stay lowercase (unless it's an acronym like HVAC, AC)
+            elif word.lower() in lowercase_words and not word.isupper():
+                result.append(word.lower())
+            # Preserve all-caps words (HVAC, AC, SEO, etc.)
+            elif word.isupper() and len(word) <= 5:
+                result.append(word)
+            else:
+                result.append(word.capitalize())
+        
+        return ' '.join(result)
+    
+    def _fix_meta_title(self, meta_title: str, keyword: str, company_name: str) -> str:
+        """
+        Fix meta title to follow SEO best practices:
+        - Format: "Keyword Phrase in City | Brand Name"
+        - Length: 55-60 characters
+        - Title Case capitalization
+        """
+        # Convert keyword to title case
+        kw_title = self._title_case(keyword)
+        
+        # Target length: 55-60 characters
+        target_min = 55
+        target_max = 60
+        
+        # Check if current title is acceptable
+        if meta_title and target_min <= len(meta_title) <= target_max:
+            # Just ensure title case
+            parts = meta_title.split('|')
+            if len(parts) == 2:
+                return self._title_case(parts[0].strip()) + ' | ' + parts[1].strip()
+            return meta_title
+        
+        # Build optimal meta title
+        # Format: "Keyword Phrase | Company Name"
+        base = f"{kw_title} | {company_name}"
+        
+        if len(base) >= target_min and len(base) <= target_max:
+            return base
+        
+        # If too short, add helpful prefix/suffix
+        if len(base) < target_min:
+            # Try adding "Expert" or "Professional" prefix
+            prefixes = ["Expert", "Professional", "Quality", "Trusted", "Top-Rated"]
+            for prefix in prefixes:
+                enhanced = f"{prefix} {kw_title} | {company_name}"
+                if target_min <= len(enhanced) <= target_max:
+                    return enhanced
+            
+            # Try adding service type suffix
+            suffixes = ["Services", "Solutions", "Experts"]
+            for suffix in suffixes:
+                enhanced = f"{kw_title} {suffix} | {company_name}"
+                if target_min <= len(enhanced) <= target_max:
+                    return enhanced
+            
+            # If still too short, just return what we have (it's better than nothing)
+            return base
+        
+        # If too long, truncate intelligently
+        if len(base) > target_max:
+            # Try to keep full keyword and truncate company name
+            available = target_max - len(kw_title) - 3  # 3 for " | "
+            if available > 10:
+                return f"{kw_title} | {company_name[:available]}"
+            else:
+                # Truncate keyword instead
+                return base[:target_max-3] + "..."
+        
+        return base
 
     def _ensure_word_count(self, result: Dict[str, Any], req: BlogRequest) -> Dict[str, Any]:
         """Ensure minimum word count by requesting continuations"""
@@ -847,17 +940,13 @@ OUTPUT JSON ONLY:"""
         # Fix H1 if keyword missing - use keyword as-is, don't add more location
         h1 = (result.get("h1") or "").strip()
         if kw_l not in h1.lower():
-            result["h1"] = f"{kw} | {req.company_name}"
+            result["h1"] = self._title_case(kw) + f" | {req.company_name}"
             logger.info(f"Fixed H1 to include keyword")
 
-        # Fix meta title - use keyword, don't add location
+        # Fix meta title - SEO best practices: 55-60 chars, "Keyword Phrase | Brand Name"
         meta_title = result.get("meta_title", "")
-        if len(meta_title) > 65:
-            result["meta_title"] = meta_title[:60] + "..."
-        elif len(meta_title) < 30:
-            result["meta_title"] = f"{kw} | {req.company_name}"[:60]
-        else:
-            result["meta_title"] = meta_title
+        meta_title = self._fix_meta_title(meta_title, kw, req.company_name)
+        result["meta_title"] = meta_title
 
         # Fix meta description - use keyword as-is, don't duplicate location
         meta_desc = result.get("meta_description", "")
