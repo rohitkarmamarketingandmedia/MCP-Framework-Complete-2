@@ -1576,22 +1576,29 @@ def publish_to_wordpress(current_user, content_id):
                     tags.append(tag)
         
         # Remove duplicates while preserving order (case-insensitive comparison)
+        # AND apply Title Case to ALL tags
         seen = set()
         unique_tags = []
         for tag in tags:
             tag_lower = tag.lower().strip()
             if tag_lower and tag_lower not in seen:
                 seen.add(tag_lower)
-                unique_tags.append(tag.strip())
+                # Apply Title Case to each tag
+                unique_tags.append(title_case(tag.strip()))
         tags = unique_tags[:10]  # Limit to 10
         
         logger.info(f"WordPress tags ({len(tags)}): {tags}")
+        
+        # Use meta_title as WP post title (SEO best practice)
+        wp_post_title = content.meta_title or content.title
+        logger.info(f"WP post title: {wp_post_title}")
+        logger.info(f"Meta description for Yoast: {content.meta_description[:80] if content.meta_description else 'NONE'}...")
         
         # Check if updating existing post
         if content.wordpress_post_id:
             result = wp.update_post(
                 post_id=content.wordpress_post_id,
-                title=content.title,
+                title=wp_post_title,  # Use meta_title as post title
                 content=full_content,
                 status=wp_status,
                 excerpt=content.meta_description,
@@ -1604,12 +1611,13 @@ def publish_to_wordpress(current_user, content_id):
                 # Set SEO meta (Yoast, RankMath, AIOSEO)
                 if content.meta_title or content.meta_description or content.primary_keyword:
                     logger.info(f"Setting SEO meta on update - title: {content.meta_title}, desc: {content.meta_description[:50] if content.meta_description else 'None'}...")
-                    wp._set_seo_meta(
+                    seo_result = wp._set_seo_meta(
                         post_id,
                         meta_title=content.meta_title,
                         meta_description=content.meta_description,
                         focus_keyword=content.primary_keyword
                     )
+                    logger.info(f"SEO meta result: {seo_result}")
                 
                 # Set featured image if available
                 if content.featured_image_url:
@@ -1628,7 +1636,7 @@ def publish_to_wordpress(current_user, content_id):
             logger.info(f"SEO meta - title: {content.meta_title}, desc: {content.meta_description[:50] if content.meta_description else 'None'}...")
             logger.info(f"Tags ({len(tags)}): {tags[:5]}...")
             result = wp.create_post(
-                title=content.title,
+                title=wp_post_title,  # Use meta_title as post title for SEO
                 content=full_content,
                 status=wp_status,
                 excerpt=content.meta_description,

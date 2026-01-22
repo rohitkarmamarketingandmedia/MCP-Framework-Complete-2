@@ -540,7 +540,12 @@ class WordPressService:
         result = {'success': False, 'yoast': False, 'rankmath': False, 'aioseo': False}
         
         try:
-            # Combine all meta fields in one request for efficiency
+            logger.info(f"Setting SEO meta for post {post_id}")
+            logger.info(f"  - meta_title: {meta_title[:50] if meta_title else 'None'}...")
+            logger.info(f"  - meta_description: {meta_description[:50] if meta_description else 'None'}...")
+            logger.info(f"  - focus_keyword: {focus_keyword}")
+            
+            # Strategy 1: Set via WordPress REST API meta endpoint
             all_meta_fields = {}
             
             # Yoast SEO fields
@@ -566,21 +571,40 @@ class WordPressService:
                 all_meta_fields['_aioseo_description'] = meta_description
             
             if all_meta_fields:
-                logger.info(f"Setting SEO meta for post {post_id}: {list(all_meta_fields.keys())}")
+                logger.info(f"Setting SEO meta fields: {list(all_meta_fields.keys())}")
+                
+                # Try setting via post meta
                 response = requests.post(
                     f"{self.api_url}/posts/{post_id}",
                     headers=self.headers,
                     json={'meta': all_meta_fields},
                     timeout=15
                 )
+                
                 if response.status_code == 200:
                     result['yoast'] = True
                     result['rankmath'] = True
                     result['aioseo'] = True
                     result['success'] = True
-                    logger.info(f"SEO meta set for post {post_id}: title={bool(meta_title)}, desc={bool(meta_description)}, kw={bool(focus_keyword)}")
+                    logger.info(f"SEO meta set successfully via REST API")
                 else:
-                    logger.warning(f"SEO meta response: {response.status_code} - {response.text[:200]}")
+                    logger.warning(f"SEO meta via REST API failed: {response.status_code}")
+                    logger.warning(f"Response: {response.text[:300]}")
+                    
+                    # Strategy 2: Try setting each field individually
+                    for field_name, field_value in all_meta_fields.items():
+                        try:
+                            individual_response = requests.post(
+                                f"{self.api_url}/posts/{post_id}",
+                                headers=self.headers,
+                                json={'meta': {field_name: field_value}},
+                                timeout=10
+                            )
+                            if individual_response.status_code == 200:
+                                logger.info(f"Set {field_name} individually")
+                                result['success'] = True
+                        except Exception as e:
+                            logger.warning(f"Failed to set {field_name}: {e}")
             
             return result
             
