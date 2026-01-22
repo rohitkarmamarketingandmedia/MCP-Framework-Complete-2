@@ -795,9 +795,18 @@ class WordPressManager:
         if client.industry:
             categories.append(client.industry.title())
         
-        # Build tags from keyword and location
+        # Build tags - prefer content tags if available
         tags = []
-        if content.primary_keyword:
+        if hasattr(content, 'tags') and content.tags:
+            # If tags are stored as JSON/list
+            tags = content.tags if isinstance(content.tags, list) else json.loads(content.tags)
+        
+        # Fallback to generating from keyword/location if no tags
+        if not tags and content.primary_keyword:
+            tags.append(content.primary_keyword.title())
+            
+        if not tags and client.city:
+            tags.append(client.city.title())
             # Add the keyword and its parts as tags
             tags.append(content.primary_keyword)
             # Add individual meaningful words from keyword

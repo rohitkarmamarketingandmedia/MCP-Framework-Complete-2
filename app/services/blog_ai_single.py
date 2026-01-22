@@ -508,6 +508,12 @@ AVOID THESE PHRASES (they sound generic):
 - "Top-notch"
 - "Your satisfaction is our priority"
 
+INSTRUCTIONS FOR TAGS:
+- Generate EXACTLY 5 relevant tags
+- MUST include the specific city name (e.g., "{city}" not generic "City")
+- All tags must be Title Case (e.g., "Air Conditioning Repair", "{city} Plumber")
+- Do NOT use all lowercase tags
+
 INSTEAD, BE SPECIFIC:
 ✓ Include actual price ranges when discussing costs
 ✓ Mention specific timeframes for services
@@ -607,6 +613,7 @@ Return ONLY valid JSON:
     "h1": "{keyword.title()}{'' if keyword_has_city else f' in {req.city or "Your Area"}'}: Complete Guide",
     "meta_title": "{meta_title_example}",
     "meta_description": "Professional {keyword}. {req.company_name} provides expert service. Call {req.phone} for a free estimate.",
+    "tags": ["{keyword.title()}", "{city} {req.industry or 'Service'}", "Tag 3", "Tag 4", "Tag 5"],
     "body": "<p>Introduction paragraph...</p><h2>Section 1</h2><p>Content...</p><h2>Section 2</h2><p>Content...</p>...",
     "faq_items": [
         {faq_items_template}
@@ -711,6 +718,12 @@ OUTPUT JSON:"""
 
         # Clean body
         out["body"] = self._clean_body(out["body"])
+
+        # Extract tags
+        out["tags"] = data.get("tags") or []
+        if isinstance(out["tags"], list):
+            # Enforce Title Case on tags
+            out["tags"] = [t.title() for t in out["tags"] if isinstance(t, str)]
 
         faq = data.get("faq_items") or data.get("faq") or []
         out["faq_items"] = faq if isinstance(faq, list) else []
