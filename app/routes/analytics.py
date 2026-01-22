@@ -153,19 +153,41 @@ def get_traffic(current_user, client_id):
         
         # Try to get search terms from Google Search Console
         search_terms = []
+        gsc_error = None
         try:
             from app.services.analytics_service import search_console_service
-            gsc_site_url = getattr(client, 'gsc_site_url', None) or getattr(client, 'website_url', None)
+            
+            # Get site URL - try gsc_site_url first, then website_url
+            gsc_site_url = getattr(client, 'gsc_site_url', None)
+            if not gsc_site_url:
+                website_url = getattr(client, 'website_url', None)
+                if website_url:
+                    # Ensure proper format for Search Console
+                    # Can be: https://www.example.com/ or sc-domain:example.com
+                    if not website_url.startswith('http'):
+                        website_url = 'https://' + website_url
+                    if not website_url.endswith('/'):
+                        website_url = website_url + '/'
+                    gsc_site_url = website_url
+            
             if gsc_site_url:
+                logger.info(f"Fetching GSC search terms for: {gsc_site_url}")
                 search_terms = search_console_service.get_search_terms(
                     site_url=gsc_site_url,
                     start_date=start_date,
                     end_date=end_date,
                     limit=10
                 )
-                logger.info(f"Got {len(search_terms)} search terms from GSC for {gsc_site_url}")
+                if search_terms:
+                    logger.info(f"Got {len(search_terms)} search terms from GSC")
+                else:
+                    logger.info("GSC returned no search terms (may need service account access)")
+                    gsc_error = "No data - ensure service account has Search Console access"
+            else:
+                gsc_error = "No website URL configured"
         except Exception as e:
-            logger.debug(f"Could not fetch GSC search terms: {e}")
+            logger.warning(f"Could not fetch GSC search terms: {e}")
+            gsc_error = str(e)
         
         return jsonify({
             'configured': True,
@@ -179,6 +201,7 @@ def get_traffic(current_user, client_id):
             'avg_session_duration': traffic.get('avg_session_duration', 0),
             'top_pages': traffic.get('top_pages', []),
             'search_terms': search_terms,
+            'search_terms_error': gsc_error if not search_terms else None,
             'channels': channels,
             'metrics': traffic
         })
