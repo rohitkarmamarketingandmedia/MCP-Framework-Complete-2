@@ -1512,15 +1512,25 @@ def publish_to_wordpress(current_user, content_id):
                 excerpt=content.meta_description
             )
             # Also update Yoast SEO meta on existing post
-            if result.get('success') and (content.meta_title or content.meta_description or content.primary_keyword):
-                wp._set_seo_meta(
-                    content.wordpress_post_id,
-                    meta_title=content.meta_title,
-                    meta_description=content.meta_description,
-                    focus_keyword=content.primary_keyword
-                )
+            if result.get('success'):
+                # Set SEO meta
+                if content.meta_title or content.meta_description or content.primary_keyword:
+                    wp._set_seo_meta(
+                        content.wordpress_post_id,
+                        meta_title=content.meta_title,
+                        meta_description=content.meta_description,
+                        focus_keyword=content.primary_keyword
+                    )
+                # Set featured image if available
+                if content.featured_image_url:
+                    logger.info(f"Setting featured image on update: {content.featured_image_url}")
+                    img_result = wp._set_featured_image(content.wordpress_post_id, content.featured_image_url)
+                    if not img_result.get('success'):
+                        logger.warning(f"Failed to set featured image on update: {img_result.get('error')}")
         else:
             # Create new post
+            logger.info(f"Creating new WP post with featured_image_url: {content.featured_image_url}")
+            logger.info(f"SEO meta - title: {content.meta_title}, desc: {content.meta_description[:50] if content.meta_description else 'None'}...")
             result = wp.create_post(
                 title=content.title,
                 content=full_content,

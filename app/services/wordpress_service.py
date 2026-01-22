@@ -457,10 +457,18 @@ class WordPressService:
     def _set_featured_image(self, post_id: int, image_url: str) -> Dict[str, Any]:
         """Download image and set as featured image"""
         try:
+            logger.info(f"Setting featured image for post {post_id} from URL: {image_url}")
+            
+            if not image_url:
+                return {'success': False, 'error': 'No image URL provided'}
+            
             # Download image
             img_response = requests.get(image_url, timeout=30)
             if img_response.status_code != 200:
-                return {'success': False, 'error': 'Failed to download image'}
+                logger.error(f"Failed to download image: HTTP {img_response.status_code}")
+                return {'success': False, 'error': f'Failed to download image: HTTP {img_response.status_code}'}
+            
+            logger.info(f"Downloaded image: {len(img_response.content)} bytes")
             
             # Determine filename and content type
             filename = image_url.split('/')[-1].split('?')[0]
@@ -476,6 +484,8 @@ class WordPressService:
                 'Content-Type': content_type
             }
             
+            logger.info(f"Uploading image to WordPress: {filename} ({content_type})")
+            
             upload_response = requests.post(
                 f"{self.api_url}/media",
                 headers=upload_headers,
@@ -484,9 +494,11 @@ class WordPressService:
             )
             
             if upload_response.status_code not in [200, 201]:
-                return {'success': False, 'error': f'Upload failed: {upload_response.status_code}'}
+                logger.error(f"Upload failed: HTTP {upload_response.status_code} - {upload_response.text[:200]}")
+                return {'success': False, 'error': f'Upload failed: {upload_response.status_code} - {upload_response.text[:100]}'}
             
             media_id = upload_response.json().get('id')
+            logger.info(f"Image uploaded, media_id: {media_id}")
             
             # Set as featured image
             update_response = requests.post(
@@ -497,11 +509,14 @@ class WordPressService:
             )
             
             if update_response.status_code == 200:
+                logger.info(f"Featured image set successfully for post {post_id}")
                 return {'success': True, 'media_id': media_id}
             else:
-                return {'success': False, 'error': 'Failed to set featured image'}
+                logger.error(f"Failed to set featured image: HTTP {update_response.status_code}")
+                return {'success': False, 'error': f'Failed to set featured image: {update_response.status_code}'}
                 
         except Exception as e:
+            logger.error(f"Featured image error: {str(e)}")
             return {'success': False, 'error': str(e)}
     
     def _set_seo_meta(self, post_id: int, meta_title: str = None, meta_description: str = None, focus_keyword: str = None) -> Dict[str, Any]:
