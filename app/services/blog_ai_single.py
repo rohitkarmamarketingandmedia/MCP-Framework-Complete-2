@@ -569,12 +569,17 @@ Return ONLY valid JSON:
     "meta_description": "Professional {keyword} in {req.city or 'your area'}. {req.company_name} provides expert service. Call {req.phone} for a free estimate.",
     "body": "<p>Introduction paragraph...</p><h2>Section 1</h2><p>Content...</p><h2>Section 2</h2><p>Content...</p>...",
     "faq_items": [
-        {{"question": "How much does {keyword} cost?", "answer": "50-80 word answer..."}},
-        {{"question": "How long does {keyword} take?", "answer": "50-80 word answer..."}},
-        {{"question": "Do I need professional {keyword}?", "answer": "50-80 word answer..."}}
+        {faq_items_template}
     ],
     "cta": {{"company_name": "{req.company_name}", "phone": "{req.phone}", "email": "{req.email}"}}
 }}
+
+FAQ REQUIREMENTS (CRITICAL):
+- Generate EXACTLY {faq_count} FAQ items in faq_items array
+- Each FAQ must have "question" and "answer" fields
+- Questions should be what real customers ask about {keyword}
+- Answers must be 50-80 words each, specific and helpful
+- Include questions about: cost, timeline, process, benefits, and service area
 
 IMPORTANT:
 - Write {req.target_words}+ words of REAL content
@@ -582,6 +587,7 @@ IMPORTANT:
 - Include actual helpful information
 - Use proper HTML: <p>, <h2>, <h3>, <ul>, <li>
 - Do NOT include FAQ section in body - put FAQs only in faq_items array
+- Generate EXACTLY {faq_count} FAQs
 - Return ONLY JSON, no markdown blocks
 
 OUTPUT JSON:"""
