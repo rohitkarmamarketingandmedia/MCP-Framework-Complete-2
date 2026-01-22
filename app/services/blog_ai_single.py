@@ -1006,7 +1006,10 @@ OUTPUT JSON:"""
         - Format: "Keyword Phrase | Brand Name" or "Keyword Phrase in City | Brand"
         - Length: 50-60 characters (Google typically shows 50-60)
         - Title Case capitalization
+        - RANDOMIZED modifiers to ensure unique titles for same keyword
         """
+        import random
+        
         # Convert keyword to title case
         kw_title = self._title_case(keyword)
         
@@ -1023,54 +1026,78 @@ OUTPUT JSON:"""
         
         logger.info(f"Meta title optimization: base='{base}' ({current_len} chars), target={target_min}-{target_max}")
         
-        # If already in range, return it
-        if target_min <= current_len <= target_max:
-            return base
+        # If already in range, still add variation to avoid duplicates
+        # Randomly choose a modifier pattern
+        
+        # Define all possible modifiers (randomized selection)
+        prefixes = ["Expert", "Professional", "Quality", "Top", "Best", "Local", "Trusted", "Reliable", "Affordable", "Premier", "Leading"]
+        suffixes = ["Services", "Solutions", "Experts", "Pros", "Specialists", "Company", "Team", "Providers"]
+        random.shuffle(prefixes)
+        random.shuffle(suffixes)
         
         # If too short, add modifiers to reach target
         if current_len < target_min:
             chars_needed = target_min - current_len
             
-            # Strategy 1: Add city if not in keyword and city is available
-            if city and not keyword_has_city:
+            # Strategy 1: Add city if not in keyword and city is available (50% chance)
+            if city and not keyword_has_city and random.random() > 0.5:
                 with_city = f"{kw_title} in {city} | {company_name}"
                 if target_min <= len(with_city) <= target_max:
                     return with_city
             
-            # Strategy 2: Add service-related words
-            service_words = ["Services", "Solutions", "Experts", "Pros", "Specialists"]
-            for word in service_words:
+            # Strategy 2: Add random suffix
+            for word in suffixes:
                 enhanced = f"{kw_title} {word} | {company_name}"
                 if target_min <= len(enhanced) <= target_max:
                     return enhanced
             
-            # Strategy 3: Add quality modifiers before keyword
-            prefixes = ["Expert", "Professional", "Quality", "Top", "Best", "Local", "Trusted"]
+            # Strategy 3: Add random prefix
             for prefix in prefixes:
                 enhanced = f"{prefix} {kw_title} | {company_name}"
                 if target_min <= len(enhanced) <= target_max:
                     return enhanced
             
-            # Strategy 4: Add year for freshness
+            # Strategy 4: Add year for freshness (randomized)
             from datetime import datetime
             year = datetime.now().year
-            with_year = f"{kw_title} {year} | {company_name}"
-            if target_min <= len(with_year) <= target_max:
-                return with_year
+            year_formats = [f"{year}", f"({year})", f"- {year}"]
+            for yf in year_formats:
+                with_year = f"{kw_title} {yf} | {company_name}"
+                if target_min <= len(with_year) <= target_max:
+                    return with_year
             
-            # Strategy 5: Combine prefix + suffix if still too short
-            for prefix in ["Expert", "Pro", "Top"]:
-                for suffix in ["Services", "Solutions"]:
+            # Strategy 5: Combine random prefix + suffix
+            for prefix in prefixes[:3]:
+                for suffix in suffixes[:3]:
                     enhanced = f"{prefix} {kw_title} {suffix} | {company_name}"
                     if target_min <= len(enhanced) <= target_max:
                         return enhanced
             
-            # If still too short, add "Guide" or similar
-            enhanced = f"{kw_title}: Complete Guide | {company_name}"
-            if target_min <= len(enhanced) <= target_max:
-                return enhanced
+            # Strategy 6: Add descriptive phrases
+            phrases = ["Complete Guide", "Your Guide", "Full Guide", "Everything You Need", "What to Know"]
+            random.shuffle(phrases)
+            for phrase in phrases:
+                enhanced = f"{kw_title}: {phrase} | {company_name}"
+                if target_min <= len(enhanced) <= target_max:
+                    return enhanced
                 
-            # Last resort: return what we have (short is better than wrong)
+            # Last resort: return what we have
+            return base
+        
+        # If in range but we want variation, add a random modifier
+        if target_min <= current_len <= target_max:
+            # 70% chance to add variation even if length is OK
+            if random.random() < 0.7:
+                # Try adding prefix
+                for prefix in prefixes[:5]:
+                    enhanced = f"{prefix} {kw_title} | {company_name}"
+                    if target_min <= len(enhanced) <= target_max:
+                        return enhanced
+                # Try adding suffix
+                for suffix in suffixes[:5]:
+                    enhanced = f"{kw_title} {suffix} | {company_name}"
+                    if target_min <= len(enhanced) <= target_max:
+                        return enhanced
             return base
         
         # If too long, truncate intelligently
@@ -1088,8 +1115,6 @@ OUTPUT JSON:"""
             
             # Strategy 3: Truncate everything to max
             return base[:target_max-3].strip() + "..."
-        
-        return base
         
         return base
 

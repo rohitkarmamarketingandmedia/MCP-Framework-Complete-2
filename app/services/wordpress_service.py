@@ -422,35 +422,78 @@ class WordPressService:
         return category_ids
     
     def _resolve_tags(self, tags: list) -> list:
-        """Convert tag names to IDs, creating if needed"""
+        """Convert tag names to IDs, creating if needed. Always use Title Case."""
         tag_ids = []
+        
+        def to_title_case(text):
+            """Convert to Title Case, preserving acronyms"""
+            if not text:
+                return text
+            words = text.split()
+            result = []
+            lowercase_words = {'a', 'an', 'the', 'and', 'but', 'or', 'for', 'nor', 'on', 'at', 'to', 'by', 'in', 'of'}
+            acronyms = {'hvac', 'ac', 'seo', 'usa', 'llc', 'inc'}
+            
+            for i, word in enumerate(words):
+                word_lower = word.lower()
+                if word_lower in acronyms:
+                    result.append(word.upper())
+                elif i == 0 or word_lower not in lowercase_words:
+                    result.append(word.capitalize())
+                else:
+                    result.append(word_lower)
+            return ' '.join(result)
         
         for tag in tags:
             if isinstance(tag, int):
                 tag_ids.append(tag)
             else:
-                # Search for tag by name
+                # Always use Title Case
+                tag_title = to_title_case(tag.strip())
+                
+                # Search for existing tag
                 response = requests.get(
                     f"{self.api_url}/tags",
                     headers=self.headers,
-                    params={'search': tag},
+                    params={'search': tag_title},
                     timeout=10
                 )
                 
                 if response.status_code == 200:
                     results = response.json()
-                    if results:
-                        tag_ids.append(results[0]['id'])
+                    # Find exact match (case-insensitive)
+                    existing_tag = None
+                    for r in results:
+                        if r.get('name', '').lower() == tag_title.lower():
+                            existing_tag = r
+                            break
+                    
+                    if existing_tag:
+                        # If existing tag has wrong case, update it
+                        if existing_tag['name'] != tag_title:
+                            try:
+                                update_resp = requests.post(
+                                    f"{self.api_url}/tags/{existing_tag['id']}",
+                                    headers=self.headers,
+                                    json={'name': tag_title},
+                                    timeout=10
+                                )
+                                if update_resp.status_code == 200:
+                                    logger.info(f"Updated tag case: '{existing_tag['name']}' -> '{tag_title}'")
+                            except Exception:
+                                pass  # Ignore update errors
+                        tag_ids.append(existing_tag['id'])
                     else:
-                        # Create tag
+                        # Create new tag with Title Case
                         create_response = requests.post(
                             f"{self.api_url}/tags",
                             headers=self.headers,
-                            json={'name': tag},
+                            json={'name': tag_title},
                             timeout=10
                         )
                         if create_response.status_code in [200, 201]:
                             tag_ids.append(create_response.json()['id'])
+                            logger.info(f"Created tag: '{tag_title}'")
         
         return tag_ids
     
