@@ -1493,13 +1493,36 @@ def publish_to_wordpress(current_user, content_id):
             except (json.JSONDecodeError, TypeError):
                 pass  # Skip schema if parsing fails
         
-        # Build tags - ensure at least 5 tags with city name
+        # Helper function for Title Case
+        def title_case(text):
+            """Convert text to Title Case, preserving acronyms like HVAC, AC"""
+            if not text:
+                return text
+            words = text.split()
+            result = []
+            # Words that should stay lowercase (unless first)
+            lowercase_words = {'a', 'an', 'the', 'and', 'but', 'or', 'for', 'nor', 'on', 'at', 'to', 'by', 'in', 'of'}
+            # Acronyms that should stay uppercase
+            acronyms = {'hvac', 'ac', 'seo', 'usa', 'llc', 'inc'}
+            
+            for i, word in enumerate(words):
+                word_lower = word.lower()
+                if word_lower in acronyms:
+                    result.append(word.upper())
+                elif i == 0 or word_lower not in lowercase_words:
+                    result.append(word.capitalize())
+                else:
+                    result.append(word_lower)
+            return ' '.join(result)
+        
+        # Build tags - ensure at least 5 tags with city name, proper Title Case
         tags = []
         city = client.city or client.geo.split(',')[0] if client.geo else ''
+        city = title_case(city)  # Ensure city is Title Case
         
-        # Start with primary keyword
+        # Start with primary keyword (Title Case)
         if content.primary_keyword:
-            tags.append(content.primary_keyword)
+            tags.append(title_case(content.primary_keyword))
         
         # Add city-based tags
         if city:
@@ -1510,34 +1533,36 @@ def publish_to_wordpress(current_user, content_id):
                 for loc_word in [' in ', ' near ', ' for ', city.lower()]:
                     service = service.split(loc_word)[0].strip()
                 if service:
-                    tags.append(f"{service} {city}")
-                    tags.append(f"{city} {service}")
+                    tags.append(title_case(f"{service} {city}"))
+                    tags.append(title_case(f"{city} {service}"))
         
-        # Add secondary keywords
+        # Add secondary keywords (Title Case)
         if content.secondary_keywords:
             try:
                 keywords = json.loads(content.secondary_keywords) if isinstance(content.secondary_keywords, str) else content.secondary_keywords
                 if keywords:
                     for kw in keywords[:8]:
-                        if kw and kw not in tags:
-                            tags.append(kw)
+                        if kw:
+                            kw_title = title_case(kw)
+                            if kw_title not in tags:
+                                tags.append(kw_title)
             except (json.JSONDecodeError, TypeError):
                 pass
         
-        # Add industry-based tags
+        # Add industry-based tags (Title Case)
         industry = client.industry.lower() if client.industry else ''
         if 'dent' in industry:
-            extra_tags = [f'dentist {city}', f'{city} dental', 'dental care', 'oral health']
+            extra_tags = [f'Dentist {city}', f'{city} Dental', 'Dental Care', 'Oral Health']
         elif 'hvac' in industry or 'air' in industry:
-            extra_tags = [f'HVAC {city}', f'{city} AC repair', 'air conditioning', 'heating']
+            extra_tags = [f'HVAC {city}', f'{city} AC Repair', 'Air Conditioning', 'Heating']
         elif 'plumb' in industry:
-            extra_tags = [f'plumber {city}', f'{city} plumbing', 'plumbing services', 'drain cleaning']
+            extra_tags = [f'Plumber {city}', f'{city} Plumbing', 'Plumbing Services', 'Drain Cleaning']
         elif 'roof' in industry:
-            extra_tags = [f'roofer {city}', f'{city} roofing', 'roof repair', 'roofing contractor']
+            extra_tags = [f'Roofer {city}', f'{city} Roofing', 'Roof Repair', 'Roofing Contractor']
         elif 'law' in industry or 'legal' in industry:
-            extra_tags = [f'lawyer {city}', f'{city} attorney', 'legal services', 'law firm']
+            extra_tags = [f'Lawyer {city}', f'{city} Attorney', 'Legal Services', 'Law Firm']
         else:
-            extra_tags = [f'{city} services', 'local business', 'professional services']
+            extra_tags = [f'{city} Services', 'Local Business', 'Professional Services']
         
         for tag in extra_tags:
             if tag and tag not in tags and len(tags) < 10:
@@ -1545,12 +1570,12 @@ def publish_to_wordpress(current_user, content_id):
         
         # Ensure minimum 5 tags
         if len(tags) < 5:
-            generic_tags = [city, f'local {city}', client.company_name or '', 'professional', 'services']
+            generic_tags = [city, f'Local {city}', client.company_name or '', 'Professional', 'Services']
             for tag in generic_tags:
                 if tag and tag not in tags and len(tags) < 5:
                     tags.append(tag)
         
-        # Remove duplicates while preserving order
+        # Remove duplicates while preserving order (case-insensitive comparison)
         seen = set()
         unique_tags = []
         for tag in tags:
