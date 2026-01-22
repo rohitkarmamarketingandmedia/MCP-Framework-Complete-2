@@ -356,7 +356,49 @@ Return: {{"body_append": "<h2>Title</h2><p>Content...</p>"}}"""
         
         # Extract location from keyword itself - DO NOT use settings
         keyword = req.keyword.strip()
+
+        # Helper function to convert to Title Case
+        def to_title_case(text):
+            if not text: return text
+            lowercase_words = {'a', 'an', 'the', 'and', 'but', 'or', 'for', 'nor', 'on', 'at', 'to', 'by', 'in', 'of', 'with', 'as'}
+            words = text.split()
+            result = []
+            for i, word in enumerate(words):
+                if i == 0 or word.lower() not in lowercase_words:
+                    result.append(word.capitalize())
+                else:
+                    result.append(word.lower())
+            return ' '.join(result)
+
+        # Known Florida cities to detect in keyword
+        known_cities = [
+            'sarasota', 'port charlotte', 'fort myers', 'naples', 'tampa', 'orlando',
+            'jacksonville', 'miami', 'bradenton', 'venice', 'punta gorda', 'north port',
+            'cape coral', 'bonita springs', 'estero', 'lehigh acres', 'englewood',
+            'arcadia', 'nokomis', 'osprey', 'lakewood ranch', 'palmetto', 'ellenton',
+            'parrish', 'ruskin', 'sun city center', 'apollo beach', 'brandon', 'riverview'
+        ]
         
+        # Check if keyword already contains a city name
+        keyword_lower = keyword.lower()
+        keyword_city = None
+        for test_city in known_cities:
+            if test_city in keyword_lower:
+                keyword_city = test_city.title()
+                break
+        
+        # Parse geo from settings
+        geo = getattr(req, 'city', '') + ', ' + getattr(req, 'state', '')
+        geo_parts = geo.split(',') if geo else ['', '']
+        settings_city = geo_parts[0].strip() if len(geo_parts) > 0 else ''
+        
+        # USE THE CITY FROM KEYWORD if present, otherwise use settings
+        if keyword_city:
+            city = keyword_city
+            logger.info(f"Using city from keyword: '{city}' (ignoring settings city '{settings_city}')")
+        else:
+            city = to_title_case(settings_city) if settings_city else ''
+            
         # Build internal links
         internal = req.internal_links or []
         internal_links_text = ""
