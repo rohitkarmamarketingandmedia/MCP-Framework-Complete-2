@@ -175,7 +175,13 @@ class GA4Service:
                 }
                 
         except Exception as e:
-            logger.error(f"GA4 API error: {e}")
+            error_str = str(e)
+            if "403" in error_str and "sufficient permissions" in error_str:
+                logger.error(f"ACTION REQUIRED: Service Account does not have access to GA4 Property {prop_id}")
+                logger.error("Please add the Service Account email to the GA4 Property user management.")
+            else:
+                logger.error(f"GA4 API error: {e}")
+
             return {
                 'configured': True,
                 'property_id': prop_id,

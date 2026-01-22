@@ -763,6 +763,7 @@ class SearchConsoleService:
             import os
             from google.oauth2 import service_account
             from googleapiclient.discovery import build
+            from googleapiclient.errors import HttpError
             
             credentials_json = os.environ.get('GSC_CREDENTIALS_JSON') or os.environ.get('GA4_CREDENTIALS_JSON')
             if not credentials_json:
@@ -782,7 +783,13 @@ class SearchConsoleService:
             logger.warning("Google API client not installed. Run: pip install google-api-python-client")
             return None
         except Exception as e:
-            logger.error(f"Failed to create Search Console client: {e}")
+            # Check for "accessNotConfigured" which means API is not enabled
+            error_str = str(e)
+            if "accessNotConfigured" in error_str:
+                logger.error("ACTION REQUIRED: Google Search Console API is not enabled.")
+                logger.error("Please enable it here: https://console.developers.google.com/apis/api/searchconsole.googleapis.com/overview")
+            else:
+                logger.error(f"Failed to create Search Console client: {e}")
             return None
     
     def get_search_terms(
