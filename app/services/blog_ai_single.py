@@ -1000,63 +1000,96 @@ OUTPUT JSON:"""
         
         return ' '.join(result)
     
-    def _fix_meta_title(self, meta_title: str, keyword: str, company_name: str) -> str:
+    def _fix_meta_title(self, meta_title: str, keyword: str, company_name: str, city: str = None) -> str:
         """
         Fix meta title to follow SEO best practices:
-        - Format: "Keyword Phrase in City | Brand Name"
-        - Length: 55-60 characters
+        - Format: "Keyword Phrase | Brand Name" or "Keyword Phrase in City | Brand"
+        - Length: 50-60 characters (Google typically shows 50-60)
         - Title Case capitalization
         """
         # Convert keyword to title case
         kw_title = self._title_case(keyword)
         
-        # Target length: 55-60 characters
-        target_min = 55
+        # Target length: 50-60 characters (sweet spot for Google)
+        target_min = 50
         target_max = 60
         
-        # Check if current title is acceptable
-        if meta_title and target_min <= len(meta_title) <= target_max:
-            # Just ensure title case
-            parts = meta_title.split('|')
-            if len(parts) == 2:
-                return self._title_case(parts[0].strip()) + ' | ' + parts[1].strip()
-            return meta_title
+        # Check if keyword already contains city
+        keyword_has_city = city and city.lower() in keyword.lower()
         
-        # Build optimal meta title
-        # Format: "Keyword Phrase | Company Name"
+        # Build base title: "Keyword | Company"
         base = f"{kw_title} | {company_name}"
+        current_len = len(base)
         
-        if len(base) >= target_min and len(base) <= target_max:
+        logger.info(f"Meta title optimization: base='{base}' ({current_len} chars), target={target_min}-{target_max}")
+        
+        # If already in range, return it
+        if target_min <= current_len <= target_max:
             return base
         
-        # If too short, add helpful prefix/suffix
-        if len(base) < target_min:
-            # Try adding "Expert" or "Professional" prefix
-            prefixes = ["Expert", "Professional", "Quality", "Trusted", "Top-Rated"]
+        # If too short, add modifiers to reach target
+        if current_len < target_min:
+            chars_needed = target_min - current_len
+            
+            # Strategy 1: Add city if not in keyword and city is available
+            if city and not keyword_has_city:
+                with_city = f"{kw_title} in {city} | {company_name}"
+                if target_min <= len(with_city) <= target_max:
+                    return with_city
+            
+            # Strategy 2: Add service-related words
+            service_words = ["Services", "Solutions", "Experts", "Pros", "Specialists"]
+            for word in service_words:
+                enhanced = f"{kw_title} {word} | {company_name}"
+                if target_min <= len(enhanced) <= target_max:
+                    return enhanced
+            
+            # Strategy 3: Add quality modifiers before keyword
+            prefixes = ["Expert", "Professional", "Quality", "Top", "Best", "Local", "Trusted"]
             for prefix in prefixes:
                 enhanced = f"{prefix} {kw_title} | {company_name}"
                 if target_min <= len(enhanced) <= target_max:
                     return enhanced
             
-            # Try adding service type suffix
-            suffixes = ["Services", "Solutions", "Experts"]
-            for suffix in suffixes:
-                enhanced = f"{kw_title} {suffix} | {company_name}"
-                if target_min <= len(enhanced) <= target_max:
-                    return enhanced
+            # Strategy 4: Add year for freshness
+            from datetime import datetime
+            year = datetime.now().year
+            with_year = f"{kw_title} {year} | {company_name}"
+            if target_min <= len(with_year) <= target_max:
+                return with_year
             
-            # If still too short, just return what we have (it's better than nothing)
+            # Strategy 5: Combine prefix + suffix if still too short
+            for prefix in ["Expert", "Pro", "Top"]:
+                for suffix in ["Services", "Solutions"]:
+                    enhanced = f"{prefix} {kw_title} {suffix} | {company_name}"
+                    if target_min <= len(enhanced) <= target_max:
+                        return enhanced
+            
+            # If still too short, add "Guide" or similar
+            enhanced = f"{kw_title}: Complete Guide | {company_name}"
+            if target_min <= len(enhanced) <= target_max:
+                return enhanced
+                
+            # Last resort: return what we have (short is better than wrong)
             return base
         
         # If too long, truncate intelligently
-        if len(base) > target_max:
-            # Try to keep full keyword and truncate company name
+        if current_len > target_max:
+            # Strategy 1: Shorten company name
+            short_company = company_name.split()[0] if company_name else ""
+            shorter = f"{kw_title} | {short_company}"
+            if target_min <= len(shorter) <= target_max:
+                return shorter
+            
+            # Strategy 2: Truncate company name to fit
             available = target_max - len(kw_title) - 3  # 3 for " | "
-            if available > 10:
-                return f"{kw_title} | {company_name[:available]}"
-            else:
-                # Truncate keyword instead
-                return base[:target_max-3] + "..."
+            if available >= 5:
+                return f"{kw_title} | {company_name[:available].strip()}"
+            
+            # Strategy 3: Truncate everything to max
+            return base[:target_max-3].strip() + "..."
+        
+        return base
         
         return base
 
@@ -1126,10 +1159,11 @@ OUTPUT JSON:"""
             result["h1"] = self._title_case(kw) + f" | {req.company_name}"
             logger.info(f"Fixed H1 to include keyword")
 
-        # Fix meta title - SEO best practices: 55-60 chars, "Keyword Phrase | Brand Name"
+        # Fix meta title - SEO best practices: 50-60 chars, "Keyword Phrase | Brand Name"
         meta_title = result.get("meta_title", "")
-        meta_title = self._fix_meta_title(meta_title, kw, req.company_name)
+        meta_title = self._fix_meta_title(meta_title, kw, req.company_name, req.city)
         result["meta_title"] = meta_title
+        logger.info(f"Final meta_title: '{meta_title}' ({len(meta_title)} chars)")
 
         # Fix meta description - use keyword as-is, don't duplicate location
         meta_desc = result.get("meta_description", "")
