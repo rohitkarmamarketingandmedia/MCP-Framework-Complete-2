@@ -135,15 +135,21 @@ class BlogAISingle:
         """Fix duplicate location patterns in titles and body"""
         import re
         
+        if not city:
+            return result
+            
         city_escaped = re.escape(city)
-        state_escaped = re.escape(state)
+        state_escaped = re.escape(state) if state else ''
         
         # Patterns to fix (order matters - more specific patterns first)
         patterns = [
+            # "AC Repair Port Charlotte in Port Charlotte" -> "AC Repair in Port Charlotte"
+            # This handles when keyword already contains city name
+            (rf'(\w+)\s+{city_escaped}\s+in\s+{city_escaped}\b', rf'\1 in {city}'),
             # "Top 10 Dentist in Sarasota Florida in Sarasota" -> "Top 10 Dentist in Sarasota, Florida"
             (rf'in\s+{city_escaped}\s+Florida\s+in\s+{city_escaped}', f'in {city}, Florida'),
             (rf'in\s+{city_escaped}\s+FL\s+in\s+{city_escaped}', f'in {city}, FL'),
-            (rf'in\s+{city_escaped},?\s*{state_escaped}\s+in\s+{city_escaped}', f'in {city}, {state}'),
+            (rf'in\s+{city_escaped},?\s*{state_escaped}\s+in\s+{city_escaped}', f'in {city}, {state}') if state else None,
             # "Service Sarasota Sarasota" -> "Service Sarasota"
             (rf'(\w+)\s+{city_escaped}\s+{city_escaped}', rf'\1 {city}'),
             # "Sarasota Sarasota" -> "Sarasota"
@@ -155,7 +161,12 @@ class BlogAISingle:
             (rf'{city_escaped},?\s*FL\s+{city_escaped}', f'{city}, FL'),
             # "| Sarasota Sarasota" -> "| Sarasota"
             (rf'\|\s*{city_escaped}\s+{city_escaped}', f'| {city}'),
+            # "Port Charlotte in Port Charlotte" at start or after | -> "Port Charlotte"
+            (rf'\b{city_escaped}\s+in\s+{city_escaped}\b', city),
         ]
+        
+        # Remove None patterns
+        patterns = [p for p in patterns if p is not None]
         
         # Apply to title fields
         for field in ['title', 'h1', 'meta_title', 'meta_description']:
@@ -514,6 +525,19 @@ OUTPUT: Return ONLY valid JSON. No markdown code blocks."""
         if internal_links_text:
             links_section = internal_links_text
         
+        # Check if keyword already contains city name
+        keyword_has_city = req.city and req.city.lower() in keyword.lower()
+        
+        # Build title examples based on whether keyword has city
+        if keyword_has_city:
+            h1_example = f'"{keyword.title()}: Complete Guide"'
+            h1_instruction = f'Include "{keyword}" (city already in keyword, do NOT add "{req.city}" again)'
+            meta_title_example = f'"{keyword.title()} | {req.company_name}"'
+        else:
+            h1_example = f'"{keyword.title()} in {req.city or "Your Area"}: Complete Guide"'
+            h1_instruction = f'Include "{keyword}" and location'
+            meta_title_example = f'"{keyword.title()} in {req.city or "City"} | {req.company_name}"'
+        
         return f"""You are an expert SEO content writer for {req.industry or 'local service'} businesses.
 
 CURRENT YEAR: {current_year}
@@ -522,19 +546,21 @@ PRIMARY KEYWORD: "{keyword}"
 TARGET LOCATION: {req.city or 'local area'}
 MINIMUM WORD COUNT: {req.target_words} words (CRITICAL - must reach this)
 
+IMPORTANT: The keyword {"ALREADY CONTAINS the city name - do NOT duplicate it in titles!" if keyword_has_city else "does not contain the city name - include location naturally."}
+
 {expertise}
 
 {links_section}
 
 ===== CONTENT STRUCTURE =====
 
-1. H1 HEADING: Include "{keyword}" and location
-   Example: "{keyword.title()} in {req.city or 'Your Area'}: Complete Guide"
+1. H1 HEADING: {h1_instruction}
+   Example: {h1_example}
 
 2. INTRODUCTION (150+ words):
    - Hook reader with a problem/solution
    - Primary keyword in first sentence
-   - Mention location naturally
+   - {"Location is already in keyword" if keyword_has_city else "Mention location naturally"}
    - Preview article content
 
 3. BODY SECTIONS (5-7 H2 sections, each 150-200 words):
@@ -542,7 +568,7 @@ MINIMUM WORD COUNT: {req.target_words} words (CRITICAL - must reach this)
    - "What Is {keyword.title()} and Why Does It Matter?"
    - "Signs You Need {keyword.title()}"
    - "The {keyword.title()} Process Explained"
-   - "Cost of {keyword.title()} in {req.city or 'Your Area'}"
+   - "Cost of {keyword.title()}"
    - "DIY vs Professional {keyword.title()}"
    - "Why Choose {req.company_name}"
 
@@ -555,24 +581,26 @@ MINIMUM WORD COUNT: {req.target_words} words (CRITICAL - must reach this)
 
 ===== SEO REQUIREMENTS =====
 ✓ Keyword "{keyword}" appears 5-8 times naturally
-✓ Location mentioned 3-5 times
+✓ Location mentioned 3-5 times {"(already in keyword)" if keyword_has_city else ""}
 ✓ Keyword in first 100 words
-✓ Meta title: 55-60 chars, keyword first
+✓ Meta title: 55-60 chars, keyword first{"" if keyword_has_city else ", include location"}
 ✓ Meta description: 150-160 chars with keyword + CTA
 
 ===== OUTPUT FORMAT =====
 Return ONLY valid JSON:
 
 {{
-    "h1": "Main heading with {keyword} and {req.city or 'location'}",
-    "meta_title": "{keyword.title()} in {req.city or 'City'} | {req.company_name}",
-    "meta_description": "Professional {keyword} in {req.city or 'your area'}. {req.company_name} provides expert service. Call {req.phone} for a free estimate.",
+    "h1": "{keyword.title()}{'' if keyword_has_city else f' in {req.city or "Your Area"}'}: Complete Guide",
+    "meta_title": "{keyword.title()}{'' if keyword_has_city else f' in {req.city or "City"}'} | {req.company_name}",
+    "meta_description": "Professional {keyword}. {req.company_name} provides expert service. Call {req.phone} for a free estimate.",
     "body": "<p>Introduction paragraph...</p><h2>Section 1</h2><p>Content...</p><h2>Section 2</h2><p>Content...</p>...",
     "faq_items": [
         {faq_items_template}
     ],
     "cta": {{"company_name": "{req.company_name}", "phone": "{req.phone}", "email": "{req.email}"}}
 }}
+
+{"CRITICAL: The keyword already contains the city name. Do NOT add the city again in titles!" if keyword_has_city else ""}
 
 FAQ REQUIREMENTS (CRITICAL):
 - Generate EXACTLY {faq_count} FAQ items in faq_items array
@@ -588,6 +616,7 @@ IMPORTANT:
 - Use proper HTML: <p>, <h2>, <h3>, <ul>, <li>
 - Do NOT include FAQ section in body - put FAQs only in faq_items array
 - Generate EXACTLY {faq_count} FAQs
+{"- Do NOT duplicate city name in h1 or meta_title - it's already in the keyword!" if keyword_has_city else ""}
 - Return ONLY JSON, no markdown blocks
 
 OUTPUT JSON:"""
