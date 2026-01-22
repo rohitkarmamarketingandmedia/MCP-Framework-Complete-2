@@ -518,6 +518,7 @@ OUTPUT: Return ONLY valid JSON. No markdown code blocks."""
 
         # Build user prompt - using simpler, proven format from v5_5_175
         from datetime import datetime
+        import random
         current_year = datetime.utcnow().year
         
         # Build internal links section
@@ -528,15 +529,28 @@ OUTPUT: Return ONLY valid JSON. No markdown code blocks."""
         # Check if keyword already contains city name
         keyword_has_city = req.city and req.city.lower() in keyword.lower()
         
+        # RANDOMIZED title modifiers for unique titles each time
+        title_prefixes = ["Expert", "Professional", "Quality", "Top", "Best", "Trusted", "Reliable", "Affordable", "Premier", "Leading", "Local", "#1"]
+        title_suffixes = ["Services", "Solutions", "Experts", "Pros", "Specialists", "Guide", "Tips", "Help"]
+        title_formats = [
+            f"{random.choice(title_prefixes)} {{keyword}} | {{company}}",
+            f"{{keyword}} {random.choice(title_suffixes)} | {{company}}",
+            f"{{keyword}}: {random.choice(['Complete Guide', 'Expert Tips', 'What to Know', 'Full Guide'])} | {{company}}",
+            f"{random.choice(title_prefixes)} {{keyword}} {random.choice(title_suffixes)} | {{company}}",
+            f"{{keyword}} ({current_year}) | {{company}}",
+            f"{{keyword}} - {random.choice(['Your Guide', 'Expert Help', 'Top Choice'])} | {{company}}",
+        ]
+        chosen_format = random.choice(title_formats)
+        
         # Build title examples based on whether keyword has city
         if keyword_has_city:
             h1_example = f'"{keyword.title()}: Complete Guide"'
             h1_instruction = f'Include "{keyword}" (city already in keyword, do NOT add "{req.city}" again)'
-            meta_title_example = f'"{keyword.title()} | {req.company_name}"'
+            meta_title_example = chosen_format.replace("{keyword}", keyword.title()).replace("{company}", req.company_name)
         else:
             h1_example = f'"{keyword.title()} in {req.city or "Your Area"}: Complete Guide"'
             h1_instruction = f'Include "{keyword}" and location'
-            meta_title_example = f'"{keyword.title()} in {req.city or "City"} | {req.company_name}"'
+            meta_title_example = chosen_format.replace("{keyword}", f"{keyword.title()} in {req.city or 'City'}").replace("{company}", req.company_name)
         
         return f"""You are an expert SEO content writer for {req.industry or 'local service'} businesses.
 
@@ -583,7 +597,7 @@ IMPORTANT: The keyword {"ALREADY CONTAINS the city name - do NOT duplicate it in
 ✓ Keyword "{keyword}" appears 5-8 times naturally
 ✓ Location mentioned 3-5 times {"(already in keyword)" if keyword_has_city else ""}
 ✓ Keyword in first 100 words
-✓ Meta title: 55-60 chars, keyword first{"" if keyword_has_city else ", include location"}
+✓ Meta title: 50-60 chars, use format like: {meta_title_example}
 ✓ Meta description: 150-160 chars with keyword + CTA
 
 ===== OUTPUT FORMAT =====
@@ -591,7 +605,7 @@ Return ONLY valid JSON:
 
 {{
     "h1": "{keyword.title()}{'' if keyword_has_city else f' in {req.city or "Your Area"}'}: Complete Guide",
-    "meta_title": "{keyword.title()}{'' if keyword_has_city else f' in {req.city or "City"}'} | {req.company_name}",
+    "meta_title": "{meta_title_example}",
     "meta_description": "Professional {keyword}. {req.company_name} provides expert service. Call {req.phone} for a free estimate.",
     "body": "<p>Introduction paragraph...</p><h2>Section 1</h2><p>Content...</p><h2>Section 2</h2><p>Content...</p>...",
     "faq_items": [
@@ -601,6 +615,11 @@ Return ONLY valid JSON:
 }}
 
 {"CRITICAL: The keyword already contains the city name. Do NOT add the city again in titles!" if keyword_has_city else ""}
+
+META TITLE REQUIREMENT:
+- Use this EXACT format for meta_title: {meta_title_example}
+- Must be 50-60 characters
+- Do NOT change the format - use exactly as shown above
 
 FAQ REQUIREMENTS (CRITICAL):
 - Generate EXACTLY {faq_count} FAQ items in faq_items array
@@ -1002,120 +1021,87 @@ OUTPUT JSON:"""
     
     def _fix_meta_title(self, meta_title: str, keyword: str, company_name: str, city: str = None) -> str:
         """
-        Fix meta title to follow SEO best practices:
-        - Format: "Keyword Phrase | Brand Name" or "Keyword Phrase in City | Brand"
+        Generate a unique meta title each time:
+        - Format: "Modifier Keyword Phrase | Brand Name"
         - Length: 50-60 characters (Google typically shows 50-60)
         - Title Case capitalization
-        - RANDOMIZED modifiers to ensure unique titles for same keyword
+        - ALWAYS uses random modifiers to ensure unique titles
         """
         import random
         
         # Convert keyword to title case
         kw_title = self._title_case(keyword)
         
-        # Target length: 50-60 characters (sweet spot for Google)
+        # Target length: 50-60 characters
         target_min = 50
         target_max = 60
         
         # Check if keyword already contains city
         keyword_has_city = city and city.lower() in keyword.lower()
         
-        # Build base title: "Keyword | Company"
-        base = f"{kw_title} | {company_name}"
-        current_len = len(base)
+        # ALWAYS generate a new title with random modifiers
+        prefixes = ["Expert", "Professional", "Quality", "Top", "Best", "Trusted", "Reliable", "Affordable", "Premier", "Leading", "Local", "#1", "Certified", "Licensed"]
+        suffixes = ["Services", "Solutions", "Experts", "Pros", "Specialists", "Team", "Company", "Providers", "Help"]
         
-        logger.info(f"Meta title optimization: base='{base}' ({current_len} chars), target={target_min}-{target_max}")
-        
-        # If already in range, still add variation to avoid duplicates
-        # Randomly choose a modifier pattern
-        
-        # Define all possible modifiers (randomized selection)
-        prefixes = ["Expert", "Professional", "Quality", "Top", "Best", "Local", "Trusted", "Reliable", "Affordable", "Premier", "Leading"]
-        suffixes = ["Services", "Solutions", "Experts", "Pros", "Specialists", "Company", "Team", "Providers"]
+        # Shuffle for randomness
         random.shuffle(prefixes)
         random.shuffle(suffixes)
         
-        # If too short, add modifiers to reach target
-        if current_len < target_min:
-            chars_needed = target_min - current_len
-            
-            # Strategy 1: Add city if not in keyword and city is available (50% chance)
-            if city and not keyword_has_city and random.random() > 0.5:
-                with_city = f"{kw_title} in {city} | {company_name}"
-                if target_min <= len(with_city) <= target_max:
-                    return with_city
-            
-            # Strategy 2: Add random suffix
-            for word in suffixes:
-                enhanced = f"{kw_title} {word} | {company_name}"
-                if target_min <= len(enhanced) <= target_max:
-                    return enhanced
-            
-            # Strategy 3: Add random prefix
-            for prefix in prefixes:
-                enhanced = f"{prefix} {kw_title} | {company_name}"
-                if target_min <= len(enhanced) <= target_max:
-                    return enhanced
-            
-            # Strategy 4: Add year for freshness (randomized)
-            from datetime import datetime
-            year = datetime.now().year
-            year_formats = [f"{year}", f"({year})", f"- {year}"]
-            for yf in year_formats:
-                with_year = f"{kw_title} {yf} | {company_name}"
-                if target_min <= len(with_year) <= target_max:
-                    return with_year
-            
-            # Strategy 5: Combine random prefix + suffix
+        from datetime import datetime
+        year = datetime.now().year
+        
+        # Build list of possible title formats
+        possible_titles = []
+        
+        # Format 1: Prefix + Keyword | Company
+        for prefix in prefixes[:5]:
+            title = f"{prefix} {kw_title} | {company_name}"
+            if target_min <= len(title) <= target_max:
+                possible_titles.append(title)
+        
+        # Format 2: Keyword + Suffix | Company
+        for suffix in suffixes[:5]:
+            title = f"{kw_title} {suffix} | {company_name}"
+            if target_min <= len(title) <= target_max:
+                possible_titles.append(title)
+        
+        # Format 3: Keyword (Year) | Company
+        title = f"{kw_title} ({year}) | {company_name}"
+        if target_min <= len(title) <= target_max:
+            possible_titles.append(title)
+        
+        # Format 4: Keyword - Modifier | Company
+        for mod in ["Your Guide", "Expert Tips", "Top Choice", "Best Option"]:
+            title = f"{kw_title} - {mod} | {company_name}"
+            if target_min <= len(title) <= target_max:
+                possible_titles.append(title)
+        
+        # Format 5: Prefix + Keyword + Suffix | Company (for short keywords)
+        for prefix in prefixes[:3]:
+            for suffix in suffixes[:3]:
+                title = f"{prefix} {kw_title} {suffix} | {company_name}"
+                if target_min <= len(title) <= target_max:
+                    possible_titles.append(title)
+        
+        # Format 6: Add city if not in keyword
+        if city and not keyword_has_city:
+            title = f"{kw_title} in {city} | {company_name}"
+            if target_min <= len(title) <= target_max:
+                possible_titles.append(title)
             for prefix in prefixes[:3]:
-                for suffix in suffixes[:3]:
-                    enhanced = f"{prefix} {kw_title} {suffix} | {company_name}"
-                    if target_min <= len(enhanced) <= target_max:
-                        return enhanced
-            
-            # Strategy 6: Add descriptive phrases
-            phrases = ["Complete Guide", "Your Guide", "Full Guide", "Everything You Need", "What to Know"]
-            random.shuffle(phrases)
-            for phrase in phrases:
-                enhanced = f"{kw_title}: {phrase} | {company_name}"
-                if target_min <= len(enhanced) <= target_max:
-                    return enhanced
-                
-            # Last resort: return what we have
-            return base
+                title = f"{prefix} {kw_title} {city} | {company_name}"
+                if target_min <= len(title) <= target_max:
+                    possible_titles.append(title)
         
-        # If in range but we want variation, add a random modifier
-        if target_min <= current_len <= target_max:
-            # 70% chance to add variation even if length is OK
-            if random.random() < 0.7:
-                # Try adding prefix
-                for prefix in prefixes[:5]:
-                    enhanced = f"{prefix} {kw_title} | {company_name}"
-                    if target_min <= len(enhanced) <= target_max:
-                        return enhanced
-                # Try adding suffix
-                for suffix in suffixes[:5]:
-                    enhanced = f"{kw_title} {suffix} | {company_name}"
-                    if target_min <= len(enhanced) <= target_max:
-                        return enhanced
-            return base
+        # Pick a random title from valid options
+        if possible_titles:
+            chosen = random.choice(possible_titles)
+            logger.info(f"Generated unique meta_title: '{chosen}' ({len(chosen)} chars) from {len(possible_titles)} options")
+            return chosen
         
-        # If too long, truncate intelligently
-        if current_len > target_max:
-            # Strategy 1: Shorten company name
-            short_company = company_name.split()[0] if company_name else ""
-            shorter = f"{kw_title} | {short_company}"
-            if target_min <= len(shorter) <= target_max:
-                return shorter
-            
-            # Strategy 2: Truncate company name to fit
-            available = target_max - len(kw_title) - 3  # 3 for " | "
-            if available >= 5:
-                return f"{kw_title} | {company_name[:available].strip()}"
-            
-            # Strategy 3: Truncate everything to max
-            return base[:target_max-3].strip() + "..."
-        
+        # Fallback: just use base title
+        base = f"{kw_title} | {company_name}"
+        logger.info(f"Using base meta_title: '{base}' ({len(base)} chars)")
         return base
 
     def _ensure_word_count(self, result: Dict[str, Any], req: BlogRequest) -> Dict[str, Any]:
