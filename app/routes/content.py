@@ -1478,29 +1478,89 @@ def publish_to_wordpress(current_user, content_id):
             except (json.JSONDecodeError, TypeError):
                 pass  # Skip FAQ if parsing fails
         
-        # Append Schema JSON-LD if present
+        # Prepare Schema JSON-LD for both inline and plugin
+        schema_json = None
         if content.schema_markup:
             try:
                 schema = json.loads(content.schema_markup) if isinstance(content.schema_markup, str) else content.schema_markup
                 if schema:
-                    schema_html = f'\n\n<script type="application/ld+json">\n{json.dumps(schema, indent=2)}\n</script>'
+                    # Store clean JSON for plugin
+                    schema_json = json.dumps(schema, indent=2)
+                    # Also add inline to content
+                    schema_html = f'\n\n<script type="application/ld+json">\n{schema_json}\n</script>'
                     full_content += schema_html
+                    logger.info(f"Schema prepared: {len(schema_json)} chars")
             except (json.JSONDecodeError, TypeError):
                 pass  # Skip schema if parsing fails
         
-        # Build tags from secondary keywords
+        # Build tags - ensure at least 5 tags with city name
         tags = []
+        city = client.city or client.geo.split(',')[0] if client.geo else ''
+        
+        # Start with primary keyword
+        if content.primary_keyword:
+            tags.append(content.primary_keyword)
+        
+        # Add city-based tags
+        if city:
+            tags.append(city)
+            if content.primary_keyword:
+                # Extract service from keyword (e.g., "teeth whitening in Tampa" -> "teeth whitening")
+                service = content.primary_keyword.lower()
+                for loc_word in [' in ', ' near ', ' for ', city.lower()]:
+                    service = service.split(loc_word)[0].strip()
+                if service:
+                    tags.append(f"{service} {city}")
+                    tags.append(f"{city} {service}")
+        
+        # Add secondary keywords
         if content.secondary_keywords:
             try:
                 keywords = json.loads(content.secondary_keywords) if isinstance(content.secondary_keywords, str) else content.secondary_keywords
                 if keywords:
-                    tags = keywords[:10]  # Limit to 10 tags
+                    for kw in keywords[:8]:
+                        if kw and kw not in tags:
+                            tags.append(kw)
             except (json.JSONDecodeError, TypeError):
                 pass
         
-        # Add primary keyword as first tag
-        if content.primary_keyword:
-            tags = [content.primary_keyword] + [t for t in tags if t.lower() != content.primary_keyword.lower()]
+        # Add industry-based tags
+        industry = client.industry.lower() if client.industry else ''
+        if 'dent' in industry:
+            extra_tags = [f'dentist {city}', f'{city} dental', 'dental care', 'oral health']
+        elif 'hvac' in industry or 'air' in industry:
+            extra_tags = [f'HVAC {city}', f'{city} AC repair', 'air conditioning', 'heating']
+        elif 'plumb' in industry:
+            extra_tags = [f'plumber {city}', f'{city} plumbing', 'plumbing services', 'drain cleaning']
+        elif 'roof' in industry:
+            extra_tags = [f'roofer {city}', f'{city} roofing', 'roof repair', 'roofing contractor']
+        elif 'law' in industry or 'legal' in industry:
+            extra_tags = [f'lawyer {city}', f'{city} attorney', 'legal services', 'law firm']
+        else:
+            extra_tags = [f'{city} services', 'local business', 'professional services']
+        
+        for tag in extra_tags:
+            if tag and tag not in tags and len(tags) < 10:
+                tags.append(tag)
+        
+        # Ensure minimum 5 tags
+        if len(tags) < 5:
+            generic_tags = [city, f'local {city}', client.company_name or '', 'professional', 'services']
+            for tag in generic_tags:
+                if tag and tag not in tags and len(tags) < 5:
+                    tags.append(tag)
+        
+        # Remove duplicates while preserving order
+        seen = set()
+        unique_tags = []
+        for tag in tags:
+            tag_lower = tag.lower().strip()
+            if tag_lower and tag_lower not in seen:
+                seen.add(tag_lower)
+                unique_tags.append(tag.strip())
+        tags = unique_tags[:10]  # Limit to 10
+        
+        logger.info(f"WordPress tags ({len(tags)}): {tags}")
         
         # Check if updating existing post
         if content.wordpress_post_id:
@@ -1509,28 +1569,39 @@ def publish_to_wordpress(current_user, content_id):
                 title=content.title,
                 content=full_content,
                 status=wp_status,
-                excerpt=content.meta_description
+                excerpt=content.meta_description,
+                tags=wp._resolve_tags(tags) if tags else None  # Also update tags
             )
-            # Also update Yoast SEO meta on existing post
+            # Also update SEO meta, featured image, and schema on existing post
             if result.get('success'):
-                # Set SEO meta
+                post_id = content.wordpress_post_id
+                
+                # Set SEO meta (Yoast, RankMath, AIOSEO)
                 if content.meta_title or content.meta_description or content.primary_keyword:
+                    logger.info(f"Setting SEO meta on update - title: {content.meta_title}, desc: {content.meta_description[:50] if content.meta_description else 'None'}...")
                     wp._set_seo_meta(
-                        content.wordpress_post_id,
+                        post_id,
                         meta_title=content.meta_title,
                         meta_description=content.meta_description,
                         focus_keyword=content.primary_keyword
                     )
+                
                 # Set featured image if available
                 if content.featured_image_url:
                     logger.info(f"Setting featured image on update: {content.featured_image_url}")
-                    img_result = wp._set_featured_image(content.wordpress_post_id, content.featured_image_url)
+                    img_result = wp._set_featured_image(post_id, content.featured_image_url)
                     if not img_result.get('success'):
                         logger.warning(f"Failed to set featured image on update: {img_result.get('error')}")
+                
+                # Set schema for Schema & Structured Data plugin
+                if schema_json:
+                    logger.info(f"Setting schema on update: {len(schema_json)} chars")
+                    wp._set_schema(post_id, schema_json)
         else:
             # Create new post
             logger.info(f"Creating new WP post with featured_image_url: {content.featured_image_url}")
             logger.info(f"SEO meta - title: {content.meta_title}, desc: {content.meta_description[:50] if content.meta_description else 'None'}...")
+            logger.info(f"Tags ({len(tags)}): {tags[:5]}...")
             result = wp.create_post(
                 title=content.title,
                 content=full_content,
@@ -1544,6 +1615,12 @@ def publish_to_wordpress(current_user, content_id):
                 tags=tags if tags else None,
                 date=content.scheduled_for if wp_status == 'future' else None
             )
+            
+            # Set schema after post creation
+            if result.get('success') and schema_json:
+                post_id = result.get('post_id')
+                logger.info(f"Setting schema for new post {post_id}: {len(schema_json)} chars")
+                wp._set_schema(post_id, schema_json)
         
         if result.get('success'):
             # Update blog with WordPress post ID

@@ -521,7 +521,7 @@ class WordPressService:
     
     def _set_seo_meta(self, post_id: int, meta_title: str = None, meta_description: str = None, focus_keyword: str = None) -> Dict[str, Any]:
         """
-        Set SEO meta fields for Yoast SEO or RankMath
+        Set SEO meta fields for Yoast SEO, RankMath, and All in One SEO
         
         Yoast SEO meta keys:
             _yoast_wpseo_title - SEO Title
@@ -532,59 +532,111 @@ class WordPressService:
             rank_math_title - SEO Title
             rank_math_description - Meta Description
             rank_math_focus_keyword - Focus Keyword
+            
+        All in One SEO meta keys:
+            _aioseo_title - SEO Title
+            _aioseo_description - Meta Description
         """
-        result = {'success': False, 'yoast': False, 'rankmath': False}
+        result = {'success': False, 'yoast': False, 'rankmath': False, 'aioseo': False}
         
         try:
-            meta_fields = {}
+            # Combine all meta fields in one request for efficiency
+            all_meta_fields = {}
             
             # Yoast SEO fields
             if meta_title:
-                meta_fields['_yoast_wpseo_title'] = meta_title
+                all_meta_fields['_yoast_wpseo_title'] = meta_title
             if meta_description:
-                meta_fields['_yoast_wpseo_metadesc'] = meta_description
+                all_meta_fields['_yoast_wpseo_metadesc'] = meta_description
             if focus_keyword:
-                meta_fields['_yoast_wpseo_focuskw'] = focus_keyword
+                all_meta_fields['_yoast_wpseo_focuskw'] = focus_keyword
             
-            if meta_fields:
+            # RankMath fields
+            if meta_title:
+                all_meta_fields['rank_math_title'] = meta_title
+            if meta_description:
+                all_meta_fields['rank_math_description'] = meta_description
+            if focus_keyword:
+                all_meta_fields['rank_math_focus_keyword'] = focus_keyword
+            
+            # All in One SEO fields
+            if meta_title:
+                all_meta_fields['_aioseo_title'] = meta_title
+            if meta_description:
+                all_meta_fields['_aioseo_description'] = meta_description
+            
+            if all_meta_fields:
+                logger.info(f"Setting SEO meta for post {post_id}: {list(all_meta_fields.keys())}")
                 response = requests.post(
                     f"{self.api_url}/posts/{post_id}",
                     headers=self.headers,
-                    json={'meta': meta_fields},
-                    timeout=10
+                    json={'meta': all_meta_fields},
+                    timeout=15
                 )
                 if response.status_code == 200:
                     result['yoast'] = True
+                    result['rankmath'] = True
+                    result['aioseo'] = True
                     result['success'] = True
-                    logger.info(f"Yoast SEO meta set for post {post_id}: title={bool(meta_title)}, desc={bool(meta_description)}, kw={bool(focus_keyword)}")
-            
-            # Also try RankMath format (in case they switch plugins)
-            rankmath_fields = {}
-            if meta_title:
-                rankmath_fields['rank_math_title'] = meta_title
-            if meta_description:
-                rankmath_fields['rank_math_description'] = meta_description
-            if focus_keyword:
-                rankmath_fields['rank_math_focus_keyword'] = focus_keyword
-            
-            if rankmath_fields:
-                try:
-                    response = requests.post(
-                        f"{self.api_url}/posts/{post_id}",
-                        headers=self.headers,
-                        json={'meta': rankmath_fields},
-                        timeout=10
-                    )
-                    if response.status_code == 200:
-                        result['rankmath'] = True
-                        result['success'] = True
-                except Exception:
-                    pass  # RankMath not installed, ignore
+                    logger.info(f"SEO meta set for post {post_id}: title={bool(meta_title)}, desc={bool(meta_description)}, kw={bool(focus_keyword)}")
+                else:
+                    logger.warning(f"SEO meta response: {response.status_code} - {response.text[:200]}")
             
             return result
             
         except Exception as e:
             logger.warning(f"Failed to set SEO meta for post {post_id}: {e}")
+            return {'success': False, 'error': str(e)}
+    
+    def _set_schema(self, post_id: int, schema_json: str) -> Dict[str, Any]:
+        """
+        Set schema for 'Schema & Structured Data for WP & AMP' plugin
+        
+        The plugin uses the meta key: 'saswp_custom_schema_field'
+        """
+        result = {'success': False}
+        
+        try:
+            if not schema_json:
+                return {'success': False, 'error': 'No schema provided'}
+            
+            # Clean the schema - remove script tags if present
+            schema_clean = schema_json
+            if '<script' in schema_clean.lower():
+                # Extract just the JSON part
+                import re
+                match = re.search(r'<script[^>]*>(.*?)</script>', schema_clean, re.DOTALL | re.IGNORECASE)
+                if match:
+                    schema_clean = match.group(1).strip()
+            
+            # Schema & Structured Data for WP & AMP plugin uses this meta key
+            meta_fields = {
+                'saswp_custom_schema_field': schema_clean,
+                # Also try alternate field names the plugin might use
+                '_schema_json': schema_clean,
+                'schema_json_ld': schema_clean,
+            }
+            
+            logger.info(f"Setting schema for post {post_id}: {len(schema_clean)} chars")
+            
+            response = requests.post(
+                f"{self.api_url}/posts/{post_id}",
+                headers=self.headers,
+                json={'meta': meta_fields},
+                timeout=15
+            )
+            
+            if response.status_code == 200:
+                result['success'] = True
+                logger.info(f"Schema set for post {post_id}")
+            else:
+                logger.warning(f"Schema response: {response.status_code} - {response.text[:200]}")
+                result['error'] = f"HTTP {response.status_code}"
+            
+            return result
+            
+        except Exception as e:
+            logger.warning(f"Failed to set schema for post {post_id}: {e}")
             return {'success': False, 'error': str(e)}
     
     def get_categories(self) -> list:
