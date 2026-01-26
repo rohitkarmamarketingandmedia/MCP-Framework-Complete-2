@@ -1025,7 +1025,7 @@ OUTPUT JSON:"""
         - Format: "Modifier Keyword Phrase | Brand Name"
         - Length: 50-60 characters (Google typically shows 50-60)
         - Title Case capitalization
-        - ALWAYS uses random modifiers to ensure unique titles
+        - ALWAYS ensures proper length by combining modifiers
         """
         import random
         
@@ -1039,7 +1039,7 @@ OUTPUT JSON:"""
         # Check if keyword already contains city
         keyword_has_city = city and city.lower() in keyword.lower()
         
-        # ALWAYS generate a new title with random modifiers
+        # Modifiers to use
         prefixes = ["Expert", "Professional", "Quality", "Top", "Best", "Trusted", "Reliable", "Affordable", "Premier", "Leading", "Local", "#1", "Certified", "Licensed"]
         suffixes = ["Services", "Solutions", "Experts", "Pros", "Specialists", "Team", "Company", "Providers", "Help"]
         
@@ -1071,14 +1071,14 @@ OUTPUT JSON:"""
             possible_titles.append(title)
         
         # Format 4: Keyword - Modifier | Company
-        for mod in ["Your Guide", "Expert Tips", "Top Choice", "Best Option"]:
+        for mod in ["Your Guide", "Expert Tips", "Top Choice", "Best Option", "Complete Guide"]:
             title = f"{kw_title} - {mod} | {company_name}"
             if target_min <= len(title) <= target_max:
                 possible_titles.append(title)
         
         # Format 5: Prefix + Keyword + Suffix | Company (for short keywords)
-        for prefix in prefixes[:3]:
-            for suffix in suffixes[:3]:
+        for prefix in prefixes[:5]:
+            for suffix in suffixes[:5]:
                 title = f"{prefix} {kw_title} {suffix} | {company_name}"
                 if target_min <= len(title) <= target_max:
                     possible_titles.append(title)
@@ -1089,7 +1089,23 @@ OUTPUT JSON:"""
             if target_min <= len(title) <= target_max:
                 possible_titles.append(title)
             for prefix in prefixes[:3]:
-                title = f"{prefix} {kw_title} {city} | {company_name}"
+                title = f"{prefix} {kw_title} in {city} | {company_name}"
+                if target_min <= len(title) <= target_max:
+                    possible_titles.append(title)
+        
+        # Format 7: Multiple modifiers for very short keywords
+        for prefix in prefixes[:4]:
+            for suffix in suffixes[:4]:
+                # Try with city
+                if city and not keyword_has_city:
+                    title = f"{prefix} {kw_title} {suffix} in {city} | {company_name}"
+                    if target_min <= len(title) <= target_max:
+                        possible_titles.append(title)
+                    title = f"{prefix} {kw_title} in {city} | {company_name}"
+                    if target_min <= len(title) <= target_max:
+                        possible_titles.append(title)
+                # Try with year
+                title = f"{prefix} {kw_title} {suffix} ({year}) | {company_name}"
                 if target_min <= len(title) <= target_max:
                     possible_titles.append(title)
         
@@ -1099,10 +1115,122 @@ OUTPUT JSON:"""
             logger.info(f"Generated unique meta_title: '{chosen}' ({len(chosen)} chars) from {len(possible_titles)} options")
             return chosen
         
-        # Fallback: just use base title
+        # FALLBACK: Build title to exact length needed
+        logger.info(f"No perfect title found, building custom title")
         base = f"{kw_title} | {company_name}"
-        logger.info(f"Using base meta_title: '{base}' ({len(base)} chars)")
+        
+        # If too short, keep adding modifiers
+        if len(base) < target_min:
+            # Add prefix
+            for prefix in prefixes:
+                test = f"{prefix} {kw_title} | {company_name}"
+                if target_min <= len(test) <= target_max:
+                    return test
+                if len(test) < target_min:
+                    # Still too short, add suffix too
+                    for suffix in suffixes:
+                        test2 = f"{prefix} {kw_title} {suffix} | {company_name}"
+                        if target_min <= len(test2) <= target_max:
+                            return test2
+                        if len(test2) < target_min and city and not keyword_has_city:
+                            # Still too short, add city
+                            test3 = f"{prefix} {kw_title} {suffix} in {city} | {company_name}"
+                            if target_min <= len(test3) <= target_max:
+                                return test3
+            
+            # Last resort: pad with descriptive text
+            extras = ["- Your Trusted Choice", "- Quality Guaranteed", "- Professional Results", "- Call Today"]
+            for extra in extras:
+                test = f"{kw_title} {extra} | {company_name}"
+                if target_min <= len(test) <= target_max:
+                    return test
+        
+        # If too long, truncate
+        if len(base) > target_max:
+            # Try without company name
+            if len(kw_title) <= target_max - 3:
+                return kw_title[:target_max]
+            return base[:target_max-3] + "..."
+        
         return base
+
+    def _fix_meta_description(self, meta_desc: str, keyword: str, company_name: str, phone: str = None, city: str = None) -> str:
+        """
+        Generate SEO-optimized meta description:
+        - Length: 150-160 characters (Google's sweet spot)
+        - Includes keyword naturally
+        - Has call-to-action
+        - Compelling and click-worthy
+        """
+        import random
+        
+        target_min = 150
+        target_max = 160
+        
+        # Clean keyword for use in description
+        kw_lower = keyword.lower().strip()
+        kw_title = self._title_case(keyword)
+        
+        # Check if keyword already has city
+        keyword_has_city = city and city.lower() in kw_lower
+        
+        # Phone CTA
+        phone_cta = f"Call {phone}" if phone else "Contact us"
+        
+        # If existing description is good length, use it
+        if meta_desc and target_min <= len(meta_desc) <= target_max:
+            return meta_desc
+        
+        # Generate description templates (varied for uniqueness)
+        templates = [
+            f"Looking for {kw_lower}? {company_name} offers professional service with quality results. {phone_cta} for a free estimate today!",
+            f"Need {kw_lower}? {company_name} provides expert solutions you can trust. Fast, reliable service. {phone_cta} now for a quote!",
+            f"{company_name} specializes in {kw_lower}. Get quality service from experienced professionals. {phone_cta} for your free consultation!",
+            f"Professional {kw_lower} by {company_name}. We deliver exceptional results every time. {phone_cta} today for a free estimate!",
+            f"Trust {company_name} for all your {kw_lower} needs. Expert service, competitive prices. {phone_cta} to schedule your appointment!",
+            f"Get the best {kw_lower} from {company_name}. Licensed professionals, guaranteed satisfaction. {phone_cta} for a free quote today!",
+            f"Searching for reliable {kw_lower}? {company_name} has you covered with expert service. {phone_cta} now to get started!",
+            f"{company_name}: Your trusted source for {kw_lower}. Quality work, fair prices, great service. {phone_cta} for a free estimate!",
+        ]
+        
+        # Add city-specific templates if city not in keyword
+        if city and not keyword_has_city:
+            templates.extend([
+                f"Need {kw_lower} in {city}? {company_name} delivers expert service to local customers. {phone_cta} for your free estimate!",
+                f"{city}'s trusted choice for {kw_lower}. {company_name} provides quality service you can count on. {phone_cta} today!",
+                f"Looking for {kw_lower} in {city}? {company_name} offers professional solutions. {phone_cta} now for a free consultation!",
+            ])
+        
+        # Shuffle for randomness
+        random.shuffle(templates)
+        
+        # Find a template that fits the length requirement
+        for template in templates:
+            if target_min <= len(template) <= target_max:
+                return template
+        
+        # If no perfect fit, find closest and adjust
+        best = templates[0]
+        for template in templates:
+            if len(template) <= target_max:
+                if len(template) > len(best) or len(best) > target_max:
+                    best = template
+        
+        # Truncate if too long
+        if len(best) > target_max:
+            best = best[:target_max-3].rsplit(' ', 1)[0] + "..."
+        
+        # Extend if too short
+        while len(best) < target_min:
+            additions = [" Professional service.", " Quality guaranteed.", " Reliable & trusted.", " Call today!"]
+            for add in additions:
+                if len(best) + len(add) <= target_max:
+                    best += add
+                    break
+            else:
+                break
+        
+        return best
 
     def _ensure_word_count(self, result: Dict[str, Any], req: BlogRequest) -> Dict[str, Any]:
         """Ensure minimum word count by requesting continuations"""
@@ -1176,15 +1304,11 @@ OUTPUT JSON:"""
         result["meta_title"] = meta_title
         logger.info(f"Final meta_title: '{meta_title}' ({len(meta_title)} chars)")
 
-        # Fix meta description - use keyword as-is, don't duplicate location
+        # Fix meta description - must be 150-160 chars for SEO
         meta_desc = result.get("meta_description", "")
-        if len(meta_desc) > 165:
-            result["meta_description"] = meta_desc[:157] + "..."
-        elif len(meta_desc) < 120:
-            # Use keyword which already contains location
-            result["meta_description"] = f"Looking for {kw.lower()}? {req.company_name} provides expert service. Call {req.phone or 'today'} for a free estimate."[:160]
-        else:
-            result["meta_description"] = meta_desc
+        meta_desc = self._fix_meta_description(meta_desc, kw, req.company_name, req.phone, req.city)
+        result["meta_description"] = meta_desc
+        logger.info(f"Final meta_description: '{meta_desc}' ({len(meta_desc)} chars)")
 
         # Add internal links if missing or insufficient
         internal = req.internal_links or []
