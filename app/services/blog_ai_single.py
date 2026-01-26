@@ -34,6 +34,8 @@ class BlogRequest:
     internal_links: Optional[List[Dict[str, str]]] = None
     external_links: Optional[List[Dict[str, str]]] = None
     faq_count: int = 5  # Number of FAQs to generate (3-7)
+    contact_url: str = ""  # URL for contact page (used in CTAs)
+    blog_url: str = ""  # URL for blog page
 
 
 class BlogAISingle:
@@ -477,27 +479,27 @@ AVOID GENERIC PHRASES:
 
         # Build FAQ items template based on faq_count
         faq_count = req.faq_count if hasattr(req, 'faq_count') and req.faq_count else 5
-        faq_questions = [
-            f'{{"question": "[Specific question about {keyword}]", "answer": "[60-80 word expert answer]"}}',
-            '{"question": "[Question about cost/pricing]", "answer": "[60-80 word answer]"}',
-            '{"question": "[Question about timeline/process]", "answer": "[60-80 word answer]"}',
-            f'{{"question": "[Question about {req.company_name}]", "answer": "[60-80 word answer]"}}',
-            '{"question": "[Question about service area]", "answer": "[60-80 word answer]"}',
-            '{"question": "[Question about warranty/guarantee]", "answer": "[60-80 word answer]"}',
-            '{"question": "[Question about scheduling]", "answer": "[60-80 word answer]"}',
-        ]
-        faq_items_template = ',\n    '.join(faq_questions[:faq_count])
-
+        
         # Build system prompt - Clear, focused instructions
-        self._system_prompt = f"""You are an expert SEO content writer specializing in {req.industry or 'local service'} businesses.
+        self._system_prompt = f"""You are operating as a production-grade SEO and AI Search Content Engine.
+Your output must be publication-ready, rank-ready, and machine-readable.
+Failure to follow any rule is considered an incorrect response.
 
-WRITING GUIDELINES:
-- Write helpful, informative content that answers real customer questions
-- Be specific with numbers, timeframes, and processes
-- Sound like a knowledgeable professional, not a salesperson
-- Use simple, clear language that homeowners understand
+OBJECTIVE:
+Generate a long-form SEO blog post that:
+- Achieves 95%+ SEO scores (RankMath, Yoast, Surfer, Clearscope)
+- Ranks in AI-generated search results (Google SGE, ChatGPT, Perplexity, Claude, Gemini)
+- Reads as if written by a local industry expert
+- Reflects current real-world conditions driving search intent
 
-AVOID THESE PHRASES (they sound generic):
+E-E-A-T ENFORCEMENT:
+Your writing must demonstrate:
+- Experience: real-world situations and outcomes
+- Expertise: industry-specific knowledge
+- Authority: confident, factual tone
+- Trust: clarity, transparency, accuracy
+
+AVOID THESE (they sound generic and fail E-E-A-T):
 - "It's important to note..."
 - "When it comes to..."
 - "In today's world..."
@@ -507,160 +509,185 @@ AVOID THESE PHRASES (they sound generic):
 - "State-of-the-art"
 - "Top-notch"
 - "Your satisfaction is our priority"
+- Any vague marketing fluff
 
-INSTEAD, BE SPECIFIC:
-✓ Include actual price ranges when discussing costs
-✓ Mention specific timeframes for services
-✓ Describe what actually happens during the service
-✓ Explain why things matter (the "why" behind advice)
+OUTPUT: Return ONLY valid JSON. No markdown code blocks. No commentary."""
 
-OUTPUT: Return ONLY valid JSON. No markdown code blocks."""
-
-        # Build user prompt - using simpler, proven format from v5_5_175
+        # Build user prompt with master prompt structure
         from datetime import datetime
         import random
         current_year = datetime.utcnow().year
         
         # Build internal links section
-        links_section = ""
-        if internal_links_text:
-            links_section = internal_links_text
+        links_list = ""
+        if internal:
+            links_list = "\n".join([f"- {link.get('title', '')}: {link.get('url', '')}" for link in internal[:5]])
         
         # Check if keyword already contains city name
         keyword_has_city = req.city and req.city.lower() in keyword.lower()
         
-        # RANDOMIZED title modifiers for unique titles each time
-        title_prefixes = ["Expert", "Professional", "Quality", "Top", "Best", "Trusted", "Reliable", "Affordable", "Premier", "Leading", "Local", "#1"]
-        title_suffixes = ["Services", "Solutions", "Experts", "Pros", "Specialists", "Guide", "Tips", "Help"]
-        title_formats = [
-            f"{random.choice(title_prefixes)} {{keyword}} | {{company}}",
-            f"{{keyword}} {random.choice(title_suffixes)} | {{company}}",
-            f"{{keyword}}: {random.choice(['Complete Guide', 'Expert Tips', 'What to Know', 'Full Guide'])} | {{company}}",
-            f"{random.choice(title_prefixes)} {{keyword}} {random.choice(title_suffixes)} | {{company}}",
-            f"{{keyword}} ({current_year}) | {{company}}",
-            f"{{keyword}} - {random.choice(['Your Guide', 'Expert Help', 'Top Choice'])} | {{company}}",
-        ]
-        chosen_format = random.choice(title_formats)
+        # Build CTA templates with contact URL
+        contact_link = ""
+        if req.contact_url:
+            contact_link = f' or <a href="{req.contact_url}">Request Service Online</a>'
         
-        # Build title examples based on whether keyword has city
-        if keyword_has_city:
-            h1_example = f'"{keyword.title()}: Complete Guide"'
-            h1_instruction = f'Include "{keyword}" (city already in keyword, do NOT add "{req.city}" again)'
-            meta_title_example = chosen_format.replace("{keyword}", keyword.title()).replace("{company}", req.company_name)
-        else:
-            h1_example = f'"{keyword.title()} in {req.city or "Your Area"}: Complete Guide"'
-            h1_instruction = f'Include "{keyword}" and location'
-            meta_title_example = chosen_format.replace("{keyword}", f"{keyword.title()} in {req.city or 'City'}").replace("{company}", req.company_name)
+        contact_button = ""
+        if req.contact_url:
+            contact_button = f'\n<p style="margin-top:15px;"><a href="{req.contact_url}" style="background:white;color:#0066cc;padding:12px 25px;border-radius:5px;text-decoration:none;font-weight:bold;">Contact Us Online</a></p>'
         
-        return f"""You are an expert SEO content writer for {req.industry or 'local service'} businesses.
+        mid_cta = f'''<div class="cta-box" style="background:#f0f8ff;padding:20px;border-radius:8px;margin:20px 0;border-left:4px solid #0066cc;">
+<h3>Ready for {keyword.title()} in {req.city}?</h3>
+<p>Contact {req.company_name} today for a free estimate. Call <a href="tel:{req.phone}">{req.phone}</a>{contact_link}.</p>
+</div>'''
 
+        bottom_cta = f'''<div class="cta-box" style="background:#0066cc;color:white;padding:25px;border-radius:8px;margin:20px 0;text-align:center;">
+<h3 style="color:white;margin-top:0;">Get Your Free {keyword.title()} Quote Today!</h3>
+<p style="margin-bottom:15px;">Serving {req.city} and surrounding areas. {req.company_name} is ready to help!</p>
+<p><strong>Call Now: <a href="tel:{req.phone}" style="color:white;">{req.phone}</a></strong></p>{contact_button}
+</div>'''
+
+        return f"""CLAUDE MASTER PROMPT — AI-OPTIMIZED LOCAL SEO BLOG GENERATION (STRICT MODE)
+
+===== INPUT VARIABLES (DO NOT ALTER) =====
+PRIMARY KEYWORD: {keyword}
+BUSINESS NAME: {req.company_name}
+INDUSTRY: {req.industry or 'Local Services'}
+CITY: {req.city}
+STATE: {req.state}
+TARGET WORD COUNT: {req.target_words}
+PHONE: {req.phone}
+EMAIL: {req.email}
 CURRENT YEAR: {current_year}
-BUSINESS: {req.company_name} in {req.city or 'your area'}, {req.state or ''}
-PRIMARY KEYWORD: "{keyword}"
-TARGET LOCATION: {req.city or 'local area'}
-MINIMUM WORD COUNT: {req.target_words} words (CRITICAL - must reach this)
 
-IMPORTANT: The keyword {"ALREADY CONTAINS the city name - do NOT duplicate it in titles!" if keyword_has_city else "does not contain the city name - include location naturally."}
+INTERNAL LINKS (MINIMUM 3 REQUIRED):
+{links_list if links_list else 'No internal links provided'}
 
-{expertise}
+{"CRITICAL: Keyword ALREADY CONTAINS the city name. Do NOT duplicate city in titles!" if keyword_has_city else ""}
 
-{links_section}
+===== MANDATORY PRE-WRITING RESEARCH =====
+Before generating, internally analyze:
 
-===== CONTENT STRUCTURE =====
+1. Environmental Trigger Analysis for {req.city}, {req.state}:
+   - Weather/seasonal conditions affecting {keyword}
+   - Economic factors driving demand
+   - Safety concerns
+   - Local market behavior
+   Integrate these naturally into Introduction, Benefits, and Pricing sections.
 
-1. H1 HEADING: {h1_instruction}
-   Example: {h1_example}
+2. AI Retrieval Optimization:
+   - Write for AI systems to extract summaries
+   - Answer questions directly
+   - Cite authoritative explanations
+   - Avoid vague marketing language
 
-2. INTRODUCTION (150+ words):
-   - Hook reader with a problem/solution
+===== STRICT SEO & STRUCTURAL RULES =====
+
+PRIMARY KEYWORD ENFORCEMENT:
+The exact phrase "{keyword}" must appear in:
+✓ Meta title
+✓ Meta description
+✓ H1
+✓ First 100 words
+✓ At least one H2 heading
+✓ At least one H3 heading
+✓ At least one FAQ question or answer
+
+HEADINGS RULES:
+- H1 must include "{keyword}"
+- H2/H3 headings must include "{keyword}" or logical variation where semantic
+- H2/H3 headings must include "{req.city}" in at least 3 headings
+- FAQs must reflect real search phrasing
+
+LOCAL SEO GUARDRAILS:
+- Use ONLY {req.city}, {req.state}
+- Do NOT reference nearby cities, counties, or regions
+- Local references must be accurate and relevant
+
+===== REQUIRED STRUCTURE (EXACT ORDER) =====
+
+1. INTRODUCTION (≈250 words)
+   - Introduce the service and primary keyword
+   - Explain why people in {req.city}, {req.state} are searching now
+   - Reference environmental triggers (weather, season, economy)
    - Primary keyword in first sentence
-   - {"Location is already in keyword" if keyword_has_city else "Mention location naturally"}
-   - Preview article content
 
-3. BODY SECTIONS (5-7 H2 sections, each 150-200 words):
-   IMPORTANT: Include "{req.city or 'your area'}" in at least 3 H2 headings!
-   Good H2 examples WITH CITY:
-   - "Why {req.city} Homeowners Need {keyword.title()}"
-   - "Signs You Need {keyword.title()} in {req.city}"
-   - "The {keyword.title()} Process in {req.city}"
-   - "Cost of {keyword.title()} in {req.city}"
-   - "Best {keyword.title()} Services in {req.city}"
-   - "Why {req.city} Residents Choose {req.company_name}"
+2. BENEFITS (≈300 words total)
+   - EXACTLY 3 benefits
+   - ≈100 words each
+   - Outcome-focused, specific results
+   - Use H2: "Benefits of {{keyword}} in {req.city}"
+   
+3. OUR PROCESS (≈200 words)
+   - Explain how {req.company_name} delivers the service
+   - Use H2: "Our {{keyword}} Process"
+   - Insert internal links contextually
+   - **INSERT MID-ARTICLE CTA HERE**:
+   {mid_cta}
 
-4. Use H3 subheadings under H2s - include city in some H3s too:
-   - "Common {keyword.title()} Issues in {req.city}"
-   - "What {req.city} Customers Say"
+4. PRICING AND COST FACTORS (≈200 words)
+   - Use H2: "Cost of {{keyword}} in {req.city}"
+   - Explain pricing drivers specific to {req.city}, {req.state}
+   - Include actual price ranges when possible
+   - Emphasize transparency
 
-5. **MIDDLE CTA** (after section 3 or 4):
-   Add a prominent call-to-action box in the middle of the article:
-   <div class="cta-box" style="background:#f0f8ff;padding:20px;border-radius:8px;margin:20px 0;border-left:4px solid #0066cc;">
-   <h3>Ready for {keyword.title()} in {req.city}?</h3>
-   <p>Contact {req.company_name} today for a free estimate. Call <a href="tel:{req.phone}">{req.phone}</a> or request service online.</p>
-   </div>
+5. WHY CHOOSE {req.company_name} (≈200 words)
+   - Use H2: "Why {req.city} Residents Choose {req.company_name}"
+   - Align with business positioning
+   - Emphasize trust, experience, credibility
+   - Include internal links naturally
 
-6. CONCLUSION (100+ words):
-   - Summarize key points
-   - Reinforce why {req.company_name} is the best choice in {req.city}
+6. FREQUENTLY ASKED QUESTIONS
+   - Do NOT put in body - put in faq_items array only
+   - EXACTLY 5 FAQs
+   - At least one must include "{keyword}"
+   - Questions must reflect real user intent
 
-7. **BOTTOM CTA** (after conclusion):
-   Add final call-to-action:
-   <div class="cta-box" style="background:#0066cc;color:white;padding:25px;border-radius:8px;margin:20px 0;text-align:center;">
-   <h3 style="color:white;margin-top:0;">Get Your Free {keyword.title()} Quote Today!</h3>
-   <p style="margin-bottom:15px;">Serving {req.city} and surrounding areas. {req.company_name} is ready to help!</p>
-   <p><strong>Call Now: <a href="tel:{req.phone}" style="color:white;">{req.phone}</a></strong></p>
-   </div>
+7. GET STARTED TODAY (≈150 words)
+   - Use H2: "Get Started with {{keyword}} in {req.city} Today"
+   - Reinforce urgency and relevance
+   - **INSERT BOTTOM CTA**:
+   {bottom_cta}
 
-===== SEO REQUIREMENTS =====
-✓ Keyword "{keyword}" appears 5-8 times naturally
-✓ City "{req.city}" mentioned 6-10 times in content AND headings
-✓ Keyword in first 100 words
-✓ Meta title: 50-60 chars, use format like: {meta_title_example}
-✓ Meta description: 150-160 chars with keyword + CTA
+===== META REQUIREMENTS =====
+Meta Title: 50-60 characters, includes "{keyword}"
+Meta Description: 150-160 characters, includes "{req.city}" and CTA
 
-===== OUTPUT FORMAT =====
+===== OUTPUT FORMAT (ABSOLUTE REQUIREMENT) =====
 Return ONLY valid JSON:
 
 {{
-    "h1": "{keyword.title()}{'' if keyword_has_city else f' in {req.city or "Your Area"}'}: Complete Guide",
-    "meta_title": "{meta_title_example}",
-    "meta_description": "Professional {keyword}. {req.company_name} provides expert service. Call {req.phone} for a free estimate.",
-    "body": "<p>Introduction paragraph...</p><h2>Why {req.city} Homeowners Need...</h2><p>Content...</p><!-- MIDDLE CTA HERE --><h2>Section with City</h2><p>Content...</p><!-- BOTTOM CTA HERE -->",
+    "meta_title": "[50-60 chars with keyword]",
+    "meta_description": "[150-160 chars with city and CTA]",
+    "h1": "{keyword.title()}{'' if keyword_has_city else f' in {req.city}'}: Complete Guide",
+    "body": "<p>Introduction with keyword in first sentence...</p><h2>Benefits of {keyword.title()} in {req.city}</h2><p>Benefit content...</p><h2>Our {keyword.title()} Process</h2><p>Process content...</p>[MID CTA]<h2>Cost of {keyword.title()} in {req.city}</h2><p>Pricing content...</p><h2>Why {req.city} Residents Choose {req.company_name}</h2><p>Why choose content...</p><h2>Get Started with {keyword.title()} in {req.city} Today</h2><p>Conclusion...</p>[BOTTOM CTA]",
     "faq_items": [
-        {faq_items_template}
+        {{"question": "What is the cost of {keyword} in {req.city}?", "answer": "60-80 word answer"}},
+        {{"question": "How long does {keyword} take?", "answer": "60-80 word answer"}},
+        {{"question": "Why should I hire {req.company_name} for {keyword}?", "answer": "60-80 word answer"}},
+        {{"question": "[Question about process]", "answer": "60-80 word answer"}},
+        {{"question": "[Question about warranty/guarantee]", "answer": "60-80 word answer"}}
     ],
     "cta": {{"company_name": "{req.company_name}", "phone": "{req.phone}", "email": "{req.email}"}}
 }}
 
-{"CRITICAL: The keyword already contains the city name. Do NOT add the city again in titles!" if keyword_has_city else ""}
-
-META TITLE REQUIREMENT:
-- Use this EXACT format for meta_title: {meta_title_example}
-- Must be 50-60 characters
-- Do NOT change the format - use exactly as shown above
-
-FAQ REQUIREMENTS (CRITICAL):
-- Generate EXACTLY {faq_count} FAQ items in faq_items array
-- Each FAQ must have "question" and "answer" fields
-- Questions should be what real customers ask about {keyword}
-- Answers must be 50-80 words each, specific and helpful
-- Include questions about: cost, timeline, process, benefits, and service area
-
-CTA REQUIREMENTS (CRITICAL):
-- Include TWO call-to-action boxes in the body content
-- First CTA: After the 3rd or 4th H2 section (middle of article)
-- Second CTA: After the conclusion (end of article)
-- Both CTAs must include phone number {req.phone} and company name {req.company_name}
-- Use the styled div format shown above
+===== FINAL VALIDATION CHECKLIST =====
+Before responding, verify:
+☐ Word count ≥ {req.target_words}
+☐ Primary keyword "{keyword}" used naturally throughout
+☐ Minimum 3 internal links embedded contextually
+☐ One mid-article CTA present (after Process section)
+☐ One bottom CTA present (at end)
+☐ Only {req.city}, {req.state} referenced (no other cities)
+☐ City name in at least 3 H2/H3 headings
+☐ JSON is valid and complete
+☐ No placeholders remain
+☐ EXACTLY 5 FAQs in faq_items array
 
 IMPORTANT:
-- Write {req.target_words}+ words of REAL content
-- NO placeholder text like "Content..." or "Details here"
-- Include city name "{req.city}" in at least 3-4 H2 headings
-- Include actual helpful information
-- Use proper HTML: <p>, <h2>, <h3>, <ul>, <li>
-- Do NOT include FAQ section in body - put FAQs only in faq_items array
-- Generate EXACTLY {faq_count} FAQs
-{"- Do NOT duplicate city name in h1 or meta_title - it's already in the keyword!" if keyword_has_city else ""}
+- Write {req.target_words}+ words of REAL, helpful content
+- NO placeholder text
+- Include actual price ranges, timeframes, and specifics
+- Sound like a local expert, not a marketer
 - Return ONLY JSON, no markdown blocks
 
 OUTPUT JSON:"""
@@ -1386,22 +1413,10 @@ OUTPUT JSON:"""
             
             result["body"] = body
 
-        # Fix heading structure - remove "in City" or "in City, State" pattern from h2/h3
+        # Ensure city is in H2/H3 headings
         body = result.get("body", "")
-        city_escaped = re.escape(req.city)
-        state_escaped = re.escape(req.state)
-        
-        # Fix patterns like "<h2>Introduction in Venice, Florida</h2>" -> "<h2>Introduction</h2>"
-        # Also handles "in Venice, FL" and "in Venice"
-        patterns_to_fix = [
-            (rf'(<h[23][^>]*>)([^<]+)\s+in\s+{city_escaped},?\s*{state_escaped}(</h[23]>)', r'\1\2\3'),
-            (rf'(<h[23][^>]*>)([^<]+)\s+in\s+{city_escaped},?\s*Florida(</h[23]>)', r'\1\2\3'),
-            (rf'(<h[23][^>]*>)([^<]+)\s+in\s+{city_escaped},?\s*FL(</h[23]>)', r'\1\2\3'),
-            (rf'(<h[23][^>]*>)([^<]+)\s+in\s+{city_escaped}(</h[23]>)', r'\1\2\3'),
-        ]
-        
-        for pattern, replacement in patterns_to_fix:
-            body = re.sub(pattern, replacement, body, flags=re.IGNORECASE)
+        if req.city:
+            body = self._inject_city_in_headings(body, req.city)
         
         # Ensure TWO CTAs are present in the body
         body = self._ensure_two_ctas(body, req)
@@ -1409,6 +1424,77 @@ OUTPUT JSON:"""
         result["body"] = body
 
         return result
+    
+    def _inject_city_in_headings(self, body: str, city: str) -> str:
+        """Ensure city appears in at least 3 H2 headings"""
+        if not city:
+            return body
+        
+        city_lower = city.lower()
+        
+        # Find all H2 headings
+        h2_pattern = r'(<h2[^>]*>)([^<]+)(</h2>)'
+        h2_matches = list(re.finditer(h2_pattern, body, re.IGNORECASE))
+        
+        # Count how many already have city
+        h2_with_city = 0
+        for match in h2_matches:
+            heading_text = match.group(2).lower()
+            if city_lower in heading_text:
+                h2_with_city += 1
+        
+        logger.info(f"H2 headings with city '{city}': {h2_with_city}/{len(h2_matches)}")
+        
+        # If already have 3+ headings with city, we're good
+        if h2_with_city >= 3:
+            return body
+        
+        # Add city to some headings that don't have it
+        headings_to_modify = 3 - h2_with_city
+        modified = 0
+        
+        def add_city_to_heading(match):
+            nonlocal modified
+            if modified >= headings_to_modify:
+                return match.group(0)
+            
+            open_tag = match.group(1)
+            heading_text = match.group(2)
+            close_tag = match.group(3)
+            
+            # Skip if already has city
+            if city_lower in heading_text.lower():
+                return match.group(0)
+            
+            # Skip certain headings
+            skip_keywords = ['faq', 'conclusion', 'summary', 'introduction', 'related']
+            if any(skip in heading_text.lower() for skip in skip_keywords):
+                return match.group(0)
+            
+            # Add city to heading
+            modified += 1
+            
+            # Different patterns based on heading content
+            heading_clean = heading_text.strip()
+            if heading_clean.endswith('?'):
+                # Question format - add "in City" before the ?
+                new_heading = heading_clean[:-1] + f' in {city}?'
+            elif ' for ' in heading_clean.lower():
+                # "Tips for X" -> "Tips for X in City"
+                new_heading = f'{heading_clean} in {city}'
+            elif heading_clean.startswith('Why ') or heading_clean.startswith('How '):
+                # "Why You Need X" -> "Why City Residents Need X"
+                new_heading = heading_clean.replace('Why ', f'Why {city} ').replace('How ', f'How {city} ')
+            else:
+                # Default: append "in City"
+                new_heading = f'{heading_clean} in {city}'
+            
+            logger.info(f"Modified H2: '{heading_clean}' -> '{new_heading}'")
+            return f'{open_tag}{new_heading}{close_tag}'
+        
+        body = re.sub(h2_pattern, add_city_to_heading, body, flags=re.IGNORECASE)
+        
+        return body
     
     def _ensure_two_ctas(self, body: str, req: BlogRequest) -> str:
         """Ensure the body has two CTA boxes - one in middle, one at bottom"""
@@ -1420,10 +1506,19 @@ OUTPUT JSON:"""
         keyword = req.keyword.strip()
         kw_title = self._title_case(keyword)
         
+        # Contact link - use contact_url if provided, otherwise phone only
+        contact_link = ""
+        if req.contact_url:
+            contact_link = f' or <a href="{req.contact_url}" style="color:#0066cc;font-weight:bold;">Request Service Online</a>'
+        
+        contact_button = ""
+        if req.contact_url:
+            contact_button = f'<p style="margin-top:15px;"><a href="{req.contact_url}" style="background:white;color:#0066cc;padding:12px 25px;border-radius:5px;text-decoration:none;font-weight:bold;">Contact Us Online</a></p>'
+        
         # Middle CTA template
         middle_cta = f'''<div class="cta-box" style="background:#f0f8ff;padding:20px;border-radius:8px;margin:20px 0;border-left:4px solid #0066cc;">
 <h3>Ready for {kw_title} in {city}?</h3>
-<p>Contact {req.company_name} today for a free estimate. Call <a href="tel:{req.phone}">{req.phone}</a> or request service online.</p>
+<p>Contact {req.company_name} today for a free estimate. Call <a href="tel:{req.phone}">{req.phone}</a>{contact_link}.</p>
 </div>'''
 
         # Bottom CTA template  
@@ -1431,6 +1526,7 @@ OUTPUT JSON:"""
 <h3 style="color:white;margin-top:0;">Get Your Free {kw_title} Quote Today!</h3>
 <p style="margin-bottom:15px;">Serving {city} and surrounding areas. {req.company_name} is ready to help!</p>
 <p><strong>Call Now: <a href="tel:{req.phone}" style="color:white;">{req.phone}</a></strong></p>
+{contact_button}
 </div>'''
 
         if cta_count >= 2:

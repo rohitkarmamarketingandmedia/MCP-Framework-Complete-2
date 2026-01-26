@@ -404,23 +404,66 @@ def generate_blog_sync(current_user):
                 return 'https://' + url
             return url
         
-        # 1. Add service pages
-        for sp in service_pages[:4]:
+        # 1. Add service pages (prioritize those with city in name)
+        city_lower = city.lower() if city else ''
+        service_pages_with_city = []
+        service_pages_without_city = []
+        
+        for sp in service_pages:
             if isinstance(sp, dict) and sp.get('url'):
-                internal_links.append({
-                    'title': sp.get('title') or sp.get('keyword', ''),
-                    'url': ensure_full_url(sp.get('url', ''))
-                })
+                title = sp.get('title') or sp.get('keyword', '')
+                if city_lower and city_lower in title.lower():
+                    service_pages_with_city.append({
+                        'title': title,
+                        'url': ensure_full_url(sp.get('url', ''))
+                    })
+                else:
+                    service_pages_without_city.append({
+                        'title': title,
+                        'url': ensure_full_url(sp.get('url', ''))
+                    })
         
-        # 2. Add published blog posts
-        for post in published_posts[:4]:
+        # Add city-relevant service pages first
+        for sp in service_pages_with_city[:3]:
+            internal_links.append(sp)
+        for sp in service_pages_without_city[:3]:
+            if len(internal_links) < 4:
+                internal_links.append(sp)
+        
+        # 2. Add published blog posts (prioritize those with city in title)
+        posts_with_city = []
+        posts_without_city = []
+        
+        for post in published_posts:
             if post.published_url:
-                internal_links.append({
-                    'title': post.title or post.primary_keyword or '',
-                    'url': ensure_full_url(post.published_url)
-                })
+                post_title = post.title or post.primary_keyword or ''
+                if city_lower and city_lower in post_title.lower():
+                    posts_with_city.append({
+                        'title': post_title,
+                        'url': ensure_full_url(post.published_url)
+                    })
+                else:
+                    posts_without_city.append({
+                        'title': post_title,
+                        'url': ensure_full_url(post.published_url)
+                    })
         
-        # 3. If still not enough links, create from website URL
+        # Add city-relevant posts first
+        for post in posts_with_city[:3]:
+            internal_links.append(post)
+        for post in posts_without_city[:3]:
+            if len(internal_links) < 6:
+                internal_links.append(post)
+        
+        # 3. Add contact page if available
+        contact_url = getattr(client, 'contact_url', None)
+        if contact_url:
+            internal_links.append({
+                'title': 'Contact Us',
+                'url': ensure_full_url(contact_url)
+            })
+        
+        # 4. If still not enough links, create from website URL
         if len(internal_links) < 3 and client.website_url:
             base_url = ensure_full_url(client.website_url).rstrip('/')
             # Add common service page URLs
@@ -428,7 +471,6 @@ def generate_blog_sync(current_user):
                 {'title': 'Our Services', 'url': f'{base_url}/services'},
                 {'title': 'About Us', 'url': f'{base_url}/about'},
                 {'title': 'Contact Us', 'url': f'{base_url}/contact'},
-                {'title': 'Service Areas', 'url': f'{base_url}/service-areas'},
             ]
             for page in default_pages:
                 if len(internal_links) < 6:
@@ -437,6 +479,16 @@ def generate_blog_sync(current_user):
         logger.info(f"[SYNC] Internal links for blog: {len(internal_links)} links")
         for link in internal_links[:3]:
             logger.info(f"[SYNC]   - {link.get('title')}: {link.get('url')}")
+        
+        # Get contact and blog URLs
+        contact_url = getattr(client, 'contact_url', None) or ''
+        blog_url_base = getattr(client, 'blog_url', None) or ''
+        
+        # If no contact_url, try to build one from website
+        if not contact_url and client.website_url:
+            contact_url = ensure_full_url(client.website_url).rstrip('/') + '/contact'
+        
+        logger.info(f"[SYNC] Contact URL: {contact_url}, Blog URL: {blog_url_base}")
         
         # Generate blog with new robust generator
         blog_request = BlogRequest(
@@ -449,7 +501,9 @@ def generate_blog_sync(current_user):
             email=email or '',
             industry=client.industry or 'Local Services',
             internal_links=internal_links,
-            faq_count=faq_count
+            faq_count=faq_count,
+            contact_url=contact_url,
+            blog_url=blog_url_base
         )
         
         result = blog_gen.generate(blog_request)

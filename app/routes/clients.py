@@ -142,6 +142,10 @@ def update_client(current_user, client_id):
         client.unique_selling_points = json.dumps(data['unique_selling_points'])
     if 'service_cities' in data:
         client.service_cities = json.dumps(data['service_cities'])
+    if 'blog_url' in data:
+        client.blog_url = data['blog_url']
+    if 'contact_url' in data:
+        client.contact_url = data['contact_url']
     if 'subscription_tier' in data:
         client.subscription_tier = data['subscription_tier']
     if 'is_active' in data:

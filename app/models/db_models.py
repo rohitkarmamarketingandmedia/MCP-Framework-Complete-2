@@ -147,6 +147,10 @@ class DBClient(db.Model):
     # Internal Linking - Service Pages (JSON array of {keyword, url, title})
     service_pages: Mapped[str] = mapped_column(Text, default='[]')
     
+    # Important URLs for linking
+    blog_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)  # e.g., https://example.com/blog
+    contact_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)  # e.g., https://example.com/contact
+    
     tone: Mapped[str] = mapped_column(String(100), default='professional')
     
     # Integration credentials (stored as JSON)
@@ -374,6 +378,8 @@ class DBClient(db.Model):
             'service_cities': self.get_service_cities(),
             'unique_selling_points': self.get_unique_selling_points(),
             'service_pages': self.get_service_pages(),
+            'blog_url': self.blog_url,
+            'contact_url': self.contact_url,
             'tone': self.tone,
             'subscription_tier': self.subscription_tier,
             'monthly_content_limit': self.monthly_content_limit,

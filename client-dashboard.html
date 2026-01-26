@@ -703,6 +703,17 @@
                                     class="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-purple-500">
                             </div>
                             
+                            <!-- City Selection Dropdown -->
+                            <div>
+                                <label class="block text-sm font-medium text-gray-300 mb-2">
+                                    <i class="fas fa-city mr-1"></i>Target City <span class="text-gray-500">(for H2/H3 headings)</span>
+                                </label>
+                                <select id="blogCity" class="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white focus:outline-none focus:border-purple-500">
+                                    <option value="">Use default from settings...</option>
+                                </select>
+                                <p class="text-xs text-gray-500 mt-1">City name will be used in H2/H3 headings and CTAs</p>
+                            </div>
+                            
                             <div class="grid grid-cols-2 gap-4">
                                 <div>
                                     <label class="block text-sm font-medium text-gray-300 mb-2">Word Count</label>
@@ -3137,6 +3148,34 @@
                                 <input type="text" id="editServiceAreas" class="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white focus:border-blue-500" placeholder="Miami, Fort Lauderdale, Palm Beach">
                             </div>
                         </div>
+                        
+                        <!-- Service Cities for Blog Generation -->
+                        <div class="mt-4">
+                            <label class="block text-sm text-gray-400 mb-1">
+                                <i class="fas fa-city mr-1"></i>Service Cities (comma separated)
+                            </label>
+                            <textarea id="editServiceCities" rows="2" class="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white focus:border-blue-500" placeholder="Port Charlotte, Punta Gorda, North Port, Venice, Englewood"></textarea>
+                            <p class="text-xs text-gray-500 mt-1">Cities will appear in dropdown when generating blog posts. City name will be used in H2/H3 headings.</p>
+                        </div>
+                        
+                        <!-- Important URLs for Internal Linking -->
+                        <div class="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm text-gray-400 mb-1">
+                                    <i class="fas fa-blog mr-1"></i>Blog Page URL
+                                </label>
+                                <input type="text" id="editBlogUrl" class="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white focus:border-blue-500" placeholder="https://yoursite.com/blog">
+                                <p class="text-xs text-gray-500 mt-1">Used for internal linking</p>
+                            </div>
+                            <div>
+                                <label class="block text-sm text-gray-400 mb-1">
+                                    <i class="fas fa-envelope mr-1"></i>Contact Page URL
+                                </label>
+                                <input type="text" id="editContactUrl" class="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white focus:border-blue-500" placeholder="https://yoursite.com/contact">
+                                <p class="text-xs text-gray-500 mt-1">Used for CTA buttons in blog posts</p>
+                            </div>
+                        </div>
+                        
                         <div class="mt-4">
                             <label class="block text-sm text-gray-400 mb-1">Unique Selling Points (comma separated)</label>
                             <textarea id="editUSPs" rows="2" class="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white focus:border-blue-500" placeholder="24/7 service, Licensed & insured, 20+ years experience"></textarea>
@@ -3786,6 +3825,9 @@
             document.getElementById('editPrimaryKeywords').value = toCommaString(currentClient.primary_keywords);
             document.getElementById('editSecondaryKeywords').value = toCommaString(currentClient.secondary_keywords);
             document.getElementById('editServiceAreas').value = toCommaString(currentClient.service_areas);
+            document.getElementById('editServiceCities').value = toCommaString(currentClient.service_cities);
+            document.getElementById('editBlogUrl').value = currentClient.blog_url || '';
+            document.getElementById('editContactUrl').value = currentClient.contact_url || '';
             document.getElementById('editUSPs').value = toCommaString(currentClient.unique_selling_points);
             document.getElementById('editCompetitors').value = toCommaString(currentClient.competitors);
             
@@ -3866,6 +3908,9 @@
                 primary_keywords: document.getElementById('editPrimaryKeywords').value.split(',').map(k => k.trim()).filter(k => k),
                 secondary_keywords: document.getElementById('editSecondaryKeywords').value.split(',').map(k => k.trim()).filter(k => k),
                 service_areas: document.getElementById('editServiceAreas').value.split(',').map(s => s.trim()).filter(s => s),
+                service_cities: document.getElementById('editServiceCities').value.split(',').map(s => s.trim()).filter(s => s),
+                blog_url: document.getElementById('editBlogUrl').value.trim(),
+                contact_url: document.getElementById('editContactUrl').value.trim(),
                 unique_selling_points: document.getElementById('editUSPs').value.split(',').map(u => u.trim()).filter(u => u),
                 competitors: document.getElementById('editCompetitors').value.split(',').map(c => c.trim()).filter(c => c),
                 // WordPress fields
@@ -8464,6 +8509,37 @@
                 });
                 select.appendChild(secondaryGroup);
             }
+            
+            // Populate city dropdown
+            populateCityDropdown();
+        }
+        
+        function populateCityDropdown() {
+            const citySelect = document.getElementById('blogCity');
+            if (!citySelect || !currentClient) return;
+            
+            // Get default city from geo
+            const geo = currentClient.geo || '';
+            const defaultCity = geo.split(',')[0].trim();
+            
+            citySelect.innerHTML = `<option value="">Use default (${defaultCity || 'from settings'})...</option>`;
+            
+            // Add service cities if available
+            const serviceCities = currentClient.service_cities || [];
+            if (serviceCities.length > 0) {
+                serviceCities.forEach(city => {
+                    const option = document.createElement('option');
+                    option.value = city;
+                    option.textContent = city;
+                    citySelect.appendChild(option);
+                });
+            } else if (defaultCity) {
+                // If no service cities, just add the default city
+                const option = document.createElement('option');
+                option.value = defaultCity;
+                option.textContent = defaultCity;
+                citySelect.appendChild(option);
+            }
         }
         
         async function generateBlog() {
@@ -8483,6 +8559,7 @@
             const wordCount = parseInt(document.getElementById('blogWordCount').value);
             const faqCount = parseInt(document.getElementById('blogFaqs').value);
             const generateImage = document.getElementById('blogGenerateImage').checked;
+            const selectedCity = document.getElementById('blogCity')?.value || '';
             
             const btn = document.getElementById('btnGenerateBlog');
             const progress = document.getElementById('blogProgress');
@@ -8507,7 +8584,8 @@
                         keyword: keyword,
                         word_count: wordCount,
                         include_faq: faqCount > 0,
-                        faq_count: faqCount
+                        faq_count: faqCount,
+                        city: selectedCity  // Pass selected city for H2/H3 headings
                     })
                 });
                 

@@ -35,6 +35,34 @@ def run_migrations(app):
                 db.session.commit()
                 logger.info("✓ Added service_cities column")
             
+            # Check if blog_url column exists
+            result = db.session.execute(text("""
+                SELECT column_name FROM information_schema.columns 
+                WHERE table_name = 'clients' AND column_name = 'blog_url'
+            """))
+            if not result.fetchone():
+                logger.info("Adding blog_url column to clients table...")
+                db.session.execute(text("""
+                    ALTER TABLE clients 
+                    ADD COLUMN blog_url VARCHAR(500)
+                """))
+                db.session.commit()
+                logger.info("✓ Added blog_url column")
+            
+            # Check if contact_url column exists
+            result = db.session.execute(text("""
+                SELECT column_name FROM information_schema.columns 
+                WHERE table_name = 'clients' AND column_name = 'contact_url'
+            """))
+            if not result.fetchone():
+                logger.info("Adding contact_url column to clients table...")
+                db.session.execute(text("""
+                    ALTER TABLE clients 
+                    ADD COLUMN contact_url VARCHAR(500)
+                """))
+                db.session.commit()
+                logger.info("✓ Added contact_url column")
+            
             # Add blog_tasks table if not exists
             db.session.execute(text("""
                 CREATE TABLE IF NOT EXISTS blog_tasks (
