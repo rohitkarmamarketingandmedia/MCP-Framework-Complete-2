@@ -356,49 +356,7 @@ Return: {{"body_append": "<h2>Title</h2><p>Content...</p>"}}"""
         
         # Extract location from keyword itself - DO NOT use settings
         keyword = req.keyword.strip()
-
-        # Helper function to convert to Title Case
-        def to_title_case(text):
-            if not text: return text
-            lowercase_words = {'a', 'an', 'the', 'and', 'but', 'or', 'for', 'nor', 'on', 'at', 'to', 'by', 'in', 'of', 'with', 'as'}
-            words = text.split()
-            result = []
-            for i, word in enumerate(words):
-                if i == 0 or word.lower() not in lowercase_words:
-                    result.append(word.capitalize())
-                else:
-                    result.append(word.lower())
-            return ' '.join(result)
-
-        # Known Florida cities to detect in keyword
-        known_cities = [
-            'sarasota', 'port charlotte', 'fort myers', 'naples', 'tampa', 'orlando',
-            'jacksonville', 'miami', 'bradenton', 'venice', 'punta gorda', 'north port',
-            'cape coral', 'bonita springs', 'estero', 'lehigh acres', 'englewood',
-            'arcadia', 'nokomis', 'osprey', 'lakewood ranch', 'palmetto', 'ellenton',
-            'parrish', 'ruskin', 'sun city center', 'apollo beach', 'brandon', 'riverview'
-        ]
         
-        # Check if keyword already contains a city name
-        keyword_lower = keyword.lower()
-        keyword_city = None
-        for test_city in known_cities:
-            if test_city in keyword_lower:
-                keyword_city = test_city.title()
-                break
-        
-        # Parse geo from settings
-        geo = getattr(req, 'city', '') + ', ' + getattr(req, 'state', '')
-        geo_parts = geo.split(',') if geo else ['', '']
-        settings_city = geo_parts[0].strip() if len(geo_parts) > 0 else ''
-        
-        # USE THE CITY FROM KEYWORD if present, otherwise use settings
-        if keyword_city:
-            city = keyword_city
-            logger.info(f"Using city from keyword: '{city}' (ignoring settings city '{settings_city}')")
-        else:
-            city = to_title_case(settings_city) if settings_city else ''
-            
         # Build internal links
         internal = req.internal_links or []
         internal_links_text = ""
@@ -550,12 +508,6 @@ AVOID THESE PHRASES (they sound generic):
 - "Top-notch"
 - "Your satisfaction is our priority"
 
-INSTRUCTIONS FOR TAGS:
-- Generate EXACTLY 5 relevant tags
-- MUST include the specific city name (e.g., "{city}" not generic "City")
-- All tags must be Title Case (e.g., "Air Conditioning Repair", "{city} Plumber")
-- Do NOT use all lowercase tags
-
 INSTEAD, BE SPECIFIC:
 ✓ Include actual price ranges when discussing costs
 ✓ Mention specific timeframes for services
@@ -592,14 +544,12 @@ OUTPUT: Return ONLY valid JSON. No markdown code blocks."""
         
         # Build title examples based on whether keyword has city
         if keyword_has_city:
-            # H1 should be descriptive and benefit-driven
-            h1_example = f'"{keyword.title()}: 5 Expert Tips for {current_year}"'
-            h1_instruction = f'Use a descriptive, catchy title including "{keyword}"'
-            # Meta title stays standard: "Keyword | Company"
+            h1_example = f'"{keyword.title()}: Complete Guide"'
+            h1_instruction = f'Include "{keyword}" (city already in keyword, do NOT add "{req.city}" again)'
             meta_title_example = chosen_format.replace("{keyword}", keyword.title()).replace("{company}", req.company_name)
         else:
-            h1_example = f'"{keyword.title()} in {req.city or "Your Area"}: Complete Homeowner Guide"'
-            h1_instruction = f'Use a descriptive, catchy title including "{keyword}" and location'
+            h1_example = f'"{keyword.title()} in {req.city or "Your Area"}: Complete Guide"'
+            h1_instruction = f'Include "{keyword}" and location'
             meta_title_example = chosen_format.replace("{keyword}", f"{keyword.title()} in {req.city or 'City'}").replace("{company}", req.company_name)
         
         return f"""You are an expert SEO content writer for {req.industry or 'local service'} businesses.
@@ -618,11 +568,8 @@ IMPORTANT: The keyword {"ALREADY CONTAINS the city name - do NOT duplicate it in
 
 ===== CONTENT STRUCTURE =====
 
-1. H1 HEADING (BLOG TITLE): 
-   - MUST be different from meta_title
-   - Make it catchy, descriptive, and benefit-driven
-   - {h1_instruction}
-   - Example: {h1_example}
+1. H1 HEADING: {h1_instruction}
+   Example: {h1_example}
 
 2. INTRODUCTION (150+ words):
    - Hook reader with a problem/solution
@@ -660,7 +607,6 @@ Return ONLY valid JSON:
     "h1": "{keyword.title()}{'' if keyword_has_city else f' in {req.city or "Your Area"}'}: Complete Guide",
     "meta_title": "{meta_title_example}",
     "meta_description": "Professional {keyword}. {req.company_name} provides expert service. Call {req.phone} for a free estimate.",
-    "tags": ["{keyword.title()}", "{city} {req.industry or 'Service'}", "Tag 3", "Tag 4", "Tag 5"],
     "body": "<p>Introduction paragraph...</p><h2>Section 1</h2><p>Content...</p><h2>Section 2</h2><p>Content...</p>...",
     "faq_items": [
         {faq_items_template}
@@ -765,12 +711,6 @@ OUTPUT JSON:"""
 
         # Clean body
         out["body"] = self._clean_body(out["body"])
-
-        # Extract tags
-        out["tags"] = data.get("tags") or []
-        if isinstance(out["tags"], list):
-            # Enforce Title Case on tags
-            out["tags"] = [t.title() for t in out["tags"] if isinstance(t, str)]
 
         faq = data.get("faq_items") or data.get("faq") or []
         out["faq_items"] = faq if isinstance(faq, list) else []
