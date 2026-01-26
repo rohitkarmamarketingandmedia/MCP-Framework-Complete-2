@@ -141,6 +141,9 @@ class DBClient(db.Model):
     service_areas: Mapped[str] = mapped_column(Text, default='[]')
     unique_selling_points: Mapped[str] = mapped_column(Text, default='[]')
     
+    # Service Cities - list of cities for blog generation (JSON array)
+    service_cities: Mapped[str] = mapped_column(Text, default='[]')
+    
     # Internal Linking - Service Pages (JSON array of {keyword, url, title})
     service_pages: Mapped[str] = mapped_column(Text, default='[]')
     
@@ -301,6 +304,19 @@ class DBClient(db.Model):
         """Set unique selling points list"""
         self.unique_selling_points = json.dumps(usps)
     
+    def get_service_cities(self) -> List[str]:
+        """Get service cities list for blog generation"""
+        if not self.service_cities:
+            return []
+        try:
+            return json.loads(self.service_cities)
+        except (json.JSONDecodeError, TypeError):
+            return []
+    
+    def set_service_cities(self, cities: List[str]):
+        """Set service cities list"""
+        self.service_cities = json.dumps(cities)
+    
     def set_secondary_keywords(self, keywords: List[str]):
         """Set secondary keywords list"""
         self.secondary_keywords = json.dumps(keywords)
@@ -355,6 +371,7 @@ class DBClient(db.Model):
             'secondary_keywords': self.get_secondary_keywords(),
             'competitors': self.get_competitors(),
             'service_areas': self.get_service_areas(),
+            'service_cities': self.get_service_cities(),
             'unique_selling_points': self.get_unique_selling_points(),
             'service_pages': self.get_service_pages(),
             'tone': self.tone,

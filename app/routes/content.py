@@ -342,6 +342,7 @@ def generate_blog_sync(current_user):
         word_count = data.get('word_count', 1500)  # Default 1500 for high SEO score
         include_faq = data.get('include_faq', True)
         faq_count = data.get('faq_count', 5)
+        selected_city = data.get('city')  # Optional city override from service_cities
         
         if not client_id or not keyword:
             return jsonify({'error': 'client_id and keyword required'}), 400
@@ -381,11 +382,13 @@ def generate_blog_sync(current_user):
         
         blog_gen = get_blog_ai_single()
         
-        # Parse geo into city/state
+        # Parse geo into city/state - use selected_city if provided
         geo = client.geo or ''
         geo_parts = geo.split(',') if geo else ['', '']
-        city = geo_parts[0].strip() if len(geo_parts) > 0 else ''
+        city = selected_city or (geo_parts[0].strip() if len(geo_parts) > 0 else '')
         state = geo_parts[1].strip() if len(geo_parts) > 1 else 'FL'
+        
+        logger.info(f"[SYNC] Using city: {city} (selected: {selected_city}, default: {geo_parts[0] if geo_parts else 'N/A'})")
         
         # Build internal links list from multiple sources
         internal_links = []

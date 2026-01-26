@@ -578,24 +578,41 @@ IMPORTANT: The keyword {"ALREADY CONTAINS the city name - do NOT duplicate it in
    - Preview article content
 
 3. BODY SECTIONS (5-7 H2 sections, each 150-200 words):
-   Good H2 examples:
-   - "What Is {keyword.title()} and Why Does It Matter?"
-   - "Signs You Need {keyword.title()}"
-   - "The {keyword.title()} Process Explained"
-   - "Cost of {keyword.title()}"
-   - "DIY vs Professional {keyword.title()}"
-   - "Why Choose {req.company_name}"
+   IMPORTANT: Include "{req.city or 'your area'}" in at least 3 H2 headings!
+   Good H2 examples WITH CITY:
+   - "Why {req.city} Homeowners Need {keyword.title()}"
+   - "Signs You Need {keyword.title()} in {req.city}"
+   - "The {keyword.title()} Process in {req.city}"
+   - "Cost of {keyword.title()} in {req.city}"
+   - "Best {keyword.title()} Services in {req.city}"
+   - "Why {req.city} Residents Choose {req.company_name}"
 
-4. Use H3 subheadings under H2s for detailed breakdowns
+4. Use H3 subheadings under H2s - include city in some H3s too:
+   - "Common {keyword.title()} Issues in {req.city}"
+   - "What {req.city} Customers Say"
 
-5. CONCLUSION (100+ words):
+5. **MIDDLE CTA** (after section 3 or 4):
+   Add a prominent call-to-action box in the middle of the article:
+   <div class="cta-box" style="background:#f0f8ff;padding:20px;border-radius:8px;margin:20px 0;border-left:4px solid #0066cc;">
+   <h3>Ready for {keyword.title()} in {req.city}?</h3>
+   <p>Contact {req.company_name} today for a free estimate. Call <a href="tel:{req.phone}">{req.phone}</a> or request service online.</p>
+   </div>
+
+6. CONCLUSION (100+ words):
    - Summarize key points
-   - Call-to-action with contact info
-   - Phone: {req.phone}
+   - Reinforce why {req.company_name} is the best choice in {req.city}
+
+7. **BOTTOM CTA** (after conclusion):
+   Add final call-to-action:
+   <div class="cta-box" style="background:#0066cc;color:white;padding:25px;border-radius:8px;margin:20px 0;text-align:center;">
+   <h3 style="color:white;margin-top:0;">Get Your Free {keyword.title()} Quote Today!</h3>
+   <p style="margin-bottom:15px;">Serving {req.city} and surrounding areas. {req.company_name} is ready to help!</p>
+   <p><strong>Call Now: <a href="tel:{req.phone}" style="color:white;">{req.phone}</a></strong></p>
+   </div>
 
 ===== SEO REQUIREMENTS =====
 ✓ Keyword "{keyword}" appears 5-8 times naturally
-✓ Location mentioned 3-5 times {"(already in keyword)" if keyword_has_city else ""}
+✓ City "{req.city}" mentioned 6-10 times in content AND headings
 ✓ Keyword in first 100 words
 ✓ Meta title: 50-60 chars, use format like: {meta_title_example}
 ✓ Meta description: 150-160 chars with keyword + CTA
@@ -607,7 +624,7 @@ Return ONLY valid JSON:
     "h1": "{keyword.title()}{'' if keyword_has_city else f' in {req.city or "Your Area"}'}: Complete Guide",
     "meta_title": "{meta_title_example}",
     "meta_description": "Professional {keyword}. {req.company_name} provides expert service. Call {req.phone} for a free estimate.",
-    "body": "<p>Introduction paragraph...</p><h2>Section 1</h2><p>Content...</p><h2>Section 2</h2><p>Content...</p>...",
+    "body": "<p>Introduction paragraph...</p><h2>Why {req.city} Homeowners Need...</h2><p>Content...</p><!-- MIDDLE CTA HERE --><h2>Section with City</h2><p>Content...</p><!-- BOTTOM CTA HERE -->",
     "faq_items": [
         {faq_items_template}
     ],
@@ -628,9 +645,17 @@ FAQ REQUIREMENTS (CRITICAL):
 - Answers must be 50-80 words each, specific and helpful
 - Include questions about: cost, timeline, process, benefits, and service area
 
+CTA REQUIREMENTS (CRITICAL):
+- Include TWO call-to-action boxes in the body content
+- First CTA: After the 3rd or 4th H2 section (middle of article)
+- Second CTA: After the conclusion (end of article)
+- Both CTAs must include phone number {req.phone} and company name {req.company_name}
+- Use the styled div format shown above
+
 IMPORTANT:
 - Write {req.target_words}+ words of REAL content
 - NO placeholder text like "Content..." or "Details here"
+- Include city name "{req.city}" in at least 3-4 H2 headings
 - Include actual helpful information
 - Use proper HTML: <p>, <h2>, <h3>, <ul>, <li>
 - Do NOT include FAQ section in body - put FAQs only in faq_items array
@@ -1378,9 +1403,71 @@ OUTPUT JSON:"""
         for pattern, replacement in patterns_to_fix:
             body = re.sub(pattern, replacement, body, flags=re.IGNORECASE)
         
+        # Ensure TWO CTAs are present in the body
+        body = self._ensure_two_ctas(body, req)
+        
         result["body"] = body
 
         return result
+    
+    def _ensure_two_ctas(self, body: str, req: BlogRequest) -> str:
+        """Ensure the body has two CTA boxes - one in middle, one at bottom"""
+        
+        # Check how many CTA boxes are already present
+        cta_count = body.lower().count('class="cta-box"') + body.lower().count("class='cta-box'")
+        
+        city = req.city or 'your area'
+        keyword = req.keyword.strip()
+        kw_title = self._title_case(keyword)
+        
+        # Middle CTA template
+        middle_cta = f'''<div class="cta-box" style="background:#f0f8ff;padding:20px;border-radius:8px;margin:20px 0;border-left:4px solid #0066cc;">
+<h3>Ready for {kw_title} in {city}?</h3>
+<p>Contact {req.company_name} today for a free estimate. Call <a href="tel:{req.phone}">{req.phone}</a> or request service online.</p>
+</div>'''
+
+        # Bottom CTA template  
+        bottom_cta = f'''<div class="cta-box" style="background:#0066cc;color:white;padding:25px;border-radius:8px;margin:20px 0;text-align:center;">
+<h3 style="color:white;margin-top:0;">Get Your Free {kw_title} Quote Today!</h3>
+<p style="margin-bottom:15px;">Serving {city} and surrounding areas. {req.company_name} is ready to help!</p>
+<p><strong>Call Now: <a href="tel:{req.phone}" style="color:white;">{req.phone}</a></strong></p>
+</div>'''
+
+        if cta_count >= 2:
+            logger.info(f"Body already has {cta_count} CTA boxes")
+            return body
+        
+        logger.info(f"Body has {cta_count} CTA boxes, adding {2 - cta_count} more")
+        
+        # Find H2 sections to inject middle CTA
+        h2_matches = list(re.finditer(r'<h2[^>]*>', body, re.IGNORECASE))
+        
+        if cta_count == 0:
+            # Need to add both CTAs
+            if len(h2_matches) >= 4:
+                # Insert middle CTA before the 4th H2
+                insert_pos = h2_matches[3].start()
+                body = body[:insert_pos] + middle_cta + '\n\n' + body[insert_pos:]
+            elif len(h2_matches) >= 2:
+                # Insert after 2nd H2's content
+                insert_pos = h2_matches[1].start()
+                body = body[:insert_pos] + middle_cta + '\n\n' + body[insert_pos:]
+            else:
+                # Just add before halfway point
+                mid = len(body) // 2
+                # Find nearest </p> to mid
+                p_close = body.rfind('</p>', 0, mid)
+                if p_close > 0:
+                    body = body[:p_close+4] + '\n\n' + middle_cta + '\n\n' + body[p_close+4:]
+            
+            # Add bottom CTA at the end
+            body = body.rstrip() + '\n\n' + bottom_cta
+            
+        elif cta_count == 1:
+            # Has one CTA, add the bottom one
+            body = body.rstrip() + '\n\n' + bottom_cta
+        
+        return body
     
     def _fix_wrong_city(self, result: Dict[str, Any]) -> Dict[str, Any]:
         """Replace wrong city (from settings) with correct city (from keyword)"""
