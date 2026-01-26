@@ -53,19 +53,12 @@ class WordPressService:
         credentials = f"{self.username}:{self.app_password}"
         token = base64.b64encode(credentials.encode('utf-8')).decode('ascii')
         
-        # Headers designed to look like legitimate WordPress REST API client
-        # This helps bypass WAF/CAPTCHA systems like SiteGround's sgcaptcha
+        # Simple headers that work with most WordPress hosts
         self.headers = {
             'Authorization': f'Basic {token}',
             'Content-Type': 'application/json',
-            'Accept': 'application/json',
-            'User-Agent': 'WordPress/6.4; MCP-Content-Publisher/2.0 (compatible; +https://wordpress.org/)',
-            'X-WP-Nonce': '',  # Will be populated if needed
-            'X-Requested-With': 'XMLHttpRequest',
-            'Accept-Language': 'en-US,en;q=0.9',
-            'Accept-Encoding': 'gzip, deflate, br',
-            'Cache-Control': 'no-cache',
-            'Pragma': 'no-cache',
+            'User-Agent': 'MCP-Framework/1.0',
+            'Accept': 'application/json'
         }
     
     def test_connection(self) -> Dict[str, Any]:
@@ -518,78 +511,38 @@ class WordPressService:
         return category_ids
     
     def _resolve_tags(self, tags: list) -> list:
-        """Convert tag names to IDs, creating if needed. Always use Title Case."""
+        """Convert tag names to IDs, creating if needed"""
         tag_ids = []
-        
-        def to_title_case(text):
-            """Convert to Title Case, preserving acronyms"""
-            if not text:
-                return text
-            words = text.split()
-            result = []
-            lowercase_words = {'a', 'an', 'the', 'and', 'but', 'or', 'for', 'nor', 'on', 'at', 'to', 'by', 'in', 'of'}
-            acronyms = {'hvac', 'ac', 'seo', 'usa', 'llc', 'inc'}
-            
-            for i, word in enumerate(words):
-                word_lower = word.lower()
-                if word_lower in acronyms:
-                    result.append(word.upper())
-                elif i == 0 or word_lower not in lowercase_words:
-                    result.append(word.capitalize())
-                else:
-                    result.append(word_lower)
-            return ' '.join(result)
         
         for tag in tags:
             if isinstance(tag, int):
                 tag_ids.append(tag)
             else:
-                # Always use Title Case
-                tag_title = to_title_case(tag.strip())
-                
-                # Search for existing tag
-                response = requests.get(
-                    f"{self.api_url}/tags",
-                    headers=self.headers,
-                    params={'search': tag_title},
-                    timeout=10
-                )
-                
-                if response.status_code == 200:
-                    results = response.json()
-                    # Find exact match (case-insensitive)
-                    existing_tag = None
-                    for r in results:
-                        if r.get('name', '').lower() == tag_title.lower():
-                            existing_tag = r
-                            break
+                # Search for tag by name
+                try:
+                    response = requests.get(
+                        f"{self.api_url}/tags",
+                        headers=self.headers,
+                        params={'search': tag},
+                        timeout=10
+                    )
                     
-                    if existing_tag:
-                        # If existing tag has wrong case, update it
-                        if existing_tag['name'] != tag_title:
-                            try:
-                                update_resp = requests.post(
-                                    f"{self.api_url}/tags/{existing_tag['id']}",
-                                    headers=self.headers,
-                                    json={'name': tag_title},
-                                    timeout=10
-                                )
-                                if update_resp.status_code == 200:
-                                    logger.info(f"Updated tag case: '{existing_tag['name']}' -> '{tag_title}'")
-                            except Exception:
-                                pass  # Ignore update errors
-                        tag_ids.append(existing_tag['id'])
-                    else:
-                        # Create new tag with Title Case
-                        create_response = requests.post(
-                            f"{self.api_url}/tags",
-                            headers=self.headers,
-                            json={'name': tag_title},
-                            timeout=10
-                        )
-                        if create_response.status_code in [200, 201]:
-                            tag_ids.append(create_response.json()['id'])
-                            logger.info(f"Created tag: '{tag_title}'")
+                    if response.status_code == 200:
+                        results = response.json()
+                        if results:
+                            tag_ids.append(results[0]['id'])
+                        else:
+                            # Create tag
+                            create_response = requests.post(
+                                f"{self.api_url}/tags",
+                                headers=self.headers,
+                                json={'name': tag},
+                                timeout=10
+                            )
+                            if create_response.status_code in [200, 201]:
+                                tag_ids.append(create_response.json()['id'])
+                except Exception as e:
+                    logger.warning(f"Failed to resolve tag '{tag}': {e}")
         
         return tag_ids
     

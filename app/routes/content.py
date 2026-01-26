@@ -1604,8 +1604,7 @@ def publish_to_wordpress(current_user, content_id):
                 title=wp_post_title,  # Use meta_title as post title
                 content=full_content,
                 status=wp_status,
-                excerpt=content.meta_description,
-                tags=wp._resolve_tags(tags) if tags else None  # Also update tags
+                excerpt=content.meta_description
             )
             # Also update SEO meta, featured image, and schema on existing post
             if result.get('success'):
