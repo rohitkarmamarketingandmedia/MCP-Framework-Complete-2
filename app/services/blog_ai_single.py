@@ -592,12 +592,14 @@ OUTPUT: Return ONLY valid JSON. No markdown code blocks."""
         
         # Build title examples based on whether keyword has city
         if keyword_has_city:
-            h1_example = f'"{keyword.title()}: Complete Guide"'
-            h1_instruction = f'Include "{keyword}" (city already in keyword, do NOT add "{req.city}" again)'
+            # H1 should be descriptive and benefit-driven
+            h1_example = f'"{keyword.title()}: 5 Expert Tips for {current_year}"'
+            h1_instruction = f'Use a descriptive, catchy title including "{keyword}"'
+            # Meta title stays standard: "Keyword | Company"
             meta_title_example = chosen_format.replace("{keyword}", keyword.title()).replace("{company}", req.company_name)
         else:
-            h1_example = f'"{keyword.title()} in {req.city or "Your Area"}: Complete Guide"'
-            h1_instruction = f'Include "{keyword}" and location'
+            h1_example = f'"{keyword.title()} in {req.city or "Your Area"}: Complete Homeowner Guide"'
+            h1_instruction = f'Use a descriptive, catchy title including "{keyword}" and location'
             meta_title_example = chosen_format.replace("{keyword}", f"{keyword.title()} in {req.city or 'City'}").replace("{company}", req.company_name)
         
         return f"""You are an expert SEO content writer for {req.industry or 'local service'} businesses.
@@ -616,8 +618,11 @@ IMPORTANT: The keyword {"ALREADY CONTAINS the city name - do NOT duplicate it in
 
 ===== CONTENT STRUCTURE =====
 
-1. H1 HEADING: {h1_instruction}
-   Example: {h1_example}
+1. H1 HEADING (BLOG TITLE): 
+   - MUST be different from meta_title
+   - Make it catchy, descriptive, and benefit-driven
+   - {h1_instruction}
+   - Example: {h1_example}
 
 2. INTRODUCTION (150+ words):
    - Hook reader with a problem/solution

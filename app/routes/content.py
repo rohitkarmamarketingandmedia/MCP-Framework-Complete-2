@@ -1517,7 +1517,7 @@ def publish_to_wordpress(current_user, content_id):
         
         # Build tags - ensure at least 5 tags with city name, proper Title Case
         tags = []
-        city = client.city or client.geo.split(',')[0] if client.geo else ''
+        city = client.geo.split(',')[0].strip() if client.geo else ''
         city = title_case(city)  # Ensure city is Title Case
         
         # Start with primary keyword (Title Case)

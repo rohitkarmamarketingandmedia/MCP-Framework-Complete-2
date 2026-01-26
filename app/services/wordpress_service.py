@@ -805,8 +805,11 @@ class WordPressManager:
         if not tags and content.primary_keyword:
             tags.append(content.primary_keyword.title())
             
-        if not tags and client.city:
-            tags.append(client.city.title())
+        if not tags and client.geo:
+            # Extract city from "City, State" string
+            city_str = client.geo.split(',')[0].strip()
+            if city_str:
+                tags.append(city_str.title())
             # Add the keyword and its parts as tags
             tags.append(content.primary_keyword)
             # Add individual meaningful words from keyword
