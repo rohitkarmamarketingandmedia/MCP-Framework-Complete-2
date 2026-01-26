@@ -49,10 +49,12 @@ class WordPressService:
         # WordPress app passwords can have spaces - that's OK, but trim leading/trailing
         self.app_password = app_password.strip() if app_password else ''
         
-        # Create auth header - WordPress uses Basic auth with base64
+        # Create session with persistent headers and cookies
+        self.session = requests.Session()
         credentials = f"{self.username}:{self.app_password}"
         token = base64.b64encode(credentials.encode('utf-8')).decode('ascii')
-        self.headers = {
+        
+        self.session.headers.update({
             'Authorization': f'Basic {token}',
             'Content-Type': 'application/json',
             'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -70,17 +72,30 @@ class WordPressService:
             'Sec-Ch-Ua': '"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"',
             'Sec-Ch-Ua-Mobile': '?0',
             'Sec-Ch-Ua-Platform': '"macOS"'
-        }
+        })
+
+    def _handle_response(self, response: requests.Response) -> requests.Response:
+        """Centralized response handling to detect captchas and errors"""
+        # Check for SiteGround captcha specific signatures
+        if response.status_code == 200:
+            content_type = response.headers.get('Content-Type', '').lower()
+            if 'text/html' in content_type and 'application/json' not in content_type:
+                text = response.text.lower()
+                if 'sgcaptcha' in text or 'checking your browser' in text or 'cf-browser-verification' in text:
+                    logger.error(f"Captcha detected on {response.url}")
+                    raise requests.exceptions.ConnectionError("SiteGround Captcha Challenge detected. Please whitelist server IP.")
+        
+        return response
     
     def test_connection(self) -> Dict[str, Any]:
         """Test the WordPress connection using multiple methods"""
         try:
             # Method 1: Try /users/me endpoint (best for auth testing)
-            response = requests.get(
+            response = self.session.get(
                 f"{self.api_url}/users/me",
-                headers=self.headers,
                 timeout=15
             )
+            self._handle_response(response)
             
             # Check for captcha/challenge page
             content_type = response.headers.get('Content-Type', '')
@@ -192,12 +207,12 @@ class WordPressService:
         """Fallback connection test using posts endpoint with edit context"""
         try:
             # Try to access posts with edit context (requires auth)
-            response = requests.get(
+            response = self.session.get(
                 f"{self.api_url}/posts",
-                headers=self.headers,
                 params={'per_page': 1, 'context': 'edit'},
                 timeout=15
             )
+            self._handle_response(response)
             
             if response.status_code == 200:
                 return {
@@ -321,12 +336,12 @@ class WordPressService:
                     post_data['tags'] = tag_ids
             
             # Create the post
-            response = requests.post(
+            response = self.session.post(
                 f"{self.api_url}/posts",
-                headers=self.headers,
                 json=post_data,
                 timeout=30
             )
+            self._handle_response(response)
             
             if response.status_code not in [200, 201]:
                 return {
@@ -376,12 +391,12 @@ class WordPressService:
     def update_post(self, post_id: int, **kwargs) -> Dict[str, Any]:
         """Update an existing post"""
         try:
-            response = requests.post(
+            response = self.session.post(
                 f"{self.api_url}/posts/{post_id}",
-                headers=self.headers,
                 json=kwargs,
                 timeout=30
             )
+            self._handle_response(response)
             
             if response.status_code == 200:
                 post = response.json()
@@ -410,12 +425,12 @@ class WordPressService:
                 category_ids.append(cat)
             else:
                 # Search for category by name
-                response = requests.get(
+                response = self.session.get(
                     f"{self.api_url}/categories",
-                    headers=self.headers,
                     params={'search': cat},
                     timeout=10
                 )
+                self._handle_response(response)
                 
                 if response.status_code == 200:
                     results = response.json()
@@ -423,12 +438,12 @@ class WordPressService:
                         category_ids.append(results[0]['id'])
                     else:
                         # Create category
-                        create_response = requests.post(
+                        create_response = self.session.post(
                             f"{self.api_url}/categories",
-                            headers=self.headers,
                             json={'name': cat},
                             timeout=10
                         )
+                        self._handle_response(create_response)
                         if create_response.status_code in [200, 201]:
                             category_ids.append(create_response.json()['id'])
         
@@ -465,12 +480,12 @@ class WordPressService:
                 tag_title = to_title_case(tag.strip())
                 
                 # Search for existing tag
-                response = requests.get(
+                response = self.session.get(
                     f"{self.api_url}/tags",
-                    headers=self.headers,
                     params={'search': tag_title},
                     timeout=10
                 )
+                self._handle_response(response)
                 
                 if response.status_code == 200:
                     results = response.json()
@@ -485,12 +500,12 @@ class WordPressService:
                         # If existing tag has wrong case, update it
                         if existing_tag['name'] != tag_title:
                             try:
-                                update_resp = requests.post(
+                                update_resp = self.session.post(
                                     f"{self.api_url}/tags/{existing_tag['id']}",
-                                    headers=self.headers,
                                     json={'name': tag_title},
                                     timeout=10
                                 )
+                                self._handle_response(update_resp)
                                 if update_resp.status_code == 200:
                                     logger.info(f"Updated tag case: '{existing_tag['name']}' -> '{tag_title}'")
                             except Exception:
@@ -498,12 +513,12 @@ class WordPressService:
                         tag_ids.append(existing_tag['id'])
                     else:
                         # Create new tag with Title Case
-                        create_response = requests.post(
+                        create_response = self.session.post(
                             f"{self.api_url}/tags",
-                            headers=self.headers,
                             json={'name': tag_title},
                             timeout=10
                         )
+                        self._handle_response(create_response)
                         if create_response.status_code in [200, 201]:
                             tag_ids.append(create_response.json()['id'])
                             logger.info(f"Created tag: '{tag_title}'")
@@ -534,20 +549,27 @@ class WordPressService:
             content_type = img_response.headers.get('Content-Type', 'image/jpeg')
             
             # Upload to WordPress media library
-            upload_headers = {
-                'Authorization': self.headers['Authorization'],
+            # Need fresh headers for binary upload (don't use session JSON headers)
+            upload_headers = self.session.headers.copy()
+            upload_headers.update({
                 'Content-Disposition': f'attachment; filename="{filename}"',
                 'Content-Type': content_type
-            }
+            })
+            # Remove JSON content type if present
+            # upload_headers.pop('Content-Type', None) # Actually we set it above
             
             logger.info(f"Uploading image to WordPress: {filename} ({content_type})")
             
-            upload_response = requests.post(
+            logger.info(f"Uploading image to WordPress: {filename} ({content_type})")
+            
+            # Use requests.post directly for binary upload to avoid session JSON defaults interfering
+            upload_response = self.session.post(
                 f"{self.api_url}/media",
                 headers=upload_headers,
                 data=img_response.content,
                 timeout=60
             )
+            self._handle_response(upload_response)
             
             if upload_response.status_code not in [200, 201]:
                 logger.error(f"Upload failed: HTTP {upload_response.status_code} - {upload_response.text[:200]}")
@@ -557,12 +579,12 @@ class WordPressService:
             logger.info(f"Image uploaded, media_id: {media_id}")
             
             # Set as featured image
-            update_response = requests.post(
+            update_response = self.session.post(
                 f"{self.api_url}/posts/{post_id}",
-                headers=self.headers,
                 json={'featured_media': media_id},
                 timeout=10
             )
+            self._handle_response(update_response)
             
             if update_response.status_code == 200:
                 logger.info(f"Featured image set successfully for post {post_id}")
@@ -630,12 +652,12 @@ class WordPressService:
                 logger.info(f"Setting SEO meta fields: {list(all_meta_fields.keys())}")
                 
                 # Try setting via post meta
-                response = requests.post(
+                response = self.session.post(
                     f"{self.api_url}/posts/{post_id}",
-                    headers=self.headers,
                     json={'meta': all_meta_fields},
                     timeout=15
                 )
+                self._handle_response(response)
                 
                 if response.status_code == 200:
                     result['yoast'] = True
@@ -650,12 +672,12 @@ class WordPressService:
                     # Strategy 2: Try setting each field individually
                     for field_name, field_value in all_meta_fields.items():
                         try:
-                            individual_response = requests.post(
+                            individual_response = self.session.post(
                                 f"{self.api_url}/posts/{post_id}",
-                                headers=self.headers,
                                 json={'meta': {field_name: field_value}},
                                 timeout=10
                             )
+                            self._handle_response(individual_response)
                             if individual_response.status_code == 200:
                                 logger.info(f"Set {field_name} individually")
                                 result['success'] = True
@@ -699,12 +721,12 @@ class WordPressService:
             
             logger.info(f"Setting schema for post {post_id}: {len(schema_clean)} chars")
             
-            response = requests.post(
+            response = self.session.post(
                 f"{self.api_url}/posts/{post_id}",
-                headers=self.headers,
                 json={'meta': meta_fields},
                 timeout=15
             )
+            self._handle_response(response)
             
             if response.status_code == 200:
                 result['success'] = True
@@ -722,12 +744,12 @@ class WordPressService:
     def get_categories(self) -> list:
         """Get all categories"""
         try:
-            response = requests.get(
+            response = self.session.get(
                 f"{self.api_url}/categories",
-                headers=self.headers,
                 params={'per_page': 100},
                 timeout=10
             )
+            self._handle_response(response)
             if response.status_code == 200:
                 return [{'id': c['id'], 'name': c['name'], 'slug': c['slug']} 
                         for c in response.json()]
@@ -738,12 +760,12 @@ class WordPressService:
     def get_posts(self, status: str = 'publish', per_page: int = 10) -> list:
         """Get recent posts"""
         try:
-            response = requests.get(
+            response = self.session.get(
                 f"{self.api_url}/posts",
-                headers=self.headers,
                 params={'status': status, 'per_page': per_page},
                 timeout=10
             )
+            self._handle_response(response)
             if response.status_code == 200:
                 return response.json()
             return []
