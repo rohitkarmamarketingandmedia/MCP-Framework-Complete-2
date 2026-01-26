@@ -344,14 +344,52 @@ class WordPressService:
                 timeout=30
             )
             
+            # Check for CAPTCHA/WAF response (returns HTML instead of JSON)
+            content_type = response.headers.get('Content-Type', '')
+            if 'text/html' in content_type and 'application/json' not in content_type:
+                text = response.text.lower()
+                if 'sgcaptcha' in text or 'sg-captcha' in text:
+                    return {
+                        'success': False,
+                        'error': 'SiteGround CAPTCHA blocking API',
+                        'message': 'SiteGround security is blocking the request. Please go to SiteGround Site Tools > Security > Access Control and whitelist the server IP, or disable SG Security plugin Bot Protection temporarily.'
+                    }
+                elif 'cloudflare' in text or 'cf-browser' in text:
+                    return {
+                        'success': False,
+                        'error': 'Cloudflare blocking API',
+                        'message': 'Cloudflare is blocking the request. Add the server IP to Cloudflare firewall allowlist.'
+                    }
+                elif 'captcha' in text or 'challenge' in text or 'blocked' in text:
+                    return {
+                        'success': False,
+                        'error': 'Security system blocking API',
+                        'message': f'A security system is blocking the request. Response: {response.text[:300]}'
+                    }
+            
             if response.status_code not in [200, 201]:
+                # Try to get error message
+                try:
+                    error_data = response.json()
+                    error_msg = error_data.get('message', response.text[:500])
+                except:
+                    error_msg = response.text[:500] if response.text else f'HTTP {response.status_code}'
                 return {
                     'success': False,
                     'error': f"Failed to create post: {response.status_code}",
-                    'message': response.text[:500]
+                    'message': error_msg
                 }
             
-            post = response.json()
+            # Try to parse JSON response
+            try:
+                post = response.json()
+            except Exception as json_err:
+                return {
+                    'success': False,
+                    'error': 'Invalid response from WordPress',
+                    'message': f'WordPress returned non-JSON response: {response.text[:300]}'
+                }
+            
             post_id = post.get('id')
             
             # Upload and set featured image if provided
@@ -399,8 +437,32 @@ class WordPressService:
                 timeout=30
             )
             
+            # Check for CAPTCHA/WAF response
+            content_type = response.headers.get('Content-Type', '')
+            if 'text/html' in content_type and 'application/json' not in content_type:
+                text = response.text.lower()
+                if 'sgcaptcha' in text or 'sg-captcha' in text:
+                    return {
+                        'success': False,
+                        'error': 'SiteGround CAPTCHA blocking API',
+                        'message': 'SiteGround security is blocking the request. Whitelist the server IP in SiteGround Site Tools > Security.'
+                    }
+                elif 'captcha' in text or 'challenge' in text:
+                    return {
+                        'success': False,
+                        'error': 'Security blocking API',
+                        'message': f'Security system blocking request: {response.text[:200]}'
+                    }
+            
             if response.status_code == 200:
-                post = response.json()
+                try:
+                    post = response.json()
+                except:
+                    return {
+                        'success': False,
+                        'error': 'Invalid response',
+                        'message': f'WordPress returned non-JSON: {response.text[:200]}'
+                    }
                 return {
                     'success': True,
                     'post_id': post_id,
@@ -409,10 +471,15 @@ class WordPressService:
                     'message': 'WordPress post updated successfully'
                 }
             else:
+                try:
+                    error_data = response.json()
+                    error_msg = error_data.get('message', response.text[:300])
+                except:
+                    error_msg = response.text[:300] if response.text else f'HTTP {response.status_code}'
                 return {
                     'success': False,
                     'error': f"Update failed: {response.status_code}",
-                    'message': f'WordPress update failed with status {response.status_code}'
+                    'message': error_msg
                 }
         except Exception as e:
             return {'success': False, 'error': str(e), 'message': f'WordPress update failed: {str(e)}'}
