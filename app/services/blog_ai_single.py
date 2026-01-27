@@ -706,16 +706,8 @@ PHONE: {req.phone}
 EMAIL: {req.email}
 CURRENT YEAR: {current_year}
 
-INTERNAL LINKS (CRITICAL - WEAVE NATURALLY INTO CONTENT):
+INTERNAL LINKS (MINIMUM 3 REQUIRED):
 {links_list if links_list else 'No internal links provided'}
-
-INTERNAL LINKING RULES:
-- Include at least 2-3 internal links as <a href="URL">anchor text</a> tags
-- Prioritize links to other blog posts from {req.city} (same city/category)
-- Use relevant anchor text that matches the linked page topic
-- Place links naturally within paragraphs, not in standalone sentences
-- Do NOT use "click here" or "learn more" as anchor text
-- Do NOT add links to pages not listed above (may cause 404 errors)
 
 {"CRITICAL: Keyword ALREADY CONTAINS the city name. Do NOT duplicate city in titles!" if keyword_has_city else ""}
 
@@ -1554,7 +1546,7 @@ OUTPUT JSON:"""
                         
                         body = '</p>'.join(new_paragraphs)
             
-            # If still not enough links, add a "Related Articles" section
+            # If still not enough links, add a "Related Services" section
             current_link_count = len(re.findall(r'<a\s+href=', body, re.IGNORECASE))
             if current_link_count < 3 and internal:
                 links_html = ""
@@ -1563,8 +1555,8 @@ OUTPUT JSON:"""
                         links_html += f'<li><a href="{link["url"]}">{link["title"]}</a></li>\n'
                 
                 if links_html:
-                    body += f'\n<h2>Related Articles</h2>\n<ul>\n{links_html}</ul>'
-                    logger.info("Added Related Articles section with links")
+                    body += f'\n<h2>Related Services</h2>\n<ul>\n{links_html}</ul>'
+                    logger.info("Added Related Services section with links")
             
             result["body"] = body
 
