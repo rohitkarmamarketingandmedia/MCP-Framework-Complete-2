@@ -404,89 +404,111 @@ def generate_blog_sync(current_user):
                 return 'https://' + url
             return url
         
-        # 1. Add service pages (prioritize those with city in name)
         city_lower = city.lower() if city else ''
-        service_pages_with_city = []
-        service_pages_without_city = []
         
-        for sp in service_pages:
-            if isinstance(sp, dict) and sp.get('url'):
-                title = sp.get('title') or sp.get('keyword', '')
-                if city_lower and city_lower in title.lower():
-                    service_pages_with_city.append({
-                        'title': title,
-                        'url': ensure_full_url(sp.get('url', ''))
-                    })
-                else:
-                    service_pages_without_city.append({
-                        'title': title,
-                        'url': ensure_full_url(sp.get('url', ''))
-                    })
-        
-        # Add city-relevant service pages first
-        for sp in service_pages_with_city[:3]:
-            internal_links.append(sp)
-        for sp in service_pages_without_city[:3]:
-            if len(internal_links) < 4:
-                internal_links.append(sp)
-        
-        # 2. Add published blog posts (prioritize those with city in title)
-        posts_with_city = []
-        posts_without_city = []
+        # 1. PRIORITY: Add published blog posts from SAME CITY first (most relevant for interlinking)
+        posts_same_city = []
+        posts_other = []
         
         for post in published_posts:
             if post.published_url:
                 post_title = post.title or post.primary_keyword or ''
-                if city_lower and city_lower in post_title.lower():
-                    posts_with_city.append({
-                        'title': post_title,
-                        'url': ensure_full_url(post.published_url)
-                    })
+                post_city = getattr(post, 'target_city', '') or ''
+                
+                # Check if post is from same city (by target_city or title)
+                is_same_city = False
+                if city_lower:
+                    if post_city and post_city.lower() == city_lower:
+                        is_same_city = True
+                    elif city_lower in post_title.lower():
+                        is_same_city = True
+                
+                post_data = {
+                    'title': post_title,
+                    'url': ensure_full_url(post.published_url),
+                    'keyword': post.primary_keyword or ''
+                }
+                
+                if is_same_city:
+                    posts_same_city.append(post_data)
                 else:
-                    posts_without_city.append({
-                        'title': post_title,
-                        'url': ensure_full_url(post.published_url)
-                    })
+                    posts_other.append(post_data)
         
-        # Add city-relevant posts first
-        for post in posts_with_city[:3]:
+        # Add at least 2 posts from same city (for category interlinking)
+        logger.info(f"[SYNC] Found {len(posts_same_city)} posts from same city '{city}', {len(posts_other)} from other cities")
+        
+        # Log the actual URLs being used
+        for i, post in enumerate(posts_same_city[:3]):
+            logger.info(f"[SYNC] Same city post {i+1}: {post.get('title')} -> {post.get('url')}")
+        
+        for post in posts_same_city[:3]:  # Up to 3 from same city
             internal_links.append(post)
-        for post in posts_without_city[:3]:
-            if len(internal_links) < 6:
+        
+        # Add other posts if needed
+        for post in posts_other[:2]:  # Up to 2 from other cities
+            if len(internal_links) < 5:
                 internal_links.append(post)
         
-        # 3. Add contact page if available
+        # 2. Add service pages ONLY if they are explicitly configured (not auto-generated)
+        # These should be real pages the user has added
+        if service_pages:
+            service_pages_with_city = []
+            service_pages_without_city = []
+            
+            for sp in service_pages:
+                if isinstance(sp, dict) and sp.get('url'):
+                    title = sp.get('title') or sp.get('keyword', '')
+                    url = sp.get('url', '')
+                    
+                    # Skip auto-generated service pages that likely don't exist
+                    if '/services' in url.lower() and not any(x in url.lower() for x in ['service-', 'services/']):
+                        continue  # Skip generic /services URL
+                    
+                    if city_lower and city_lower in title.lower():
+                        service_pages_with_city.append({
+                            'title': title,
+                            'url': ensure_full_url(url)
+                        })
+                    else:
+                        service_pages_without_city.append({
+                            'title': title,
+                            'url': ensure_full_url(url)
+                        })
+            
+            # Add service pages (limit to avoid overwhelming with links)
+            for sp in service_pages_with_city[:2]:
+                if len(internal_links) < 6:
+                    internal_links.append(sp)
+            for sp in service_pages_without_city[:2]:
+                if len(internal_links) < 6:
+                    internal_links.append(sp)
+        
+        # 3. Add contact page ONLY if explicitly configured by user
         contact_url = getattr(client, 'contact_url', None)
-        if contact_url:
+        if contact_url and contact_url.strip():
             internal_links.append({
                 'title': 'Contact Us',
                 'url': ensure_full_url(contact_url)
             })
         
-        # 4. If still not enough links, create from website URL
-        if len(internal_links) < 3 and client.website_url:
-            base_url = ensure_full_url(client.website_url).rstrip('/')
-            # Add common service page URLs
-            default_pages = [
-                {'title': 'Our Services', 'url': f'{base_url}/services'},
-                {'title': 'About Us', 'url': f'{base_url}/about'},
-                {'title': 'Contact Us', 'url': f'{base_url}/contact'},
-            ]
-            for page in default_pages:
-                if len(internal_links) < 6:
-                    internal_links.append(page)
+        # 4. Add blog page ONLY if explicitly configured by user
+        blog_url_base = getattr(client, 'blog_url', None)
+        if blog_url_base and blog_url_base.strip() and len(internal_links) < 6:
+            internal_links.append({
+                'title': 'Our Blog',
+                'url': ensure_full_url(blog_url_base)
+            })
+        
+        # NOTE: We do NOT add auto-generated /services, /about URLs anymore
+        # These often cause 404s. User must configure real pages in service_pages or contact_url
         
         logger.info(f"[SYNC] Internal links for blog: {len(internal_links)} links")
-        for link in internal_links[:3]:
+        for link in internal_links[:5]:
             logger.info(f"[SYNC]   - {link.get('title')}: {link.get('url')}")
         
-        # Get contact and blog URLs
+        # Get contact and blog URLs for CTAs (may be empty)
         contact_url = getattr(client, 'contact_url', None) or ''
         blog_url_base = getattr(client, 'blog_url', None) or ''
-        
-        # If no contact_url, try to build one from website
-        if not contact_url and client.website_url:
-            contact_url = ensure_full_url(client.website_url).rstrip('/') + '/contact'
         
         logger.info(f"[SYNC] Contact URL: {contact_url}, Blog URL: {blog_url_base}")
         
@@ -1730,12 +1752,17 @@ def publish_to_wordpress(current_user, content_id):
                 wp._set_schema(post_id, schema_json)
         
         if result.get('success'):
-            # Update blog with WordPress post ID
+            # Update blog with WordPress post ID and published URL
             content.wordpress_post_id = result.get('post_id')
+            content.published_url = result.get('url') or result.get('post_url')  # Save the full WordPress URL
             content.status = 'published' if wp_status == 'publish' else content.status
+            content.published_at = datetime.utcnow() if wp_status == 'publish' else content.published_at
             data_service.save_blog_post(content)
             
+            logger.info(f"Saved published_url: {content.published_url}")
+            
             result['blog_status'] = content.status
+            result['published_url'] = content.published_url
         
         return jsonify(result)
         
