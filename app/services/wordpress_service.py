@@ -53,12 +53,10 @@ class WordPressService:
         credentials = f"{self.username}:{self.app_password}"
         token = base64.b64encode(credentials.encode('utf-8')).decode('ascii')
         
-        # Simple headers that work with most WordPress hosts
+        # Minimal headers - only what's absolutely required
         self.headers = {
             'Authorization': f'Basic {token}',
-            'Content-Type': 'application/json',
-            'User-Agent': 'MCP-Framework/1.0',
-            'Accept': 'application/json'
+            'Content-Type': 'application/json'
         }
     
     def test_connection(self) -> Dict[str, Any]:
