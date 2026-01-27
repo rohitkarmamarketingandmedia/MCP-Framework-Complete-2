@@ -673,24 +673,24 @@ OUTPUT: Return ONLY valid JSON. No markdown code blocks."""
         # Check if keyword already contains city name
         keyword_has_city = req.city and req.city.lower() in keyword.lower()
         
-        # Build CTA templates with contact URL
+        # Build CTA templates with contact URL (no inline CSS - use classes only)
         contact_link = ""
         if req.contact_url:
-            contact_link = f' or <a href="{req.contact_url}">Request Service Online</a>'
+            contact_link = f' or <a href="{req.contact_url}" class="cta-link">Request Service Online</a>'
         
         contact_button = ""
         if req.contact_url:
-            contact_button = f'\n<p style="margin-top:15px;"><a href="{req.contact_url}" style="background:white;color:#0066cc;padding:12px 25px;border-radius:5px;text-decoration:none;font-weight:bold;">Contact Us Online</a></p>'
+            contact_button = f'\n<p><a href="{req.contact_url}" class="cta-button">Contact Us Online</a></p>'
         
-        mid_cta = f'''<div class="cta-box" style="background:#f0f8ff;padding:20px;border-radius:8px;margin:20px 0;border-left:4px solid #0066cc;">
+        mid_cta = f'''<div class="cta-box cta-box-light">
 <h3>Ready for {keyword.title()} in {req.city}?</h3>
 <p>Contact {req.company_name} today for a free estimate. Call <a href="tel:{req.phone}">{req.phone}</a>{contact_link}.</p>
 </div>'''
 
-        bottom_cta = f'''<div class="cta-box" style="background:#0066cc;color:white;padding:25px;border-radius:8px;margin:20px 0;text-align:center;">
-<h3 style="color:white;margin-top:0;">Get Your Free {keyword.title()} Quote Today!</h3>
-<p style="margin-bottom:15px;">Serving {req.city} and surrounding areas. {req.company_name} is ready to help!</p>
-<p><strong>Call Now: <a href="tel:{req.phone}" style="color:white;">{req.phone}</a></strong></p>{contact_button}
+        bottom_cta = f'''<div class="cta-box cta-box-primary">
+<h3>Get Your Free {keyword.title()} Quote Today!</h3>
+<p>Serving {req.city} and surrounding areas. {req.company_name} is ready to help!</p>
+<p><strong>Call Now: <a href="tel:{req.phone}">{req.phone}</a></strong></p>{contact_button}
 </div>'''
 
         return f"""CLAUDE MASTER PROMPT — AI-OPTIMIZED LOCAL SEO BLOG GENERATION (STRICT MODE)
@@ -1661,26 +1661,26 @@ OUTPUT JSON:"""
         keyword = req.keyword.strip()
         kw_title = self._title_case(keyword)
         
-        # Contact link - use contact_url if provided, otherwise phone only
+        # Contact link - use contact_url if provided (no inline CSS)
         contact_link = ""
         if req.contact_url:
-            contact_link = f' or <a href="{req.contact_url}" style="color:#0066cc;font-weight:bold;">Request Service Online</a>'
+            contact_link = f' or <a href="{req.contact_url}" class="cta-link">Request Service Online</a>'
         
         contact_button = ""
         if req.contact_url:
-            contact_button = f'<p style="margin-top:15px;"><a href="{req.contact_url}" style="background:white;color:#0066cc;padding:12px 25px;border-radius:5px;text-decoration:none;font-weight:bold;">Contact Us Online</a></p>'
+            contact_button = f'<p><a href="{req.contact_url}" class="cta-button">Contact Us Online</a></p>'
         
-        # Middle CTA template
-        middle_cta = f'''<div class="cta-box" style="background:#f0f8ff;padding:20px;border-radius:8px;margin:20px 0;border-left:4px solid #0066cc;">
+        # Middle CTA template (class only, no inline styles)
+        middle_cta = f'''<div class="cta-box cta-box-light">
 <h3>Ready for {kw_title} in {city}?</h3>
 <p>Contact {req.company_name} today for a free estimate. Call <a href="tel:{req.phone}">{req.phone}</a>{contact_link}.</p>
 </div>'''
 
-        # Bottom CTA template  
-        bottom_cta = f'''<div class="cta-box" style="background:#0066cc;color:white;padding:25px;border-radius:8px;margin:20px 0;text-align:center;">
-<h3 style="color:white;margin-top:0;">Get Your Free {kw_title} Quote Today!</h3>
-<p style="margin-bottom:15px;">Serving {city} and surrounding areas. {req.company_name} is ready to help!</p>
-<p><strong>Call Now: <a href="tel:{req.phone}" style="color:white;">{req.phone}</a></strong></p>
+        # Bottom CTA template (class only, no inline styles)
+        bottom_cta = f'''<div class="cta-box cta-box-primary">
+<h3>Get Your Free {kw_title} Quote Today!</h3>
+<p>Serving {city} and surrounding areas. {req.company_name} is ready to help!</p>
+<p><strong>Call Now: <a href="tel:{req.phone}">{req.phone}</a></strong></p>
 {contact_button}
 </div>'''
 

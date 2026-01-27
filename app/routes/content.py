@@ -437,6 +437,10 @@ def generate_blog_sync(current_user):
         # Add at least 2 posts from same city (for category interlinking)
         logger.info(f"[SYNC] Found {len(posts_same_city)} posts from same city '{city}', {len(posts_other)} from other cities")
         
+        # Log the actual URLs being used
+        for i, post in enumerate(posts_same_city[:3]):
+            logger.info(f"[SYNC] Same city post {i+1}: {post.get('title')} -> {post.get('url')}")
+        
         for post in posts_same_city[:3]:  # Up to 3 from same city
             internal_links.append(post)
         
@@ -1748,12 +1752,17 @@ def publish_to_wordpress(current_user, content_id):
                 wp._set_schema(post_id, schema_json)
         
         if result.get('success'):
-            # Update blog with WordPress post ID
+            # Update blog with WordPress post ID and published URL
             content.wordpress_post_id = result.get('post_id')
+            content.published_url = result.get('url') or result.get('post_url')  # Save the full WordPress URL
             content.status = 'published' if wp_status == 'publish' else content.status
+            content.published_at = datetime.utcnow() if wp_status == 'publish' else content.published_at
             data_service.save_blog_post(content)
             
+            logger.info(f"Saved published_url: {content.published_url}")
+            
             result['blog_status'] = content.status
+            result['published_url'] = content.published_url
         
         return jsonify(result)
         
