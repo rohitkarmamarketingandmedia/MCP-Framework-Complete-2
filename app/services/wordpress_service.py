@@ -71,11 +71,13 @@ class WordPressService:
             
             # Check for captcha/challenge page (SiteGround, Cloudflare, etc.)
             content_type = response.headers.get('Content-Type', '')
-            if 'text/html' in content_type and 'application/json' not in content_type:
+            
+            # Only check for CAPTCHA if we got HTML instead of JSON AND status is not 200
+            if 'text/html' in content_type and 'application/json' not in content_type and response.status_code != 200:
                 text = response.text.lower()
                 
-                # SiteGround CAPTCHA detection
-                if 'sgcaptcha' in text or 'sg-captcha' in text:
+                # SiteGround CAPTCHA detection - be more specific
+                if 'sgcaptcha' in text or 'sg-captcha-form' in text or 'siteground' in text and 'captcha' in text:
                     return {
                         'success': False,
                         'error': 'SiteGround security blocking API access',
@@ -84,20 +86,23 @@ class WordPressService:
                     }
                 
                 # Cloudflare challenge detection
-                if 'checking your browser' in text or 'cf-browser-verification' in text or 'cloudflare' in text:
+                if 'checking your browser' in text or 'cf-browser-verification' in text:
                     return {
                         'success': False,
                         'error': 'Cloudflare security blocking API access',
                         'message': 'Cloudflare protection is blocking access. Add the server IP to Cloudflare firewall allowlist or create a WAF rule to allow API access.',
                         'response_preview': response.text[:500]
                     }
-                
-                # Generic WAF/security detection
-                if 'captcha' in text or 'challenge' in text or 'blocked' in text or 'security' in text:
+            
+            # If we got HTML with 200 status, it might still be an error page
+            if 'text/html' in content_type and response.status_code == 200:
+                # Check if it looks like a real CAPTCHA challenge page
+                text = response.text.lower()
+                if 'sgcaptcha' in text and 'form' in text:
                     return {
                         'success': False,
-                        'error': 'Security challenge detected',
-                        'message': 'A security system is blocking API access. Please whitelist the server IP or adjust security settings.',
+                        'error': 'SiteGround CAPTCHA detected',
+                        'message': 'SiteGround CAPTCHA is blocking. Whitelist server IP in SiteGround Site Tools > Security > Access Control.',
                         'response_preview': response.text[:500]
                     }
             
@@ -335,27 +340,21 @@ class WordPressService:
                 timeout=30
             )
             
-            # Check for CAPTCHA/WAF response (returns HTML instead of JSON)
+            # Check for CAPTCHA/WAF response (returns HTML instead of JSON) - only on error status
             content_type = response.headers.get('Content-Type', '')
-            if 'text/html' in content_type and 'application/json' not in content_type:
+            if 'text/html' in content_type and 'application/json' not in content_type and response.status_code not in [200, 201]:
                 text = response.text.lower()
-                if 'sgcaptcha' in text or 'sg-captcha' in text:
+                if 'sgcaptcha' in text and 'form' in text:
                     return {
                         'success': False,
                         'error': 'SiteGround CAPTCHA blocking API',
                         'message': 'SiteGround security is blocking the request. Please go to SiteGround Site Tools > Security > Access Control and whitelist the server IP, or disable SG Security plugin Bot Protection temporarily.'
                     }
-                elif 'cloudflare' in text or 'cf-browser' in text:
+                elif 'checking your browser' in text or 'cf-browser-verification' in text:
                     return {
                         'success': False,
                         'error': 'Cloudflare blocking API',
                         'message': 'Cloudflare is blocking the request. Add the server IP to Cloudflare firewall allowlist.'
-                    }
-                elif 'captcha' in text or 'challenge' in text or 'blocked' in text:
-                    return {
-                        'success': False,
-                        'error': 'Security system blocking API',
-                        'message': f'A security system is blocking the request. Response: {response.text[:300]}'
                     }
             
             if response.status_code not in [200, 201]:
@@ -428,21 +427,15 @@ class WordPressService:
                 timeout=30
             )
             
-            # Check for CAPTCHA/WAF response
+            # Check for CAPTCHA/WAF response - only on error status
             content_type = response.headers.get('Content-Type', '')
-            if 'text/html' in content_type and 'application/json' not in content_type:
+            if 'text/html' in content_type and 'application/json' not in content_type and response.status_code != 200:
                 text = response.text.lower()
-                if 'sgcaptcha' in text or 'sg-captcha' in text:
+                if 'sgcaptcha' in text and 'form' in text:
                     return {
                         'success': False,
                         'error': 'SiteGround CAPTCHA blocking API',
                         'message': 'SiteGround security is blocking the request. Whitelist the server IP in SiteGround Site Tools > Security.'
-                    }
-                elif 'captcha' in text or 'challenge' in text:
-                    return {
-                        'success': False,
-                        'error': 'Security blocking API',
-                        'message': f'Security system blocking request: {response.text[:200]}'
                     }
             
             if response.status_code == 200:
