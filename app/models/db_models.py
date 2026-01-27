@@ -471,6 +471,9 @@ class DBBlogPost(db.Model):
     # WordPress integration
     wordpress_post_id: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     
+    # Target city for this blog post (may differ from client's default geo)
+    target_city: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    
     # Approval workflow
     revision_notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     approved_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
@@ -497,6 +500,7 @@ class DBBlogPost(db.Model):
         self.schema_markup = json.dumps(kwargs.get('schema_markup')) if kwargs.get('schema_markup') else None
         self.faq_content = json.dumps(kwargs.get('faq_content')) if kwargs.get('faq_content') else None
         self.featured_image_url = kwargs.get('featured_image_url')
+        self.target_city = kwargs.get('target_city')
         self.status = kwargs.get('status', ContentStatus.DRAFT)
         self.created_at = datetime.utcnow()
         self.updated_at = datetime.utcnow()
@@ -520,6 +524,7 @@ class DBBlogPost(db.Model):
             'schema_markup': safe_json_loads(self.schema_markup, None),
             'faq_content': safe_json_loads(self.faq_content, None),
             'featured_image_url': self.featured_image_url,
+            'target_city': self.target_city,
             'status': self.status,
             'published_url': self.published_url,
             'published_at': self.published_at.isoformat() if self.published_at else None,

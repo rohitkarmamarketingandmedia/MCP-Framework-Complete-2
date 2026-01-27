@@ -63,6 +63,20 @@ def run_migrations(app):
                 db.session.commit()
                 logger.info("✓ Added contact_url column")
             
+            # Check if target_city column exists in blog_posts
+            result = db.session.execute(text("""
+                SELECT column_name FROM information_schema.columns 
+                WHERE table_name = 'blog_posts' AND column_name = 'target_city'
+            """))
+            if not result.fetchone():
+                logger.info("Adding target_city column to blog_posts table...")
+                db.session.execute(text("""
+                    ALTER TABLE blog_posts 
+                    ADD COLUMN target_city VARCHAR(100)
+                """))
+                db.session.commit()
+                logger.info("✓ Added target_city column")
+            
             # Add blog_tasks table if not exists
             db.session.execute(text("""
                 CREATE TABLE IF NOT EXISTS blog_tasks (

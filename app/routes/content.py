@@ -564,6 +564,7 @@ def generate_blog_sync(current_user):
             schema_markup=faq_schema,
             word_count=actual_word_count,
             seo_score=seo_score,
+            target_city=city,  # Store the selected city
             status=ContentStatus.DRAFT
         )
         
@@ -1574,10 +1575,14 @@ def publish_to_wordpress(current_user, content_id):
         
         # Build tags - ensure at least 5 tags with city name, proper Title Case
         tags = []
-        # Extract city from geo (format: "City, State" or just "City")
+        # Use target_city from blog post if available, otherwise fall back to client.geo
         city = ''
-        if hasattr(client, 'geo') and client.geo:
+        if hasattr(content, 'target_city') and content.target_city:
+            city = content.target_city.strip()
+            logger.info(f"Using target_city from blog post: {city}")
+        elif hasattr(client, 'geo') and client.geo:
             city = client.geo.split(',')[0].strip()
+            logger.info(f"Using geo from client: {city}")
         city = title_case(city)  # Ensure city is Title Case
         
         # Start with primary keyword (Title Case)
@@ -1694,6 +1699,15 @@ def publish_to_wordpress(current_user, content_id):
             logger.info(f"Creating new WP post with featured_image_url: {content.featured_image_url}")
             logger.info(f"SEO meta - title: {content.meta_title}, desc: {content.meta_description[:50] if content.meta_description else 'None'}...")
             logger.info(f"Tags ({len(tags)}): {tags[:5]}...")
+            
+            # Build categories - use city name as category
+            categories = []
+            if city:
+                categories.append(city)
+            if client.industry:
+                categories.append(title_case(client.industry))
+            logger.info(f"Categories: {categories}")
+            
             result = wp.create_post(
                 title=wp_post_title,  # Use meta_title as post title for SEO
                 content=full_content,
@@ -1705,6 +1719,7 @@ def publish_to_wordpress(current_user, content_id):
                 featured_image_url=content.featured_image_url,  # Featured image for post
                 meta=meta,
                 tags=tags if tags else None,
+                categories=categories if categories else None,  # City and industry as categories
                 date=content.scheduled_for if wp_status == 'future' else None
             )
             
