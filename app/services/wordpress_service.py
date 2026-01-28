@@ -72,39 +72,44 @@ class WordPressService:
             # Check for captcha/challenge page (SiteGround, Cloudflare, etc.)
             content_type = response.headers.get('Content-Type', '')
             
-            # Only check for CAPTCHA if we got HTML instead of JSON AND status is not 200
-            if 'text/html' in content_type and 'application/json' not in content_type and response.status_code != 200:
+            # Only check for CAPTCHA if we got HTML instead of JSON
+            if 'text/html' in content_type and 'application/json' not in content_type:
                 text = response.text.lower()
                 
-                # SiteGround CAPTCHA detection - be more specific
-                if 'sgcaptcha' in text or 'sg-captcha-form' in text or 'siteground' in text and 'captcha' in text:
+                # SiteGround CAPTCHA detection - VERY specific patterns only
+                # Must have actual CAPTCHA form elements, not just "siteground" in the page
+                is_sg_captcha = (
+                    ('sgcaptcha' in text or 'sg-captcha-form' in text) and 
+                    ('<form' in text or 'data-captcha' in text)
+                )
+                
+                if is_sg_captcha:
                     return {
                         'success': False,
-                        'error': 'SiteGround security blocking API access',
+                        'error': 'SiteGround CAPTCHA detected',
                         'message': 'SiteGround CAPTCHA is blocking the request. Please whitelist the server IP in SiteGround Site Tools > Security > Access Control, or temporarily disable SG Security plugin Bot Protection.',
                         'response_preview': response.text[:500]
                     }
                 
-                # Cloudflare challenge detection
-                if 'checking your browser' in text or 'cf-browser-verification' in text:
+                # Cloudflare challenge detection - specific patterns
+                is_cloudflare = (
+                    'checking your browser' in text or 
+                    'cf-browser-verification' in text or
+                    'cloudflare' in text and 'challenge' in text
+                )
+                
+                if is_cloudflare:
                     return {
                         'success': False,
                         'error': 'Cloudflare security blocking API access',
                         'message': 'Cloudflare protection is blocking access. Add the server IP to Cloudflare firewall allowlist or create a WAF rule to allow API access.',
                         'response_preview': response.text[:500]
                     }
-            
-            # If we got HTML with 200 status, it might still be an error page
-            if 'text/html' in content_type and response.status_code == 200:
-                # Check if it looks like a real CAPTCHA challenge page
-                text = response.text.lower()
-                if 'sgcaptcha' in text and 'form' in text:
-                    return {
-                        'success': False,
-                        'error': 'SiteGround CAPTCHA detected',
-                        'message': 'SiteGround CAPTCHA is blocking. Whitelist server IP in SiteGround Site Tools > Security > Access Control.',
-                        'response_preview': response.text[:500]
-                    }
+                
+                # If we got HTML but no specific CAPTCHA detected, it might be another issue
+                # Log it for debugging but don't assume CAPTCHA
+                if response.status_code != 200:
+                    logger.warning(f"Received HTML response (status {response.status_code}) instead of JSON. Preview: {response.text[:300]}")
             
             if response.status_code == 200:
                 # Successfully authenticated!
@@ -199,6 +204,171 @@ class WordPressService:
                 'error': str(e),
                 'message': f'Connection test failed: {str(e)}'
             }
+    
+    def diagnose_connection(self) -> Dict[str, Any]:
+        """
+        Detailed diagnostic of WordPress connection - useful for debugging
+        Returns raw response info to help identify blocking issues
+        """
+        results = {
+            'site_url': self.site_url,
+            'api_url': self.api_url,
+            'tests': []
+        }
+        
+        # Test 1: Basic site access (no auth)
+        try:
+            response = requests.get(self.site_url, timeout=10, allow_redirects=True)
+            results['tests'].append({
+                'name': 'Site Access (no auth)',
+                'url': self.site_url,
+                'status_code': response.status_code,
+                'content_type': response.headers.get('Content-Type', ''),
+                'final_url': response.url,
+                'response_preview': response.text[:300] if response.text else None
+            })
+        except Exception as e:
+            results['tests'].append({
+                'name': 'Site Access (no auth)',
+                'error': str(e)
+            })
+        
+        # Test 2: REST API discovery (no auth)
+        try:
+            response = requests.get(f"{self.site_url}/wp-json/", timeout=10)
+            results['tests'].append({
+                'name': 'REST API Discovery (no auth)',
+                'url': f"{self.site_url}/wp-json/",
+                'status_code': response.status_code,
+                'content_type': response.headers.get('Content-Type', ''),
+                'is_json': 'application/json' in response.headers.get('Content-Type', ''),
+                'response_preview': response.text[:300] if response.text else None
+            })
+        except Exception as e:
+            results['tests'].append({
+                'name': 'REST API Discovery (no auth)',
+                'error': str(e)
+            })
+        
+        # Test 3: Posts endpoint (no auth)
+        try:
+            response = requests.get(f"{self.api_url}/posts", params={'per_page': 1}, timeout=10)
+            results['tests'].append({
+                'name': 'Posts Endpoint (no auth)',
+                'url': f"{self.api_url}/posts",
+                'status_code': response.status_code,
+                'content_type': response.headers.get('Content-Type', ''),
+                'is_json': 'application/json' in response.headers.get('Content-Type', ''),
+                'response_preview': response.text[:300] if response.text else None
+            })
+        except Exception as e:
+            results['tests'].append({
+                'name': 'Posts Endpoint (no auth)',
+                'error': str(e)
+            })
+        
+        # Test 4: Users/me endpoint (with auth)
+        try:
+            response = requests.get(
+                f"{self.api_url}/users/me",
+                headers=self.headers,
+                timeout=10
+            )
+            results['tests'].append({
+                'name': 'Users/Me Endpoint (with auth)',
+                'url': f"{self.api_url}/users/me",
+                'status_code': response.status_code,
+                'content_type': response.headers.get('Content-Type', ''),
+                'is_json': 'application/json' in response.headers.get('Content-Type', ''),
+                'response_preview': response.text[:500] if response.text else None,
+                'headers_sent': {k: v for k, v in self.headers.items() if k != 'Authorization'}
+            })
+        except Exception as e:
+            results['tests'].append({
+                'name': 'Users/Me Endpoint (with auth)',
+                'error': str(e)
+            })
+        
+        # Test 5: POST to posts endpoint (with auth) - dry run check
+        try:
+            response = requests.post(
+                f"{self.api_url}/posts",
+                headers=self.headers,
+                json={'title': 'Connection Test - DELETE ME', 'content': 'Test', 'status': 'draft'},
+                timeout=15
+            )
+            results['tests'].append({
+                'name': 'POST to Posts (with auth)',
+                'url': f"{self.api_url}/posts",
+                'status_code': response.status_code,
+                'content_type': response.headers.get('Content-Type', ''),
+                'is_json': 'application/json' in response.headers.get('Content-Type', ''),
+                'response_preview': response.text[:500] if response.text else None
+            })
+            
+            # If we created a test post, delete it
+            if response.status_code == 201:
+                try:
+                    post_data = response.json()
+                    post_id = post_data.get('id')
+                    if post_id:
+                        delete_response = requests.delete(
+                            f"{self.api_url}/posts/{post_id}",
+                            headers=self.headers,
+                            params={'force': True},
+                            timeout=10
+                        )
+                        results['tests'][-1]['cleanup'] = f"Deleted test post {post_id}"
+                except:
+                    pass
+                    
+        except Exception as e:
+            results['tests'].append({
+                'name': 'POST to Posts (with auth)',
+                'error': str(e)
+            })
+        
+        # Analyze results
+        results['diagnosis'] = self._analyze_diagnostic_results(results['tests'])
+        
+        return results
+    
+    def _analyze_diagnostic_results(self, tests: list) -> str:
+        """Analyze diagnostic test results and provide recommendations"""
+        issues = []
+        
+        for test in tests:
+            if 'error' in test:
+                issues.append(f"- {test['name']}: Connection error - {test['error']}")
+                continue
+                
+            status = test.get('status_code')
+            content_type = test.get('content_type', '')
+            is_json = test.get('is_json', False)
+            preview = test.get('response_preview', '').lower()
+            
+            # Check for HTML when JSON expected
+            if 'with auth' in test['name'] and not is_json and status != 200:
+                if 'sgcaptcha' in preview or 'sg-captcha' in preview:
+                    issues.append(f"- {test['name']}: SiteGround CAPTCHA detected in response")
+                elif 'cloudflare' in preview:
+                    issues.append(f"- {test['name']}: Cloudflare protection detected")
+                elif 'text/html' in content_type:
+                    issues.append(f"- {test['name']}: Got HTML instead of JSON (possible error page or WAF)")
+            
+            if status == 401:
+                issues.append(f"- {test['name']}: Authentication failed (401)")
+            elif status == 403:
+                issues.append(f"- {test['name']}: Access forbidden (403) - check security plugins")
+            elif status == 404:
+                issues.append(f"- {test['name']}: Endpoint not found (404) - REST API may be disabled")
+            elif status == 500:
+                issues.append(f"- {test['name']}: Server error (500)")
+        
+        if not issues:
+            return "All tests passed. Connection should work."
+        
+        return "Issues found:\n" + "\n".join(issues)
     
     def _test_connection_fallback(self) -> Dict[str, Any]:
         """Fallback connection test using posts endpoint with edit context"""
@@ -340,21 +510,47 @@ class WordPressService:
                 timeout=30
             )
             
-            # Check for CAPTCHA/WAF response (returns HTML instead of JSON) - only on error status
+            # Check for CAPTCHA/WAF response (returns HTML instead of JSON)
             content_type = response.headers.get('Content-Type', '')
-            if 'text/html' in content_type and 'application/json' not in content_type and response.status_code not in [200, 201]:
+            if 'text/html' in content_type and 'application/json' not in content_type:
                 text = response.text.lower()
-                if 'sgcaptcha' in text and 'form' in text:
+                
+                # SiteGround CAPTCHA - VERY specific detection
+                is_sg_captcha = (
+                    ('sgcaptcha' in text or 'sg-captcha-form' in text) and 
+                    ('<form' in text or 'data-captcha' in text)
+                )
+                
+                if is_sg_captcha:
                     return {
                         'success': False,
                         'error': 'SiteGround CAPTCHA blocking API',
-                        'message': 'SiteGround security is blocking the request. Please go to SiteGround Site Tools > Security > Access Control and whitelist the server IP, or disable SG Security plugin Bot Protection temporarily.'
+                        'message': 'SiteGround security is blocking the request. Please go to SiteGround Site Tools > Security > Access Control and whitelist the server IP, or disable SG Security plugin Bot Protection temporarily.',
+                        'response_preview': response.text[:500]
                     }
-                elif 'checking your browser' in text or 'cf-browser-verification' in text:
+                
+                # Cloudflare detection
+                is_cloudflare = (
+                    'checking your browser' in text or 
+                    'cf-browser-verification' in text or
+                    ('cloudflare' in text and 'challenge' in text)
+                )
+                
+                if is_cloudflare:
                     return {
                         'success': False,
                         'error': 'Cloudflare blocking API',
-                        'message': 'Cloudflare is blocking the request. Add the server IP to Cloudflare firewall allowlist.'
+                        'message': 'Cloudflare is blocking the request. Add the server IP to Cloudflare firewall allowlist.',
+                        'response_preview': response.text[:500]
+                    }
+                
+                # Generic HTML error (not CAPTCHA) - provide the actual response for debugging
+                if response.status_code not in [200, 201]:
+                    return {
+                        'success': False,
+                        'error': f'WordPress returned HTML error (HTTP {response.status_code})',
+                        'message': f'Expected JSON but got HTML. This could be a server error page, security plugin, or misconfigured REST API. Response preview: {response.text[:300]}',
+                        'response_preview': response.text[:500]
                     }
             
             if response.status_code not in [200, 201]:
