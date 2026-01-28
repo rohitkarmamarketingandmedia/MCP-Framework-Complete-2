@@ -1048,23 +1048,50 @@ class WordPressManager:
         if client.industry:
             categories.append(client.industry.title())
         
-        # Build tags from keyword and location
+        # Build proper tags - service type + location
         tags = []
         if content.primary_keyword:
-            # Add the keyword and its parts as tags
-            tags.append(content.primary_keyword)
-            # Add individual meaningful words from keyword
-            for word in content.primary_keyword.split():
-                if len(word) > 3 and word.lower() not in ['with', 'from', 'that', 'this', 'your']:
-                    tags.append(word.lower())
+            # Extract service type from keyword (e.g., "AC Repair" from "AC Repair Port Charlotte")
+            keyword = content.primary_keyword.strip()
+            
+            # Common service keywords to extract
+            service_keywords = [
+                'AC Repair', 'AC Installation', 'AC Maintenance', 'AC Service',
+                'HVAC Repair', 'HVAC Installation', 'HVAC Maintenance', 'HVAC Service',
+                'Heating Repair', 'Heating Installation', 'Heating Maintenance',
+                'Air Conditioning', 'Furnace Repair', 'Heat Pump',
+                'Duct Cleaning', 'Thermostat', 'Indoor Air Quality'
+            ]
+            
+            # Find matching service type
+            keyword_lower = keyword.lower()
+            for service in service_keywords:
+                if service.lower() in keyword_lower:
+                    tags.append(service)
+                    break
+            
+            # Add the full keyword as a tag
+            tags.append(keyword)
         
+        # Add city as tag
         if client.geo:
-            # Add location as tag
             city = client.geo.split(',')[0].strip()
             tags.append(city)
+            # Add "City + Service" combo tag if we have both
+            if tags and len(tags) > 0:
+                service_tag = tags[0] if tags[0] != keyword else None
+                if service_tag:
+                    tags.append(f"{service_tag} {city}")
         
-        # Limit tags
-        tags = list(set(tags))[:10]
+        # Remove duplicates and limit
+        seen = set()
+        unique_tags = []
+        for tag in tags:
+            tag_lower = tag.lower()
+            if tag_lower not in seen and len(tag) > 2:
+                seen.add(tag_lower)
+                unique_tags.append(tag)
+        tags = unique_tags[:8]
         
         # Use body field (DBContentQueue uses 'body' not 'content')
         post_body = content.body or ''
@@ -1077,15 +1104,20 @@ class WordPressManager:
         # Get featured image URL if available
         featured_image = getattr(content, 'featured_image_url', None) or getattr(content, 'image_url', None)
         
+        # Use content.title for WordPress post title (this is the blog title)
+        # Use content.meta_title for Yoast SEO title
+        post_title = content.title
+        seo_title = content.meta_title if content.meta_title else content.title
+        
         # Publish with full SEO data including Yoast fields
         result = wp.create_post(
-            title=content.title,
+            title=post_title,  # Blog post title
             content=post_body,
             status='publish',
             categories=categories if categories else None,
             tags=tags if tags else None,
             meta_description=content.meta_description,
-            meta_title=content.meta_title,
+            meta_title=seo_title,  # Yoast SEO title
             focus_keyword=content.primary_keyword,  # Set Yoast focus keyword
             featured_image_url=featured_image,
             slug=slug

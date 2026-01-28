@@ -1659,8 +1659,33 @@ OUTPUT JSON:"""
     def _ensure_two_ctas(self, body: str, req: BlogRequest) -> str:
         """Ensure the body has two CTA boxes - one in middle, one at bottom"""
         
-        # Check how many CTA boxes are already present
-        cta_count = body.lower().count('class="cta-box"') + body.lower().count("class='cta-box'")
+        # Check how many CTA boxes are already present (check multiple patterns)
+        body_lower = body.lower()
+        cta_count = 0
+        
+        # Count all possible CTA patterns
+        cta_patterns = [
+            'class="cta-box',
+            "class='cta-box",
+            'class="cta-box-light',
+            'class="cta-box-primary',
+            "class='cta-box-light",
+            "class='cta-box-primary",
+        ]
+        
+        # Find unique CTA positions to avoid double-counting
+        cta_positions = set()
+        for pattern in cta_patterns:
+            pos = 0
+            while True:
+                pos = body_lower.find(pattern, pos)
+                if pos == -1:
+                    break
+                # Round to nearest 100 to group nearby matches
+                cta_positions.add(pos // 100)
+                pos += 1
+        
+        cta_count = len(cta_positions)
         
         city = req.city or 'your area'
         keyword = req.keyword.strip()
@@ -1689,24 +1714,41 @@ OUTPUT JSON:"""
 {contact_button}
 </div>'''
 
+        logger.info(f"CTA check: found {cta_count} existing CTAs in body")
+        
         if cta_count >= 2:
-            logger.info(f"Body already has {cta_count} CTA boxes")
+            logger.info(f"Body already has {cta_count} CTA boxes - not adding more")
             return body
         
-        logger.info(f"Body has {cta_count} CTA boxes, adding {2 - cta_count} more")
+        # Find all CTA div positions for spacing check
+        existing_cta_positions = []
+        for pattern in ['<div class="cta-box', "<div class='cta-box"]:
+            pos = 0
+            while True:
+                pos = body_lower.find(pattern, pos)
+                if pos == -1:
+                    break
+                existing_cta_positions.append(pos)
+                pos += 1
+        existing_cta_positions.sort()
+        
+        logger.info(f"Body has {cta_count} CTA boxes at positions: {existing_cta_positions}")
         
         # Find H2 sections to inject middle CTA
         h2_matches = list(re.finditer(r'<h2[^>]*>', body, re.IGNORECASE))
         
         # Minimum content gap between CTAs (in characters) to avoid back-to-back placement
-        MIN_CTA_GAP = 800  # At least ~150 words between CTAs
+        MIN_CTA_GAP = 1000  # At least ~200 words between CTAs
         
         if cta_count == 0:
             # Need to add both CTAs - ensure they're well separated
             mid_insert_pos = None
             
             if len(h2_matches) >= 5:
-                # Insert middle CTA before the 3rd H2 (after Benefits, Process sections)
+                # Insert middle CTA before the 4th H2 (after Intro, Benefits, Process, Cost sections)
+                mid_insert_pos = h2_matches[3].start()
+            elif len(h2_matches) >= 4:
+                # Insert before the 3rd H2
                 mid_insert_pos = h2_matches[2].start()
             elif len(h2_matches) >= 3:
                 # Insert before the 2nd H2
@@ -1720,22 +1762,44 @@ OUTPUT JSON:"""
             
             if mid_insert_pos:
                 body = body[:mid_insert_pos] + '\n\n' + middle_cta + '\n\n' + body[mid_insert_pos:]
+                logger.info(f"Added middle CTA at position {mid_insert_pos}")
             
             # Add bottom CTA at the end (always)
             body = body.rstrip() + '\n\n' + bottom_cta
+            logger.info("Added bottom CTA at end")
             
         elif cta_count == 1:
-            # Has one CTA - check where it is before adding bottom
-            existing_cta_pos = body.lower().find('class="cta-box"')
-            if existing_cta_pos == -1:
-                existing_cta_pos = body.lower().find("class='cta-box'")
-            
-            # Only add bottom CTA if there's enough content after the existing one
-            remaining_content = len(body) - existing_cta_pos
-            if remaining_content > MIN_CTA_GAP:
-                body = body.rstrip() + '\n\n' + bottom_cta
-            else:
-                logger.info(f"Skipping bottom CTA - existing CTA too close to end ({remaining_content} chars remaining)")
+            # Has one CTA - check where it is before adding another
+            if existing_cta_positions:
+                existing_cta_pos = existing_cta_positions[0]
+                content_before = existing_cta_pos
+                content_after = len(body) - existing_cta_pos
+                
+                logger.info(f"Existing CTA at {existing_cta_pos}: {content_before} chars before, {content_after} chars after")
+                
+                # If CTA is in first half, add bottom CTA
+                if content_before < len(body) / 2:
+                    if content_after > MIN_CTA_GAP:
+                        body = body.rstrip() + '\n\n' + bottom_cta
+                        logger.info("Added bottom CTA (existing CTA is in first half)")
+                    else:
+                        logger.info(f"Skipping bottom CTA - not enough content after existing CTA")
+                else:
+                    # CTA is in second half - add middle CTA earlier
+                    mid_insert_pos = None
+                    if len(h2_matches) >= 3:
+                        mid_insert_pos = h2_matches[1].start()
+                    else:
+                        target_pos = int(len(body) * 0.3)
+                        p_close = body.rfind('</p>', 0, target_pos)
+                        if p_close > 0:
+                            mid_insert_pos = p_close + 4
+                    
+                    if mid_insert_pos and (existing_cta_pos - mid_insert_pos) > MIN_CTA_GAP:
+                        body = body[:mid_insert_pos] + '\n\n' + middle_cta + '\n\n' + body[mid_insert_pos:]
+                        logger.info(f"Added middle CTA at position {mid_insert_pos} (existing CTA is in second half)")
+                    else:
+                        logger.info("Skipping middle CTA - would be too close to existing CTA")
         
         return body
     
