@@ -13,6 +13,9 @@ from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
+# Modern User-Agent to avoid bot detection by security services (SiteGround, Cloudflare, etc.)
+DEFAULT_USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36'
+
 
 def retry_request(func, max_retries=3, delay=1):
     """Retry a request with exponential backoff"""
@@ -53,22 +56,26 @@ class WordPressService:
         credentials = f"{self.username}:{self.app_password}"
         token = base64.b64encode(credentials.encode('utf-8')).decode('ascii')
         
-        # Headers with modern User-Agent to avoid bot detection by security services
-        # (SiteGround, Cloudflare, etc. block outdated or missing User-Agents)
-        self.headers = {
+        # Use a Session to ensure headers are applied to ALL requests
+        # This prevents bot detection by security services (SiteGround, Cloudflare, etc.)
+        self.session = requests.Session()
+        self.session.headers.update({
             'Authorization': f'Basic {token}',
             'Content-Type': 'application/json',
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+            'User-Agent': DEFAULT_USER_AGENT,
             'Accept': 'application/json',
-        }
+        })
+        
+        # Keep headers dict for backward compatibility
+        self.headers = dict(self.session.headers)
     
     def test_connection(self) -> Dict[str, Any]:
         """Test the WordPress connection using multiple methods"""
         try:
             # Method 1: Try /users/me endpoint (best for auth testing)
-            response = requests.get(
+            response = self.session.get(
                 f"{self.api_url}/users/me",
-                headers=self.headers,
+                
                 timeout=15
             )
             
@@ -219,15 +226,16 @@ class WordPressService:
             'tests': []
         }
         
-        # Common headers for all requests (User-Agent to avoid bot detection)
-        base_headers = {
-            'User-Agent': self.headers.get('User-Agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36'),
+        # Create a separate session for no-auth tests (with User-Agent but no Authorization)
+        noauth_session = requests.Session()
+        noauth_session.headers.update({
+            'User-Agent': DEFAULT_USER_AGENT,
             'Accept': 'application/json',
-        }
+        })
         
         # Test 1: Basic site access (no auth)
         try:
-            response = requests.get(self.site_url, headers=base_headers, timeout=10, allow_redirects=True)
+            response = noauth_session.get(self.site_url, timeout=10, allow_redirects=True)
             results['tests'].append({
                 'name': 'Site Access (no auth)',
                 'url': self.site_url,
@@ -244,7 +252,7 @@ class WordPressService:
         
         # Test 2: REST API discovery (no auth)
         try:
-            response = requests.get(f"{self.site_url}/wp-json/", headers=base_headers, timeout=10)
+            response = noauth_session.get(f"{self.site_url}/wp-json/", timeout=10)
             results['tests'].append({
                 'name': 'REST API Discovery (no auth)',
                 'url': f"{self.site_url}/wp-json/",
@@ -261,7 +269,7 @@ class WordPressService:
         
         # Test 3: Posts endpoint (no auth)
         try:
-            response = requests.get(f"{self.api_url}/posts", headers=base_headers, params={'per_page': 1}, timeout=10)
+            response = noauth_session.get(f"{self.api_url}/posts", params={'per_page': 1}, timeout=10)
             results['tests'].append({
                 'name': 'Posts Endpoint (no auth)',
                 'url': f"{self.api_url}/posts",
@@ -278,9 +286,9 @@ class WordPressService:
         
         # Test 4: Users/me endpoint (with auth)
         try:
-            response = requests.get(
+            response = self.session.get(
                 f"{self.api_url}/users/me",
-                headers=self.headers,
+                
                 timeout=10
             )
             results['tests'].append({
@@ -300,9 +308,9 @@ class WordPressService:
         
         # Test 5: POST to posts endpoint (with auth) - dry run check
         try:
-            response = requests.post(
+            response = self.session.post(
                 f"{self.api_url}/posts",
-                headers=self.headers,
+                
                 json={'title': 'Connection Test - DELETE ME', 'content': 'Test', 'status': 'draft'},
                 timeout=15
             )
@@ -321,9 +329,9 @@ class WordPressService:
                     post_data = response.json()
                     post_id = post_data.get('id')
                     if post_id:
-                        delete_response = requests.delete(
+                        delete_response = self.session.delete(
                             f"{self.api_url}/posts/{post_id}",
-                            headers=self.headers,
+                            
                             params={'force': True},
                             timeout=10
                         )
@@ -383,9 +391,9 @@ class WordPressService:
         """Fallback connection test using posts endpoint with edit context"""
         try:
             # Try to access posts with edit context (requires auth)
-            response = requests.get(
+            response = self.session.get(
                 f"{self.api_url}/posts",
-                headers=self.headers,
+                
                 params={'per_page': 1, 'context': 'edit'},
                 timeout=15
             )
@@ -411,7 +419,7 @@ class WordPressService:
                 }
             elif response.status_code == 403:
                 # Check if public API works
-                public_check = requests.get(
+                public_check = self.session.get(
                     f"{self.site_url}/wp-json/wp/v2/posts",
                     params={'per_page': 1},
                     timeout=10
@@ -512,9 +520,9 @@ class WordPressService:
                     post_data['tags'] = tag_ids
             
             # Create the post
-            response = requests.post(
+            response = self.session.post(
                 f"{self.api_url}/posts",
-                headers=self.headers,
+                
                 json=post_data,
                 timeout=30
             )
@@ -625,9 +633,9 @@ class WordPressService:
     def update_post(self, post_id: int, **kwargs) -> Dict[str, Any]:
         """Update an existing post"""
         try:
-            response = requests.post(
+            response = self.session.post(
                 f"{self.api_url}/posts/{post_id}",
-                headers=self.headers,
+                
                 json=kwargs,
                 timeout=30
             )
@@ -682,9 +690,9 @@ class WordPressService:
                 category_ids.append(cat)
             else:
                 # Search for category by name
-                response = requests.get(
+                response = self.session.get(
                     f"{self.api_url}/categories",
-                    headers=self.headers,
+                    
                     params={'search': cat},
                     timeout=10
                 )
@@ -695,9 +703,9 @@ class WordPressService:
                         category_ids.append(results[0]['id'])
                     else:
                         # Create category
-                        create_response = requests.post(
+                        create_response = self.session.post(
                             f"{self.api_url}/categories",
-                            headers=self.headers,
+                            
                             json={'name': cat},
                             timeout=10
                         )
@@ -716,9 +724,9 @@ class WordPressService:
             else:
                 # Search for tag by name
                 try:
-                    response = requests.get(
+                    response = self.session.get(
                         f"{self.api_url}/tags",
-                        headers=self.headers,
+                        
                         params={'search': tag},
                         timeout=10
                     )
@@ -729,9 +737,9 @@ class WordPressService:
                             tag_ids.append(results[0]['id'])
                         else:
                             # Create tag
-                            create_response = requests.post(
+                            create_response = self.session.post(
                                 f"{self.api_url}/tags",
-                                headers=self.headers,
+                                
                                 json={'name': tag},
                                 timeout=10
                             )
@@ -751,7 +759,7 @@ class WordPressService:
                 return {'success': False, 'error': 'No image URL provided'}
             
             # Download image
-            img_response = requests.get(image_url, timeout=30)
+            img_response = self.session.get(image_url, timeout=30)
             if img_response.status_code != 200:
                 logger.error(f"Failed to download image: HTTP {img_response.status_code}")
                 return {'success': False, 'error': f'Failed to download image: HTTP {img_response.status_code}'}
@@ -774,7 +782,7 @@ class WordPressService:
             
             logger.info(f"Uploading image to WordPress: {filename} ({content_type})")
             
-            upload_response = requests.post(
+            upload_response = self.session.post(
                 f"{self.api_url}/media",
                 headers=upload_headers,
                 data=img_response.content,
@@ -789,9 +797,9 @@ class WordPressService:
             logger.info(f"Image uploaded, media_id: {media_id}")
             
             # Set as featured image
-            update_response = requests.post(
+            update_response = self.session.post(
                 f"{self.api_url}/posts/{post_id}",
-                headers=self.headers,
+                
                 json={'featured_media': media_id},
                 timeout=10
             )
@@ -862,9 +870,9 @@ class WordPressService:
                 logger.info(f"Setting SEO meta fields: {list(all_meta_fields.keys())}")
                 
                 # Try setting via post meta
-                response = requests.post(
+                response = self.session.post(
                     f"{self.api_url}/posts/{post_id}",
-                    headers=self.headers,
+                    
                     json={'meta': all_meta_fields},
                     timeout=15
                 )
@@ -882,9 +890,9 @@ class WordPressService:
                     # Strategy 2: Try setting each field individually
                     for field_name, field_value in all_meta_fields.items():
                         try:
-                            individual_response = requests.post(
+                            individual_response = self.session.post(
                                 f"{self.api_url}/posts/{post_id}",
-                                headers=self.headers,
+                                
                                 json={'meta': {field_name: field_value}},
                                 timeout=10
                             )
@@ -931,9 +939,9 @@ class WordPressService:
             
             logger.info(f"Setting schema for post {post_id}: {len(schema_clean)} chars")
             
-            response = requests.post(
+            response = self.session.post(
                 f"{self.api_url}/posts/{post_id}",
-                headers=self.headers,
+                
                 json={'meta': meta_fields},
                 timeout=15
             )
@@ -954,9 +962,9 @@ class WordPressService:
     def get_categories(self) -> list:
         """Get all categories"""
         try:
-            response = requests.get(
+            response = self.session.get(
                 f"{self.api_url}/categories",
-                headers=self.headers,
+                
                 params={'per_page': 100},
                 timeout=10
             )
@@ -970,9 +978,9 @@ class WordPressService:
     def get_posts(self, status: str = 'publish', per_page: int = 10) -> list:
         """Get recent posts"""
         try:
-            response = requests.get(
+            response = self.session.get(
                 f"{self.api_url}/posts",
-                headers=self.headers,
+                
                 params={'status': status, 'per_page': per_page},
                 timeout=10
             )
