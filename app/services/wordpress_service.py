@@ -53,10 +53,13 @@ class WordPressService:
         credentials = f"{self.username}:{self.app_password}"
         token = base64.b64encode(credentials.encode('utf-8')).decode('ascii')
         
-        # Minimal headers - only what's absolutely required
+        # Headers with modern User-Agent to avoid bot detection by security services
+        # (SiteGround, Cloudflare, etc. block outdated or missing User-Agents)
         self.headers = {
             'Authorization': f'Basic {token}',
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+            'Accept': 'application/json',
         }
     
     def test_connection(self) -> Dict[str, Any]:
@@ -216,9 +219,15 @@ class WordPressService:
             'tests': []
         }
         
+        # Common headers for all requests (User-Agent to avoid bot detection)
+        base_headers = {
+            'User-Agent': self.headers.get('User-Agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36'),
+            'Accept': 'application/json',
+        }
+        
         # Test 1: Basic site access (no auth)
         try:
-            response = requests.get(self.site_url, timeout=10, allow_redirects=True)
+            response = requests.get(self.site_url, headers=base_headers, timeout=10, allow_redirects=True)
             results['tests'].append({
                 'name': 'Site Access (no auth)',
                 'url': self.site_url,
@@ -235,7 +244,7 @@ class WordPressService:
         
         # Test 2: REST API discovery (no auth)
         try:
-            response = requests.get(f"{self.site_url}/wp-json/", timeout=10)
+            response = requests.get(f"{self.site_url}/wp-json/", headers=base_headers, timeout=10)
             results['tests'].append({
                 'name': 'REST API Discovery (no auth)',
                 'url': f"{self.site_url}/wp-json/",
@@ -252,7 +261,7 @@ class WordPressService:
         
         # Test 3: Posts endpoint (no auth)
         try:
-            response = requests.get(f"{self.api_url}/posts", params={'per_page': 1}, timeout=10)
+            response = requests.get(f"{self.api_url}/posts", headers=base_headers, params={'per_page': 1}, timeout=10)
             results['tests'].append({
                 'name': 'Posts Endpoint (no auth)',
                 'url': f"{self.api_url}/posts",
