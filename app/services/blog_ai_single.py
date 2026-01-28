@@ -674,23 +674,28 @@ OUTPUT: Return ONLY valid JSON. No markdown code blocks."""
         keyword_has_city = req.city and req.city.lower() in keyword.lower()
         
         # Build CTA templates with contact URL (no inline CSS - use classes only)
+        # Mid-CTA: Lighter, more subtle - encourages continued reading
+        # Bottom-CTA: Stronger, more prominent - final conversion push
+        
         contact_link = ""
         if req.contact_url:
-            contact_link = f' or <a href="{req.contact_url}" class="cta-link">Request Service Online</a>'
+            contact_link = f' or <a href="{req.contact_url}" class="cta-link">request service online</a>'
         
         contact_button = ""
         if req.contact_url:
             contact_button = f'\n<p><a href="{req.contact_url}" class="cta-button">Contact Us Online</a></p>'
         
+        # Mid-article CTA - subtle, informational style (appears after process section)
         mid_cta = f'''<div class="cta-box cta-box-light">
-<h3>Ready for {keyword.title()} in {req.city}?</h3>
-<p>Contact {req.company_name} today for a free estimate. Call <a href="tel:{req.phone}">{req.phone}</a>{contact_link}.</p>
+<h3>Questions About {keyword.title()}?</h3>
+<p>{req.company_name} provides free consultations for {req.city} residents. Call us at <a href="tel:{req.phone}">{req.phone}</a>{contact_link} to discuss your needs.</p>
 </div>'''
 
+        # Bottom CTA - strong, action-oriented (final push at end of article)
         bottom_cta = f'''<div class="cta-box cta-box-primary">
 <h3>Get Your Free {keyword.title()} Quote Today!</h3>
 <p>Serving {req.city} and surrounding areas. {req.company_name} is ready to help!</p>
-<p><strong>Call Now: <a href="tel:{req.phone}">{req.phone}</a></strong></p>{contact_button}
+<p><a href="tel:{req.phone}" class="cta-phone-link"><strong>Call Now: {req.phone}</strong></a></p>{contact_button}
 </div>'''
 
         return f"""CLAUDE MASTER PROMPT — AI-OPTIMIZED LOCAL SEO BLOG GENERATION (STRICT MODE)
@@ -1664,23 +1669,23 @@ OUTPUT JSON:"""
         # Contact link - use contact_url if provided (no inline CSS)
         contact_link = ""
         if req.contact_url:
-            contact_link = f' or <a href="{req.contact_url}" class="cta-link">Request Service Online</a>'
+            contact_link = f' or <a href="{req.contact_url}" class="cta-link">request service online</a>'
         
         contact_button = ""
         if req.contact_url:
             contact_button = f'<p><a href="{req.contact_url}" class="cta-button">Contact Us Online</a></p>'
         
-        # Middle CTA template (class only, no inline styles)
+        # Middle CTA template - subtle, informational (class only, no inline styles)
         middle_cta = f'''<div class="cta-box cta-box-light">
-<h3>Ready for {kw_title} in {city}?</h3>
-<p>Contact {req.company_name} today for a free estimate. Call <a href="tel:{req.phone}">{req.phone}</a>{contact_link}.</p>
+<h3>Questions About {kw_title}?</h3>
+<p>{req.company_name} provides free consultations for {city} residents. Call us at <a href="tel:{req.phone}">{req.phone}</a>{contact_link} to discuss your needs.</p>
 </div>'''
 
-        # Bottom CTA template (class only, no inline styles)
+        # Bottom CTA template - strong action-oriented (class only, no inline styles)
         bottom_cta = f'''<div class="cta-box cta-box-primary">
 <h3>Get Your Free {kw_title} Quote Today!</h3>
 <p>Serving {city} and surrounding areas. {req.company_name} is ready to help!</p>
-<p><strong>Call Now: <a href="tel:{req.phone}">{req.phone}</a></strong></p>
+<p><a href="tel:{req.phone}" class="cta-phone-link"><strong>Call Now: {req.phone}</strong></a></p>
 {contact_button}
 </div>'''
 
