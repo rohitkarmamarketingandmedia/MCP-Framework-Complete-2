@@ -781,14 +781,14 @@ LOCAL SEO GUARDRAILS:
    - Explain how {req.company_name} delivers the service
    - Use H2: "Our {{keyword}} Process"
    - Insert internal links contextually
-   - **INSERT MID-ARTICLE CTA HERE**:
-   {mid_cta}
 
 4. PRICING AND COST FACTORS (≈200 words)
    - Use H2: "Cost of {{keyword}} in {req.city}"
    - Explain pricing drivers specific to {req.city}, {req.state}
    - Include actual price ranges when possible
    - Emphasize transparency
+   - **INSERT MID-ARTICLE CTA HERE** (after Cost section):
+   {mid_cta}
 
 5. WHY CHOOSE {req.company_name} (≈200 words)
    - Use H2: "Why {req.city} Residents Choose {req.company_name}"
@@ -805,7 +805,7 @@ LOCAL SEO GUARDRAILS:
 7. GET STARTED TODAY (≈150 words)
    - Use H2: "Get Started with {{keyword}} in {req.city} Today"
    - Reinforce urgency and relevance
-   - **INSERT BOTTOM CTA**:
+   - **INSERT BOTTOM CTA HERE** (at very end, after conclusion):
    {bottom_cta}
 
 ===== META REQUIREMENTS =====
@@ -1698,30 +1698,44 @@ OUTPUT JSON:"""
         # Find H2 sections to inject middle CTA
         h2_matches = list(re.finditer(r'<h2[^>]*>', body, re.IGNORECASE))
         
+        # Minimum content gap between CTAs (in characters) to avoid back-to-back placement
+        MIN_CTA_GAP = 800  # At least ~150 words between CTAs
+        
         if cta_count == 0:
-            # Need to add both CTAs
-            if len(h2_matches) >= 4:
-                # Insert middle CTA before the 4th H2
-                insert_pos = h2_matches[3].start()
-                body = body[:insert_pos] + middle_cta + '\n\n' + body[insert_pos:]
-            elif len(h2_matches) >= 2:
-                # Insert after 2nd H2's content
-                insert_pos = h2_matches[1].start()
-                body = body[:insert_pos] + middle_cta + '\n\n' + body[insert_pos:]
-            else:
-                # Just add before halfway point
-                mid = len(body) // 2
-                # Find nearest </p> to mid
-                p_close = body.rfind('</p>', 0, mid)
-                if p_close > 0:
-                    body = body[:p_close+4] + '\n\n' + middle_cta + '\n\n' + body[p_close+4:]
+            # Need to add both CTAs - ensure they're well separated
+            mid_insert_pos = None
             
-            # Add bottom CTA at the end
+            if len(h2_matches) >= 5:
+                # Insert middle CTA before the 3rd H2 (after Benefits, Process sections)
+                mid_insert_pos = h2_matches[2].start()
+            elif len(h2_matches) >= 3:
+                # Insert before the 2nd H2
+                mid_insert_pos = h2_matches[1].start()
+            else:
+                # Insert at ~40% point
+                target_pos = int(len(body) * 0.4)
+                p_close = body.rfind('</p>', 0, target_pos)
+                if p_close > 0:
+                    mid_insert_pos = p_close + 4
+            
+            if mid_insert_pos:
+                body = body[:mid_insert_pos] + '\n\n' + middle_cta + '\n\n' + body[mid_insert_pos:]
+            
+            # Add bottom CTA at the end (always)
             body = body.rstrip() + '\n\n' + bottom_cta
             
         elif cta_count == 1:
-            # Has one CTA, add the bottom one
-            body = body.rstrip() + '\n\n' + bottom_cta
+            # Has one CTA - check where it is before adding bottom
+            existing_cta_pos = body.lower().find('class="cta-box"')
+            if existing_cta_pos == -1:
+                existing_cta_pos = body.lower().find("class='cta-box'")
+            
+            # Only add bottom CTA if there's enough content after the existing one
+            remaining_content = len(body) - existing_cta_pos
+            if remaining_content > MIN_CTA_GAP:
+                body = body.rstrip() + '\n\n' + bottom_cta
+            else:
+                logger.info(f"Skipping bottom CTA - existing CTA too close to end ({remaining_content} chars remaining)")
         
         return body
     

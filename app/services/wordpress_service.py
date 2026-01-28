@@ -1074,7 +1074,10 @@ class WordPressManager:
         if content.primary_keyword:
             slug = re.sub(r'[^a-z0-9]+', '-', content.primary_keyword.lower()).strip('-')[:60]
         
-        # Publish with full SEO data
+        # Get featured image URL if available
+        featured_image = getattr(content, 'featured_image_url', None) or getattr(content, 'image_url', None)
+        
+        # Publish with full SEO data including Yoast fields
         result = wp.create_post(
             title=content.title,
             content=post_body,
@@ -1082,6 +1085,9 @@ class WordPressManager:
             categories=categories if categories else None,
             tags=tags if tags else None,
             meta_description=content.meta_description,
+            meta_title=content.meta_title,
+            focus_keyword=content.primary_keyword,  # Set Yoast focus keyword
+            featured_image_url=featured_image,
             slug=slug
         )
         
