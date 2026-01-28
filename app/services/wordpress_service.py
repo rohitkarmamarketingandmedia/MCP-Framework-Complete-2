@@ -597,9 +597,15 @@ class WordPressService:
             
             # Upload and set featured image if provided
             if featured_image_url and post_id:
+                logger.info(f"Attempting to set featured image for post {post_id}")
+                logger.info(f"Featured image URL: {featured_image_url}")
                 image_result = self._set_featured_image(post_id, featured_image_url)
                 if not image_result.get('success'):
                     logger.warning(f"Failed to set featured image: {image_result.get('error')}")
+                else:
+                    logger.info(f"Featured image set successfully: media_id={image_result.get('media_id')}")
+            elif not featured_image_url:
+                logger.info(f"No featured_image_url provided for post {post_id}")
             
             # Set SEO meta if plugin available (Yoast or RankMath)
             if (meta_title or meta_description or focus_keyword) and post_id:
@@ -762,12 +768,40 @@ class WordPressService:
             download_headers = {
                 'User-Agent': DEFAULT_USER_AGENT
             }
-            img_response = requests.get(image_url, headers=download_headers, timeout=30)
-            if img_response.status_code != 200:
-                logger.error(f"Failed to download image: HTTP {img_response.status_code}")
-                return {'success': False, 'error': f'Failed to download image: HTTP {img_response.status_code}'}
+            
+            # Try downloading with retries (some CDNs return 202 initially)
+            img_response = None
+            max_retries = 3
+            for attempt in range(max_retries):
+                img_response = requests.get(image_url, headers=download_headers, timeout=30)
+                
+                # Accept 200, 201, 202 as success
+                if img_response.status_code in [200, 201]:
+                    break
+                elif img_response.status_code == 202:
+                    # 202 Accepted - image may still be processing, wait and retry
+                    logger.info(f"Got HTTP 202, waiting and retrying... (attempt {attempt + 1}/{max_retries})")
+                    import time
+                    time.sleep(2)  # Wait 2 seconds before retry
+                else:
+                    logger.error(f"Failed to download image: HTTP {img_response.status_code}")
+                    return {'success': False, 'error': f'Failed to download image: HTTP {img_response.status_code}'}
+            
+            # Check if we got a valid response after retries
+            if img_response.status_code not in [200, 201]:
+                # If still 202 after retries, try to use the content anyway (some servers return 202 with content)
+                if img_response.status_code == 202 and len(img_response.content) > 1000:
+                    logger.info(f"Using HTTP 202 response with {len(img_response.content)} bytes of content")
+                else:
+                    logger.error(f"Failed to download image after {max_retries} retries: HTTP {img_response.status_code}")
+                    return {'success': False, 'error': f'Failed to download image: HTTP {img_response.status_code}'}
             
             logger.info(f"Downloaded image: {len(img_response.content)} bytes")
+            
+            # Verify we got actual image data
+            if len(img_response.content) < 1000:
+                logger.error(f"Downloaded content too small ({len(img_response.content)} bytes) - may not be a valid image")
+                return {'success': False, 'error': 'Downloaded content too small - invalid image'}
             
             # Determine filename and content type
             filename = image_url.split('/')[-1].split('?')[0]
@@ -775,6 +809,9 @@ class WordPressService:
                 filename = 'featured-image.jpg'
             
             content_type = img_response.headers.get('Content-Type', 'image/jpeg')
+            # Ensure content type is an image type
+            if not content_type.startswith('image/'):
+                content_type = 'image/jpeg'
             
             # Upload to WordPress media library
             # IMPORTANT: Use requests directly, NOT self.session - media upload needs different Content-Type
