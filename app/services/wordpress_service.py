@@ -764,57 +764,110 @@ class WordPressService:
             if not image_url:
                 return {'success': False, 'error': 'No image URL provided'}
             
-            # Download image - use requests directly with User-Agent to avoid bot detection
-            download_headers = {
-                'User-Agent': DEFAULT_USER_AGENT
-            }
-            
-            # Try downloading with retries (some CDNs return 202 initially)
-            img_response = None
-            max_retries = 3
-            for attempt in range(max_retries):
-                img_response = requests.get(image_url, headers=download_headers, timeout=30)
-                
-                # Accept 200, 201, 202 as success
-                if img_response.status_code in [200, 201]:
-                    break
-                elif img_response.status_code == 202:
-                    # 202 Accepted - image may still be processing, wait and retry
-                    logger.info(f"Got HTTP 202, waiting and retrying... (attempt {attempt + 1}/{max_retries})")
-                    import time
-                    time.sleep(2)  # Wait 2 seconds before retry
-                else:
-                    logger.error(f"Failed to download image: HTTP {img_response.status_code}")
-                    return {'success': False, 'error': f'Failed to download image: HTTP {img_response.status_code}'}
-            
-            # Check if we got a valid response after retries
-            if img_response.status_code not in [200, 201]:
-                # If still 202 after retries, try to use the content anyway (some servers return 202 with content)
-                if img_response.status_code == 202 and len(img_response.content) > 1000:
-                    logger.info(f"Using HTTP 202 response with {len(img_response.content)} bytes of content")
-                else:
-                    logger.error(f"Failed to download image after {max_retries} retries: HTTP {img_response.status_code}")
-                    return {'success': False, 'error': f'Failed to download image: HTTP {img_response.status_code}'}
-            
-            logger.info(f"Downloaded image: {len(img_response.content)} bytes")
-            
-            # Verify we got actual image data
-            if len(img_response.content) < 1000:
-                logger.error(f"Downloaded content too small ({len(img_response.content)} bytes) - may not be a valid image")
-                return {'success': False, 'error': 'Downloaded content too small - invalid image'}
-            
-            # Determine filename and content type
+            image_content = None
+            content_type = 'image/jpeg'
             filename = image_url.split('/')[-1].split('?')[0]
             if not filename or '.' not in filename:
                 filename = 'featured-image.jpg'
             
-            content_type = img_response.headers.get('Content-Type', 'image/jpeg')
-            # Ensure content type is an image type
+            # APPROACH 1: Try to find the local file first (faster and more reliable)
+            # The featured_image_service saves images locally before uploading to FTP
+            local_dirs = [
+                'static/uploads/featured',
+                '/app/static/uploads/featured',
+            ]
+            
+            # Extract filename from URL to look for it
+            url_filename = image_url.split('/')[-1]
+            
+            for local_dir in local_dirs:
+                if not os.path.exists(local_dir):
+                    continue
+                    
+                # First, try to find by exact filename match from URL
+                if url_filename:
+                    local_path = os.path.join(local_dir, url_filename)
+                    if os.path.exists(local_path):
+                        try:
+                            with open(local_path, 'rb') as f:
+                                image_content = f.read()
+                            if len(image_content) > 5000:
+                                logger.info(f"Found image by URL filename: {local_path} ({len(image_content)} bytes)")
+                                filename = url_filename
+                                break
+                        except Exception as e:
+                            logger.warning(f"Failed to read {local_path}: {e}")
+                
+                # If not found, look for most recent featured image (created in last 60 seconds)
+                if not image_content:
+                    try:
+                        import glob
+                        pattern = os.path.join(local_dir, 'featured_*.jpg')
+                        files = glob.glob(pattern)
+                        if files:
+                            # Sort by modification time, newest first
+                            files.sort(key=os.path.getmtime, reverse=True)
+                            newest = files[0]
+                            # Only use if created in last 60 seconds
+                            import time as time_module
+                            if time_module.time() - os.path.getmtime(newest) < 60:
+                                with open(newest, 'rb') as f:
+                                    image_content = f.read()
+                                if len(image_content) > 5000:
+                                    logger.info(f"Found recent local image: {newest} ({len(image_content)} bytes)")
+                                    filename = os.path.basename(newest)
+                                    break
+                    except Exception as e:
+                        logger.warning(f"Error searching local dir {local_dir}: {e}")
+            
+            # APPROACH 2: Download from URL if local file not found
+            if not image_content:
+                logger.info(f"Local file not found, downloading from URL...")
+                download_headers = {
+                    'User-Agent': DEFAULT_USER_AGENT,
+                    'Accept': 'image/*,*/*'
+                }
+                
+                # Try downloading with retries
+                max_retries = 3
+                for attempt in range(max_retries):
+                    try:
+                        img_response = requests.get(image_url, headers=download_headers, timeout=30)
+                        logger.info(f"Download attempt {attempt + 1}: HTTP {img_response.status_code}, {len(img_response.content)} bytes")
+                        
+                        # Accept 200, 201 as success
+                        if img_response.status_code in [200, 201] and len(img_response.content) > 5000:
+                            image_content = img_response.content
+                            content_type = img_response.headers.get('Content-Type', 'image/jpeg')
+                            logger.info(f"Downloaded image: {len(image_content)} bytes")
+                            break
+                        elif img_response.status_code == 202 and len(img_response.content) > 5000:
+                            # HTTP 202 but with content
+                            image_content = img_response.content
+                            content_type = img_response.headers.get('Content-Type', 'image/jpeg')
+                            logger.info(f"Got HTTP 202 with {len(image_content)} bytes - using it")
+                            break
+                        else:
+                            if attempt < max_retries - 1:
+                                logger.info(f"Retrying in 3 seconds...")
+                                import time
+                                time.sleep(3)
+                    except Exception as e:
+                        logger.warning(f"Download attempt {attempt + 1} failed: {e}")
+                        if attempt < max_retries - 1:
+                            import time
+                            time.sleep(2)
+            
+            # Check if we have image content
+            if not image_content or len(image_content) < 5000:
+                logger.error(f"Failed to get image content from URL or local file")
+                return {'success': False, 'error': 'Failed to get image - no local file and download failed'}
+            
+            # Ensure content type is valid
             if not content_type.startswith('image/'):
                 content_type = 'image/jpeg'
             
             # Upload to WordPress media library
-            # IMPORTANT: Use requests directly, NOT self.session - media upload needs different Content-Type
             upload_headers = {
                 'Authorization': self.headers['Authorization'],
                 'User-Agent': DEFAULT_USER_AGENT,
@@ -822,23 +875,23 @@ class WordPressService:
                 'Content-Type': content_type
             }
             
-            logger.info(f"Uploading image to WordPress: {filename} ({content_type})")
+            logger.info(f"Uploading image to WordPress: {filename} ({content_type}, {len(image_content)} bytes)")
             
             upload_response = requests.post(
                 f"{self.api_url}/media",
                 headers=upload_headers,
-                data=img_response.content,
+                data=image_content,
                 timeout=60
             )
             
             if upload_response.status_code not in [200, 201]:
                 logger.error(f"Upload failed: HTTP {upload_response.status_code} - {upload_response.text[:200]}")
-                return {'success': False, 'error': f'Upload failed: {upload_response.status_code} - {upload_response.text[:100]}'}
+                return {'success': False, 'error': f'Upload failed: {upload_response.status_code}'}
             
             media_id = upload_response.json().get('id')
-            logger.info(f"Image uploaded, media_id: {media_id}")
+            logger.info(f"Image uploaded to WordPress, media_id: {media_id}")
             
-            # Set as featured image - can use session for this (JSON request)
+            # Set as featured image
             update_response = self.session.post(
                 f"{self.api_url}/posts/{post_id}",
                 json={'featured_media': media_id},
@@ -854,6 +907,8 @@ class WordPressService:
                 
         except Exception as e:
             logger.error(f"Featured image error: {str(e)}")
+            import traceback
+            traceback.print_exc()
             return {'success': False, 'error': str(e)}
     
     def _set_seo_meta(self, post_id: int, meta_title: str = None, meta_description: str = None, focus_keyword: str = None) -> Dict[str, Any]:
