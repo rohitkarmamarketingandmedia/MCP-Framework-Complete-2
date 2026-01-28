@@ -683,19 +683,19 @@ OUTPUT: Return ONLY valid JSON. No markdown code blocks."""
         
         contact_button = ""
         if req.contact_url:
-            contact_button = f'\n<p><a href="{req.contact_url}" class="cta-button">Contact Us Online</a></p>'
+            contact_button = f'\n<p class="cta-contact"><a href="{req.contact_url}" class="cta-button">Contact Us Online</a></p>'
         
         # Mid-article CTA - subtle, informational style (appears after process section)
         mid_cta = f'''<div class="cta-box cta-box-light">
 <h3>Questions About {keyword.title()}?</h3>
-<p>{req.company_name} provides free consultations for {req.city} residents. Call us at <a href="tel:{req.phone}">{req.phone}</a>{contact_link} to discuss your needs.</p>
+<p class="cta-text">{req.company_name} provides free consultations for {req.city} residents. Call us at <a href="tel:{req.phone}" class="cta-phone-inline">{req.phone}</a>{contact_link} to discuss your needs.</p>
 </div>'''
 
         # Bottom CTA - strong, action-oriented (final push at end of article)
         bottom_cta = f'''<div class="cta-box cta-box-primary">
 <h3>Get Your Free {keyword.title()} Quote Today!</h3>
-<p>Serving {req.city} and surrounding areas. {req.company_name} is ready to help!</p>
-<p><a href="tel:{req.phone}" class="cta-phone-link"><strong>Call Now: {req.phone}</strong></a></p>{contact_button}
+<p class="cta-subtitle">Serving {req.city} and surrounding areas. {req.company_name} is ready to help!</p>
+<p class="cta-phone"><a href="tel:{req.phone}" class="cta-phone-link"><strong>Call Now: {req.phone}</strong></a></p>{contact_button}
 </div>'''
 
         return f"""CLAUDE MASTER PROMPT — AI-OPTIMIZED LOCAL SEO BLOG GENERATION (STRICT MODE)
@@ -1698,19 +1698,19 @@ OUTPUT JSON:"""
         
         contact_button = ""
         if req.contact_url:
-            contact_button = f'<p><a href="{req.contact_url}" class="cta-button">Contact Us Online</a></p>'
+            contact_button = f'<p class="cta-contact"><a href="{req.contact_url}" class="cta-button">Contact Us Online</a></p>'
         
         # Middle CTA template - subtle, informational (class only, no inline styles)
         middle_cta = f'''<div class="cta-box cta-box-light">
 <h3>Questions About {kw_title}?</h3>
-<p>{req.company_name} provides free consultations for {city} residents. Call us at <a href="tel:{req.phone}">{req.phone}</a>{contact_link} to discuss your needs.</p>
+<p class="cta-text">{req.company_name} provides free consultations for {city} residents. Call us at <a href="tel:{req.phone}" class="cta-phone-inline">{req.phone}</a>{contact_link} to discuss your needs.</p>
 </div>'''
 
         # Bottom CTA template - strong action-oriented (class only, no inline styles)
         bottom_cta = f'''<div class="cta-box cta-box-primary">
 <h3>Get Your Free {kw_title} Quote Today!</h3>
-<p>Serving {city} and surrounding areas. {req.company_name} is ready to help!</p>
-<p><a href="tel:{req.phone}" class="cta-phone-link"><strong>Call Now: {req.phone}</strong></a></p>
+<p class="cta-subtitle">Serving {city} and surrounding areas. {req.company_name} is ready to help!</p>
+<p class="cta-phone"><a href="tel:{req.phone}" class="cta-phone-link"><strong>Call Now: {req.phone}</strong></a></p>
 {contact_button}
 </div>'''
 

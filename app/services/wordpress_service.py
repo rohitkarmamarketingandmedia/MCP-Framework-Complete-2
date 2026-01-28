@@ -758,8 +758,11 @@ class WordPressService:
             if not image_url:
                 return {'success': False, 'error': 'No image URL provided'}
             
-            # Download image
-            img_response = self.session.get(image_url, timeout=30)
+            # Download image - use requests directly with User-Agent to avoid bot detection
+            download_headers = {
+                'User-Agent': DEFAULT_USER_AGENT
+            }
+            img_response = requests.get(image_url, headers=download_headers, timeout=30)
             if img_response.status_code != 200:
                 logger.error(f"Failed to download image: HTTP {img_response.status_code}")
                 return {'success': False, 'error': f'Failed to download image: HTTP {img_response.status_code}'}
@@ -774,15 +777,17 @@ class WordPressService:
             content_type = img_response.headers.get('Content-Type', 'image/jpeg')
             
             # Upload to WordPress media library
+            # IMPORTANT: Use requests directly, NOT self.session - media upload needs different Content-Type
             upload_headers = {
                 'Authorization': self.headers['Authorization'],
+                'User-Agent': DEFAULT_USER_AGENT,
                 'Content-Disposition': f'attachment; filename="{filename}"',
                 'Content-Type': content_type
             }
             
             logger.info(f"Uploading image to WordPress: {filename} ({content_type})")
             
-            upload_response = self.session.post(
+            upload_response = requests.post(
                 f"{self.api_url}/media",
                 headers=upload_headers,
                 data=img_response.content,
@@ -796,10 +801,9 @@ class WordPressService:
             media_id = upload_response.json().get('id')
             logger.info(f"Image uploaded, media_id: {media_id}")
             
-            # Set as featured image
+            # Set as featured image - can use session for this (JSON request)
             update_response = self.session.post(
                 f"{self.api_url}/posts/{post_id}",
-                
                 json={'featured_media': media_id},
                 timeout=10
             )
@@ -841,66 +845,146 @@ class WordPressService:
             logger.info(f"  - meta_description: {meta_description[:50] if meta_description else 'None'}...")
             logger.info(f"  - focus_keyword: {focus_keyword}")
             
-            # Strategy 1: Set via WordPress REST API meta endpoint
-            all_meta_fields = {}
-            
-            # Yoast SEO fields
+            # Build meta fields for all SEO plugins
+            yoast_meta = {}
             if meta_title:
-                all_meta_fields['_yoast_wpseo_title'] = meta_title
+                yoast_meta['_yoast_wpseo_title'] = meta_title
             if meta_description:
-                all_meta_fields['_yoast_wpseo_metadesc'] = meta_description
+                yoast_meta['_yoast_wpseo_metadesc'] = meta_description
             if focus_keyword:
-                all_meta_fields['_yoast_wpseo_focuskw'] = focus_keyword
+                yoast_meta['_yoast_wpseo_focuskw'] = focus_keyword
             
-            # RankMath fields
+            rankmath_meta = {}
             if meta_title:
-                all_meta_fields['rank_math_title'] = meta_title
+                rankmath_meta['rank_math_title'] = meta_title
             if meta_description:
-                all_meta_fields['rank_math_description'] = meta_description
+                rankmath_meta['rank_math_description'] = meta_description
             if focus_keyword:
-                all_meta_fields['rank_math_focus_keyword'] = focus_keyword
+                rankmath_meta['rank_math_focus_keyword'] = focus_keyword
             
-            # All in One SEO fields
+            aioseo_meta = {}
             if meta_title:
-                all_meta_fields['_aioseo_title'] = meta_title
+                aioseo_meta['_aioseo_title'] = meta_title
             if meta_description:
-                all_meta_fields['_aioseo_description'] = meta_description
+                aioseo_meta['_aioseo_description'] = meta_description
             
-            if all_meta_fields:
-                logger.info(f"Setting SEO meta fields: {list(all_meta_fields.keys())}")
+            # Combine all meta fields
+            all_meta = {**yoast_meta, **rankmath_meta, **aioseo_meta}
+            
+            if not all_meta:
+                logger.info("No SEO meta fields to set")
+                return result
+            
+            logger.info(f"Setting SEO meta fields: {list(all_meta.keys())}")
+            
+            # APPROACH 1: Try Yoast REST API endpoint (if available)
+            # Yoast Premium and some versions expose /wp-json/yoast/v1/
+            try:
+                yoast_data = {}
+                if meta_title:
+                    yoast_data['title'] = meta_title
+                if meta_description:
+                    yoast_data['description'] = meta_description
+                if focus_keyword:
+                    yoast_data['focuskw'] = focus_keyword
                 
-                # Try setting via post meta
+                if yoast_data:
+                    yoast_response = self.session.post(
+                        f"{self.site_url}/wp-json/yoast/v1/posts/{post_id}",
+                        json=yoast_data,
+                        timeout=10
+                    )
+                    if yoast_response.status_code == 200:
+                        result['yoast'] = True
+                        result['success'] = True
+                        logger.info("Yoast meta set via Yoast REST API")
+            except Exception as e:
+                logger.debug(f"Yoast REST API not available: {e}")
+            
+            # APPROACH 2: Try setting via WordPress post meta endpoint
+            try:
                 response = self.session.post(
                     f"{self.api_url}/posts/{post_id}",
-                    
-                    json={'meta': all_meta_fields},
+                    json={'meta': all_meta},
                     timeout=15
                 )
                 
                 if response.status_code == 200:
-                    result['yoast'] = True
-                    result['rankmath'] = True
-                    result['aioseo'] = True
                     result['success'] = True
-                    logger.info(f"SEO meta set successfully via REST API")
+                    logger.info(f"SEO meta set via REST API meta field")
+                    
+                    # Verify the meta was actually set
+                    verify_response = self.session.get(
+                        f"{self.api_url}/posts/{post_id}",
+                        params={'context': 'edit'},
+                        timeout=10
+                    )
+                    if verify_response.status_code == 200:
+                        post_data = verify_response.json()
+                        post_meta = post_data.get('meta', {})
+                        if post_meta.get('_yoast_wpseo_focuskw') or post_meta.get('_yoast_wpseo_metadesc'):
+                            result['yoast'] = True
+                            logger.info("Verified: Yoast meta fields are set")
+                        else:
+                            logger.warning("Meta fields sent but not visible in response - Yoast may not expose them via REST")
                 else:
                     logger.warning(f"SEO meta via REST API failed: {response.status_code}")
                     logger.warning(f"Response: {response.text[:300]}")
+            except Exception as e:
+                logger.warning(f"REST API meta approach failed: {e}")
+            
+            # APPROACH 3: Try custom REST fields (if yoast-rest-api-fix.php is installed)
+            if not result.get('yoast'):
+                try:
+                    custom_fields = {}
+                    if meta_title:
+                        custom_fields['yoast_title'] = meta_title
+                    if meta_description:
+                        custom_fields['yoast_metadesc'] = meta_description
+                    if focus_keyword:
+                        custom_fields['yoast_focuskw'] = focus_keyword
                     
-                    # Strategy 2: Try setting each field individually
-                    for field_name, field_value in all_meta_fields.items():
-                        try:
-                            individual_response = self.session.post(
-                                f"{self.api_url}/posts/{post_id}",
-                                
-                                json={'meta': {field_name: field_value}},
-                                timeout=10
-                            )
-                            if individual_response.status_code == 200:
-                                logger.info(f"Set {field_name} individually")
-                                result['success'] = True
-                        except Exception as e:
-                            logger.warning(f"Failed to set {field_name}: {e}")
+                    if custom_fields:
+                        custom_response = self.session.post(
+                            f"{self.api_url}/posts/{post_id}",
+                            json=custom_fields,
+                            timeout=10
+                        )
+                        if custom_response.status_code == 200:
+                            result['yoast'] = True
+                            result['success'] = True
+                            logger.info("Yoast meta set via custom REST fields")
+                except Exception as e:
+                    logger.debug(f"Custom REST fields approach failed: {e}")
+            
+            # APPROACH 4: Try individual field updates (some hosts have size limits)
+            if not result['success']:
+                logger.info("Trying individual field updates...")
+                for field_name, field_value in all_meta.items():
+                    try:
+                        individual_response = self.session.post(
+                            f"{self.api_url}/posts/{post_id}",
+                            json={'meta': {field_name: field_value}},
+                            timeout=10
+                        )
+                        if individual_response.status_code == 200:
+                            logger.info(f"Set {field_name} individually")
+                            result['success'] = True
+                            if 'yoast' in field_name:
+                                result['yoast'] = True
+                            if 'rank_math' in field_name:
+                                result['rankmath'] = True
+                    except Exception as e:
+                        logger.warning(f"Failed to set {field_name}: {e}")
+            
+            # Log final result
+            if result['success']:
+                logger.info(f"SEO meta setting completed. Yoast: {result['yoast']}, RankMath: {result['rankmath']}")
+            else:
+                logger.warning("All SEO meta approaches failed. You may need to:")
+                logger.warning("1. Install 'Yoast SEO REST API' addon, OR")
+                logger.warning("2. Add code to register meta fields with show_in_rest=true, OR")
+                logger.warning("3. Manually set meta in WordPress admin")
             
             return result
             
