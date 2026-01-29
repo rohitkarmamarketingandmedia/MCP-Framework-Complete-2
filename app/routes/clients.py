@@ -644,67 +644,91 @@ def get_health_score(current_user, client_id):
     if not client:
         return jsonify({'error': 'Client not found'}), 404
     
-    # Try to use comprehensive health service first
-    try:
-        from app.services.client_health_service import ClientHealthService
-        health_service = ClientHealthService()
-        breakdown = health_service.calculate_health_score(client_id)
-        
-        return jsonify({
-            'score': breakdown.total,
-            'health_score': breakdown.total,
-            'grade': breakdown.grade,
-            'color': breakdown.color,
-            'breakdown': breakdown.to_dict().get('breakdown', {}),
-            'factors': [
-                {'name': 'Rankings', 'points': breakdown.rankings_score, 'max': 25, 'detail': breakdown.rankings_detail},
-                {'name': 'Content', 'points': breakdown.content_score, 'max': 20, 'detail': breakdown.content_detail},
-                {'name': 'Leads', 'points': breakdown.leads_score, 'max': 25, 'detail': breakdown.leads_detail},
-                {'name': 'Reviews', 'points': breakdown.reviews_score, 'max': 15, 'detail': breakdown.reviews_detail},
-                {'name': 'Engagement', 'points': breakdown.engagement_score, 'max': 15, 'detail': breakdown.engagement_detail}
-            ]
-        })
-    except Exception as e:
-        logger.warning(f"ClientHealthService error, using fallback: {e}")
-    
-    # Fallback: Calculate simpler health score
-    score = 50  # Base score
+    # Calculate health score based on various factors
+    score = 0
     factors = []
     
-    # Check WordPress connection (+20)
+    # Check WordPress connection (+25)
     if client.wordpress_url:
-        score += 20
-        factors.append({'name': 'WordPress Connected', 'points': 20})
+        score += 25
+        factors.append({'name': 'WordPress Connected', 'points': 25, 'max': 25, 'status': 'good'})
     else:
-        factors.append({'name': 'WordPress Not Connected', 'points': 0, 'max': 20})
+        factors.append({'name': 'WordPress Not Connected', 'points': 0, 'max': 25, 'status': 'missing'})
     
-    # Check keywords defined (+15)
+    # Check keywords defined (+20)
     keywords = client.get_keywords()
-    if keywords.get('primary') or keywords.get('secondary'):
-        score += 15
-        factors.append({'name': 'Keywords Defined', 'points': 15})
-    else:
-        factors.append({'name': 'No Keywords', 'points': 0, 'max': 15})
-    
-    # Check content created (+15)
-    from app.models.db_models import DBContent
-    content_count = DBContent.query.filter_by(client_id=client_id).count()
-    if content_count >= 5:
-        score += 15
-        factors.append({'name': f'{content_count} Content Pieces', 'points': 15})
-    elif content_count > 0:
-        partial = min(content_count * 3, 15)
+    keyword_count = len(keywords.get('primary', [])) + len(keywords.get('secondary', []))
+    if keyword_count >= 5:
+        score += 20
+        factors.append({'name': f'{keyword_count} Keywords Tracked', 'points': 20, 'max': 20, 'status': 'good'})
+    elif keyword_count > 0:
+        partial = min(keyword_count * 4, 20)
         score += partial
-        factors.append({'name': f'{content_count} Content Pieces', 'points': partial, 'max': 15})
+        factors.append({'name': f'{keyword_count} Keywords Tracked', 'points': partial, 'max': 20, 'status': 'partial'})
+    else:
+        factors.append({'name': 'No Keywords', 'points': 0, 'max': 20, 'status': 'missing'})
     
-    # Cap at 100
-    score = min(score, 100)
+    # Check content created (+25)
+    from app.models.db_models import DBBlogPost
+    content_count = DBBlogPost.query.filter_by(client_id=client_id, status='published').count()
+    if content_count >= 10:
+        score += 25
+        factors.append({'name': f'{content_count} Published Posts', 'points': 25, 'max': 25, 'status': 'good'})
+    elif content_count >= 5:
+        score += 20
+        factors.append({'name': f'{content_count} Published Posts', 'points': 20, 'max': 25, 'status': 'good'})
+    elif content_count > 0:
+        partial = min(content_count * 4, 25)
+        score += partial
+        factors.append({'name': f'{content_count} Published Posts', 'points': partial, 'max': 25, 'status': 'partial'})
+    else:
+        factors.append({'name': 'No Published Content', 'points': 0, 'max': 25, 'status': 'missing'})
+    
+    # Check CallRail configured (+15)
+    if client.callrail_company_id:
+        score += 15
+        factors.append({'name': 'Call Tracking Active', 'points': 15, 'max': 15, 'status': 'good'})
+    else:
+        factors.append({'name': 'No Call Tracking', 'points': 0, 'max': 15, 'status': 'missing'})
+    
+    # Check social connections (+15)
+    from app.models.db_models import DBSocialConnection
+    social_count = DBSocialConnection.query.filter_by(client_id=client_id, is_active=True).count()
+    if social_count >= 2:
+        score += 15
+        factors.append({'name': f'{social_count} Social Accounts', 'points': 15, 'max': 15, 'status': 'good'})
+    elif social_count > 0:
+        score += 8
+        factors.append({'name': f'{social_count} Social Account', 'points': 8, 'max': 15, 'status': 'partial'})
+    else:
+        factors.append({'name': 'No Social Accounts', 'points': 0, 'max': 15, 'status': 'missing'})
+    
+    # Determine grade
+    if score >= 90:
+        grade = 'A+'
+        grade_label = 'Excellent'
+    elif score >= 80:
+        grade = 'A'
+        grade_label = 'Great'
+    elif score >= 70:
+        grade = 'B'
+        grade_label = 'Good'
+    elif score >= 60:
+        grade = 'C'
+        grade_label = 'Fair'
+    elif score >= 40:
+        grade = 'D'
+        grade_label = 'Needs Work'
+    else:
+        grade = 'F'
+        grade_label = 'Getting Started'
     
     return jsonify({
         'score': score,
         'health_score': score,
         'factors': factors,
-        'grade': 'A+' if score >= 90 else 'A' if score >= 80 else 'B' if score >= 70 else 'C' if score >= 60 else 'D'
+        'grade': grade,
+        'grade_label': grade_label
     })
 
 
