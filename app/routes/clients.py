@@ -1,6 +1,7 @@
 """
 MCP Framework - Client Management Routes
 CRUD operations for marketing clients
+VERSION: 2.0 - UPDATED HEALTH SCORE
 """
 from flask import Blueprint, request, jsonify
 from app.routes.auth import token_required, admin_required
@@ -8,6 +9,10 @@ from app.services.db_service import DataService
 from app.models.db_models import DBClient, UserRole
 from datetime import datetime
 import json
+import logging
+
+logger = logging.getLogger(__name__)
+logger.info("========== CLIENTS.PY VERSION 2.0 LOADED ==========")
 
 clients_bp = Blueprint('clients', __name__)
 data_service = DataService()
