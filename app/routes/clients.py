@@ -637,6 +637,8 @@ def get_health_score(current_user, client_id):
     
     GET /api/client/health-score/<client_id>
     """
+    logger.info(f"=== HEALTH SCORE v2 for {client_id} ===")
+    
     if not current_user.has_access_to_client(client_id):
         return jsonify({'error': 'Access denied'}), 403
     
@@ -649,6 +651,7 @@ def get_health_score(current_user, client_id):
     factors = []
     
     # Check WordPress connection (+25)
+    logger.info(f"WordPress URL: {client.wordpress_url}")
     if client.wordpress_url:
         score += 25
         factors.append({'name': 'WordPress Connected', 'points': 25, 'max': 25, 'status': 'good'})
@@ -658,6 +661,7 @@ def get_health_score(current_user, client_id):
     # Check keywords defined (+20)
     keywords = client.get_keywords()
     keyword_count = len(keywords.get('primary', [])) + len(keywords.get('secondary', []))
+    logger.info(f"Keywords count: {keyword_count}")
     if keyword_count >= 5:
         score += 20
         factors.append({'name': f'{keyword_count} Keywords Tracked', 'points': 20, 'max': 20, 'status': 'good'})
@@ -671,6 +675,7 @@ def get_health_score(current_user, client_id):
     # Check content created (+25)
     from app.models.db_models import DBBlogPost
     content_count = DBBlogPost.query.filter_by(client_id=client_id, status='published').count()
+    logger.info(f"Published content count: {content_count}")
     if content_count >= 10:
         score += 25
         factors.append({'name': f'{content_count} Published Posts', 'points': 25, 'max': 25, 'status': 'good'})
@@ -685,6 +690,7 @@ def get_health_score(current_user, client_id):
         factors.append({'name': 'No Published Content', 'points': 0, 'max': 25, 'status': 'missing'})
     
     # Check CallRail configured (+15)
+    logger.info(f"CallRail company_id: {client.callrail_company_id}")
     if client.callrail_company_id:
         score += 15
         factors.append({'name': 'Call Tracking Active', 'points': 15, 'max': 15, 'status': 'good'})
@@ -694,6 +700,7 @@ def get_health_score(current_user, client_id):
     # Check social connections (+15)
     from app.models.db_models import DBSocialConnection
     social_count = DBSocialConnection.query.filter_by(client_id=client_id, is_active=True).count()
+    logger.info(f"Social connections count: {social_count}")
     if social_count >= 2:
         score += 15
         factors.append({'name': f'{social_count} Social Accounts', 'points': 15, 'max': 15, 'status': 'good'})
@@ -722,6 +729,8 @@ def get_health_score(current_user, client_id):
     else:
         grade = 'F'
         grade_label = 'Getting Started'
+    
+    logger.info(f"Final health score: {score}, grade: {grade}")
     
     return jsonify({
         'score': score,
