@@ -769,50 +769,65 @@ class WordPressService:
             if not filename or '.' not in filename:
                 filename = 'featured-image.jpg'
             
-            # Create a session that mimics a real browser
-            session = requests.Session()
-            session.headers.update({
-                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
-                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
-                'Accept-Language': 'en-US,en;q=0.9',
-                'Accept-Encoding': 'gzip, deflate, br',
-                'Connection': 'keep-alive',
-                'Upgrade-Insecure-Requests': '1',
-                'Sec-Fetch-Dest': 'document',
-                'Sec-Fetch-Mode': 'navigate',
-                'Sec-Fetch-Site': 'none',
-                'Sec-Fetch-User': '?1',
-            })
+            image_content = None
+            content_type = 'image/jpeg'
             
-            # First, visit the main domain to get cookies (like a browser would)
-            try:
-                domain = image_url.split('/')[2]  # Extract domain from URL
-                main_url = f"https://{domain}/"
-                logger.info(f"Visiting main domain first: {main_url}")
-                session.get(main_url, timeout=10)
-            except Exception as e:
-                logger.warning(f"Could not visit main domain: {e}")
+            # Check if this is a karmamarketing.com URL - if so, download via FTP to bypass SiteGround CAPTCHA
+            if 'karmamarketing.com' in image_url:
+                logger.info("Detected karmamarketing.com URL - attempting FTP download to bypass SiteGround CAPTCHA")
+                try:
+                    from app.services.ftp_storage_service import get_ftp_service
+                    ftp = get_ftp_service()
+                    
+                    if ftp.is_configured():
+                        # Convert URL to FTP path
+                        # URL: https://www.karmamarketing.com/images/client_xxx/featured/filename.jpg
+                        # FTP: /karmamarketing.com/public_html/images/client_xxx/featured/filename.jpg
+                        url_path = image_url.split('karmamarketing.com/')[-1]  # images/client_xxx/...
+                        ftp_path = f"/karmamarketing.com/public_html/{url_path}"
+                        
+                        logger.info(f"FTP download path: {ftp_path}")
+                        
+                        result = ftp.download_file(ftp_path)
+                        if result and len(result) > 5000:
+                            image_content = result
+                            logger.info(f"Downloaded {len(image_content)} bytes via FTP")
+                        else:
+                            logger.warning(f"FTP download failed or returned small content")
+                except Exception as e:
+                    logger.warning(f"FTP download failed: {e}")
             
-            # Now download the image with cookies
-            logger.info(f"Downloading image: {image_url}")
-            img_response = session.get(image_url, timeout=30, allow_redirects=True)
+            # Fallback: Try HTTP download if FTP didn't work
+            if not image_content:
+                logger.info("Attempting HTTP download...")
+                try:
+                    # Use browser-like headers
+                    headers = {
+                        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+                        'Accept': 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8',
+                        'Accept-Language': 'en-US,en;q=0.9',
+                    }
+                    img_response = requests.get(image_url, headers=headers, timeout=30)
+                    
+                    logger.info(f"HTTP Response: {img_response.status_code}, {len(img_response.content)} bytes")
+                    
+                    if img_response.status_code == 200 and len(img_response.content) > 5000:
+                        image_content = img_response.content
+                        content_type = img_response.headers.get('Content-Type', 'image/jpeg')
+                        logger.info(f"Downloaded via HTTP: {len(image_content)} bytes")
+                    else:
+                        # Check if it's a SiteGround CAPTCHA
+                        if 'sgcaptcha' in img_response.text.lower() or 'sg-captcha' in img_response.headers.get('SG-Captcha', ''):
+                            logger.warning("SiteGround CAPTCHA detected - HTTP download blocked")
+                        else:
+                            logger.warning(f"HTTP download failed: {img_response.status_code}")
+                except Exception as e:
+                    logger.warning(f"HTTP download error: {e}")
             
-            logger.info(f"Response: HTTP {img_response.status_code}, {len(img_response.content)} bytes, Content-Type: {img_response.headers.get('Content-Type', 'unknown')}")
-            
-            if img_response.status_code != 200:
-                logger.error(f"Failed to download image: HTTP {img_response.status_code}")
-                logger.error(f"Response headers: {dict(img_response.headers)}")
-                logger.error(f"Response content preview: {img_response.content[:500]}")
-                return {'success': False, 'error': f'Failed to download image: HTTP {img_response.status_code}'}
-            
-            if len(img_response.content) < 5000:
-                logger.error(f"Downloaded content too small: {len(img_response.content)} bytes")
-                return {'success': False, 'error': f'Downloaded content too small: {len(img_response.content)} bytes'}
-            
-            image_content = img_response.content
-            content_type = img_response.headers.get('Content-Type', 'image/jpeg')
-            
-            logger.info(f"Downloaded image successfully: {len(image_content)} bytes")
+            # Check if we got image content
+            if not image_content or len(image_content) < 5000:
+                logger.error("Failed to download image via FTP or HTTP")
+                return {'success': False, 'error': 'Failed to download image - SiteGround CAPTCHA may be blocking. Whitelist Render IPs in SiteGround.'}
             
             # Ensure content type is valid
             if not content_type or not content_type.startswith('image/'):
