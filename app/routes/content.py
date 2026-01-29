@@ -1676,16 +1676,18 @@ def publish_to_wordpress(current_user, content_id):
         
         logger.info(f"WordPress tags ({len(tags)}): {tags}")
         
-        # Use meta_title as WP post title (SEO best practice)
-        wp_post_title = content.meta_title or content.title
+        # Use content.title as WP post title (the actual blog title)
+        # meta_title goes to Yoast SEO title field
+        wp_post_title = content.title  # This is the blog title
         logger.info(f"WP post title: {wp_post_title}")
+        logger.info(f"Meta title for Yoast: {content.meta_title[:80] if content.meta_title else 'NONE'}...")
         logger.info(f"Meta description for Yoast: {content.meta_description[:80] if content.meta_description else 'NONE'}...")
         
         # Check if updating existing post
         if content.wordpress_post_id:
             result = wp.update_post(
                 post_id=content.wordpress_post_id,
-                title=wp_post_title,  # Use meta_title as post title
+                title=wp_post_title,  # Blog title
                 content=full_content,
                 status=wp_status,
                 excerpt=content.meta_description

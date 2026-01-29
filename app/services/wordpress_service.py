@@ -764,20 +764,73 @@ class WordPressService:
             if not image_url:
                 return {'success': False, 'error': 'No image URL provided'}
             
-            # Download image - use simple requests.get like original working code
-            img_response = requests.get(image_url, timeout=30)
-            if img_response.status_code != 200:
-                logger.error(f"Failed to download image: HTTP {img_response.status_code}")
-                return {'success': False, 'error': f'Failed to download image: HTTP {img_response.status_code}'}
+            image_content = None
+            content_type = 'image/jpeg'
             
-            logger.info(f"Downloaded image: {len(img_response.content)} bytes")
-            
-            # Determine filename and content type
+            # Determine filename from URL
             filename = image_url.split('/')[-1].split('?')[0]
             if not filename or '.' not in filename:
                 filename = 'featured-image.jpg'
             
-            content_type = img_response.headers.get('Content-Type', 'image/jpeg')
+            # APPROACH 1: Try downloading from URL first
+            try:
+                img_response = requests.get(image_url, timeout=30)
+                if img_response.status_code == 200 and len(img_response.content) > 5000:
+                    image_content = img_response.content
+                    content_type = img_response.headers.get('Content-Type', 'image/jpeg')
+                    logger.info(f"Downloaded image from URL: {len(image_content)} bytes")
+                else:
+                    logger.warning(f"URL download failed: HTTP {img_response.status_code}, {len(img_response.content)} bytes")
+            except Exception as e:
+                logger.warning(f"URL download error: {e}")
+            
+            # APPROACH 2: If URL failed, try to find local file
+            if not image_content or len(image_content) < 5000:
+                logger.info("Trying to find local file...")
+                
+                # Look for recently created featured images
+                local_dirs = ['static/uploads/featured', '/app/static/uploads/featured']
+                
+                for local_dir in local_dirs:
+                    if not os.path.exists(local_dir):
+                        continue
+                    
+                    try:
+                        import glob
+                        import time as time_module
+                        
+                        # Find all featured images
+                        pattern = os.path.join(local_dir, 'featured_*.jpg')
+                        files = glob.glob(pattern)
+                        
+                        if files:
+                            # Sort by modification time, newest first
+                            files.sort(key=os.path.getmtime, reverse=True)
+                            
+                            # Use the most recent file (created in last 5 minutes)
+                            for f in files[:3]:  # Check top 3 most recent
+                                age = time_module.time() - os.path.getmtime(f)
+                                if age < 300:  # Less than 5 minutes old
+                                    with open(f, 'rb') as fp:
+                                        image_content = fp.read()
+                                    if len(image_content) > 5000:
+                                        filename = os.path.basename(f)
+                                        logger.info(f"Using local file: {f} ({len(image_content)} bytes, {age:.0f}s old)")
+                                        break
+                    except Exception as e:
+                        logger.warning(f"Error searching {local_dir}: {e}")
+                    
+                    if image_content and len(image_content) > 5000:
+                        break
+            
+            # Check if we got image content
+            if not image_content or len(image_content) < 5000:
+                logger.error(f"Failed to get image from URL or local file")
+                return {'success': False, 'error': 'Failed to download image: HTTP 202 and no local file found'}
+            
+            # Ensure content type is valid
+            if not content_type or not content_type.startswith('image/'):
+                content_type = 'image/jpeg'
             
             # Upload to WordPress media library
             upload_headers = {
@@ -786,12 +839,12 @@ class WordPressService:
                 'Content-Type': content_type
             }
             
-            logger.info(f"Uploading image to WordPress: {filename} ({content_type})")
+            logger.info(f"Uploading image to WordPress: {filename} ({content_type}, {len(image_content)} bytes)")
             
             upload_response = requests.post(
                 f"{self.api_url}/media",
                 headers=upload_headers,
-                data=img_response.content,
+                data=image_content,
                 timeout=60
             )
             
@@ -819,6 +872,8 @@ class WordPressService:
                 
         except Exception as e:
             logger.error(f"Featured image error: {str(e)}")
+            import traceback
+            traceback.print_exc()
             return {'success': False, 'error': str(e)}
     
     def _set_seo_meta(self, post_id: int, meta_title: str = None, meta_description: str = None, focus_keyword: str = None) -> Dict[str, Any]:
