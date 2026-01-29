@@ -764,69 +764,55 @@ class WordPressService:
             if not image_url:
                 return {'success': False, 'error': 'No image URL provided'}
             
-            image_content = None
-            content_type = 'image/jpeg'
-            
             # Determine filename from URL
             filename = image_url.split('/')[-1].split('?')[0]
             if not filename or '.' not in filename:
                 filename = 'featured-image.jpg'
             
-            # APPROACH 1: Try downloading from URL first
+            # Create a session that mimics a real browser
+            session = requests.Session()
+            session.headers.update({
+                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+                'Accept-Language': 'en-US,en;q=0.9',
+                'Accept-Encoding': 'gzip, deflate, br',
+                'Connection': 'keep-alive',
+                'Upgrade-Insecure-Requests': '1',
+                'Sec-Fetch-Dest': 'document',
+                'Sec-Fetch-Mode': 'navigate',
+                'Sec-Fetch-Site': 'none',
+                'Sec-Fetch-User': '?1',
+            })
+            
+            # First, visit the main domain to get cookies (like a browser would)
             try:
-                img_response = requests.get(image_url, timeout=30)
-                if img_response.status_code == 200 and len(img_response.content) > 5000:
-                    image_content = img_response.content
-                    content_type = img_response.headers.get('Content-Type', 'image/jpeg')
-                    logger.info(f"Downloaded image from URL: {len(image_content)} bytes")
-                else:
-                    logger.warning(f"URL download failed: HTTP {img_response.status_code}, {len(img_response.content)} bytes")
+                domain = image_url.split('/')[2]  # Extract domain from URL
+                main_url = f"https://{domain}/"
+                logger.info(f"Visiting main domain first: {main_url}")
+                session.get(main_url, timeout=10)
             except Exception as e:
-                logger.warning(f"URL download error: {e}")
+                logger.warning(f"Could not visit main domain: {e}")
             
-            # APPROACH 2: If URL failed, try to find local file
-            if not image_content or len(image_content) < 5000:
-                logger.info("Trying to find local file...")
-                
-                # Look for recently created featured images
-                local_dirs = ['static/uploads/featured', '/app/static/uploads/featured']
-                
-                for local_dir in local_dirs:
-                    if not os.path.exists(local_dir):
-                        continue
-                    
-                    try:
-                        import glob
-                        import time as time_module
-                        
-                        # Find all featured images
-                        pattern = os.path.join(local_dir, 'featured_*.jpg')
-                        files = glob.glob(pattern)
-                        
-                        if files:
-                            # Sort by modification time, newest first
-                            files.sort(key=os.path.getmtime, reverse=True)
-                            
-                            # Use the most recent file (created in last 5 minutes)
-                            for f in files[:3]:  # Check top 3 most recent
-                                age = time_module.time() - os.path.getmtime(f)
-                                if age < 300:  # Less than 5 minutes old
-                                    with open(f, 'rb') as fp:
-                                        image_content = fp.read()
-                                    if len(image_content) > 5000:
-                                        filename = os.path.basename(f)
-                                        logger.info(f"Using local file: {f} ({len(image_content)} bytes, {age:.0f}s old)")
-                                        break
-                    except Exception as e:
-                        logger.warning(f"Error searching {local_dir}: {e}")
-                    
-                    if image_content and len(image_content) > 5000:
-                        break
+            # Now download the image with cookies
+            logger.info(f"Downloading image: {image_url}")
+            img_response = session.get(image_url, timeout=30, allow_redirects=True)
             
-            # Check if we got image content
-            if not image_content or len(image_content) < 5000:
-                logger.error(f"Failed to get image from URL or local file")
-                return {'success': False, 'error': 'Failed to download image: HTTP 202 and no local file found'}
+            logger.info(f"Response: HTTP {img_response.status_code}, {len(img_response.content)} bytes, Content-Type: {img_response.headers.get('Content-Type', 'unknown')}")
+            
+            if img_response.status_code != 200:
+                logger.error(f"Failed to download image: HTTP {img_response.status_code}")
+                logger.error(f"Response headers: {dict(img_response.headers)}")
+                logger.error(f"Response content preview: {img_response.content[:500]}")
+                return {'success': False, 'error': f'Failed to download image: HTTP {img_response.status_code}'}
+            
+            if len(img_response.content) < 5000:
+                logger.error(f"Downloaded content too small: {len(img_response.content)} bytes")
+                return {'success': False, 'error': f'Downloaded content too small: {len(img_response.content)} bytes'}
+            
+            image_content = img_response.content
+            content_type = img_response.headers.get('Content-Type', 'image/jpeg')
+            
+            logger.info(f"Downloaded image successfully: {len(image_content)} bytes")
             
             # Ensure content type is valid
             if not content_type or not content_type.startswith('image/'):
