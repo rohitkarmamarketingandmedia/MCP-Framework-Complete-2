@@ -79,9 +79,10 @@ def get_overview(current_user, client_id):
     try:
         callrail_id = client.callrail_company_id
         if callrail_id:
-            from app.services.callrail_service import callrail_service
-            if callrail_service.is_configured():
-                calls = callrail_service.get_recent_calls(callrail_id, days=days)
+            from app.services.callrail_service import get_callrail_service
+            callrail = get_callrail_service()
+            if callrail and callrail.is_configured():
+                calls = callrail.get_recent_calls(callrail_id, days=days)
                 if calls:
                     calls_count = len(calls)
                     answered = sum(1 for c in calls if c.get('answered'))
