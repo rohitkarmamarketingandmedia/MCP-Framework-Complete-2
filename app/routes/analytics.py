@@ -73,12 +73,46 @@ def get_overview(current_user, client_id):
         'scheduled': sum(1 for p in social_posts if p.scheduled_for)
     }
     
+    # Get phone calls from CallRail
+    calls_count = 0
+    answer_rate = 0
+    try:
+        callrail_id = client.callrail_company_id
+        if callrail_id:
+            from app.services.callrail_service import callrail_service
+            if callrail_service.is_configured():
+                calls = callrail_service.get_recent_calls(callrail_id, days=days)
+                if calls:
+                    calls_count = len(calls)
+                    answered = sum(1 for c in calls if c.get('answered'))
+                    answer_rate = round(answered / calls_count * 100) if calls_count > 0 else 0
+    except Exception as e:
+        logger.warning(f"Error getting CallRail data for overview: {e}")
+    
+    # Get leads count
+    leads_count = 0
+    try:
+        from app.models.db_models import DBLead
+        leads_count = DBLead.query.filter(
+            DBLead.client_id == client_id,
+            DBLead.created_at >= start_date
+        ).count()
+    except Exception as e:
+        logger.warning(f"Error getting leads count: {e}")
+    
     return jsonify({
         'client_id': client_id,
         'period': period,
         'traffic': traffic,
         'content': content_stats,
-        'social': social_stats
+        'social': social_stats,
+        'calls': calls_count,
+        'phone_calls': calls_count,
+        'answer_rate': answer_rate,
+        'leads': leads_count,
+        'new_leads': leads_count,
+        'content_count': content_stats['published'],
+        'blogs_published': content_stats['published']
     })
 
 

@@ -644,7 +644,30 @@ def get_health_score(current_user, client_id):
     if not client:
         return jsonify({'error': 'Client not found'}), 404
     
-    # Calculate health score based on various factors
+    # Try to use comprehensive health service first
+    try:
+        from app.services.client_health_service import ClientHealthService
+        health_service = ClientHealthService()
+        breakdown = health_service.calculate_health_score(client_id)
+        
+        return jsonify({
+            'score': breakdown.total,
+            'health_score': breakdown.total,
+            'grade': breakdown.grade,
+            'color': breakdown.color,
+            'breakdown': breakdown.to_dict().get('breakdown', {}),
+            'factors': [
+                {'name': 'Rankings', 'points': breakdown.rankings_score, 'max': 25, 'detail': breakdown.rankings_detail},
+                {'name': 'Content', 'points': breakdown.content_score, 'max': 20, 'detail': breakdown.content_detail},
+                {'name': 'Leads', 'points': breakdown.leads_score, 'max': 25, 'detail': breakdown.leads_detail},
+                {'name': 'Reviews', 'points': breakdown.reviews_score, 'max': 15, 'detail': breakdown.reviews_detail},
+                {'name': 'Engagement', 'points': breakdown.engagement_score, 'max': 15, 'detail': breakdown.engagement_detail}
+            ]
+        })
+    except Exception as e:
+        logger.warning(f"ClientHealthService error, using fallback: {e}")
+    
+    # Fallback: Calculate simpler health score
     score = 50  # Base score
     factors = []
     
