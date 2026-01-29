@@ -1,6 +1,7 @@
 """
 MCP Framework - Client Experience Routes
 Routes for health scores, call tracking, and reports
+VERSION: 2.0 - FIXED HEALTH SCORE
 """
 from flask import Blueprint, request, jsonify
 import logging
@@ -9,6 +10,7 @@ from app.routes.auth import token_required
 from app.models.db_models import DBClient
 
 logger = logging.getLogger(__name__)
+logger.info("========== CLIENT_EXPERIENCE.PY VERSION 2.0 LOADED ==========")
 client_exp_bp = Blueprint('client_experience', __name__)
 
 
@@ -24,17 +26,143 @@ def get_health_score(current_user, client_id):
     
     GET /api/client/health-score/{client_id}?days=30
     """
+    logger.info(f"=== HEALTH SCORE v2.0 for {client_id} ===")
+    
     if not current_user.has_access_to_client(client_id):
         return jsonify({'error': 'Access denied'}), 403
     
-    days = request.args.get('days', 30, type=int)
+    # Get client directly
+    client = DBClient.query.get(client_id)
+    if not client:
+        return jsonify({'error': 'Client not found'}), 404
     
-    from app.services.client_health_service import get_client_health_service
-    health_service = get_client_health_service()
+    # Calculate health score based on actual configured items
+    score = 0
+    breakdown = {}
     
-    score = health_service.calculate_health_score(client_id, days=days)
+    # 1. WordPress Connection (25 points)
+    logger.info(f"WordPress URL: {client.wordpress_url}")
+    if client.wordpress_url:
+        score += 25
+        breakdown['wordpress'] = {
+            'score': 25, 'max': 25, 
+            'percent': 100,
+            'detail': 'WordPress connected'
+        }
+    else:
+        breakdown['wordpress'] = {
+            'score': 0, 'max': 25,
+            'percent': 0,
+            'detail': 'WordPress not connected'
+        }
     
-    return jsonify(score.to_dict())
+    # 2. Keywords Tracked (20 points)
+    keywords = client.get_keywords() if hasattr(client, 'get_keywords') else {}
+    primary = keywords.get('primary', []) if isinstance(keywords, dict) else []
+    secondary = keywords.get('secondary', []) if isinstance(keywords, dict) else []
+    keyword_count = len(primary) + len(secondary)
+    logger.info(f"Keywords count: {keyword_count}")
+    
+    if keyword_count >= 5:
+        kw_score = 20
+    elif keyword_count > 0:
+        kw_score = min(keyword_count * 4, 20)
+    else:
+        kw_score = 0
+    
+    score += kw_score
+    breakdown['keywords'] = {
+        'score': kw_score, 'max': 20,
+        'percent': round((kw_score / 20) * 100),
+        'detail': f'{keyword_count} keywords tracked' if keyword_count > 0 else 'No keywords defined'
+    }
+    
+    # 3. Content Published (25 points)
+    from app.models.db_models import DBBlogPost
+    content_count = DBBlogPost.query.filter_by(client_id=client_id, status='published').count()
+    logger.info(f"Published content count: {content_count}")
+    
+    if content_count >= 10:
+        content_score = 25
+    elif content_count >= 5:
+        content_score = 20
+    elif content_count > 0:
+        content_score = min(content_count * 4, 25)
+    else:
+        content_score = 0
+    
+    score += content_score
+    breakdown['content'] = {
+        'score': content_score, 'max': 25,
+        'percent': round((content_score / 25) * 100),
+        'detail': f'{content_count} posts published' if content_count > 0 else 'No content published'
+    }
+    
+    # 4. Call Tracking (15 points)
+    logger.info(f"CallRail company_id: {client.callrail_company_id}")
+    if client.callrail_company_id:
+        score += 15
+        breakdown['calls'] = {
+            'score': 15, 'max': 15,
+            'percent': 100,
+            'detail': 'Call tracking active'
+        }
+    else:
+        breakdown['calls'] = {
+            'score': 0, 'max': 15,
+            'percent': 0,
+            'detail': 'Call tracking not configured'
+        }
+    
+    # 5. Social Connections (15 points)
+    from app.models.db_models import DBSocialConnection
+    social_count = DBSocialConnection.query.filter_by(client_id=client_id, is_active=True).count()
+    logger.info(f"Social connections count: {social_count}")
+    
+    if social_count >= 2:
+        social_score = 15
+    elif social_count > 0:
+        social_score = 8
+    else:
+        social_score = 0
+    
+    score += social_score
+    breakdown['social'] = {
+        'score': social_score, 'max': 15,
+        'percent': round((social_score / 15) * 100),
+        'detail': f'{social_count} social accounts connected' if social_count > 0 else 'No social accounts'
+    }
+    
+    # Determine grade
+    if score >= 90:
+        grade = 'A+'
+        color = '#10b981'  # emerald
+    elif score >= 80:
+        grade = 'A'
+        color = '#10b981'
+    elif score >= 70:
+        grade = 'B'
+        color = '#3b82f6'  # blue
+    elif score >= 60:
+        grade = 'C'
+        color = '#f59e0b'  # amber
+    elif score >= 40:
+        grade = 'D'
+        color = '#f97316'  # orange
+    else:
+        grade = 'F'
+        color = '#ef4444'  # red
+    
+    logger.info(f"Final health score: {score}, grade: {grade}")
+    
+    return jsonify({
+        'total': score,
+        'score': score,
+        'health_score': score,
+        'grade': grade,
+        'color': color,
+        'breakdown': breakdown
+    })
 
 
 @client_exp_bp.route('/wins/<client_id>', methods=['GET'])
