@@ -5225,12 +5225,16 @@
                 if (competitors.length === 0) {
                     compsEl.innerHTML = '<p class="text-gray-500 text-sm">No competitors tracked. Add in Competitors tab.</p>';
                 } else {
-                    compsEl.innerHTML = competitors.map(comp => `
+                    compsEl.innerHTML = competitors.map(comp => {
+                        // Handle both string (domain) and object formats
+                        const domain = typeof comp === 'string' ? comp : (comp.domain || comp.name || comp);
+                        const url = typeof comp === 'object' && comp.url ? comp.url : `https://${domain.replace(/^https?:\/\//, '')}`;
+                        return `
                         <div class="flex items-center justify-between p-2 glass rounded-lg">
-                            <span class="text-white text-sm">${comp.name || comp.domain || comp}</span>
-                            <a href="${comp.url || '#'}" target="_blank" class="text-purple-400 text-xs hover:text-purple-300"><i class="fas fa-external-link-alt"></i></a>
+                            <span class="text-white text-sm">${domain}</span>
+                            <a href="${url}" target="_blank" rel="noopener" class="text-purple-400 text-xs hover:text-purple-300"><i class="fas fa-external-link-alt"></i></a>
                         </div>
-                    `).join('');
+                    `}).join('');
                 }
             }
             
