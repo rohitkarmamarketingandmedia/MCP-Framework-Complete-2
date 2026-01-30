@@ -11291,6 +11291,12 @@
                 if (response.ok) {
                     showToast(`Added competitor: ${name || cleanDomain}`, 'success');
                     hideAddCompetitorForm();
+                    // Clear form
+                    document.getElementById('newCompetitorDomain').value = '';
+                    document.getElementById('newCompetitorName').value = '';
+                    // Reload client data to update currentClient.competitors
+                    await loadClient(currentClient.id);
+                    // Then refresh competitor dashboard
                     refreshCompetitorDashboard();
                 } else {
                     showToast(data.error || 'Failed to add competitor', 'error');
@@ -11316,6 +11322,9 @@
                     showToast(`Deleted competitor: ${name}`, 'success');
                     // Close modal if open
                     document.getElementById('competitorModal')?.remove();
+                    // Reload client data to update currentClient.competitors
+                    await loadClient(currentClient.id);
+                    // Then refresh competitor dashboard
                     refreshCompetitorDashboard();
                 } else {
                     const data = await response.json();

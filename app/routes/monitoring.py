@@ -276,10 +276,10 @@ def remove_competitor(current_user, competitor_id):
     
     logger.info(f"Removing domain: {domain_to_remove} from client: {client_id}")
     
-    # Remove from client.competitors field (single source of truth)
-    client = DBClient.query.get(client_id)
-    if client:
-        try:
+    try:
+        # Remove from client.competitors field (single source of truth)
+        client = DBClient.query.get(client_id)
+        if client:
             current_competitors = []
             if client.competitors:
                 current_competitors = json.loads(client.competitors) if isinstance(client.competitors, str) else client.competitors
@@ -294,24 +294,20 @@ def remove_competitor(current_user, competitor_id):
                 ]
                 client.competitors = json.dumps(updated_competitors)
                 logger.info(f"Updated client.competitors to: {updated_competitors}")
-        except Exception as e:
-            logger.error(f"Error updating client.competitors: {e}")
-    
-    # Delete from DBCompetitor table
-    try:
-        # Also delete associated pages
+        
+        # Delete from DBCompetitor table
         DBCompetitorPage.query.filter_by(competitor_id=competitor_id).delete()
         db.session.delete(competitor)
+        
+        # Commit ALL changes together
         db.session.commit()
         logger.info(f"=== DELETE COMPETITOR SUCCESS: {domain_to_remove} ===")
-        return jsonify({'message': 'Competitor deleted'})
+        return jsonify({'message': 'Competitor deleted', 'updated_competitors': updated_competitors if 'updated_competitors' in dir() else []})
+        
     except Exception as e:
         db.session.rollback()
         logger.error(f"Error deleting competitor: {e}")
-        # Fallback to deactivate
-        competitor.is_active = False
-        db.session.commit()
-        return jsonify({'message': 'Competitor deactivated'})
+        return jsonify({'error': f'Failed to delete: {str(e)}'}), 500
 
 
 @monitoring_bp.route('/competitors/<competitor_id>/schedule', methods=['PUT'])
