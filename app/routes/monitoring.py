@@ -87,6 +87,49 @@ def test_semrush_api(current_user):
     return jsonify(result)
 
 
+@monitoring_bp.route('/cleanup-competitors/<client_id>', methods=['POST'])
+@token_required
+def cleanup_duplicate_competitors(current_user, client_id):
+    """
+    Remove duplicate competitors for a client
+    
+    POST /api/monitoring/cleanup-competitors/{client_id}
+    """
+    if not current_user.has_access_to_client(client_id):
+        return jsonify({'error': 'Access denied'}), 403
+    
+    def normalize_domain(d):
+        if not d:
+            return ''
+        return d.lower().replace('www.', '').replace('https://', '').replace('http://', '').strip('/').strip()
+    
+    # Get all competitors for client
+    all_comps = DBCompetitor.query.filter_by(client_id=client_id).all()
+    
+    seen_domains = {}
+    duplicates_removed = 0
+    
+    for comp in all_comps:
+        domain = normalize_domain(comp.domain)
+        if domain in seen_domains:
+            # This is a duplicate - deactivate/delete
+            db.session.delete(comp)
+            duplicates_removed += 1
+        else:
+            seen_domains[domain] = comp
+    
+    try:
+        db.session.commit()
+        return jsonify({
+            'success': True,
+            'duplicates_removed': duplicates_removed,
+            'remaining': len(seen_domains)
+        })
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
+
+
 # ==========================================
 # COMPETITOR MANAGEMENT
 # ==========================================
@@ -1424,67 +1467,60 @@ def get_competitor_dashboard(current_user, client_id):
     if not client:
         return jsonify({'error': 'Client not found'}), 404
     
-    # Get competitors from client.competitors JSON field (source of truth from settings)
-    client_competitors_list = []
+    def normalize_domain(d):
+        """Normalize domain for comparison"""
+        if not d:
+            return ''
+        return d.lower().replace('www.', '').replace('https://', '').replace('http://', '').strip('/').strip()
+    
+    # Get competitors from client.competitors JSON field (from settings edit screen)
+    settings_domains = set()
     try:
         if client.competitors:
             import json
             client_comps = json.loads(client.competitors) if isinstance(client.competitors, str) else client.competitors
             if isinstance(client_comps, list):
-                client_competitors_list = client_comps
-                logger.info(f"Client competitors from settings: {client_competitors_list}")
+                for comp in client_comps:
+                    if isinstance(comp, str):
+                        domain = normalize_domain(comp)
+                    elif isinstance(comp, dict):
+                        domain = normalize_domain(comp.get('domain') or comp.get('url') or '')
+                    else:
+                        continue
+                    if domain:
+                        settings_domains.add(domain)
     except Exception as e:
         logger.warning(f"Error parsing client.competitors: {e}")
     
-    # Normalize competitor domains from settings
-    settings_domains = set()
-    for comp in client_competitors_list:
-        if isinstance(comp, str):
-            domain = comp.lower().replace('www.', '').replace('https://', '').replace('http://', '').strip('/').strip()
-        elif isinstance(comp, dict):
-            domain = (comp.get('domain') or comp.get('url') or '').lower().replace('www.', '').replace('https://', '').replace('http://', '').strip('/').strip()
-        else:
-            continue
-        if domain:
-            settings_domains.add(domain)
+    logger.info(f"Settings domains: {settings_domains}")
     
-    logger.info(f"Normalized settings domains: {settings_domains}")
+    # Get existing active DBCompetitor entries (added via + Add button)
+    db_competitors = DBCompetitor.query.filter_by(client_id=client_id, is_active=True).all()
     
-    # Get existing DBCompetitor entries
-    db_competitors = DBCompetitor.query.filter_by(client_id=client_id).all()
-    
-    # Build final competitor list - prioritize settings
+    # Build final competitor list - merge both sources, no duplicates
     final_competitors = []
-    existing_domains = set()
+    seen_domains = set()
     
-    # If we have competitors in settings, use those as the source of truth
-    if settings_domains:
-        # First, deactivate any DBCompetitor not in settings
-        for db_comp in db_competitors:
-            db_domain = (db_comp.domain or '').lower().replace('www.', '').strip()
-            if db_domain not in settings_domains:
-                # Deactivate old competitor not in current settings
-                db_comp.is_active = False
-                logger.info(f"Deactivating old competitor: {db_comp.name} ({db_domain})")
+    # First, add all active DBCompetitor entries
+    for db_comp in db_competitors:
+        domain = normalize_domain(db_comp.domain)
+        if domain and domain not in seen_domains:
+            final_competitors.append(db_comp)
+            seen_domains.add(domain)
+            logger.info(f"Added from DB: {db_comp.name} ({domain})")
+    
+    # Then add any from settings that don't exist yet
+    for domain in settings_domains:
+        if domain not in seen_domains:
+            # Check if there's an inactive one we can reactivate
+            existing = DBCompetitor.query.filter_by(client_id=client_id, domain=domain).first()
+            if existing:
+                existing.is_active = True
+                final_competitors.append(existing)
+                logger.info(f"Reactivated: {existing.name} ({domain})")
             else:
-                # Keep active ones that match
-                db_comp.is_active = True
-                final_competitors.append(db_comp)
-                existing_domains.add(db_domain)
-        
-        # Add any from settings that don't exist yet
-        for comp in client_competitors_list:
-            if isinstance(comp, str):
-                domain = comp.lower().replace('www.', '').replace('https://', '').replace('http://', '').strip('/').strip()
+                # Create new
                 name = domain.split('.')[0].replace('-', ' ').title()
-            elif isinstance(comp, dict):
-                domain = (comp.get('domain') or comp.get('url') or '').lower().replace('www.', '').replace('https://', '').replace('http://', '').strip('/').strip()
-                name = comp.get('name') or domain.split('.')[0].replace('-', ' ').title()
-            else:
-                continue
-            
-            if domain and domain not in existing_domains:
-                # Create new DBCompetitor
                 try:
                     new_comp = DBCompetitor(
                         client_id=client_id,
@@ -1494,19 +1530,16 @@ def get_competitor_dashboard(current_user, client_id):
                     )
                     db.session.add(new_comp)
                     final_competitors.append(new_comp)
-                    existing_domains.add(domain)
-                    logger.info(f"Created new competitor: {name} ({domain})")
+                    logger.info(f"Created new: {name} ({domain})")
                 except Exception as e:
                     logger.warning(f"Error creating competitor {domain}: {e}")
-        
-        try:
-            db.session.commit()
-        except Exception as e:
-            db.session.rollback()
-            logger.error(f"Error committing competitor changes: {e}")
-    else:
-        # No competitors in settings, use active ones from DB
-        final_competitors = [c for c in db_competitors if c.is_active]
+            seen_domains.add(domain)
+    
+    try:
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error committing competitor changes: {e}")
     
     competitors = final_competitors
     logger.info(f"Final competitor count: {len(competitors)}")
