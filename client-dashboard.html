@@ -6706,6 +6706,19 @@
                     'approved': 'bg-green-500/20 text-green-400',
                     'published': 'bg-emerald-500/20 text-emerald-400'
                 };
+                
+                // Determine cancel function based on type
+                const cancelFn = item.type === 'blog' 
+                    ? `cancelBlogSchedule('${item.id}')`
+                    : `cancelSocialSchedule('${item.id}')`;
+                
+                // Only show cancel button if not published
+                const cancelBtn = item.status !== 'published'
+                    ? `<button onclick="${cancelFn}" class="p-1 text-red-400 hover:text-red-300 hover:bg-red-500/20 rounded transition" title="Cancel schedule">
+                         <i class="fas fa-times"></i>
+                       </button>`
+                    : '';
+                
                 return `
                     <div class="flex items-center gap-4 p-3 glass rounded-lg">
                         <div class="w-10 h-10 rounded-lg bg-gradient-to-br ${colors[item.type] || 'from-gray-500 to-gray-600'} flex items-center justify-center">
@@ -6718,6 +6731,7 @@
                         <span class="px-2 py-1 ${statusColors[item.status] || statusColors.draft} rounded text-xs whitespace-nowrap">
                             ${item.status || 'draft'}
                         </span>
+                        ${cancelBtn}
                     </div>
                 `;
             }).join('');
