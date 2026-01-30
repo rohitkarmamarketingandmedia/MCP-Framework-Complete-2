@@ -1,18 +1,29 @@
 """
 MCP Framework - Rank Tracking Service
 Daily keyword position tracking using SEMRush API
+WITH CACHING to reduce API unit consumption
 """
 import os
 import re
+import json
 import requests
+import logging
 from datetime import datetime, timedelta
 from typing import List, Dict, Optional
+
+logger = logging.getLogger(__name__)
+
+# In-memory cache for SEMrush results
+# Format: {domain: {'data': result, 'timestamp': datetime, 'expires': datetime}}
+_semrush_cache = {}
+CACHE_DURATION_HOURS = 6  # Cache results for 6 hours to save API units
 
 
 class RankTrackingService:
     """
     Tracks keyword rankings over time using SEMRush API
     Provides heatmap data and trend analysis
+    WITH CACHING to minimize API unit usage
     """
     
     def __init__(self):
@@ -23,6 +34,39 @@ class RankTrackingService:
     def api_key(self):
         """Get API key at runtime so env var changes are picked up"""
         return os.environ.get('SEMRUSH_API_KEY', '')
+    
+    def _get_cached(self, cache_key: str) -> Optional[Dict]:
+        """Get cached result if not expired"""
+        if cache_key in _semrush_cache:
+            cached = _semrush_cache[cache_key]
+            if datetime.utcnow() < cached['expires']:
+                logger.info(f"SEMrush cache HIT for {cache_key} (expires in {(cached['expires'] - datetime.utcnow()).seconds // 60} min)")
+                return cached['data']
+            else:
+                logger.info(f"SEMrush cache EXPIRED for {cache_key}")
+                del _semrush_cache[cache_key]
+        return None
+    
+    def _set_cached(self, cache_key: str, data: Dict):
+        """Cache result with expiration"""
+        _semrush_cache[cache_key] = {
+            'data': data,
+            'timestamp': datetime.utcnow(),
+            'expires': datetime.utcnow() + timedelta(hours=CACHE_DURATION_HOURS)
+        }
+        logger.info(f"SEMrush cache SET for {cache_key} (expires in {CACHE_DURATION_HOURS} hours)")
+    
+    def clear_cache(self, domain: str = None):
+        """Clear cache for a domain or all domains"""
+        global _semrush_cache
+        if domain:
+            keys_to_delete = [k for k in _semrush_cache if domain in k]
+            for k in keys_to_delete:
+                del _semrush_cache[k]
+            logger.info(f"Cleared SEMrush cache for {domain}")
+        else:
+            _semrush_cache = {}
+            logger.info("Cleared all SEMrush cache")
     
     def check_keyword_position(
         self,
@@ -113,11 +157,13 @@ class RankTrackingService:
         self,
         domain: str,
         keywords: List[str],
-        database: str = None
+        database: str = None,
+        force_refresh: bool = False
     ) -> Dict:
         """
         Check positions for multiple keywords
         More efficient - uses single API call
+        WITH CACHING - results cached for 6 hours to save API units
         
         Returns:
             {
@@ -135,14 +181,20 @@ class RankTrackingService:
                     'improved': int,
                     'declined': int,
                     'unchanged': int
-                }
+                },
+                'cached': bool  # True if from cache
             }
         """
-        import logging
-        logger = logging.getLogger(__name__)
-        
         domain = self._clean_domain(domain)
         database = database or self.default_database
+        
+        # Check cache first (unless force refresh)
+        cache_key = f"{domain}:{database}"
+        if not force_refresh:
+            cached = self._get_cached(cache_key)
+            if cached:
+                cached['cached'] = True
+                return cached
         
         # Debug logging
         api_key = self.api_key
@@ -313,9 +365,14 @@ class RankTrackingService:
                     else:
                         result['summary']['unchanged'] += 1
             
+            # Cache successful result
+            result['cached'] = False
+            self._set_cached(cache_key, result)
+            
             return result
             
         except Exception as e:
+            logger.error(f"SEMrush check_all_keywords exception: {e}")
             result['error'] = str(e)
             return result
     
