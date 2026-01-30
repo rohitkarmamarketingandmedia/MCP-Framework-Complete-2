@@ -173,13 +173,34 @@ def add_competitor(current_user):
     data = request.get_json(silent=True) or {}
     
     client_id = data.get('client_id')
-    domain = data.get('domain', '').strip()
+    domain = data.get('domain', '').strip().lower()
+    
+    # Normalize domain
+    domain = domain.replace('https://', '').replace('http://', '').replace('www.', '').strip('/')
     
     if not client_id or not domain:
         return jsonify({'error': 'client_id and domain required'}), 400
     
     if not current_user.has_access_to_client(client_id):
         return jsonify({'error': 'Access denied'}), 403
+    
+    logger.info(f"Adding competitor: client={client_id}, domain={domain}")
+    
+    # Check if competitor already exists (active or inactive)
+    existing = DBCompetitor.query.filter_by(client_id=client_id, domain=domain).first()
+    if existing:
+        if existing.is_active:
+            return jsonify({'error': f'Competitor {domain} already exists'}), 400
+        else:
+            # Reactivate the existing competitor
+            existing.is_active = True
+            existing.name = data.get('name', domain)
+            db.session.commit()
+            logger.info(f"Reactivated competitor: {domain}")
+            return jsonify({
+                'message': 'Competitor reactivated',
+                'competitor': existing.to_dict()
+            })
     
     # Check limit (max 10 competitors per client)
     existing_count = DBCompetitor.query.filter_by(
@@ -204,6 +225,8 @@ def add_competitor(current_user):
     db.session.add(competitor)
     db.session.commit()
     
+    logger.info(f"Created competitor: {competitor.id} - {domain}")
+    
     return jsonify({
         'message': 'Competitor added',
         'competitor': competitor.to_dict()
@@ -214,18 +237,32 @@ def add_competitor(current_user):
 @token_required
 def remove_competitor(current_user, competitor_id):
     """Remove a competitor from monitoring"""
+    logger.info(f"Delete competitor request: {competitor_id}")
+    
     competitor = DBCompetitor.query.get(competitor_id)
     
     if not competitor:
+        logger.warning(f"Competitor not found: {competitor_id}")
         return jsonify({'error': 'Competitor not found'}), 404
     
     if not current_user.has_access_to_client(competitor.client_id):
         return jsonify({'error': 'Access denied'}), 403
     
-    competitor.is_active = False
-    db.session.commit()
-    
-    return jsonify({'message': 'Competitor removed'})
+    # Actually delete (not just deactivate) to prevent duplicates
+    try:
+        # Also delete associated pages
+        DBCompetitorPage.query.filter_by(competitor_id=competitor_id).delete()
+        db.session.delete(competitor)
+        db.session.commit()
+        logger.info(f"Deleted competitor: {competitor_id} - {competitor.domain}")
+        return jsonify({'message': 'Competitor deleted'})
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error deleting competitor: {e}")
+        # Fallback to deactivate
+        competitor.is_active = False
+        db.session.commit()
+        return jsonify({'message': 'Competitor deactivated'})
 
 
 @monitoring_bp.route('/competitors/<competitor_id>/schedule', methods=['PUT'])
