@@ -7592,9 +7592,11 @@
                 
                 if (response.ok) {
                     const data = await response.json();
-                    const imageUrl = data.url || data.file_url || data.image_url;
+                    // API returns { image: { file_url: "..." } }
+                    const imageUrl = data.image?.file_url || data.file_url || data.url || data.image_url;
                     
                     if (!imageUrl) {
+                        console.log('Upload response:', data);
                         showToast('Upload succeeded but no URL returned', 'error');
                         loading.classList.add('hidden');
                         empty.classList.remove('hidden');
@@ -8269,7 +8271,8 @@
                 
                 if (response.ok) {
                     const data = await response.json();
-                    const imageUrl = data.url || data.file_url || data.image_url;
+                    // API returns { image: { file_url: "..." } }
+                    const imageUrl = data.image?.file_url || data.file_url || data.url || data.image_url;
                     
                     if (imageUrl) {
                         const img = `<img src="${imageUrl}" alt="Image" style="max-width: 100%; height: auto; margin: 10px 0; border-radius: 8px;">`;
