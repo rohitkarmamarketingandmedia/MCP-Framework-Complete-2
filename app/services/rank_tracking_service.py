@@ -33,7 +33,11 @@ class RankTrackingService:
     @property
     def api_key(self):
         """Get API key at runtime so env var changes are picked up"""
-        return os.environ.get('SEMRUSH_API_KEY', '')
+        key = os.environ.get('SEMRUSH_API_KEY', '')
+        # Strip whitespace and quotes that might accidentally be included
+        if key:
+            key = key.strip().strip('"').strip("'").strip()
+        return key
     
     def _get_cached(self, cache_key: str) -> Optional[Dict]:
         """Get cached result if not expired"""
