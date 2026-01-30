@@ -1360,11 +1360,62 @@ def get_competitor_dashboard(current_user, client_id):
     if not client:
         return jsonify({'error': 'Client not found'}), 404
     
-    # Get competitors (limit to prevent timeout)
-    competitors = DBCompetitor.query.filter_by(
+    # Get competitors from DBCompetitor table
+    db_competitors = DBCompetitor.query.filter_by(
         client_id=client_id,
         is_active=True
     ).limit(10).all()
+    
+    # Also get competitors from client.competitors JSON field (from client settings)
+    client_competitors_list = []
+    try:
+        if client.competitors:
+            import json
+            client_comps = json.loads(client.competitors) if isinstance(client.competitors, str) else client.competitors
+            if isinstance(client_comps, list):
+                client_competitors_list = client_comps
+    except Exception:
+        pass
+    
+    # Merge: Create DBCompetitor entries for any in client.competitors not in DBCompetitor
+    existing_domains = {c.domain.lower().replace('www.', '') for c in db_competitors if c.domain}
+    
+    for comp in client_competitors_list:
+        # comp could be a string (domain) or dict
+        if isinstance(comp, str):
+            domain = comp.lower().replace('www.', '').replace('https://', '').replace('http://', '').strip('/')
+            name = domain.split('.')[0].title()
+        elif isinstance(comp, dict):
+            domain = (comp.get('domain') or comp.get('url') or '').lower().replace('www.', '').replace('https://', '').replace('http://', '').strip('/')
+            name = comp.get('name') or domain.split('.')[0].title()
+        else:
+            continue
+        
+        if domain and domain not in existing_domains:
+            # Create a new DBCompetitor entry
+            try:
+                new_comp = DBCompetitor(
+                    client_id=client_id,
+                    name=name,
+                    domain=domain,
+                    is_active=True
+                )
+                db.session.add(new_comp)
+                db.session.commit()
+                db_competitors.append(new_comp)
+                existing_domains.add(domain)
+            except Exception as e:
+                db.session.rollback()
+                # Continue even if we can't save - create temp object for display
+                class TempCompetitor:
+                    def __init__(self, name, domain):
+                        self.id = None
+                        self.name = name
+                        self.domain = domain
+                        self.is_active = True
+                db_competitors.append(TempCompetitor(name, domain))
+    
+    competitors = db_competitors
     
     # Get client keywords
     client_keywords = []

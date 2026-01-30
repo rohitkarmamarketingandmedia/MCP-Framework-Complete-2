@@ -114,9 +114,28 @@ def get_health_score(current_user, client_id):
             'detail': 'Call tracking not configured'
         }
     
-    # 5. Social Connections (15 points)
-    from app.models.db_models import DBSocialConnection
-    social_count = DBSocialConnection.query.filter_by(client_id=client_id, is_active=True).count()
+    # 5. Social Connections (15 points) - Check via social posts or client social_accounts field
+    social_count = 0
+    try:
+        # Try to get social connections from client's social_accounts field
+        if hasattr(client, 'social_accounts') and client.social_accounts:
+            import json
+            accounts = json.loads(client.social_accounts) if isinstance(client.social_accounts, str) else client.social_accounts
+            if isinstance(accounts, list):
+                social_count = len(accounts)
+            elif isinstance(accounts, dict):
+                social_count = len([k for k, v in accounts.items() if v])
+        
+        # Fallback: check if client has any social posts (indicates connection)
+        if social_count == 0:
+            from app.models.db_models import DBSocialPost
+            has_posts = DBSocialPost.query.filter_by(client_id=client_id).first()
+            if has_posts:
+                social_count = 1
+    except Exception as e:
+        logger.warning(f"Error checking social connections: {e}")
+        social_count = 0
+    
     logger.info(f"Social connections count: {social_count}")
     
     if social_count >= 2:
