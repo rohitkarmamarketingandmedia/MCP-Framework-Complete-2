@@ -6664,6 +6664,18 @@
             
             // Show scheduled items
             let html = '';
+            
+            // Show cancel all schedules button if there are scheduled items
+            if (scheduledCount > 0) {
+                html += `
+                    <div class="mb-4 flex gap-2 justify-end">
+                        <button onclick="cancelAllSchedules()" class="px-3 py-1 bg-red-500/20 hover:bg-red-500/30 text-red-400 border border-red-500/50 rounded text-xs font-medium transition">
+                            <i class="fas fa-times mr-1"></i>Cancel All Schedules
+                        </button>
+                    </div>
+                `;
+            }
+            
             if (unscheduledCount > 0) {
                 html += `
                     <div class="mb-4 p-3 bg-amber-500/20 border border-amber-500/50 rounded-lg">
@@ -6808,6 +6820,90 @@
                 alert(`Scheduled ${blogDay - 1} blogs and ${socialDay - 1} social posts.\n${errors} items failed.`);
             } else {
                 alert(`✓ Scheduled ${blogDay - 1} blogs and ${socialDay - 1} social posts!`);
+            }
+        }
+        
+        // Cancel all scheduled content
+        async function cancelAllSchedules() {
+            if (!currentClient) return;
+            
+            const scheduledBlogs = allBlogs.filter(b => b.scheduled_for && b.status !== 'published');
+            const scheduledSocial = allSocial.filter(s => s.scheduled_for && s.status !== 'published');
+            
+            if (scheduledBlogs.length === 0 && scheduledSocial.length === 0) {
+                showToast('No scheduled content to cancel!', 'info');
+                return;
+            }
+            
+            const confirmMsg = `This will cancel schedules for:\n• ${scheduledBlogs.length} blogs\n• ${scheduledSocial.length} social posts\n\nContent will be moved back to draft. Continue?`;
+            if (!confirm(confirmMsg)) return;
+            
+            let canceledBlogs = 0;
+            let canceledSocial = 0;
+            let errors = 0;
+            
+            // Cancel blog schedules
+            for (const blog of scheduledBlogs) {
+                try {
+                    const response = await fetch(`${API_URL}/api/content/${blog.id}`, {
+                        method: 'PUT',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${AUTH_TOKEN}`
+                        },
+                        body: JSON.stringify({
+                            status: 'draft',
+                            scheduled_for: null
+                        })
+                    });
+                    
+                    if (response.ok) {
+                        blog.status = 'draft';
+                        blog.scheduled_for = null;
+                        canceledBlogs++;
+                    } else {
+                        errors++;
+                    }
+                } catch (e) {
+                    errors++;
+                }
+            }
+            
+            // Cancel social post schedules
+            for (const post of scheduledSocial) {
+                try {
+                    const response = await fetch(`${API_URL}/api/social/${post.id}`, {
+                        method: 'PUT',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${AUTH_TOKEN}`
+                        },
+                        body: JSON.stringify({
+                            status: 'draft',
+                            scheduled_for: null
+                        })
+                    });
+                    
+                    if (response.ok) {
+                        post.status = 'draft';
+                        post.scheduled_for = null;
+                        canceledSocial++;
+                    } else {
+                        errors++;
+                    }
+                } catch (e) {
+                    errors++;
+                }
+            }
+            
+            renderCalendar();
+            renderBlogs();
+            renderSocial();
+            
+            if (errors > 0) {
+                showToast(`Canceled ${canceledBlogs} blogs and ${canceledSocial} social posts. ${errors} failed.`, 'warning');
+            } else {
+                showToast(`✓ Canceled schedules for ${canceledBlogs} blogs and ${canceledSocial} social posts`, 'success');
             }
         }
         
@@ -6981,7 +7077,8 @@
                     'published': 'bg-emerald-500/20 text-emerald-300'
                 };
                 const scheduledInfo = blog.scheduled_for 
-                    ? `<span class="text-blue-400 text-xs"><i class="fas fa-calendar mr-1"></i>${new Date(blog.scheduled_for).toLocaleDateString()}</span>` 
+                    ? `<span class="text-blue-400 text-xs"><i class="fas fa-calendar mr-1"></i>${new Date(blog.scheduled_for).toLocaleDateString()}</span>
+                       <button onclick="event.stopPropagation(); cancelBlogSchedule('${blog.id}')" class="text-red-400 hover:text-red-300 text-xs ml-1" title="Cancel schedule"><i class="fas fa-times-circle"></i></button>` 
                     : '';
                 
                 const isSelected = selectedBlogs.has(blog.id);
@@ -7093,6 +7190,76 @@
         function quickDeleteBlog(blogId, title) {
             if (confirm(`Delete "${title}"?\n\nThis action cannot be undone.`)) {
                 deleteBlogById(blogId);
+            }
+        }
+        
+        // Cancel schedule for individual blog
+        async function cancelBlogSchedule(blogId) {
+            const blog = allBlogs.find(b => b.id === blogId);
+            if (!blog) return;
+            
+            if (!confirm(`Cancel schedule for "${blog.title}"?\n\nThe blog will be moved back to draft.`)) return;
+            
+            try {
+                const response = await fetch(`${API_URL}/api/content/${blogId}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${AUTH_TOKEN}`
+                    },
+                    body: JSON.stringify({
+                        status: 'draft',
+                        scheduled_for: null
+                    })
+                });
+                
+                if (response.ok) {
+                    blog.status = 'draft';
+                    blog.scheduled_for = null;
+                    renderBlogs();
+                    renderCalendar();
+                    showToast('Schedule canceled', 'success');
+                } else {
+                    throw new Error('Failed to cancel schedule');
+                }
+            } catch (error) {
+                console.error('Cancel schedule error:', error);
+                showToast('Error: ' + error.message, 'error');
+            }
+        }
+        
+        // Cancel schedule for individual social post
+        async function cancelSocialSchedule(postId) {
+            const post = allSocial.find(p => p.id === postId);
+            if (!post) return;
+            
+            if (!confirm(`Cancel schedule for this social post?\n\nThe post will be moved back to draft.`)) return;
+            
+            try {
+                const response = await fetch(`${API_URL}/api/social/${postId}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${AUTH_TOKEN}`
+                    },
+                    body: JSON.stringify({
+                        status: 'draft',
+                        scheduled_for: null
+                    })
+                });
+                
+                if (response.ok) {
+                    post.status = 'draft';
+                    post.scheduled_for = null;
+                    renderSocial();
+                    renderCalendar();
+                    showToast('Schedule canceled', 'success');
+                } else {
+                    throw new Error('Failed to cancel schedule');
+                }
+            } catch (error) {
+                console.error('Cancel schedule error:', error);
+                showToast('Error: ' + error.message, 'error');
             }
         }
         
@@ -8311,7 +8478,8 @@
                     'published': 'bg-emerald-500/20 text-emerald-300'
                 };
                 const scheduledInfo = post.scheduled_for 
-                    ? `<span class="text-xs text-blue-400"><i class="fas fa-calendar mr-1"></i>${new Date(post.scheduled_for).toLocaleDateString()}</span>` 
+                    ? `<span class="text-xs text-blue-400"><i class="fas fa-calendar mr-1"></i>${new Date(post.scheduled_for).toLocaleDateString()}</span>
+                       <button onclick="event.stopPropagation(); cancelSocialSchedule('${post.id}')" class="text-red-400 hover:text-red-300 text-xs ml-1" title="Cancel schedule"><i class="fas fa-times-circle"></i></button>` 
                     : '';
                 
                 // Show publish button only for draft/approved posts
