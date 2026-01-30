@@ -256,6 +256,7 @@ def _generate_blog_background(task_id, app, client_id, keyword, word_count, incl
             # Generate FAQ schema if we have FAQs
             faq_items = result.get('faq_items', [])
             faq_schema = None
+            logger.info(f"[TASK {task_id}] FAQ items from AI: {len(faq_items)}")
             if faq_items:
                 faq_schema = {
                     "@context": "https://schema.org",
@@ -273,6 +274,7 @@ def _generate_blog_background(task_id, app, client_id, keyword, word_count, incl
                         if (faq.get('question') or faq.get('q')) and (faq.get('answer') or faq.get('a'))
                     ]
                 }
+                logger.info(f"[TASK {task_id}] ✓ FAQ schema created with {len(faq_schema['mainEntity'])} questions")
             
             # Calculate SEO score for the generated content
             seo_score_result = seo_scoring_engine.score_content(
@@ -1542,36 +1544,83 @@ def publish_to_wordpress(current_user, content_id):
         # Build full content including FAQs
         full_content = content.body or ''
         
-        # Append FAQ section if present
+        # Get FAQs from faq_content or extract from body
+        faqs = None
         if content.faq_content:
             try:
                 faqs = json.loads(content.faq_content) if isinstance(content.faq_content, str) else content.faq_content
-                if faqs and len(faqs) > 0:
-                    faq_html = '\n\n<div class="faq-section">\n<h2>Frequently Asked Questions</h2>\n'
-                    for faq in faqs:
-                        q = faq.get('question') or faq.get('q', '')
-                        a = faq.get('answer') or faq.get('a', '')
-                        if q and a:
-                            faq_html += f'<div class="faq-item">\n<h3>{q}</h3>\n<p>{a}</p>\n</div>\n'
-                    faq_html += '</div>'
-                    full_content += faq_html
-            except (json.JSONDecodeError, TypeError):
-                pass  # Skip FAQ if parsing fails
+                logger.info(f"Found {len(faqs) if faqs else 0} FAQs in faq_content")
+            except (json.JSONDecodeError, TypeError) as e:
+                logger.warning(f"Failed to parse faq_content: {e}")
+        
+        # Fallback: Extract FAQs from body HTML if not in faq_content
+        if not faqs or len(faqs) == 0:
+            import re
+            # Look for FAQ section in body
+            faq_section_match = re.search(r'<div[^>]*class="[^"]*faq[^"]*"[^>]*>(.*?)</div>\s*(?=<[^/]|$)', full_content, re.IGNORECASE | re.DOTALL)
+            if faq_section_match:
+                faq_section = faq_section_match.group(1)
+                # Extract Q&A pairs
+                faq_items = re.findall(r'<h3[^>]*>(.*?)</h3>\s*<p[^>]*>(.*?)</p>', faq_section, re.DOTALL)
+                if faq_items:
+                    faqs = [{'question': q.strip(), 'answer': a.strip()} for q, a in faq_items]
+                    logger.info(f"Extracted {len(faqs)} FAQs from body HTML")
+        
+        # Append FAQ section to content if we have FAQs but they're not already in the body
+        if faqs and len(faqs) > 0 and 'faq-section' not in full_content.lower():
+            faq_html = '\n\n<div class="faq-section">\n<h2>Frequently Asked Questions</h2>\n'
+            for faq in faqs:
+                q = faq.get('question') or faq.get('q', '')
+                a = faq.get('answer') or faq.get('a', '')
+                if q and a:
+                    faq_html += f'<div class="faq-item">\n<h3>{q}</h3>\n<p>{a}</p>\n</div>\n'
+            faq_html += '</div>'
+            full_content += faq_html
+            logger.info(f"Added FAQ HTML section with {len(faqs)} FAQs")
         
         # Prepare Schema JSON-LD for both inline and plugin
         schema_json = None
+        
+        # Try to use existing schema_markup first
         if content.schema_markup:
             try:
                 schema = json.loads(content.schema_markup) if isinstance(content.schema_markup, str) else content.schema_markup
                 if schema:
-                    # Store clean JSON for plugin
                     schema_json = json.dumps(schema, indent=2)
-                    # Also add inline to content
-                    schema_html = f'\n\n<script type="application/ld+json">\n{schema_json}\n</script>'
-                    full_content += schema_html
-                    logger.info(f"Schema prepared: {len(schema_json)} chars")
-            except (json.JSONDecodeError, TypeError):
-                pass  # Skip schema if parsing fails
+                    logger.info(f"Using existing schema_markup: {len(schema_json)} chars")
+            except (json.JSONDecodeError, TypeError) as e:
+                logger.warning(f"Failed to parse schema_markup: {e}")
+        
+        # Generate FAQ schema if we have FAQs (even if schema_markup exists, merge with FAQ)
+        if faqs and len(faqs) > 0:
+            faq_schema = {
+                "@context": "https://schema.org",
+                "@type": "FAQPage",
+                "mainEntity": []
+            }
+            for faq in faqs:
+                q = faq.get('question') or faq.get('q', '')
+                a = faq.get('answer') or faq.get('a', '')
+                if q and a:
+                    faq_schema["mainEntity"].append({
+                        "@type": "Question",
+                        "name": q,
+                        "acceptedAnswer": {
+                            "@type": "Answer",
+                            "text": a
+                        }
+                    })
+            if faq_schema["mainEntity"]:
+                schema_json = json.dumps(faq_schema, indent=2)
+                logger.info(f"Generated FAQ schema: {len(faq_schema['mainEntity'])} FAQs, {len(schema_json)} chars")
+        
+        # Add schema to content if we have it
+        if schema_json:
+            schema_html = f'\n\n<script type="application/ld+json">\n{schema_json}\n</script>'
+            full_content += schema_html
+            logger.info(f"✓ FAQ Schema added to content: {len(schema_json)} chars, FAQs count: {schema_json.count('Question')}")
+        else:
+            logger.warning(f"⚠ No FAQ schema available for content {content.id} - schema_markup: {bool(content.schema_markup)}, faq_content: {bool(content.faq_content)}")
         
         # Helper function for Title Case
         def title_case(text):
