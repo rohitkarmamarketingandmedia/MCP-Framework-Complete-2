@@ -953,13 +953,13 @@
                             </button>
                         </div>
                         
-                        <!-- Featured Image Preview -->
-                        <div id="featuredImagePreview" class="hidden mt-4">
+                        <!-- Featured Image Preview (Generate Tab) -->
+                        <div id="generateFeaturedImagePreview" class="hidden mt-4">
                             <div class="relative rounded-xl overflow-hidden">
-                                <img id="featuredImageResult" src="" alt="Featured Image" class="w-full h-auto">
+                                <img id="generateFeaturedImageResult" src="" alt="Featured Image" class="w-full h-auto">
                                 <div class="absolute bottom-0 left-0 right-0 p-2 bg-gradient-to-t from-black/80 to-transparent">
                                     <div class="flex items-center justify-end gap-2">
-                                        <a id="featuredImageDownload" href="#" download class="p-2 bg-white/20 hover:bg-white/30 rounded-lg transition">
+                                        <a id="generateFeaturedImageDownload" href="#" download class="p-2 bg-white/20 hover:bg-white/30 rounded-lg transition">
                                             <i class="fas fa-download text-white text-sm"></i>
                                         </a>
                                     </div>
@@ -9865,9 +9865,9 @@
                 const data = await response.json();
                 
                 if (data.success) {
-                    document.getElementById('featuredImageResult').src = data.file_url;
-                    document.getElementById('featuredImageDownload').href = data.file_url;
-                    document.getElementById('featuredImagePreview').classList.remove('hidden');
+                    document.getElementById('generateFeaturedImageResult').src = data.file_url;
+                    document.getElementById('generateFeaturedImageDownload').href = data.file_url;
+                    document.getElementById('generateFeaturedImagePreview').classList.remove('hidden');
                     showToast('Featured image created!', 'success');
                 } else {
                     alert('Failed: ' + (data.error || 'Unknown error'));
