@@ -1658,21 +1658,34 @@ def get_competitor_dashboard(current_user, client_id):
         if domain not in seen_domains:
             name = domain.split('.')[0].replace('-', ' ').title()
             try:
-                new_comp = DBCompetitor(
-                    client_id=client_id,
-                    name=name,
-                    domain=domain,
-                    is_active=True
-                )
-                db.session.add(new_comp)
-                final_competitors.append(new_comp)
+                # Check if there's an inactive one with this domain we can reactivate
+                existing_inactive = DBCompetitor.query.filter_by(
+                    client_id=client_id, 
+                    domain=domain
+                ).first()
+                
+                if existing_inactive:
+                    existing_inactive.is_active = True
+                    final_competitors.append(existing_inactive)
+                    logger.info(f"Reactivated existing competitor: {existing_inactive.name} ({domain})")
+                else:
+                    new_comp = DBCompetitor(
+                        client_id=client_id,
+                        name=name,
+                        domain=domain,
+                        is_active=True
+                    )
+                    db.session.add(new_comp)
+                    db.session.flush()  # Flush to get the ID
+                    final_competitors.append(new_comp)
+                    logger.info(f"Created new competitor from settings: {name} ({domain})")
                 seen_domains.add(domain)
-                logger.info(f"Created new competitor from settings: {name} ({domain})")
             except Exception as e:
                 logger.warning(f"Error creating competitor {domain}: {e}")
     
     try:
         db.session.commit()
+        logger.info(f"Committed {len(final_competitors)} competitors")
     except Exception as e:
         db.session.rollback()
         logger.error(f"Error committing competitor changes: {e}")
