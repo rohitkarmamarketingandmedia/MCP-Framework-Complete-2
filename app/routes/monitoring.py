@@ -184,6 +184,7 @@ def add_competitor(current_user):
     if not current_user.has_access_to_client(client_id):
         return jsonify({'error': 'Access denied'}), 403
     
+    logger.info(f"=== ADD COMPETITOR START ===")
     logger.info(f"Adding competitor: client={client_id}, domain={domain}")
     
     # Get client
@@ -198,8 +199,11 @@ def add_competitor(current_user):
             current_competitors = json.loads(client.competitors) if isinstance(client.competitors, str) else client.competitors
             if not isinstance(current_competitors, list):
                 current_competitors = []
-    except:
+    except Exception as e:
+        logger.warning(f"Error parsing competitors: {e}")
         current_competitors = []
+    
+    logger.info(f"Current competitors before add: {current_competitors}")
     
     # Check if already in list
     normalized_existing = [c.lower().replace('www.', '').replace('https://', '').replace('http://', '').strip('/') 
@@ -215,6 +219,7 @@ def add_competitor(current_user):
     # Add to client.competitors field (single source of truth)
     current_competitors.append(domain)
     client.competitors = json.dumps(current_competitors)
+    logger.info(f"Updated client.competitors to: {client.competitors}")
     
     # Also create/update DBCompetitor entry
     existing_db = DBCompetitor.query.filter_by(client_id=client_id, domain=domain).first()
@@ -222,6 +227,7 @@ def add_competitor(current_user):
         existing_db.is_active = True
         existing_db.name = data.get('name', domain)
         competitor = existing_db
+        logger.info(f"Reactivated existing DBCompetitor: {existing_db.id}")
     else:
         competitor = DBCompetitor(
             client_id=client_id,
@@ -231,14 +237,20 @@ def add_competitor(current_user):
         )
         competitor.next_crawl_at = datetime.utcnow()
         db.session.add(competitor)
+        logger.info(f"Created new DBCompetitor")
     
-    db.session.commit()
-    
-    logger.info(f"Added competitor: {competitor.id} - {domain}")
+    try:
+        db.session.commit()
+        logger.info(f"=== ADD COMPETITOR SUCCESS: {domain} ===")
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error committing: {e}")
+        return jsonify({'error': 'Database error'}), 500
     
     return jsonify({
         'message': 'Competitor added',
-        'competitor': competitor.to_dict()
+        'competitor': competitor.to_dict(),
+        'updated_competitors': current_competitors
     })
 
 
@@ -246,6 +258,7 @@ def add_competitor(current_user):
 @token_required
 def remove_competitor(current_user, competitor_id):
     """Remove a competitor from monitoring"""
+    logger.info(f"=== DELETE COMPETITOR START ===")
     logger.info(f"Delete competitor request: {competitor_id}")
     
     competitor = DBCompetitor.query.get(competitor_id)
@@ -261,11 +274,18 @@ def remove_competitor(current_user, competitor_id):
     domain_to_remove = competitor.domain.lower().replace('www.', '').strip()
     client_id = competitor.client_id
     
+    logger.info(f"Removing domain: {domain_to_remove} from client: {client_id}")
+    
     # Remove from client.competitors field (single source of truth)
     client = DBClient.query.get(client_id)
-    if client and client.competitors:
+    if client:
         try:
-            current_competitors = json.loads(client.competitors) if isinstance(client.competitors, str) else client.competitors
+            current_competitors = []
+            if client.competitors:
+                current_competitors = json.loads(client.competitors) if isinstance(client.competitors, str) else client.competitors
+            
+            logger.info(f"Current competitors before delete: {current_competitors}")
+            
             if isinstance(current_competitors, list):
                 # Filter out the domain we're removing
                 updated_competitors = [
@@ -273,9 +293,9 @@ def remove_competitor(current_user, competitor_id):
                     if isinstance(c, str) and c.lower().replace('www.', '').replace('https://', '').replace('http://', '').strip('/') != domain_to_remove
                 ]
                 client.competitors = json.dumps(updated_competitors)
-                logger.info(f"Removed {domain_to_remove} from client.competitors")
+                logger.info(f"Updated client.competitors to: {updated_competitors}")
         except Exception as e:
-            logger.warning(f"Error updating client.competitors: {e}")
+            logger.error(f"Error updating client.competitors: {e}")
     
     # Delete from DBCompetitor table
     try:
@@ -283,7 +303,7 @@ def remove_competitor(current_user, competitor_id):
         DBCompetitorPage.query.filter_by(competitor_id=competitor_id).delete()
         db.session.delete(competitor)
         db.session.commit()
-        logger.info(f"Deleted competitor: {competitor_id} - {domain_to_remove}")
+        logger.info(f"=== DELETE COMPETITOR SUCCESS: {domain_to_remove} ===")
         return jsonify({'message': 'Competitor deleted'})
     except Exception as e:
         db.session.rollback()
