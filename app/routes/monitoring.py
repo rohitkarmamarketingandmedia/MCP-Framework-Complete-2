@@ -87,6 +87,58 @@ def test_semrush_api(current_user):
     return jsonify(result)
 
 
+@monitoring_bp.route('/debug-competitors/<client_id>', methods=['GET'])
+@token_required
+def debug_competitors(current_user, client_id):
+    """
+    Debug endpoint to see competitor data
+    
+    GET /api/monitoring/debug-competitors/{client_id}
+    """
+    if not current_user.has_access_to_client(client_id):
+        return jsonify({'error': 'Access denied'}), 403
+    
+    client = DBClient.query.get(client_id)
+    if not client:
+        return jsonify({'error': 'Client not found'}), 404
+    
+    # Raw client.competitors field
+    raw_competitors = client.competitors
+    
+    # Parsed competitors
+    parsed_competitors = []
+    try:
+        if raw_competitors:
+            parsed_competitors = json.loads(raw_competitors) if isinstance(raw_competitors, str) else raw_competitors
+    except Exception as e:
+        parsed_competitors = f"PARSE ERROR: {e}"
+    
+    # All DBCompetitor entries
+    all_db = DBCompetitor.query.filter_by(client_id=client_id).all()
+    db_competitors = [{
+        'id': c.id,
+        'domain': c.domain,
+        'name': c.name,
+        'is_active': c.is_active
+    } for c in all_db]
+    
+    # Active DBCompetitor entries
+    active_db = [c for c in db_competitors if c['is_active']]
+    
+    return jsonify({
+        'client_id': client_id,
+        'raw_competitors_field': raw_competitors,
+        'parsed_competitors': parsed_competitors,
+        'db_competitors_all': db_competitors,
+        'db_competitors_active': active_db,
+        'counts': {
+            'in_settings': len(parsed_competitors) if isinstance(parsed_competitors, list) else 0,
+            'in_db_total': len(db_competitors),
+            'in_db_active': len(active_db)
+        }
+    })
+
+
 @monitoring_bp.route('/cleanup-competitors/<client_id>', methods=['POST'])
 @token_required
 def cleanup_duplicate_competitors(current_user, client_id):
