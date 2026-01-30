@@ -1658,17 +1658,21 @@ def get_competitor_dashboard(current_user, client_id):
         if domain not in seen_domains:
             name = domain.split('.')[0].replace('-', ' ').title()
             try:
-                # Check if there's an inactive one with this domain we can reactivate
-                existing_inactive = DBCompetitor.query.filter_by(
-                    client_id=client_id, 
-                    domain=domain
-                ).first()
+                # Check if there's an existing one with this domain (active or inactive)
+                # Use case-insensitive search
+                existing = None
+                for db_comp in all_db_competitors:
+                    if normalize_domain(db_comp.domain) == domain:
+                        existing = db_comp
+                        break
                 
-                if existing_inactive:
-                    existing_inactive.is_active = True
-                    final_competitors.append(existing_inactive)
-                    logger.info(f"Reactivated existing competitor: {existing_inactive.name} ({domain})")
+                if existing:
+                    if not existing.is_active:
+                        existing.is_active = True
+                        logger.info(f"Reactivated existing competitor: {existing.name} ({domain})")
+                    final_competitors.append(existing)
                 else:
+                    # Create new competitor
                     new_comp = DBCompetitor(
                         client_id=client_id,
                         name=name,
@@ -1681,14 +1685,18 @@ def get_competitor_dashboard(current_user, client_id):
                     logger.info(f"Created new competitor from settings: {name} ({domain})")
                 seen_domains.add(domain)
             except Exception as e:
-                logger.warning(f"Error creating competitor {domain}: {e}")
+                logger.error(f"Error creating competitor {domain}: {e}")
+                import traceback
+                logger.error(traceback.format_exc())
     
     try:
         db.session.commit()
-        logger.info(f"Committed {len(final_competitors)} competitors")
+        logger.info(f"Committed {len(final_competitors)} competitors: {[c.domain for c in final_competitors]}")
     except Exception as e:
         db.session.rollback()
         logger.error(f"Error committing competitor changes: {e}")
+        import traceback
+        logger.error(traceback.format_exc())
     
     competitors = final_competitors
     logger.info(f"Final competitor count: {len(competitors)}")
