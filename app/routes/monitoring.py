@@ -1731,7 +1731,7 @@ def get_competitor_dashboard(current_user, client_id):
     content_gaps = []
     keyword_overlap = []
     
-    for comp in competitors[:5]:  # Limit competitors processed
+    for comp in competitors[:10]:  # Limit to 10 competitors max
         # Get competitor pages (limited)
         try:
             comp_pages = DBCompetitorPage.query.filter_by(competitor_id=comp.id).limit(50).all()
