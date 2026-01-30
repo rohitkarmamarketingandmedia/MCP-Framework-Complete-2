@@ -68,6 +68,17 @@
         .blog-content ul, .blog-content ol { margin: 1rem 0; padding-left: 1.5rem; }
         .blog-content li { margin-bottom: 0.5rem; color: #475569; }
         .blog-content a { color: #667eea; text-decoration: underline; }
+        
+        /* Editor styles - same as blog-content for WYSIWYG consistency */
+        #modalBodyEdit { line-height: 1.8; }
+        #modalBodyEdit h2 { font-size: 1.5rem; font-weight: 700; margin: 1.5rem 0 1rem; color: #1e293b; }
+        #modalBodyEdit h3 { font-size: 1.25rem; font-weight: 600; margin: 1.25rem 0 0.75rem; color: #334155; }
+        #modalBodyEdit p { margin-bottom: 1rem; color: #475569; }
+        #modalBodyEdit ul, #modalBodyEdit ol { margin: 1rem 0; padding-left: 1.5rem; }
+        #modalBodyEdit li { margin-bottom: 0.5rem; color: #475569; }
+        #modalBodyEdit a { color: #667eea; text-decoration: underline; }
+        #modalBodyEdit img { max-width: 100%; height: auto; margin: 10px 0; border-radius: 8px; }
+        
         .internal-link { background: linear-gradient(135deg, #667eea20, #764ba220); padding: 2px 6px; border-radius: 4px; }
         .tab-active { background: linear-gradient(135deg, #667eea, #764ba2); color: white; }
         .fade-in { animation: fadeIn 0.5s ease-out; }
@@ -732,22 +743,6 @@
                                         <option value="0">No FAQs</option>
                                     </select>
                                 </div>
-                            </div>
-                            
-                            <!-- Featured Image Option -->
-                            <div class="p-4 bg-gradient-to-r from-amber-500/10 to-orange-500/10 border border-amber-500/20 rounded-xl">
-                                <label class="flex items-center justify-between cursor-pointer">
-                                    <div class="flex items-center gap-3">
-                                        <div class="w-10 h-10 rounded-lg bg-amber-500/20 flex items-center justify-center">
-                                            <i class="fas fa-image text-amber-400"></i>
-                                        </div>
-                                        <div>
-                                            <span class="text-white font-medium">Generate Featured Image</span>
-                                            <p class="text-xs text-gray-400">AI-powered image matching your topic</p>
-                                        </div>
-                                    </div>
-                                    <input type="checkbox" id="blogGenerateImage" checked class="w-5 h-5 text-amber-600 rounded">
-                                </label>
                             </div>
                             
                             <button onclick="generateBlog()" id="btnGenerateBlog" 
@@ -2846,11 +2841,13 @@
                             <button type="button" onclick="execCmd('insertOrderedList')" class="p-2 hover:bg-gray-200 rounded" title="Numbered List"><i class="fas fa-list-ol"></i></button>
                             <span class="w-px bg-gray-300 mx-1"></span>
                             <button type="button" onclick="insertLink()" class="p-2 hover:bg-gray-200 rounded" title="Insert Link"><i class="fas fa-link"></i></button>
+                            <button type="button" onclick="insertImageInEditor()" class="p-2 hover:bg-gray-200 rounded" title="Insert Image"><i class="fas fa-image"></i></button>
                             <button type="button" onclick="execCmd('removeFormat')" class="p-2 hover:bg-gray-200 rounded" title="Clear Formatting"><i class="fas fa-eraser"></i></button>
                         </div>
                         <!-- Rich Text Editor -->
                         <div id="modalBodyEdit" contenteditable="true" 
-                            class="w-full min-h-[400px] max-h-[600px] overflow-y-auto px-4 py-3 border border-gray-300 border-t-0 rounded-b-lg bg-white focus:outline-none focus:border-purple-500 prose prose-sm max-w-none"
+                            class="w-full min-h-[400px] max-h-[600px] overflow-y-auto px-4 py-3 border border-gray-300 border-t-0 rounded-b-lg bg-white focus:outline-none focus:border-purple-500"
+                            style="font-family: system-ui, -apple-system, sans-serif; line-height: 1.6;"
                             oninput="updateEditWordCount()"></div>
                         <!-- HTML Source View (hidden by default) -->
                         <textarea id="modalBodySource" class="hidden w-full min-h-[400px] px-3 py-2 border border-gray-300 rounded-lg font-mono text-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-200"></textarea>
@@ -7582,9 +7579,10 @@
             try {
                 const formData = new FormData();
                 formData.append('image', file);
-                formData.append('client_id', currentClient.id);
+                formData.append('category', 'featured');
                 
-                const response = await fetch(`${API_URL}/api/images/upload`, {
+                // Use correct endpoint: /api/images/library/{client_id}/upload
+                const response = await fetch(`${API_URL}/api/images/library/${currentClient.id}/upload`, {
                     method: 'POST',
                     headers: {
                         'Authorization': `Bearer ${AUTH_TOKEN}`
@@ -7594,7 +7592,7 @@
                 
                 if (response.ok) {
                     const data = await response.json();
-                    const imageUrl = data.url || data.image_url;
+                    const imageUrl = data.url || data.file_url || data.image_url;
                     
                     // Update blog with featured image
                     const updateResponse = await fetch(`${API_URL}/api/content/blog/${currentBlog.id}`, {
@@ -7623,6 +7621,9 @@
                         }
                         
                         showToast('Featured image uploaded!', 'success');
+                    } else {
+                        const errData = await updateResponse.json();
+                        showToast(errData.error || 'Failed to update blog', 'error');
                     }
                 } else {
                     const errData = await response.json();
@@ -7765,18 +7766,69 @@
         }
         
         function selectPickerImage(imageId, imageUrl) {
-            selectedSourceImage = { id: imageId, url: imageUrl };
-            
-            // Show selected source image preview
-            document.getElementById('sourceImageThumb').src = imageUrl;
-            document.getElementById('sourceImagePreview').classList.remove('hidden');
-            
-            // Auto-fill title from blog if available
-            if (currentBlog && currentBlog.title) {
-                document.getElementById('featuredTitleOverlay').value = currentBlog.title;
+            // Directly set as featured image
+            if (currentBlog) {
+                setFeaturedImageFromPicker(imageUrl);
             }
-            
             closeImagePicker();
+        }
+        
+        async function setFeaturedImageFromPicker(imageUrl) {
+            if (!currentBlog) return;
+            
+            const loading = document.getElementById('featuredImageLoading');
+            const empty = document.getElementById('featuredImageEmpty');
+            const preview = document.getElementById('featuredImagePreview');
+            
+            loading.classList.remove('hidden');
+            empty.classList.add('hidden');
+            
+            try {
+                // Update blog with featured image
+                const response = await fetch(`${API_URL}/api/content/blog/${currentBlog.id}`, {
+                    method: 'PATCH',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${AUTH_TOKEN}`
+                    },
+                    body: JSON.stringify({
+                        featured_image_url: imageUrl
+                    })
+                });
+                
+                if (response.ok) {
+                    currentBlog.featured_image_url = imageUrl;
+                    document.getElementById('modalFeaturedImage').src = imageUrl;
+                    document.getElementById('featuredImageDownloadLink').href = imageUrl;
+                    preview.classList.remove('hidden');
+                    loading.classList.add('hidden');
+                    
+                    // Update allBlogs array
+                    const blogIndex = allBlogs.findIndex(b => b.id === currentBlog.id);
+                    if (blogIndex >= 0) {
+                        allBlogs[blogIndex].featured_image_url = imageUrl;
+                        renderBlogs();
+                    }
+                    
+                    showToast('Featured image set!', 'success');
+                } else {
+                    const errData = await response.json();
+                    showToast(errData.error || 'Failed to set featured image', 'error');
+                    loading.classList.add('hidden');
+                    empty.classList.remove('hidden');
+                }
+            } catch (error) {
+                console.error('Error setting featured image:', error);
+                showToast('Failed to set featured image', 'error');
+                loading.classList.add('hidden');
+                empty.classList.remove('hidden');
+            }
+        }
+        
+        function clearSourceImage() {
+            selectedSourceImage = null;
+            document.getElementById('sourceImagePreview')?.classList.add('hidden');
+        }
             showToast('Image selected! Now enter a title and click "Burn Title"', 'success');
         }
         
@@ -8119,6 +8171,14 @@
             const url = prompt('Enter URL:', 'https://');
             if (url) {
                 document.execCommand('createLink', false, url);
+            }
+        }
+        
+        function insertImageInEditor() {
+            const url = prompt('Enter image URL:', 'https://');
+            if (url) {
+                const img = `<img src="${url}" alt="Image" style="max-width: 100%; height: auto; margin: 10px 0;">`;
+                document.execCommand('insertHTML', false, img);
             }
         }
         
@@ -8863,7 +8923,7 @@
             
             const wordCount = parseInt(document.getElementById('blogWordCount').value);
             const faqCount = parseInt(document.getElementById('blogFaqs').value);
-            const generateImage = document.getElementById('blogGenerateImage').checked;
+            const generateImage = false; // AI image generation disabled
             const selectedCity = document.getElementById('blogCity')?.value || '';
             
             const btn = document.getElementById('btnGenerateBlog');
@@ -11739,7 +11799,6 @@
             
             // Ensure FAQs are enabled
             document.getElementById('blogFaqs').value = '5';
-            document.getElementById('blogGenerateImage').checked = true;
             
             showToast('Form filled! Click "Generate Blog Post" to create winning content.', 'success');
         }
