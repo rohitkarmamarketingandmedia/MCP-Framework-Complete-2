@@ -7594,6 +7594,13 @@
                     const data = await response.json();
                     const imageUrl = data.url || data.file_url || data.image_url;
                     
+                    if (!imageUrl) {
+                        showToast('Upload succeeded but no URL returned', 'error');
+                        loading.classList.add('hidden');
+                        empty.classList.remove('hidden');
+                        return;
+                    }
+                    
                     // Update blog with featured image
                     const updateResponse = await fetch(`${API_URL}/api/content/blog/${currentBlog.id}`, {
                         method: 'PATCH',
@@ -7608,10 +7615,18 @@
                     
                     if (updateResponse.ok) {
                         currentBlog.featured_image_url = imageUrl;
-                        document.getElementById('modalFeaturedImage').src = imageUrl;
-                        document.getElementById('featuredImageDownloadLink').href = imageUrl;
+                        
+                        // Update UI
+                        const imgEl = document.getElementById('modalFeaturedImage');
+                        const downloadEl = document.getElementById('featuredImageDownloadLink');
+                        
+                        imgEl.src = imageUrl;
+                        if (downloadEl) downloadEl.href = imageUrl;
+                        
+                        // Show preview, hide empty and loading
                         preview.classList.remove('hidden');
                         empty.classList.add('hidden');
+                        loading.classList.add('hidden');
                         
                         // Update allBlogs array
                         const blogIndex = allBlogs.findIndex(b => b.id === currentBlog.id);
@@ -7624,10 +7639,14 @@
                     } else {
                         const errData = await updateResponse.json();
                         showToast(errData.error || 'Failed to update blog', 'error');
+                        loading.classList.add('hidden');
+                        empty.classList.remove('hidden');
                     }
                 } else {
                     const errData = await response.json();
                     showToast(errData.error || 'Failed to upload image', 'error');
+                    loading.classList.add('hidden');
+                    empty.classList.remove('hidden');
                 }
             } catch (error) {
                 console.error('Upload error:', error);
@@ -7766,11 +7785,22 @@
         }
         
         function selectPickerImage(imageId, imageUrl) {
-            // Directly set as featured image
+            closeImagePicker();
+            
+            // Check if inserting to editor
+            if (insertingImageToEditor) {
+                insertingImageToEditor = false;
+                const img = `<img src="${imageUrl}" alt="Image" style="max-width: 100%; height: auto; margin: 10px 0; border-radius: 8px;">`;
+                document.getElementById('modalBodyEdit').focus();
+                document.execCommand('insertHTML', false, img);
+                showToast('Image inserted!', 'success');
+                return;
+            }
+            
+            // Otherwise set as featured image
             if (currentBlog) {
                 setFeaturedImageFromPicker(imageUrl);
             }
-            closeImagePicker();
         }
         
         async function setFeaturedImageFromPicker(imageUrl) {
@@ -8168,9 +8198,108 @@
         }
         
         function insertImageInEditor() {
+            // Show a small modal with upload/library/URL options
+            const modal = document.createElement('div');
+            modal.id = 'editorImageModal';
+            modal.className = 'fixed inset-0 bg-black/50 z-[60] flex items-center justify-center';
+            modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
+            modal.innerHTML = `
+                <div class="bg-white rounded-xl p-6 max-w-md w-full mx-4 shadow-2xl" onclick="event.stopPropagation()">
+                    <h3 class="text-lg font-bold text-gray-800 mb-4"><i class="fas fa-image mr-2 text-blue-500"></i>Insert Image</h3>
+                    
+                    <div class="space-y-3">
+                        <label class="flex items-center gap-3 p-3 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 transition">
+                            <div class="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
+                                <i class="fas fa-upload text-green-600"></i>
+                            </div>
+                            <div class="flex-1">
+                                <div class="font-medium text-gray-800">Upload Image</div>
+                                <div class="text-xs text-gray-500">Upload from your computer</div>
+                            </div>
+                            <input type="file" accept="image/*" class="hidden" onchange="uploadImageToEditor(this)">
+                        </label>
+                        
+                        <button onclick="openLibraryForEditor()" class="w-full flex items-center gap-3 p-3 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 transition text-left">
+                            <div class="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                                <i class="fas fa-images text-blue-600"></i>
+                            </div>
+                            <div class="flex-1">
+                                <div class="font-medium text-gray-800">Select from Library</div>
+                                <div class="text-xs text-gray-500">Choose from uploaded images</div>
+                            </div>
+                        </button>
+                        
+                        <button onclick="insertImageByUrl()" class="w-full flex items-center gap-3 p-3 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 transition text-left">
+                            <div class="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
+                                <i class="fas fa-link text-purple-600"></i>
+                            </div>
+                            <div class="flex-1">
+                                <div class="font-medium text-gray-800">Enter URL</div>
+                                <div class="text-xs text-gray-500">Paste an image URL</div>
+                            </div>
+                        </button>
+                    </div>
+                    
+                    <button onclick="document.getElementById('editorImageModal').remove()" class="mt-4 w-full py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-gray-700 text-sm">
+                        Cancel
+                    </button>
+                </div>
+            `;
+            document.body.appendChild(modal);
+        }
+        
+        async function uploadImageToEditor(input) {
+            if (!input.files || !input.files[0]) return;
+            
+            const file = input.files[0];
+            document.getElementById('editorImageModal')?.remove();
+            
+            showToast('Uploading image...', 'info');
+            
+            try {
+                const formData = new FormData();
+                formData.append('file', file);
+                formData.append('category', 'content');
+                
+                const response = await fetch(`${API_URL}/api/images/library/${currentClient.id}/upload`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` },
+                    body: formData
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    const imageUrl = data.url || data.file_url || data.image_url;
+                    
+                    if (imageUrl) {
+                        const img = `<img src="${imageUrl}" alt="Image" style="max-width: 100%; height: auto; margin: 10px 0; border-radius: 8px;">`;
+                        document.getElementById('modalBodyEdit').focus();
+                        document.execCommand('insertHTML', false, img);
+                        showToast('Image inserted!', 'success');
+                    }
+                } else {
+                    showToast('Failed to upload image', 'error');
+                }
+            } catch (error) {
+                console.error('Upload error:', error);
+                showToast('Failed to upload image', 'error');
+            }
+        }
+        
+        let insertingImageToEditor = false;
+        
+        function openLibraryForEditor() {
+            document.getElementById('editorImageModal')?.remove();
+            insertingImageToEditor = true;
+            openImagePicker();
+        }
+        
+        function insertImageByUrl() {
+            document.getElementById('editorImageModal')?.remove();
             const url = prompt('Enter image URL:', 'https://');
-            if (url) {
-                const img = `<img src="${url}" alt="Image" style="max-width: 100%; height: auto; margin: 10px 0;">`;
+            if (url && url !== 'https://') {
+                const img = `<img src="${url}" alt="Image" style="max-width: 100%; height: auto; margin: 10px 0; border-radius: 8px;">`;
+                document.getElementById('modalBodyEdit').focus();
                 document.execCommand('insertHTML', false, img);
             }
         }
