@@ -2789,7 +2789,7 @@
                         <!-- Featured Image Preview/Placeholder -->
                         <div id="featuredImagePreview" class="hidden">
                             <div class="relative">
-                                <img id="modalFeaturedImage" src="" alt="Featured Image" class="w-full h-48 object-cover rounded-lg border-2 border-green-400">
+                                <img id="modalFeaturedImage" src="" alt="Featured Image" class="w-full h-auto max-h-[400px] object-contain rounded-lg border-2 border-green-400 bg-gray-100">
                                 <button onclick="removeFeaturedImage()" class="absolute top-2 right-2 w-8 h-8 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center">
                                     <i class="fas fa-times"></i>
                                 </button>
@@ -7793,8 +7793,7 @@
             if (insertingImageToEditor) {
                 insertingImageToEditor = false;
                 const img = `<img src="${imageUrl}" alt="Image" style="max-width: 100%; height: auto; margin: 10px 0; border-radius: 8px;">`;
-                document.getElementById('modalBodyEdit').focus();
-                document.execCommand('insertHTML', false, img);
+                insertHtmlAtSavedPosition(img);
                 showToast('Image inserted!', 'success');
                 return;
             }
@@ -8200,6 +8199,9 @@
         }
         
         function insertImageInEditor() {
+            // Save cursor position before showing modal
+            saveEditorSelection();
+            
             // Show a small modal with upload/library/URL options
             const modal = document.createElement('div');
             modal.id = 'editorImageModal';
@@ -8254,6 +8256,7 @@
             if (!input.files || !input.files[0]) return;
             
             const file = input.files[0];
+            saveEditorSelection(); // Save cursor position before async upload
             document.getElementById('editorImageModal')?.remove();
             
             showToast('Uploading image...', 'info');
@@ -8276,8 +8279,7 @@
                     
                     if (imageUrl) {
                         const img = `<img src="${imageUrl}" alt="Image" style="max-width: 100%; height: auto; margin: 10px 0; border-radius: 8px;">`;
-                        document.getElementById('modalBodyEdit').focus();
-                        document.execCommand('insertHTML', false, img);
+                        insertHtmlAtSavedPosition(img);
                         showToast('Image inserted!', 'success');
                     }
                 } else {
@@ -8290,9 +8292,34 @@
         }
         
         let insertingImageToEditor = false;
+        let savedEditorSelection = null;
+        
+        // Save the current cursor position in the editor
+        function saveEditorSelection() {
+            const sel = window.getSelection();
+            if (sel.rangeCount > 0) {
+                savedEditorSelection = sel.getRangeAt(0).cloneRange();
+            }
+        }
+        
+        // Restore the cursor position and insert HTML
+        function insertHtmlAtSavedPosition(html) {
+            const editor = document.getElementById('modalBodyEdit');
+            editor.focus();
+            
+            if (savedEditorSelection) {
+                const sel = window.getSelection();
+                sel.removeAllRanges();
+                sel.addRange(savedEditorSelection);
+            }
+            
+            document.execCommand('insertHTML', false, html);
+            savedEditorSelection = null;
+        }
         
         function openLibraryForEditor() {
             document.getElementById('editorImageModal')?.remove();
+            saveEditorSelection(); // Save cursor position before opening picker
             insertingImageToEditor = true;
             openImagePicker();
         }
@@ -8302,8 +8329,7 @@
             const url = prompt('Enter image URL:', 'https://');
             if (url && url !== 'https://') {
                 const img = `<img src="${url}" alt="Image" style="max-width: 100%; height: auto; margin: 10px 0; border-radius: 8px;">`;
-                document.getElementById('modalBodyEdit').focus();
-                document.execCommand('insertHTML', false, img);
+                insertHtmlAtSavedPosition(img);
             }
         }
         
