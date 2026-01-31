@@ -8404,24 +8404,49 @@
                 return;
             }
             
+            // Check content size (warn if very large)
+            const contentSize = new Blob([newBody]).size;
+            if (contentSize > 5000000) { // 5MB
+                showToast('Content is too large. Please reduce the size.', 'error');
+                return;
+            }
+            
+            // Show saving indicator
+            const saveBtn = document.querySelector('#footerEditMode button[onclick*="saveBlogEdits"]');
+            const originalBtnText = saveBtn?.innerHTML;
+            if (saveBtn) {
+                saveBtn.disabled = true;
+                saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i>Saving...';
+            }
+            
             try {
+                const requestBody = {
+                    title: newTitle,
+                    meta_title: newMetaTitle,
+                    meta_description: newMetaDesc,
+                    body: newBody
+                };
+                
+                console.log('Saving blog, content size:', contentSize, 'bytes');
+                
                 const response = await fetch(`${API_URL}/api/content/${currentBlog.id}`, {
                     method: 'PUT',
                     headers: {
                         'Content-Type': 'application/json',
                         'Authorization': `Bearer ${AUTH_TOKEN}`
                     },
-                    body: JSON.stringify({
-                        title: newTitle,
-                        meta_title: newMetaTitle,
-                        meta_description: newMetaDesc,
-                        body: newBody
-                    })
+                    body: JSON.stringify(requestBody)
                 });
                 
                 if (!response.ok) {
-                    const error = await response.json();
-                    throw new Error(error.error || 'Failed to save');
+                    let errorMsg = 'Failed to save';
+                    try {
+                        const error = await response.json();
+                        errorMsg = error.error || errorMsg;
+                    } catch (e) {
+                        errorMsg = `Server error: ${response.status}`;
+                    }
+                    throw new Error(errorMsg);
                 }
                 
                 const result = await response.json();
@@ -8429,9 +8454,9 @@
                 // Update local data
                 const idx = allBlogs.findIndex(b => b.id === currentBlog.id);
                 if (idx !== -1) {
-                    allBlogs[idx] = result.content;
+                    allBlogs[idx] = result.content || result;
                 }
-                currentBlog = result.content;
+                currentBlog = result.content || result;
                 
                 // Exit edit mode and refresh display
                 cancelEditMode();
@@ -8449,7 +8474,19 @@
                 // Refresh blog list
                 renderBlogs();
                 
-                alert('✓ Blog saved successfully!');
+                showToast('Blog saved successfully!', 'success');
+                
+            } catch (error) {
+                console.error('Save error:', error);
+                showToast('Error saving: ' + error.message, 'error');
+            } finally {
+                // Restore button
+                if (saveBtn && originalBtnText) {
+                    saveBtn.disabled = false;
+                    saveBtn.innerHTML = originalBtnText;
+                }
+            }
+        }
                 
             } catch (error) {
                 console.error('Save error:', error);
