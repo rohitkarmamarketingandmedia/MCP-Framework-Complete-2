@@ -12117,50 +12117,54 @@
                 const clientName = currentClient?.name || '';
                 const clientCity = currentClient?.geo?.split(',')[0]?.trim() || '';
                 
-                // Get list of competitor names to remove
-                let competitorNames = [];
-                try {
-                    const competitors = JSON.parse(currentClient?.competitors || '[]');
-                    competitorNames = competitors.map(c => {
-                        // Extract company name from domain
-                        const domain = c.replace(/^(https?:\/\/)?(www\.)?/, '').replace(/\.(com|net|org|co|io|biz).*$/, '');
-                        return domain.split(/[-.]/).map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
-                    });
-                } catch(e) {}
+                console.log('Original topic:', decodedTopic);
+                console.log('Client city:', clientCity);
                 
-                // Clean up the topic - remove competitor branding patterns
+                // Step 1: Remove competitor brand suffixes (everything after - or | near the end)
+                // Handle patterns like "Title - Company Name" or "Title | Company Name"
                 optimizedKeyword = decodedTopic
-                    // Remove common suffixes with company names
-                    .replace(/\s*[-|:–—]\s*[A-Z][a-zA-Z\s&']+$/i, '') // "Title - Company Name" or "Title | Company"
-                    .replace(/\s+(?:at|by|from|with|for)\s+[A-Z][a-zA-Z\s&']+$/i, '') // "Tips at Company Name"
-                    .replace(/\s*\([^)]+\)\s*$/i, '') // Remove trailing parentheses "(Company Name)"
+                    .replace(/\s*[-–—|]\s*[A-Za-z][A-Za-z0-9\s&'\-\.]+$/g, '') // Remove "- Company Name" at end
                     .trim();
                 
-                // Remove any known competitor names from the text
-                competitorNames.forEach(name => {
-                    if (name.length > 2) {
-                        const nameRegex = new RegExp(`\\b${name}\\b`, 'gi');
-                        optimizedKeyword = optimizedKeyword.replace(nameRegex, '').trim();
-                    }
-                });
+                console.log('After removing brand suffix:', optimizedKeyword);
                 
-                // Remove the city if it's already in the topic to prevent duplication
+                // Step 2: Remove city name completely (we'll add it back once at the end)
                 if (clientCity) {
-                    const cityRegex = new RegExp(`\\s*(in|for|of|near)?\\s*${clientCity.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*`, 'gi');
-                    optimizedKeyword = optimizedKeyword.replace(cityRegex, ' ').trim();
+                    // Escape special regex characters in city name
+                    const cityEscaped = clientCity.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                    // Remove all occurrences of city with optional prepositions
+                    const cityPatterns = [
+                        new RegExp(`\\s+in\\s+${cityEscaped}`, 'gi'),
+                        new RegExp(`\\s+for\\s+${cityEscaped}`, 'gi'),
+                        new RegExp(`\\s+of\\s+${cityEscaped}`, 'gi'),
+                        new RegExp(`\\s+near\\s+${cityEscaped}`, 'gi'),
+                        new RegExp(`\\s+${cityEscaped}\\s*,?\\s*(FL|Florida|MN|Minnesota)?`, 'gi'),
+                        new RegExp(`^${cityEscaped}\\s+`, 'gi'),
+                    ];
+                    cityPatterns.forEach(pattern => {
+                        optimizedKeyword = optimizedKeyword.replace(pattern, ' ');
+                    });
                 }
                 
-                // Clean up any double spaces or trailing punctuation
+                console.log('After removing city:', optimizedKeyword);
+                
+                // Step 3: Clean up artifacts
                 optimizedKeyword = optimizedKeyword
-                    .replace(/\s+/g, ' ')
-                    .replace(/[-|:–—]\s*$/g, '')
-                    .replace(/^\s*[-|:–—]/g, '')
+                    .replace(/\s*[-–—|:]\s*[-–—|:]\s*/g, ' ') // Double dashes/pipes
+                    .replace(/\s*[-–—|:]\s*$/g, '') // Trailing dash/pipe
+                    .replace(/^\s*[-–—|:]\s*/g, '') // Leading dash/pipe
+                    .replace(/\s+/g, ' ') // Multiple spaces
+                    .replace(/:\s*$/g, '') // Trailing colon
                     .trim();
                 
-                // Add city at the end (only once)
-                if (clientCity) {
+                console.log('After cleanup:', optimizedKeyword);
+                
+                // Step 4: Add city at the end (only once)
+                if (clientCity && optimizedKeyword) {
                     optimizedKeyword = `${optimizedKeyword} in ${clientCity}`;
                 }
+                
+                console.log('Final keyword:', optimizedKeyword);
             }
             
             const confirmMsg = isCounterContent 

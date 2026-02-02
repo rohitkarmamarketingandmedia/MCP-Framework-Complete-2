@@ -145,6 +145,14 @@ class BlogAISingle:
         
         # Patterns to fix (order matters - more specific patterns first)
         patterns = [
+            # Fix "- Nor In City" or "- Some In City" (partial competitor names)
+            (rf'\s*[-–—]\s*\w+\s+In\s+{city_escaped}', ''),
+            # Fix "Title - Company In City in City" pattern
+            (rf'\s*[-–—]\s*[A-Z][a-zA-Z\s&\']+\s+in\s+{city_escaped}\s+in\s+{city_escaped}', f' in {city}'),
+            # Fix triple city: "in City in City: Something in City"
+            (rf'in\s+{city_escaped}\s+in\s+{city_escaped}:\s*[^:]+in\s+{city_escaped}', f'in {city}'),
+            # Fix "in City in City: Something"
+            (rf'in\s+{city_escaped}\s+in\s+{city_escaped}:', f'in {city}:'),
             # "AC Repair Port Charlotte in Port Charlotte" -> "AC Repair in Port Charlotte"
             # This handles when keyword already contains city name
             (rf'(\w+)\s+{city_escaped}\s+in\s+{city_escaped}\b', rf'\1 in {city}'),
@@ -165,6 +173,17 @@ class BlogAISingle:
             (rf'\|\s*{city_escaped}\s+{city_escaped}', f'| {city}'),
             # "Port Charlotte in Port Charlotte" at start or after | -> "Port Charlotte"
             (rf'\b{city_escaped}\s+in\s+{city_escaped}\b', city),
+            # Clean up "What'S" -> "What's" (fix title case issues)
+            (r"What'S\b", "What's"),
+            (r"It'S\b", "It's"),
+            (r"That'S\b", "That's"),
+            # Clean up double dashes/pipes from removed content
+            (r'\s*[-–—]{2,}\s*', ' - '),
+            (r'\s*\|\s*\|', ' |'),
+            # Clean up trailing dashes/pipes
+            (r'\s*[-–—|]\s*$', ''),
+            # Clean up leading dashes/pipes
+            (r'^[-–—|]\s*', ''),
         ]
         
         # Remove None patterns
@@ -176,10 +195,12 @@ class BlogAISingle:
                 original = result[field]
                 for pattern, replacement in patterns:
                     result[field] = re.sub(pattern, replacement, result[field], flags=re.IGNORECASE)
+                # Clean up extra spaces
+                result[field] = re.sub(r'\s+', ' ', result[field]).strip()
                 if result[field] != original:
                     logger.info(f"Fixed duplicate location in {field}: '{original}' -> '{result[field]}'")
         
-        # Also fix in body content
+        # Also fix in body content (headings especially)
         if 'body' in result and isinstance(result['body'], str):
             original_body = result['body']
             for pattern, replacement in patterns:
