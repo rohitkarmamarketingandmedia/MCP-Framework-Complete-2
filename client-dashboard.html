@@ -12049,7 +12049,7 @@
                         return;
                     }
                     
-                    container.innerHTML = alerts.map(alert => `
+                    container.innerHTML = alerts.map((alert, idx) => `
                         <div class="p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
                             <div class="flex items-start justify-between">
                                 <div class="flex items-center gap-3">
@@ -12057,24 +12057,42 @@
                                         <i class="fas fa-exclamation text-yellow-400 text-sm"></i>
                                     </div>
                                     <div>
-                                        <p class="text-white font-medium text-sm">${alert.competitor_name}</p>
-                                        <p class="text-gray-400 text-xs">${alert.title || 'New content published'}</p>
+                                        <p class="text-white font-medium text-sm">${escapeHtml(alert.competitor_name)}</p>
+                                        <p class="text-gray-400 text-xs">${escapeHtml(alert.title || 'New content published')}</p>
                                     </div>
                                 </div>
                                 <div class="flex items-center gap-2">
                                     <span class="text-xs text-gray-500">${formatTimeAgo(alert.detected_at)}</span>
-                                    <button onclick="generateFromGap('${encodeURIComponent(alert.topic || alert.title)}', true)" 
-                                        class="px-2 py-1 bg-yellow-600 hover:bg-yellow-700 text-white text-xs rounded transition">
+                                    <button class="counter-btn px-2 py-1 bg-yellow-600 hover:bg-yellow-700 text-white text-xs rounded transition"
+                                        data-topic="${escapeHtml(alert.topic || alert.title)}">
                                         Counter
                                     </button>
                                 </div>
                             </div>
                         </div>
                     `).join('');
+                    
+                    // Add click handlers for counter buttons
+                    container.querySelectorAll('.counter-btn').forEach(btn => {
+                        btn.addEventListener('click', function() {
+                            const topic = this.dataset.topic;
+                            if (topic) {
+                                generateFromGap(encodeURIComponent(topic), true);
+                            }
+                        });
+                    });
                 }
             } catch (error) {
                 console.error('Error loading freshness alerts:', error);
             }
+        }
+        
+        // Helper function to escape HTML special characters
+        function escapeHtml(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
         }
         
         function formatTimeAgo(dateStr) {
