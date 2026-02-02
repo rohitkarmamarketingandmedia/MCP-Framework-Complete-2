@@ -2842,6 +2842,7 @@
                             <span class="w-px bg-gray-300 mx-1"></span>
                             <button type="button" onclick="insertLink()" class="p-2 hover:bg-gray-200 rounded" title="Insert Link"><i class="fas fa-link"></i></button>
                             <button type="button" onclick="insertImageInEditor()" class="p-2 hover:bg-gray-200 rounded" title="Insert Image"><i class="fas fa-image"></i></button>
+                            <button type="button" onclick="showCTAModal()" class="p-2 hover:bg-gray-200 rounded" title="Insert CTA Block"><i class="fas fa-bullhorn"></i></button>
                             <button type="button" onclick="execCmd('removeFormat')" class="p-2 hover:bg-gray-200 rounded" title="Clear Formatting"><i class="fas fa-eraser"></i></button>
                         </div>
                         <!-- Rich Text Editor -->
@@ -2972,6 +2973,82 @@
                         </button>
                     </div>
                 </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- CTA Insert Modal -->
+    <div id="ctaModal" class="hidden fixed inset-0 bg-black/80 z-[60] flex items-center justify-center" onclick="if(event.target === this) closeCTAModal()">
+        <div class="bg-white rounded-2xl p-6 w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto" onclick="event.stopPropagation()">
+            <h3 class="text-xl font-bold text-gray-800 mb-4"><i class="fas fa-bullhorn mr-2 text-purple-500"></i>Insert CTA Block</h3>
+            
+            <div class="space-y-4">
+                <!-- CTA Style -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">CTA Style</label>
+                    <select id="ctaStyle" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:border-purple-500" onchange="previewCTA()">
+                        <option value="primary">🔵 Primary (Blue gradient)</option>
+                        <option value="secondary">🟢 Secondary (Green gradient)</option>
+                        <option value="accent">🟠 Accent (Orange gradient)</option>
+                        <option value="dark">⚫ Dark (Dark theme)</option>
+                        <option value="outline">⬜ Outline (Border only)</option>
+                    </select>
+                </div>
+                
+                <!-- CTA Title -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Title</label>
+                    <input type="text" id="ctaTitle" placeholder="Ready to Get Started?" 
+                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:border-purple-500" 
+                        oninput="previewCTA()">
+                </div>
+                
+                <!-- CTA Description -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Description (optional)</label>
+                    <textarea id="ctaDescription" rows="2" placeholder="Contact us today for a free consultation..." 
+                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:border-purple-500"
+                        oninput="previewCTA()"></textarea>
+                </div>
+                
+                <!-- Button Text -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Button Text</label>
+                    <input type="text" id="ctaButtonText" placeholder="Call Now" 
+                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:border-purple-500"
+                        oninput="previewCTA()">
+                </div>
+                
+                <!-- Link Type -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Link Type</label>
+                    <select id="ctaLinkType" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:border-purple-500" onchange="updateCTALinkPlaceholder()">
+                        <option value="phone">📞 Phone Number</option>
+                        <option value="email">✉️ Email Address</option>
+                        <option value="url">🔗 Web Page URL</option>
+                    </select>
+                </div>
+                
+                <!-- Link Value -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Link Value</label>
+                    <input type="text" id="ctaLinkValue" placeholder="(941) 629-2863" 
+                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:border-purple-500"
+                        oninput="previewCTA()">
+                </div>
+                
+                <!-- Preview -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Preview</label>
+                    <div id="ctaPreview" class="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                        <!-- Preview will be rendered here -->
+                    </div>
+                </div>
+            </div>
+            
+            <div class="flex gap-2 mt-6">
+                <button onclick="closeCTAModal()" class="flex-1 px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg font-medium transition">Cancel</button>
+                <button onclick="insertCTA()" class="flex-1 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-medium transition">Insert CTA</button>
             </div>
         </div>
     </div>
@@ -8346,6 +8423,157 @@
                 const img = `<img src="${url}" alt="Image" style="max-width: 100%; height: auto; margin: 10px 0; border-radius: 8px;">`;
                 insertHtmlAtSavedPosition(img);
             }
+        }
+        
+        // ========== CTA INSERT FUNCTIONS ==========
+        function showCTAModal() {
+            saveEditorSelection();
+            
+            // Pre-fill with client data if available
+            if (currentClient) {
+                document.getElementById('ctaLinkValue').value = currentClient.phone || '';
+            }
+            
+            // Set defaults
+            document.getElementById('ctaStyle').value = 'primary';
+            document.getElementById('ctaTitle').value = '';
+            document.getElementById('ctaDescription').value = '';
+            document.getElementById('ctaButtonText').value = 'Call Now';
+            document.getElementById('ctaLinkType').value = 'phone';
+            
+            previewCTA();
+            document.getElementById('ctaModal').classList.remove('hidden');
+        }
+        
+        function closeCTAModal() {
+            document.getElementById('ctaModal').classList.add('hidden');
+        }
+        
+        function updateCTALinkPlaceholder() {
+            const linkType = document.getElementById('ctaLinkType').value;
+            const linkInput = document.getElementById('ctaLinkValue');
+            const buttonText = document.getElementById('ctaButtonText');
+            
+            switch(linkType) {
+                case 'phone':
+                    linkInput.placeholder = '(941) 629-2863';
+                    if (!buttonText.value || buttonText.value === 'Email Us' || buttonText.value === 'Learn More') {
+                        buttonText.value = 'Call Now';
+                    }
+                    break;
+                case 'email':
+                    linkInput.placeholder = 'info@example.com';
+                    if (!buttonText.value || buttonText.value === 'Call Now' || buttonText.value === 'Learn More') {
+                        buttonText.value = 'Email Us';
+                    }
+                    break;
+                case 'url':
+                    linkInput.placeholder = 'https://example.com/contact';
+                    if (!buttonText.value || buttonText.value === 'Call Now' || buttonText.value === 'Email Us') {
+                        buttonText.value = 'Learn More';
+                    }
+                    break;
+            }
+            previewCTA();
+        }
+        
+        function getCTAStyles(style) {
+            const styles = {
+                primary: {
+                    container: 'background: linear-gradient(135deg, #3b82f6, #1d4ed8); color: white; padding: 24px; border-radius: 12px; text-align: center; margin: 20px 0;',
+                    title: 'font-size: 1.5rem; font-weight: bold; margin-bottom: 8px;',
+                    desc: 'opacity: 0.9; margin-bottom: 16px;',
+                    button: 'background: white; color: #1d4ed8; padding: 12px 24px; border-radius: 8px; font-weight: bold; text-decoration: none; display: inline-block;',
+                    class: 'cta-primary'
+                },
+                secondary: {
+                    container: 'background: linear-gradient(135deg, #10b981, #059669); color: white; padding: 24px; border-radius: 12px; text-align: center; margin: 20px 0;',
+                    title: 'font-size: 1.5rem; font-weight: bold; margin-bottom: 8px;',
+                    desc: 'opacity: 0.9; margin-bottom: 16px;',
+                    button: 'background: white; color: #059669; padding: 12px 24px; border-radius: 8px; font-weight: bold; text-decoration: none; display: inline-block;',
+                    class: 'cta-secondary'
+                },
+                accent: {
+                    container: 'background: linear-gradient(135deg, #f97316, #ea580c); color: white; padding: 24px; border-radius: 12px; text-align: center; margin: 20px 0;',
+                    title: 'font-size: 1.5rem; font-weight: bold; margin-bottom: 8px;',
+                    desc: 'opacity: 0.9; margin-bottom: 16px;',
+                    button: 'background: white; color: #ea580c; padding: 12px 24px; border-radius: 8px; font-weight: bold; text-decoration: none; display: inline-block;',
+                    class: 'cta-accent'
+                },
+                dark: {
+                    container: 'background: linear-gradient(135deg, #1f2937, #111827); color: white; padding: 24px; border-radius: 12px; text-align: center; margin: 20px 0;',
+                    title: 'font-size: 1.5rem; font-weight: bold; margin-bottom: 8px;',
+                    desc: 'opacity: 0.9; margin-bottom: 16px;',
+                    button: 'background: #3b82f6; color: white; padding: 12px 24px; border-radius: 8px; font-weight: bold; text-decoration: none; display: inline-block;',
+                    class: 'cta-dark'
+                },
+                outline: {
+                    container: 'background: white; border: 2px solid #3b82f6; padding: 24px; border-radius: 12px; text-align: center; margin: 20px 0;',
+                    title: 'font-size: 1.5rem; font-weight: bold; margin-bottom: 8px; color: #1f2937;',
+                    desc: 'color: #6b7280; margin-bottom: 16px;',
+                    button: 'background: #3b82f6; color: white; padding: 12px 24px; border-radius: 8px; font-weight: bold; text-decoration: none; display: inline-block;',
+                    class: 'cta-outline'
+                }
+            };
+            return styles[style] || styles.primary;
+        }
+        
+        function previewCTA() {
+            const style = document.getElementById('ctaStyle').value;
+            const title = document.getElementById('ctaTitle').value || 'Ready to Get Started?';
+            const desc = document.getElementById('ctaDescription').value;
+            const buttonText = document.getElementById('ctaButtonText').value || 'Call Now';
+            
+            const s = getCTAStyles(style);
+            
+            let html = `<div style="${s.container}">`;
+            html += `<div style="${s.title}">${title}</div>`;
+            if (desc) {
+                html += `<div style="${s.desc}">${desc}</div>`;
+            }
+            html += `<span style="${s.button}">${buttonText}</span>`;
+            html += `</div>`;
+            
+            document.getElementById('ctaPreview').innerHTML = html;
+        }
+        
+        function insertCTA() {
+            const style = document.getElementById('ctaStyle').value;
+            const title = document.getElementById('ctaTitle').value || 'Ready to Get Started?';
+            const desc = document.getElementById('ctaDescription').value;
+            const buttonText = document.getElementById('ctaButtonText').value || 'Call Now';
+            const linkType = document.getElementById('ctaLinkType').value;
+            const linkValue = document.getElementById('ctaLinkValue').value;
+            
+            // Build the link href
+            let href = '#';
+            if (linkValue) {
+                switch(linkType) {
+                    case 'phone':
+                        href = `tel:${linkValue.replace(/[^0-9+]/g, '')}`;
+                        break;
+                    case 'email':
+                        href = `mailto:${linkValue}`;
+                        break;
+                    case 'url':
+                        href = linkValue.startsWith('http') ? linkValue : `https://${linkValue}`;
+                        break;
+                }
+            }
+            
+            const s = getCTAStyles(style);
+            
+            let html = `<div class="${s.class}" style="${s.container}">`;
+            html += `<div style="${s.title}">${title}</div>`;
+            if (desc) {
+                html += `<div style="${s.desc}">${desc}</div>`;
+            }
+            html += `<a href="${href}" style="${s.button}">${buttonText}</a>`;
+            html += `</div>`;
+            
+            closeCTAModal();
+            insertHtmlAtSavedPosition(html);
+            showToast('CTA block inserted!', 'success');
         }
         
         function cancelEditMode() {
