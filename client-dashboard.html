@@ -12063,7 +12063,7 @@
                                 </div>
                                 <div class="flex items-center gap-2">
                                     <span class="text-xs text-gray-500">${formatTimeAgo(alert.detected_at)}</span>
-                                    <button onclick="generateFromGap('${encodeURIComponent(alert.topic || alert.title)}')" 
+                                    <button onclick="generateFromGap('${encodeURIComponent(alert.topic || alert.title)}', true)" 
                                         class="px-2 py-1 bg-yellow-600 hover:bg-yellow-700 text-white text-xs rounded transition">
                                         Counter
                                     </button>
@@ -12089,22 +12089,51 @@
             return Math.floor(diff / 86400) + 'd ago';
         }
         
-        async function generateFromGap(topic) {
+        async function generateFromGap(topic, isCounterContent = false) {
             const decodedTopic = decodeURIComponent(topic);
             
-            if (!confirm(`Generate blog post about:\n\n"${decodedTopic}"\n\nThis will create a new SEO-optimized blog post.`)) {
+            // Create an optimized, unique keyword/title for our client
+            let optimizedKeyword = decodedTopic;
+            
+            if (isCounterContent) {
+                // Remove competitor name if present and optimize for our client
+                const clientName = currentClient?.name || '';
+                const clientCity = currentClient?.geo?.split(',')[0]?.trim() || '';
+                const clientIndustry = currentClient?.industry || '';
+                
+                // Clean up the topic - remove common competitor patterns
+                optimizedKeyword = decodedTopic
+                    .replace(/\b(at|by|from|with)\s+[A-Z][a-zA-Z\s&]+$/i, '') // Remove "at Company Name"
+                    .replace(/\|\s*[A-Z][a-zA-Z\s&]+$/i, '') // Remove "| Company Name"
+                    .replace(/-\s*[A-Z][a-zA-Z\s&]+$/i, '') // Remove "- Company Name"
+                    .replace(/:\s*[A-Z][a-zA-Z\s&]+$/i, '') // Remove ": Company Name"
+                    .trim();
+                
+                // Add local modifier if we have city and it's not already in the topic
+                if (clientCity && !optimizedKeyword.toLowerCase().includes(clientCity.toLowerCase())) {
+                    optimizedKeyword = `${optimizedKeyword} in ${clientCity}`;
+                }
+            }
+            
+            const confirmMsg = isCounterContent 
+                ? `Create counter content for:\n\nCompetitor topic: "${decodedTopic}"\n\nYour optimized keyword: "${optimizedKeyword}"\n\nThis will create a unique, SEO-optimized blog post for ${currentClient?.name || 'your company'}.`
+                : `Generate blog post about:\n\n"${decodedTopic}"\n\nThis will create a new SEO-optimized blog post.`;
+            
+            if (!confirm(confirmMsg)) {
                 return;
             }
             
             // Show loading state
             const gapsContainer = document.getElementById('contentGaps');
-            const originalHtml = gapsContainer.innerHTML;
-            gapsContainer.innerHTML = `
-                <div class="col-span-full text-center py-8">
-                    <i class="fas fa-spinner fa-spin text-2xl text-yellow-400 mb-2"></i>
-                    <p class="text-white">Generating blog about "${decodedTopic}"...</p>
-                </div>
-            `;
+            const originalHtml = gapsContainer?.innerHTML || '';
+            if (gapsContainer) {
+                gapsContainer.innerHTML = `
+                    <div class="col-span-full text-center py-8">
+                        <i class="fas fa-spinner fa-spin text-2xl text-yellow-400 mb-2"></i>
+                        <p class="text-white">Generating ${isCounterContent ? 'counter ' : ''}blog about "${optimizedKeyword}"...</p>
+                    </div>
+                `;
+            }
             
             try {
                 const response = await fetch(`${API_URL}/api/content/blog/generate-async`, {
@@ -12115,7 +12144,7 @@
                     },
                     body: JSON.stringify({
                         client_id: currentClient.id,
-                        keyword: decodedTopic,
+                        keyword: optimizedKeyword,
                         word_count: 1500,
                         include_faq: true,
                         faq_count: 5
