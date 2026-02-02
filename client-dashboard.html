@@ -2886,8 +2886,8 @@
                         <button onclick="confirmDeleteBlog()" class="px-4 py-2 bg-red-100 hover:bg-red-200 text-red-700 rounded-lg text-sm font-medium transition">
                             <i class="fas fa-trash mr-1"></i>Delete
                         </button>
-                        <button onclick="showScheduleModal()" class="px-4 py-2 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-lg text-sm font-medium transition">
-                            <i class="fas fa-calendar mr-1"></i>Schedule
+                        <button id="btnSchedule" onclick="showScheduleModal()" class="px-4 py-2 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-lg text-sm font-medium transition">
+                            <i class="fas fa-calendar mr-1"></i><span id="btnScheduleText">Schedule</span>
                         </button>
                         <button onclick="publishToWordPress()" class="px-4 py-2 bg-sky-100 hover:bg-sky-200 text-sky-700 rounded-lg text-sm font-medium transition" title="Publish to WordPress">
                             <i class="fab fa-wordpress mr-1"></i>WordPress
@@ -2992,6 +2992,7 @@
             </div>
             <div class="flex gap-2 mt-6">
                 <button onclick="closeScheduleModal()" class="flex-1 px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg font-medium transition">Cancel</button>
+                <button id="btnCancelSchedule" onclick="cancelSchedule()" class="hidden flex-1 px-4 py-2 bg-red-100 hover:bg-red-200 text-red-700 rounded-lg font-medium transition">Remove Schedule</button>
                 <button onclick="saveSchedule()" class="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition">Schedule</button>
             </div>
         </div>
@@ -7462,6 +7463,20 @@
             } else {
                 faqSection.classList.add('hidden');
             }
+            
+            // Update Schedule button text based on status
+            const scheduleBtn = document.getElementById('btnSchedule');
+            const scheduleBtnText = document.getElementById('btnScheduleText');
+            if (currentBlog.status === 'scheduled' && currentBlog.scheduled_for) {
+                scheduleBtnText.textContent = 'Edit Schedule';
+                scheduleBtn.classList.remove('hidden');
+            } else if (currentBlog.status === 'approved') {
+                scheduleBtnText.textContent = 'Schedule';
+                scheduleBtn.classList.remove('hidden');
+            } else {
+                // Hide schedule button for draft posts
+                scheduleBtn.classList.add('hidden');
+            }
 
             document.getElementById('blogModal').classList.remove('hidden');
             document.body.style.overflow = 'hidden';
@@ -8661,17 +8676,93 @@
         function showScheduleModal() {
             if (!currentBlog) return;
             
-            // Set default date to tomorrow
-            const tomorrow = new Date();
-            tomorrow.setDate(tomorrow.getDate() + 1);
-            document.getElementById('scheduleDate').value = tomorrow.toISOString().split('T')[0];
-            document.getElementById('scheduleTime').value = '09:00';
+            // Only allow scheduling for approved posts
+            if (currentBlog.status !== 'approved' && currentBlog.status !== 'scheduled') {
+                showToast('Please approve the post before scheduling', 'warning');
+                return;
+            }
+            
+            const isAlreadyScheduled = currentBlog.status === 'scheduled' && currentBlog.scheduled_for;
+            
+            // Show/hide cancel schedule button
+            const cancelBtn = document.getElementById('btnCancelSchedule');
+            if (isAlreadyScheduled) {
+                cancelBtn.classList.remove('hidden');
+            } else {
+                cancelBtn.classList.add('hidden');
+            }
+            
+            // Set date/time from existing schedule or default to tomorrow
+            if (isAlreadyScheduled) {
+                const scheduledDate = new Date(currentBlog.scheduled_for);
+                document.getElementById('scheduleDate').value = scheduledDate.toISOString().split('T')[0];
+                document.getElementById('scheduleTime').value = scheduledDate.toTimeString().slice(0, 5);
+            } else {
+                const tomorrow = new Date();
+                tomorrow.setDate(tomorrow.getDate() + 1);
+                document.getElementById('scheduleDate').value = tomorrow.toISOString().split('T')[0];
+                document.getElementById('scheduleTime').value = '09:00';
+            }
             
             document.getElementById('scheduleModal').classList.remove('hidden');
         }
         
         function closeScheduleModal() {
             document.getElementById('scheduleModal').classList.add('hidden');
+        }
+        
+        async function cancelSchedule() {
+            if (!currentBlog) return;
+            
+            if (!confirm('Remove the schedule? The post will be set back to approved status.')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_URL}/api/content/${currentBlog.id}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${AUTH_TOKEN}`
+                    },
+                    body: JSON.stringify({
+                        status: 'approved',
+                        scheduled_for: null
+                    })
+                });
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || 'Failed to cancel schedule');
+                }
+                
+                // Update local data
+                const idx = allBlogs.findIndex(b => b.id === currentBlog.id);
+                if (idx !== -1) {
+                    allBlogs[idx].status = 'approved';
+                    allBlogs[idx].scheduled_for = null;
+                }
+                currentBlog.status = 'approved';
+                currentBlog.scheduled_for = null;
+                
+                closeScheduleModal();
+                
+                // Update modal status display
+                document.getElementById('modalStatus').textContent = 'approved';
+                document.getElementById('modalStatus').className = 'px-2 py-1 bg-green-500/30 text-green-300 rounded';
+                
+                // Update schedule button text
+                document.getElementById('btnScheduleText').textContent = 'Schedule';
+                
+                renderBlogs();
+                renderCalendar();
+                
+                showToast('Schedule removed. Post is now approved.', 'success');
+                
+            } catch (error) {
+                console.error('Cancel schedule error:', error);
+                showToast('Error: ' + error.message, 'error');
+            }
         }
         
         async function saveSchedule() {
