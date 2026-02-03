@@ -3020,18 +3020,6 @@
                     </select>
                 </div>
                 
-                <!-- CTA Style -->
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">CTA Style</label>
-                    <select id="ctaStyle" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:border-purple-500" onchange="previewCTA()">
-                        <option value="primary">🔵 Primary (Blue gradient)</option>
-                        <option value="secondary">🟢 Secondary (Green gradient)</option>
-                        <option value="accent">🟠 Accent (Orange gradient)</option>
-                        <option value="dark">⚫ Dark (Dark theme)</option>
-                        <option value="outline">⬜ Outline (Border only)</option>
-                    </select>
-                </div>
-                
                 <!-- CTA Title with AI/Template options -->
                 <div id="ctaTitleSection">
                     <label class="block text-sm font-medium text-gray-700 mb-2">Title</label>
@@ -8559,7 +8547,6 @@
             
             // Set defaults
             document.getElementById('ctaLayout').value = 'full';
-            document.getElementById('ctaStyle').value = 'primary';
             document.getElementById('ctaTitle').value = '';
             document.getElementById('ctaDescription').value = '';
             document.getElementById('ctaPhoneBtnText').value = 'Call Now';
@@ -8642,50 +8629,52 @@
             previewCTA();
         }
         
-        function getCTAStyles(style) {
+        function getCTAStylesByLayout(layout) {
+            // Different styles based on layout type
             const styles = {
-                primary: {
+                'full': {
                     container: 'background: linear-gradient(135deg, #3b82f6, #1d4ed8); color: white; padding: 24px; border-radius: 12px; text-align: center; margin: 20px 0;',
                     title: 'font-size: 1.5rem; font-weight: bold; margin-bottom: 8px;',
                     desc: 'opacity: 0.9; margin-bottom: 16px;',
                     button: 'background: white; color: #1d4ed8; padding: 12px 24px; border-radius: 8px; font-weight: bold; text-decoration: none; display: inline-block; margin: 4px;',
-                    class: 'cta-primary'
+                    class: 'cta-full'
                 },
-                secondary: {
-                    container: 'background: linear-gradient(135deg, #10b981, #059669); color: white; padding: 24px; border-radius: 12px; text-align: center; margin: 20px 0;',
-                    title: 'font-size: 1.5rem; font-weight: bold; margin-bottom: 8px;',
-                    desc: 'opacity: 0.9; margin-bottom: 16px;',
-                    button: 'background: white; color: #059669; padding: 12px 24px; border-radius: 8px; font-weight: bold; text-decoration: none; display: inline-block; margin: 4px;',
-                    class: 'cta-secondary'
+                'phone-only': {
+                    container: 'background: linear-gradient(135deg, #10b981, #059669); color: white; padding: 16px; border-radius: 12px; text-align: center; margin: 20px 0;',
+                    title: '',
+                    desc: '',
+                    button: 'background: white; color: #059669; padding: 14px 28px; border-radius: 8px; font-weight: bold; text-decoration: none; display: inline-block; font-size: 1.1rem;',
+                    class: 'cta-phone-only'
                 },
-                accent: {
-                    container: 'background: linear-gradient(135deg, #f97316, #ea580c); color: white; padding: 24px; border-radius: 12px; text-align: center; margin: 20px 0;',
-                    title: 'font-size: 1.5rem; font-weight: bold; margin-bottom: 8px;',
-                    desc: 'opacity: 0.9; margin-bottom: 16px;',
-                    button: 'background: white; color: #ea580c; padding: 12px 24px; border-radius: 8px; font-weight: bold; text-decoration: none; display: inline-block; margin: 4px;',
-                    class: 'cta-accent'
+                'email-only': {
+                    container: 'background: linear-gradient(135deg, #8b5cf6, #7c3aed); color: white; padding: 16px; border-radius: 12px; text-align: center; margin: 20px 0;',
+                    title: '',
+                    desc: '',
+                    button: 'background: white; color: #7c3aed; padding: 14px 28px; border-radius: 8px; font-weight: bold; text-decoration: none; display: inline-block; font-size: 1.1rem;',
+                    class: 'cta-email-only'
                 },
-                dark: {
-                    container: 'background: linear-gradient(135deg, #1f2937, #111827); color: white; padding: 24px; border-radius: 12px; text-align: center; margin: 20px 0;',
-                    title: 'font-size: 1.5rem; font-weight: bold; margin-bottom: 8px;',
-                    desc: 'opacity: 0.9; margin-bottom: 16px;',
-                    button: 'background: #3b82f6; color: white; padding: 12px 24px; border-radius: 8px; font-weight: bold; text-decoration: none; display: inline-block; margin: 4px;',
-                    class: 'cta-dark'
+                'two-buttons': {
+                    container: 'background: linear-gradient(135deg, #1f2937, #111827); color: white; padding: 20px; border-radius: 12px; text-align: center; margin: 20px 0;',
+                    title: 'font-size: 1.25rem; font-weight: bold; margin-bottom: 12px;',
+                    desc: '',
+                    button: 'padding: 12px 24px; border-radius: 8px; font-weight: bold; text-decoration: none; display: inline-block; margin: 4px;',
+                    buttonPhone: 'background: #10b981; color: white;',
+                    buttonEmail: 'background: #3b82f6; color: white;',
+                    class: 'cta-two-buttons'
                 },
-                outline: {
-                    container: 'background: white; border: 2px solid #3b82f6; padding: 24px; border-radius: 12px; text-align: center; margin: 20px 0;',
-                    title: 'font-size: 1.5rem; font-weight: bold; margin-bottom: 8px; color: #1f2937;',
-                    desc: 'color: #6b7280; margin-bottom: 16px;',
-                    button: 'background: #3b82f6; color: white; padding: 12px 24px; border-radius: 8px; font-weight: bold; text-decoration: none; display: inline-block; margin: 4px;',
-                    class: 'cta-outline'
+                'simple': {
+                    container: 'background: white; border: 2px solid #3b82f6; padding: 20px; border-radius: 12px; text-align: center; margin: 20px 0;',
+                    title: 'font-size: 1.25rem; font-weight: bold; margin-bottom: 12px; color: #1f2937;',
+                    desc: '',
+                    button: 'background: #3b82f6; color: white; padding: 12px 24px; border-radius: 8px; font-weight: bold; text-decoration: none; display: inline-block;',
+                    class: 'cta-simple'
                 }
             };
-            return styles[style] || styles.primary;
+            return styles[layout] || styles.full;
         }
         
         function previewCTA() {
             const layout = document.getElementById('ctaLayout').value;
-            const style = document.getElementById('ctaStyle').value;
             const title = document.getElementById('ctaTitle').value || 'Ready to Get Started?';
             const desc = document.getElementById('ctaDescription').value;
             const phone = document.getElementById('ctaPhone').value;
@@ -8693,7 +8682,7 @@
             const phoneBtnText = document.getElementById('ctaPhoneBtnText').value || 'Call Now';
             const emailBtnText = document.getElementById('ctaEmailBtnText').value || 'Email Us';
             
-            const s = getCTAStyles(style);
+            const s = getCTAStylesByLayout(layout);
             let html = `<div style="${s.container}">`;
             
             // Add title if applicable
@@ -8708,14 +8697,23 @@
             
             // Add buttons based on layout
             html += '<div>';
-            if (layout === 'phone-only' || layout === 'two-buttons' || layout === 'simple' || layout === 'full') {
+            if (layout === 'two-buttons') {
                 if (phone) {
-                    html += `<span style="${s.button}">${phoneBtnText}</span>`;
+                    html += `<span style="${s.button} ${s.buttonPhone}">${phoneBtnText}</span>`;
                 }
-            }
-            if (layout === 'email-only' || layout === 'two-buttons' || layout === 'full') {
                 if (email) {
-                    html += `<span style="${s.button}">${emailBtnText}</span>`;
+                    html += `<span style="${s.button} ${s.buttonEmail}">${emailBtnText}</span>`;
+                }
+            } else {
+                if (layout === 'phone-only' || layout === 'simple' || layout === 'full') {
+                    if (phone) {
+                        html += `<span style="${s.button}">${phoneBtnText}</span>`;
+                    }
+                }
+                if (layout === 'email-only' || layout === 'full') {
+                    if (email) {
+                        html += `<span style="${s.button}">${emailBtnText}</span>`;
+                    }
                 }
             }
             html += '</div></div>';
@@ -8725,7 +8723,6 @@
         
         function insertCTA() {
             const layout = document.getElementById('ctaLayout').value;
-            const style = document.getElementById('ctaStyle').value;
             const title = document.getElementById('ctaTitle').value || 'Ready to Get Started?';
             const desc = document.getElementById('ctaDescription').value;
             const phone = document.getElementById('ctaPhone').value;
@@ -8733,7 +8730,7 @@
             const phoneBtnText = document.getElementById('ctaPhoneBtnText').value || 'Call Now';
             const emailBtnText = document.getElementById('ctaEmailBtnText').value || 'Email Us';
             
-            const s = getCTAStyles(style);
+            const s = getCTAStylesByLayout(layout);
             let html = `<div class="${s.class}" style="${s.container}">`;
             
             // Add title if applicable
@@ -8748,16 +8745,27 @@
             
             // Add buttons based on layout
             html += '<div>';
-            if (layout === 'phone-only' || layout === 'two-buttons' || layout === 'simple' || layout === 'full') {
+            if (layout === 'two-buttons') {
                 if (phone) {
                     const phoneHref = `tel:${phone.replace(/[^0-9+]/g, '')}`;
-                    html += `<a href="${phoneHref}" style="${s.button}">${phoneBtnText}</a>`;
+                    html += `<a href="${phoneHref}" style="${s.button} ${s.buttonPhone}">${phoneBtnText}</a>`;
                 }
-            }
-            if (layout === 'email-only' || layout === 'two-buttons' || layout === 'full') {
                 if (email) {
                     const emailHref = `mailto:${email}`;
-                    html += `<a href="${emailHref}" style="${s.button}">${emailBtnText}</a>`;
+                    html += `<a href="${emailHref}" style="${s.button} ${s.buttonEmail}">${emailBtnText}</a>`;
+                }
+            } else {
+                if (layout === 'phone-only' || layout === 'simple' || layout === 'full') {
+                    if (phone) {
+                        const phoneHref = `tel:${phone.replace(/[^0-9+]/g, '')}`;
+                        html += `<a href="${phoneHref}" style="${s.button}">${phoneBtnText}</a>`;
+                    }
+                }
+                if (layout === 'email-only' || layout === 'full') {
+                    if (email) {
+                        const emailHref = `mailto:${email}`;
+                        html += `<a href="${emailHref}" style="${s.button}">${emailBtnText}</a>`;
+                    }
                 }
             }
             html += '</div></div>';
