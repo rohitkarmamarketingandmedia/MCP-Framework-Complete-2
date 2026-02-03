@@ -2688,6 +2688,25 @@
                         <span><i class="fas fa-link mr-1"></i><span id="modalLinkCount">0</span> internal links</span>
                         <span id="modalStatus" class="px-2 py-1 bg-white/20 rounded"></span>
                     </div>
+                    
+                    <!-- Quick Action Buttons at Top -->
+                    <div id="topActionButtons" class="flex flex-wrap gap-2 mt-4 pt-4 border-t border-white/20">
+                        <button onclick="enterEditMode(); scrollToEditor();" class="px-3 py-1.5 bg-white/20 hover:bg-white/30 text-white rounded-lg text-sm font-medium transition">
+                            <i class="fas fa-edit mr-1"></i>Edit
+                        </button>
+                        <button onclick="confirmDeleteBlog()" class="px-3 py-1.5 bg-red-500/80 hover:bg-red-500 text-white rounded-lg text-sm font-medium transition">
+                            <i class="fas fa-trash mr-1"></i>Delete
+                        </button>
+                        <button onclick="approveBlog()" class="px-3 py-1.5 bg-green-500/80 hover:bg-green-500 text-white rounded-lg text-sm font-medium transition">
+                            <i class="fas fa-check mr-1"></i>Approve
+                        </button>
+                        <button id="topScheduleBtn" onclick="showScheduleModal()" class="px-3 py-1.5 bg-blue-500/80 hover:bg-blue-500 text-white rounded-lg text-sm font-medium transition">
+                            <i class="fas fa-calendar mr-1"></i><span id="topScheduleBtnText">Schedule</span>
+                        </button>
+                        <button onclick="publishToWordPress()" class="px-3 py-1.5 bg-sky-500/80 hover:bg-sky-500 text-white rounded-lg text-sm font-medium transition">
+                            <i class="fab fa-wordpress mr-1"></i>WordPress
+                        </button>
+                    </div>
                 </div>
                 <div class="p-6 md:p-8">
                     <!-- SEO Score Card -->
@@ -2983,6 +3002,18 @@
             <h3 class="text-xl font-bold text-gray-800 mb-4"><i class="fas fa-bullhorn mr-2 text-purple-500"></i>Insert CTA Block</h3>
             
             <div class="space-y-4">
+                <!-- CTA Type/Layout -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">CTA Layout</label>
+                    <select id="ctaLayout" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:border-purple-500" onchange="updateCTALayout(); previewCTA()">
+                        <option value="full">📱 Full CTA (Title + Description + Buttons)</option>
+                        <option value="phone-only">📞 Phone Only (Quick Call Button)</option>
+                        <option value="email-only">✉️ Email Only (Quick Email Button)</option>
+                        <option value="two-buttons">🔘 Two Buttons (Phone + Email)</option>
+                        <option value="simple">📝 Simple (Title + One Button)</option>
+                    </select>
+                </div>
+                
                 <!-- CTA Style -->
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-2">CTA Style</label>
@@ -2995,46 +3026,83 @@
                     </select>
                 </div>
                 
-                <!-- CTA Title -->
-                <div>
+                <!-- CTA Title with AI/Template options -->
+                <div id="ctaTitleSection">
                     <label class="block text-sm font-medium text-gray-700 mb-2">Title</label>
-                    <input type="text" id="ctaTitle" placeholder="Ready to Get Started?" 
-                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:border-purple-500" 
-                        oninput="previewCTA()">
+                    <div class="flex gap-2 mb-2">
+                        <input type="text" id="ctaTitle" placeholder="Ready to Get Started?" 
+                            class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:border-purple-500" 
+                            oninput="previewCTA()">
+                        <button onclick="showTitleSuggestions()" class="px-3 py-2 bg-purple-100 hover:bg-purple-200 text-purple-700 rounded-lg text-sm" title="Title suggestions">
+                            <i class="fas fa-magic"></i>
+                        </button>
+                    </div>
+                    <div id="titleSuggestions" class="hidden flex flex-wrap gap-1 mt-1">
+                        <button onclick="setCtaTitle('Ready to Get Started?')" class="px-2 py-1 bg-gray-100 hover:bg-gray-200 rounded text-xs">Ready to Get Started?</button>
+                        <button onclick="setCtaTitle('Get Your Free Quote Today!')" class="px-2 py-1 bg-gray-100 hover:bg-gray-200 rounded text-xs">Get Your Free Quote Today!</button>
+                        <button onclick="setCtaTitle('Contact Us Now')" class="px-2 py-1 bg-gray-100 hover:bg-gray-200 rounded text-xs">Contact Us Now</button>
+                        <button onclick="setCtaTitle('Schedule Your Consultation')" class="px-2 py-1 bg-gray-100 hover:bg-gray-200 rounded text-xs">Schedule Your Consultation</button>
+                        <button onclick="setCtaTitle('Have Questions? We Can Help!')" class="px-2 py-1 bg-gray-100 hover:bg-gray-200 rounded text-xs">Have Questions? We Can Help!</button>
+                        <button onclick="setCtaTitle('Let\\'s Discuss Your Project')" class="px-2 py-1 bg-gray-100 hover:bg-gray-200 rounded text-xs">Let's Discuss Your Project</button>
+                    </div>
                 </div>
                 
-                <!-- CTA Description -->
-                <div>
+                <!-- CTA Description with AI/Template options -->
+                <div id="ctaDescSection">
                     <label class="block text-sm font-medium text-gray-700 mb-2">Description (optional)</label>
-                    <textarea id="ctaDescription" rows="2" placeholder="Contact us today for a free consultation..." 
-                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:border-purple-500"
-                        oninput="previewCTA()"></textarea>
+                    <div class="flex gap-2 mb-2">
+                        <textarea id="ctaDescription" rows="2" placeholder="Contact us today for a free consultation..." 
+                            class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:border-purple-500"
+                            oninput="previewCTA()"></textarea>
+                        <button onclick="showDescSuggestions()" class="px-3 py-2 bg-purple-100 hover:bg-purple-200 text-purple-700 rounded-lg text-sm self-start" title="Description suggestions">
+                            <i class="fas fa-magic"></i>
+                        </button>
+                    </div>
+                    <div id="descSuggestions" class="hidden flex flex-wrap gap-1 mt-1">
+                        <button onclick="setCtaDesc('Our team is standing by to answer your questions and provide expert guidance.')" class="px-2 py-1 bg-gray-100 hover:bg-gray-200 rounded text-xs">Expert guidance...</button>
+                        <button onclick="setCtaDesc('Get a free, no-obligation quote within 24 hours.')" class="px-2 py-1 bg-gray-100 hover:bg-gray-200 rounded text-xs">Free quote...</button>
+                        <button onclick="setCtaDesc('Serving the local area with quality service for over 10 years.')" class="px-2 py-1 bg-gray-100 hover:bg-gray-200 rounded text-xs">Years of service...</button>
+                        <button onclick="setCtaDesc('Licensed, insured, and ready to help with your project.')" class="px-2 py-1 bg-gray-100 hover:bg-gray-200 rounded text-xs">Licensed & insured...</button>
+                    </div>
                 </div>
                 
-                <!-- Button Text -->
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Button Text</label>
-                    <input type="text" id="ctaButtonText" placeholder="Call Now" 
-                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:border-purple-500"
-                        oninput="previewCTA()">
+                <!-- Phone Section -->
+                <div id="ctaPhoneSection">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Phone Number</label>
+                    <div class="flex gap-2">
+                        <input type="text" id="ctaPhone" placeholder="(555) 123-4567" 
+                            class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:border-purple-500"
+                            oninput="previewCTA()">
+                        <input type="text" id="ctaPhoneBtnText" placeholder="Call Now" value="Call Now"
+                            class="w-32 px-3 py-2 border border-gray-300 rounded-lg focus:border-purple-500 text-sm"
+                            oninput="previewCTA()">
+                    </div>
                 </div>
                 
-                <!-- Link Type -->
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Link Type</label>
-                    <select id="ctaLinkType" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:border-purple-500" onchange="updateCTALinkPlaceholder()">
-                        <option value="phone">📞 Phone Number</option>
-                        <option value="email">✉️ Email Address</option>
-                        <option value="url">🔗 Web Page URL</option>
-                    </select>
+                <!-- Email Section -->
+                <div id="ctaEmailSection">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Email Address</label>
+                    <div class="flex gap-2">
+                        <input type="text" id="ctaEmail" placeholder="info@company.com" 
+                            class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:border-purple-500"
+                            oninput="previewCTA()">
+                        <input type="text" id="ctaEmailBtnText" placeholder="Email Us" value="Email Us"
+                            class="w-32 px-3 py-2 border border-gray-300 rounded-lg focus:border-purple-500 text-sm"
+                            oninput="previewCTA()">
+                    </div>
                 </div>
                 
-                <!-- Link Value -->
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Link Value</label>
-                    <input type="text" id="ctaLinkValue" placeholder="(941) 629-2863" 
-                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:border-purple-500"
-                        oninput="previewCTA()">
+                <!-- URL Section (for custom links) -->
+                <div id="ctaUrlSection" class="hidden">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Custom URL</label>
+                    <div class="flex gap-2">
+                        <input type="text" id="ctaUrl" placeholder="https://example.com/contact" 
+                            class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:border-purple-500"
+                            oninput="previewCTA()">
+                        <input type="text" id="ctaUrlBtnText" placeholder="Learn More" value="Learn More"
+                            class="w-32 px-3 py-2 border border-gray-300 rounded-lg focus:border-purple-500 text-sm"
+                            oninput="previewCTA()">
+                    </div>
                 </div>
                 
                 <!-- Preview -->
@@ -7544,15 +7612,23 @@
             // Update Schedule button text based on status
             const scheduleBtn = document.getElementById('btnSchedule');
             const scheduleBtnText = document.getElementById('btnScheduleText');
+            const topScheduleBtn = document.getElementById('topScheduleBtn');
+            const topScheduleBtnText = document.getElementById('topScheduleBtnText');
+            
             if (currentBlog.status === 'scheduled' && currentBlog.scheduled_for) {
                 scheduleBtnText.textContent = 'Edit Schedule';
+                topScheduleBtnText.textContent = 'Edit Schedule';
                 scheduleBtn.classList.remove('hidden');
+                topScheduleBtn.classList.remove('hidden');
             } else if (currentBlog.status === 'approved') {
                 scheduleBtnText.textContent = 'Schedule';
+                topScheduleBtnText.textContent = 'Schedule';
                 scheduleBtn.classList.remove('hidden');
+                topScheduleBtn.classList.remove('hidden');
             } else {
                 // Hide schedule button for draft posts
                 scheduleBtn.classList.add('hidden');
+                topScheduleBtn.classList.add('hidden');
             }
 
             document.getElementById('blogModal').classList.remove('hidden');
@@ -8431,16 +8507,23 @@
             
             // Pre-fill with client data if available
             if (currentClient) {
-                document.getElementById('ctaLinkValue').value = currentClient.phone || '';
+                document.getElementById('ctaPhone').value = currentClient.phone || '';
+                document.getElementById('ctaEmail').value = currentClient.email || '';
             }
             
             // Set defaults
+            document.getElementById('ctaLayout').value = 'full';
             document.getElementById('ctaStyle').value = 'primary';
             document.getElementById('ctaTitle').value = '';
             document.getElementById('ctaDescription').value = '';
-            document.getElementById('ctaButtonText').value = 'Call Now';
-            document.getElementById('ctaLinkType').value = 'phone';
+            document.getElementById('ctaPhoneBtnText').value = 'Call Now';
+            document.getElementById('ctaEmailBtnText').value = 'Email Us';
             
+            // Hide suggestions
+            document.getElementById('titleSuggestions').classList.add('hidden');
+            document.getElementById('descSuggestions').classList.add('hidden');
+            
+            updateCTALayout();
             previewCTA();
             document.getElementById('ctaModal').classList.remove('hidden');
         }
@@ -8449,31 +8532,67 @@
             document.getElementById('ctaModal').classList.add('hidden');
         }
         
-        function updateCTALinkPlaceholder() {
-            const linkType = document.getElementById('ctaLinkType').value;
-            const linkInput = document.getElementById('ctaLinkValue');
-            const buttonText = document.getElementById('ctaButtonText');
+        function updateCTALayout() {
+            const layout = document.getElementById('ctaLayout').value;
             
-            switch(linkType) {
-                case 'phone':
-                    linkInput.placeholder = '(941) 629-2863';
-                    if (!buttonText.value || buttonText.value === 'Email Us' || buttonText.value === 'Learn More') {
-                        buttonText.value = 'Call Now';
-                    }
+            // Show/hide sections based on layout
+            const titleSection = document.getElementById('ctaTitleSection');
+            const descSection = document.getElementById('ctaDescSection');
+            const phoneSection = document.getElementById('ctaPhoneSection');
+            const emailSection = document.getElementById('ctaEmailSection');
+            const urlSection = document.getElementById('ctaUrlSection');
+            
+            // Reset all to visible first
+            titleSection.classList.remove('hidden');
+            descSection.classList.remove('hidden');
+            phoneSection.classList.remove('hidden');
+            emailSection.classList.remove('hidden');
+            urlSection.classList.add('hidden');
+            
+            switch(layout) {
+                case 'phone-only':
+                    titleSection.classList.add('hidden');
+                    descSection.classList.add('hidden');
+                    emailSection.classList.add('hidden');
                     break;
-                case 'email':
-                    linkInput.placeholder = 'info@example.com';
-                    if (!buttonText.value || buttonText.value === 'Call Now' || buttonText.value === 'Learn More') {
-                        buttonText.value = 'Email Us';
-                    }
+                case 'email-only':
+                    titleSection.classList.add('hidden');
+                    descSection.classList.add('hidden');
+                    phoneSection.classList.add('hidden');
                     break;
-                case 'url':
-                    linkInput.placeholder = 'https://example.com/contact';
-                    if (!buttonText.value || buttonText.value === 'Call Now' || buttonText.value === 'Email Us') {
-                        buttonText.value = 'Learn More';
-                    }
+                case 'two-buttons':
+                    descSection.classList.add('hidden');
+                    break;
+                case 'simple':
+                    descSection.classList.add('hidden');
+                    emailSection.classList.add('hidden');
+                    break;
+                case 'full':
+                default:
+                    // Show all
                     break;
             }
+            
+            previewCTA();
+        }
+        
+        function showTitleSuggestions() {
+            document.getElementById('titleSuggestions').classList.toggle('hidden');
+        }
+        
+        function showDescSuggestions() {
+            document.getElementById('descSuggestions').classList.toggle('hidden');
+        }
+        
+        function setCtaTitle(title) {
+            document.getElementById('ctaTitle').value = title;
+            document.getElementById('titleSuggestions').classList.add('hidden');
+            previewCTA();
+        }
+        
+        function setCtaDesc(desc) {
+            document.getElementById('ctaDescription').value = desc;
+            document.getElementById('descSuggestions').classList.add('hidden');
             previewCTA();
         }
         
@@ -8483,35 +8602,35 @@
                     container: 'background: linear-gradient(135deg, #3b82f6, #1d4ed8); color: white; padding: 24px; border-radius: 12px; text-align: center; margin: 20px 0;',
                     title: 'font-size: 1.5rem; font-weight: bold; margin-bottom: 8px;',
                     desc: 'opacity: 0.9; margin-bottom: 16px;',
-                    button: 'background: white; color: #1d4ed8; padding: 12px 24px; border-radius: 8px; font-weight: bold; text-decoration: none; display: inline-block;',
+                    button: 'background: white; color: #1d4ed8; padding: 12px 24px; border-radius: 8px; font-weight: bold; text-decoration: none; display: inline-block; margin: 4px;',
                     class: 'cta-primary'
                 },
                 secondary: {
                     container: 'background: linear-gradient(135deg, #10b981, #059669); color: white; padding: 24px; border-radius: 12px; text-align: center; margin: 20px 0;',
                     title: 'font-size: 1.5rem; font-weight: bold; margin-bottom: 8px;',
                     desc: 'opacity: 0.9; margin-bottom: 16px;',
-                    button: 'background: white; color: #059669; padding: 12px 24px; border-radius: 8px; font-weight: bold; text-decoration: none; display: inline-block;',
+                    button: 'background: white; color: #059669; padding: 12px 24px; border-radius: 8px; font-weight: bold; text-decoration: none; display: inline-block; margin: 4px;',
                     class: 'cta-secondary'
                 },
                 accent: {
                     container: 'background: linear-gradient(135deg, #f97316, #ea580c); color: white; padding: 24px; border-radius: 12px; text-align: center; margin: 20px 0;',
                     title: 'font-size: 1.5rem; font-weight: bold; margin-bottom: 8px;',
                     desc: 'opacity: 0.9; margin-bottom: 16px;',
-                    button: 'background: white; color: #ea580c; padding: 12px 24px; border-radius: 8px; font-weight: bold; text-decoration: none; display: inline-block;',
+                    button: 'background: white; color: #ea580c; padding: 12px 24px; border-radius: 8px; font-weight: bold; text-decoration: none; display: inline-block; margin: 4px;',
                     class: 'cta-accent'
                 },
                 dark: {
                     container: 'background: linear-gradient(135deg, #1f2937, #111827); color: white; padding: 24px; border-radius: 12px; text-align: center; margin: 20px 0;',
                     title: 'font-size: 1.5rem; font-weight: bold; margin-bottom: 8px;',
                     desc: 'opacity: 0.9; margin-bottom: 16px;',
-                    button: 'background: #3b82f6; color: white; padding: 12px 24px; border-radius: 8px; font-weight: bold; text-decoration: none; display: inline-block;',
+                    button: 'background: #3b82f6; color: white; padding: 12px 24px; border-radius: 8px; font-weight: bold; text-decoration: none; display: inline-block; margin: 4px;',
                     class: 'cta-dark'
                 },
                 outline: {
                     container: 'background: white; border: 2px solid #3b82f6; padding: 24px; border-radius: 12px; text-align: center; margin: 20px 0;',
                     title: 'font-size: 1.5rem; font-weight: bold; margin-bottom: 8px; color: #1f2937;',
                     desc: 'color: #6b7280; margin-bottom: 16px;',
-                    button: 'background: #3b82f6; color: white; padding: 12px 24px; border-radius: 8px; font-weight: bold; text-decoration: none; display: inline-block;',
+                    button: 'background: #3b82f6; color: white; padding: 12px 24px; border-radius: 8px; font-weight: bold; text-decoration: none; display: inline-block; margin: 4px;',
                     class: 'cta-outline'
                 }
             };
@@ -8519,61 +8638,97 @@
         }
         
         function previewCTA() {
+            const layout = document.getElementById('ctaLayout').value;
             const style = document.getElementById('ctaStyle').value;
             const title = document.getElementById('ctaTitle').value || 'Ready to Get Started?';
             const desc = document.getElementById('ctaDescription').value;
-            const buttonText = document.getElementById('ctaButtonText').value || 'Call Now';
+            const phone = document.getElementById('ctaPhone').value;
+            const email = document.getElementById('ctaEmail').value;
+            const phoneBtnText = document.getElementById('ctaPhoneBtnText').value || 'Call Now';
+            const emailBtnText = document.getElementById('ctaEmailBtnText').value || 'Email Us';
             
             const s = getCTAStyles(style);
-            
             let html = `<div style="${s.container}">`;
-            html += `<div style="${s.title}">${title}</div>`;
-            if (desc) {
+            
+            // Add title if applicable
+            if (layout !== 'phone-only' && layout !== 'email-only') {
+                html += `<div style="${s.title}">${title}</div>`;
+            }
+            
+            // Add description if applicable
+            if (layout === 'full' && desc) {
                 html += `<div style="${s.desc}">${desc}</div>`;
             }
-            html += `<span style="${s.button}">${buttonText}</span>`;
-            html += `</div>`;
+            
+            // Add buttons based on layout
+            html += '<div>';
+            if (layout === 'phone-only' || layout === 'two-buttons' || layout === 'simple' || layout === 'full') {
+                if (phone) {
+                    html += `<span style="${s.button}">${phoneBtnText}</span>`;
+                }
+            }
+            if (layout === 'email-only' || layout === 'two-buttons' || layout === 'full') {
+                if (email) {
+                    html += `<span style="${s.button}">${emailBtnText}</span>`;
+                }
+            }
+            html += '</div></div>';
             
             document.getElementById('ctaPreview').innerHTML = html;
         }
         
         function insertCTA() {
+            const layout = document.getElementById('ctaLayout').value;
             const style = document.getElementById('ctaStyle').value;
             const title = document.getElementById('ctaTitle').value || 'Ready to Get Started?';
             const desc = document.getElementById('ctaDescription').value;
-            const buttonText = document.getElementById('ctaButtonText').value || 'Call Now';
-            const linkType = document.getElementById('ctaLinkType').value;
-            const linkValue = document.getElementById('ctaLinkValue').value;
-            
-            // Build the link href
-            let href = '#';
-            if (linkValue) {
-                switch(linkType) {
-                    case 'phone':
-                        href = `tel:${linkValue.replace(/[^0-9+]/g, '')}`;
-                        break;
-                    case 'email':
-                        href = `mailto:${linkValue}`;
-                        break;
-                    case 'url':
-                        href = linkValue.startsWith('http') ? linkValue : `https://${linkValue}`;
-                        break;
-                }
-            }
+            const phone = document.getElementById('ctaPhone').value;
+            const email = document.getElementById('ctaEmail').value;
+            const phoneBtnText = document.getElementById('ctaPhoneBtnText').value || 'Call Now';
+            const emailBtnText = document.getElementById('ctaEmailBtnText').value || 'Email Us';
             
             const s = getCTAStyles(style);
-            
             let html = `<div class="${s.class}" style="${s.container}">`;
-            html += `<div style="${s.title}">${title}</div>`;
-            if (desc) {
+            
+            // Add title if applicable
+            if (layout !== 'phone-only' && layout !== 'email-only') {
+                html += `<div style="${s.title}">${title}</div>`;
+            }
+            
+            // Add description if applicable
+            if (layout === 'full' && desc) {
                 html += `<div style="${s.desc}">${desc}</div>`;
             }
-            html += `<a href="${href}" style="${s.button}">${buttonText}</a>`;
-            html += `</div>`;
+            
+            // Add buttons based on layout
+            html += '<div>';
+            if (layout === 'phone-only' || layout === 'two-buttons' || layout === 'simple' || layout === 'full') {
+                if (phone) {
+                    const phoneHref = `tel:${phone.replace(/[^0-9+]/g, '')}`;
+                    html += `<a href="${phoneHref}" style="${s.button}">${phoneBtnText}</a>`;
+                }
+            }
+            if (layout === 'email-only' || layout === 'two-buttons' || layout === 'full') {
+                if (email) {
+                    const emailHref = `mailto:${email}`;
+                    html += `<a href="${emailHref}" style="${s.button}">${emailBtnText}</a>`;
+                }
+            }
+            html += '</div></div>';
             
             closeCTAModal();
             insertHtmlAtSavedPosition(html);
             showToast('CTA block inserted!', 'success');
+        }
+        
+        // Scroll to editor when clicking Edit button
+        function scrollToEditor() {
+            setTimeout(() => {
+                const editor = document.getElementById('bodyEditMode');
+                if (editor && !editor.classList.contains('hidden')) {
+                    editor.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+            }, 100);
         }
         
         function cancelEditMode() {
