@@ -226,17 +226,25 @@ class BlogAISingle:
             return text
         
         # Apply to title fields
+        logger.info(f"Processing title fields. Result keys: {list(result.keys())}")
         for field in ['title', 'h1', 'meta_title', 'meta_description']:
             if field in result and isinstance(result[field], str):
                 original = result[field]
+                logger.info(f"BEFORE {field}: {original[:100] if len(original) > 100 else original}")
                 result[field] = clean_heading(result[field], city)
+                logger.info(f"AFTER {field}: {result[field][:100] if len(result[field]) > 100 else result[field]}")
                 if result[field] != original:
-                    logger.info(f"Fixed duplicate location in {field}: '{original[:80]}' -> '{result[field][:80]}'")
+                    logger.info(f"Fixed duplicate location in {field}")
         
         # Apply to body content - fix each heading separately
         if 'body' in result and isinstance(result['body'], str):
             original_body = result['body']
             body = result['body']
+            
+            # Fix H1 headings (if any in body)
+            def fix_h1(match):
+                return '<h1>' + clean_heading(match.group(1), city) + '</h1>'
+            body = re.sub(r'<h1>([^<]+)</h1>', fix_h1, body, flags=re.IGNORECASE)
             
             # Fix H2 headings
             def fix_h2(match):
