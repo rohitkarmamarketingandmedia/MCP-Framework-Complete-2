@@ -137,10 +137,18 @@ class BlogAISingle:
         """Fix duplicate location patterns in titles and body - AGGRESSIVE VERSION"""
         import re
         
+        logger.info(f"_fix_duplicate_locations called with city='{city}'")
+        
         if not city:
+            logger.warning("_fix_duplicate_locations: city is empty, skipping")
             return result
-            
-        city_escaped = re.escape(city)
+        
+        def fix_apostrophe_case(text):
+            """Fix What'S -> What's, It'S -> It's, etc."""
+            if not text:
+                return text
+            text = re.sub(r"(\w)'S\b", r"\1's", text)  # Generic fix for any word'S
+            return text
         
         def remove_duplicate_city_in_text(text, city):
             """Remove all but ONE occurrence of 'in City' from text"""
@@ -155,12 +163,14 @@ class BlogAISingle:
             # Find all matches
             matches = list(re.finditer(pattern, text, flags=re.IGNORECASE))
             
+            logger.info(f"Found {len(matches)} occurrences of 'in {city}' in: {text[:100]}...")
+            
             if len(matches) <= 1:
                 return text
             
-            # Keep the LAST one (usually the one that makes most sense), remove the rest
+            # Keep the LAST one, remove the rest
             result_text = text
-            for match in reversed(matches[:-1]):  # Remove all except the last
+            for match in reversed(matches[:-1]):
                 result_text = result_text[:match.start()] + result_text[match.end():]
             
             return result_text
@@ -188,21 +198,20 @@ class BlogAISingle:
             if not text:
                 return text
             
+            original = text
             city_esc = re.escape(city)
             
-            # Step 1: Remove duplicate "in City" - keep only one
+            # Step 1: Fix apostrophe case issues (What'S -> What's)
+            text = fix_apostrophe_case(text)
+            
+            # Step 2: Remove duplicate "in City" - keep only one
             text = remove_duplicate_city_in_text(text, city)
             
-            # Step 2: Remove duplicate "for City" - keep only one  
+            # Step 3: Remove duplicate "for City" - keep only one  
             text = remove_duplicate_city_for_text(text, city)
             
-            # Step 3: Remove "City City" direct duplicates
+            # Step 4: Remove "City City" direct duplicates
             text = re.sub(rf'\b{city_esc}\s+{city_esc}\b', city, text, flags=re.IGNORECASE)
-            
-            # Step 4: Fix "What'S" -> "What's" etc
-            text = re.sub(r"What'S\b", "What's", text)
-            text = re.sub(r"It'S\b", "It's", text)
-            text = re.sub(r"That'S\b", "That's", text)
             
             # Step 5: Clean up multiple spaces and trim
             text = re.sub(r'\s+', ' ', text).strip()
@@ -210,6 +219,9 @@ class BlogAISingle:
             # Step 6: Clean up trailing/leading punctuation artifacts
             text = re.sub(r'\s*[-–—|:]\s*$', '', text)
             text = re.sub(r'^[-–—|]\s*', '', text)
+            
+            if text != original:
+                logger.info(f"clean_heading: '{original[:80]}...' -> '{text[:80]}...'")
             
             return text
         
@@ -219,7 +231,7 @@ class BlogAISingle:
                 original = result[field]
                 result[field] = clean_heading(result[field], city)
                 if result[field] != original:
-                    logger.info(f"Fixed duplicate location in {field}: '{original}' -> '{result[field]}'")
+                    logger.info(f"Fixed duplicate location in {field}: '{original[:80]}' -> '{result[field][:80]}'")
         
         # Apply to body content - fix each heading separately
         if 'body' in result and isinstance(result['body'], str):
@@ -235,6 +247,9 @@ class BlogAISingle:
             def fix_h3(match):
                 return '<h3>' + clean_heading(match.group(1), city) + '</h3>'
             body = re.sub(r'<h3>([^<]+)</h3>', fix_h3, body, flags=re.IGNORECASE)
+            
+            # Also fix apostrophe case in body paragraphs
+            body = fix_apostrophe_case(body)
             
             result['body'] = body
             
