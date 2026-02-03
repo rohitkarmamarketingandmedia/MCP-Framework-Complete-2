@@ -2697,8 +2697,11 @@
                         <button onclick="confirmDeleteBlog()" class="px-3 py-1.5 bg-red-500/80 hover:bg-red-500 text-white rounded-lg text-sm font-medium transition">
                             <i class="fas fa-trash mr-1"></i>Delete
                         </button>
-                        <button onclick="approveBlog()" class="px-3 py-1.5 bg-green-500/80 hover:bg-green-500 text-white rounded-lg text-sm font-medium transition">
+                        <button id="topApproveBtn" onclick="approveBlog()" class="px-3 py-1.5 bg-green-500/80 hover:bg-green-500 text-white rounded-lg text-sm font-medium transition">
                             <i class="fas fa-check mr-1"></i>Approve
+                        </button>
+                        <button id="topDraftBtn" onclick="setToDraft()" class="hidden px-3 py-1.5 bg-gray-500/80 hover:bg-gray-500 text-white rounded-lg text-sm font-medium transition">
+                            <i class="fas fa-file-alt mr-1"></i>Set to Draft
                         </button>
                         <button id="topScheduleBtn" onclick="showScheduleModal()" class="px-3 py-1.5 bg-blue-500/80 hover:bg-blue-500 text-white rounded-lg text-sm font-medium transition">
                             <i class="fas fa-calendar mr-1"></i><span id="topScheduleBtnText">Schedule</span>
@@ -2912,7 +2915,10 @@
                         <button onclick="publishToWordPress()" class="px-4 py-2 bg-sky-100 hover:bg-sky-200 text-sky-700 rounded-lg text-sm font-medium transition" title="Publish to WordPress">
                             <i class="fab fa-wordpress mr-1"></i>WordPress
                         </button>
-                        <button onclick="approveBlog()" class="px-6 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-lg text-sm font-medium hover:opacity-90 transition">
+                        <button id="footerDraftBtn" onclick="setToDraft()" class="hidden px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg text-sm font-medium transition">
+                            <i class="fas fa-file-alt mr-1"></i>Set to Draft
+                        </button>
+                        <button id="footerApproveBtn" onclick="approveBlog()" class="px-6 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-lg text-sm font-medium hover:opacity-90 transition">
                             <i class="fas fa-check mr-1"></i>Approve
                         </button>
                     </div>
@@ -7614,6 +7620,25 @@
             const scheduleBtnText = document.getElementById('btnScheduleText');
             const topScheduleBtn = document.getElementById('topScheduleBtn');
             const topScheduleBtnText = document.getElementById('topScheduleBtnText');
+            const topApproveBtn = document.getElementById('topApproveBtn');
+            const topDraftBtn = document.getElementById('topDraftBtn');
+            const footerApproveBtn = document.getElementById('footerApproveBtn');
+            const footerDraftBtn = document.getElementById('footerDraftBtn');
+            
+            // Show/hide Approve vs Draft button based on status
+            if (currentBlog.status === 'approved' || currentBlog.status === 'scheduled' || currentBlog.status === 'published') {
+                // Already approved - show Draft button, hide Approve
+                topApproveBtn?.classList.add('hidden');
+                topDraftBtn?.classList.remove('hidden');
+                footerApproveBtn?.classList.add('hidden');
+                footerDraftBtn?.classList.remove('hidden');
+            } else {
+                // Draft status - show Approve, hide Draft
+                topApproveBtn?.classList.remove('hidden');
+                topDraftBtn?.classList.add('hidden');
+                footerApproveBtn?.classList.remove('hidden');
+                footerDraftBtn?.classList.add('hidden');
+            }
             
             if (currentBlog.status === 'scheduled' && currentBlog.scheduled_for) {
                 scheduleBtnText.textContent = 'Edit Schedule';
@@ -8424,7 +8449,6 @@
             if (!input.files || !input.files[0]) return;
             
             const file = input.files[0];
-            saveEditorSelection(); // Save cursor position before async upload
             document.getElementById('editorImageModal')?.remove();
             
             showToast('Uploading image...', 'info');
@@ -8447,8 +8471,30 @@
                     
                     if (imageUrl) {
                         const img = `<img src="${imageUrl}" alt="Image" style="max-width: 100%; height: auto; margin: 10px 0; border-radius: 8px;">`;
-                        insertHtmlAtSavedPosition(img);
+                        
+                        // Try to insert at saved position, fallback to appending
+                        const editor = document.getElementById('modalBodyEdit');
+                        editor.focus();
+                        
+                        if (savedEditorSelection) {
+                            try {
+                                const sel = window.getSelection();
+                                sel.removeAllRanges();
+                                sel.addRange(savedEditorSelection);
+                                document.execCommand('insertHTML', false, img);
+                            } catch(e) {
+                                // Fallback: append to end
+                                editor.innerHTML += img;
+                            }
+                        } else {
+                            // No saved selection, append to end
+                            editor.innerHTML += img;
+                        }
+                        
+                        savedEditorSelection = null;
                         showToast('Image inserted!', 'success');
+                    } else {
+                        showToast('Upload succeeded but no URL returned', 'error');
                     }
                 } else {
                     showToast('Failed to upload image', 'error');
@@ -8959,13 +9005,78 @@
                 document.getElementById('modalStatus').textContent = 'Approved';
                 document.getElementById('modalStatus').className = 'px-2 py-1 bg-green-500/30 text-green-300 rounded';
                 
+                // Update button visibility
+                document.getElementById('topApproveBtn')?.classList.add('hidden');
+                document.getElementById('topDraftBtn')?.classList.remove('hidden');
+                document.getElementById('topScheduleBtn')?.classList.remove('hidden');
+                document.getElementById('btnSchedule')?.classList.remove('hidden');
+                document.getElementById('footerApproveBtn')?.classList.add('hidden');
+                document.getElementById('footerDraftBtn')?.classList.remove('hidden');
+                
                 // Refresh blog list
                 renderBlogs();
                 
-                alert('✓ Blog approved!');
+                showToast('✓ Blog approved!', 'success');
                 
             } catch (error) {
                 console.error('Approve error:', error);
+                showToast('Error: ' + error.message, 'error');
+            }
+        }
+        
+        async function setToDraft() {
+            if (!currentBlog) return;
+            
+            if (!confirm('Set this blog back to Draft status? This will remove any scheduled publishing.')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_URL}/api/content/${currentBlog.id}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${AUTH_TOKEN}`
+                    },
+                    body: JSON.stringify({
+                        status: 'draft',
+                        scheduled_for: null
+                    })
+                });
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || 'Failed to set to draft');
+                }
+                
+                // Update local data
+                const idx = allBlogs.findIndex(b => b.id === currentBlog.id);
+                if (idx !== -1) {
+                    allBlogs[idx].status = 'draft';
+                    allBlogs[idx].scheduled_for = null;
+                }
+                currentBlog.status = 'draft';
+                currentBlog.scheduled_for = null;
+                
+                // Update modal status display
+                document.getElementById('modalStatus').textContent = 'Draft';
+                document.getElementById('modalStatus').className = 'px-2 py-1 bg-gray-500/30 text-gray-300 rounded';
+                
+                // Update button visibility
+                document.getElementById('topApproveBtn')?.classList.remove('hidden');
+                document.getElementById('topDraftBtn')?.classList.add('hidden');
+                document.getElementById('topScheduleBtn')?.classList.add('hidden');
+                document.getElementById('btnSchedule')?.classList.add('hidden');
+                document.getElementById('footerApproveBtn')?.classList.remove('hidden');
+                document.getElementById('footerDraftBtn')?.classList.add('hidden');
+                
+                // Refresh blog list
+                renderBlogs();
+                
+                showToast('Blog set to draft', 'success');
+                
+            } catch (error) {
+                console.error('Set to draft error:', error);
                 showToast('Error: ' + error.message, 'error');
             }
         }
