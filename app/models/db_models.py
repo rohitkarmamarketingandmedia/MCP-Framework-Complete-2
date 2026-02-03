@@ -526,6 +526,7 @@ class DBBlogPost(db.Model):
             'featured_image_url': self.featured_image_url,
             'target_city': self.target_city,
             'status': self.status,
+            'scheduled_for': self.scheduled_for.isoformat() if self.scheduled_for else None,
             'published_url': self.published_url,
             'published_at': self.published_at.isoformat() if self.published_at else None,
             'created_at': self.created_at.isoformat() if self.created_at else None,
