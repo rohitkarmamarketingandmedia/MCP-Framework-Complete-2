@@ -134,91 +134,110 @@ class BlogAISingle:
         return result
     
     def _fix_duplicate_locations(self, result: Dict[str, Any], city: str, state: str) -> Dict[str, Any]:
-        """Fix duplicate location patterns in titles and body"""
+        """Fix duplicate location patterns in titles and body - AGGRESSIVE VERSION"""
         import re
         
         if not city:
             return result
             
         city_escaped = re.escape(city)
-        state_escaped = re.escape(state) if state else ''
         
-        # Apply fixes multiple times until no more changes (handles nested duplicates)
-        max_iterations = 5
+        def remove_duplicate_city_in_text(text, city):
+            """Remove all but ONE occurrence of 'in City' from text"""
+            if not text or not city:
+                return text
+            
+            city_esc = re.escape(city)
+            
+            # Pattern to find " in City" (with various capitalizations)
+            pattern = rf'(\s+[Ii]n\s+{city_esc})'
+            
+            # Find all matches
+            matches = list(re.finditer(pattern, text, flags=re.IGNORECASE))
+            
+            if len(matches) <= 1:
+                return text
+            
+            # Keep the LAST one (usually the one that makes most sense), remove the rest
+            result_text = text
+            for match in reversed(matches[:-1]):  # Remove all except the last
+                result_text = result_text[:match.start()] + result_text[match.end():]
+            
+            return result_text
         
-        # Patterns to fix (order matters - more specific patterns first)
-        patterns = [
-            # MOST IMPORTANT: "In City in City" or "In City In City" (case insensitive)
-            (rf'\??\s*[Ii]n\s+{city_escaped}\s+[Ii]n\s+{city_escaped}', f' in {city}'),
-            # "City in City" without "in" prefix
-            (rf'\b{city_escaped}\s+in\s+{city_escaped}\b', city),
-            # "City City" direct duplicate
-            (rf'\b{city_escaped}\s+{city_escaped}\b', city),
-            # "for City ... for City" in same heading
-            (rf'for\s+{city_escaped}[^<]*for\s+{city_escaped}', f'for {city}'),
-            # Fix "- Nor In City" or "- Some In City" (partial competitor names)
-            (rf'\s*[-–—]\s*\w+\s+In\s+{city_escaped}', ''),
-            # Fix "Title - Company In City in City" pattern
-            (rf'\s*[-–—]\s*[A-Z][a-zA-Z\s&\']+\s+in\s+{city_escaped}\s+in\s+{city_escaped}', f' in {city}'),
-            # Fix triple city: "in City in City: Something in City"
-            (rf'in\s+{city_escaped}\s+in\s+{city_escaped}:\s*[^:]+in\s+{city_escaped}', f'in {city}'),
-            # Fix "in City in City: Something"
-            (rf'in\s+{city_escaped}\s+in\s+{city_escaped}:', f'in {city}:'),
-            # "AC Repair Port Charlotte in Port Charlotte" -> "AC Repair in Port Charlotte"
-            (rf'(\w+)\s+{city_escaped}\s+in\s+{city_escaped}\b', rf'\1 in {city}'),
-            # "Top 10 Dentist in Sarasota Florida in Sarasota" -> "Top 10 Dentist in Sarasota, Florida"
-            (rf'in\s+{city_escaped}\s+Florida\s+in\s+{city_escaped}', f'in {city}, Florida'),
-            (rf'in\s+{city_escaped}\s+FL\s+in\s+{city_escaped}', f'in {city}, FL'),
-            (rf'in\s+{city_escaped},?\s*{state_escaped}\s+in\s+{city_escaped}', f'in {city}, {state}') if state else None,
-            # "Service Sarasota Sarasota" -> "Service Sarasota"
-            (rf'(\w+)\s+{city_escaped}\s+{city_escaped}', rf'\1 {city}'),
-            # "in Sarasota in Sarasota" -> "in Sarasota"
-            (rf'in\s+{city_escaped}\s+in\s+{city_escaped}', f'in {city}'),
-            # "Sarasota, Florida Sarasota" -> "Sarasota, Florida"
-            (rf'{city_escaped},?\s*Florida\s+{city_escaped}', f'{city}, Florida'),
-            (rf'{city_escaped},?\s*FL\s+{city_escaped}', f'{city}, FL'),
-            # "| Sarasota Sarasota" -> "| Sarasota"
-            (rf'\|\s*{city_escaped}\s+{city_escaped}', f'| {city}'),
-            # Clean up "What'S" -> "What's" (fix title case issues)
-            (r"What'S\b", "What's"),
-            (r"It'S\b", "It's"),
-            (r"That'S\b", "That's"),
-            # Clean up double dashes/pipes from removed content
-            (r'\s*[-–—]{2,}\s*', ' - '),
-            (r'\s*\|\s*\|', ' |'),
-            # Clean up trailing dashes/pipes
-            (r'\s*[-–—|]\s*$', ''),
-            # Clean up leading dashes/pipes
-            (r'^[-–—|]\s*', ''),
-        ]
+        def remove_duplicate_city_for_text(text, city):
+            """Remove all but ONE occurrence of 'for City' from text"""
+            if not text or not city:
+                return text
+            
+            city_esc = re.escape(city)
+            pattern = rf'(\s+[Ff]or\s+{city_esc})'
+            matches = list(re.finditer(pattern, text, flags=re.IGNORECASE))
+            
+            if len(matches) <= 1:
+                return text
+            
+            result_text = text
+            for match in reversed(matches[:-1]):
+                result_text = result_text[:match.start()] + result_text[match.end():]
+            
+            return result_text
         
-        # Remove None patterns
-        patterns = [p for p in patterns if p is not None]
+        def clean_heading(text, city):
+            """Clean a single heading/title"""
+            if not text:
+                return text
+            
+            city_esc = re.escape(city)
+            
+            # Step 1: Remove duplicate "in City" - keep only one
+            text = remove_duplicate_city_in_text(text, city)
+            
+            # Step 2: Remove duplicate "for City" - keep only one  
+            text = remove_duplicate_city_for_text(text, city)
+            
+            # Step 3: Remove "City City" direct duplicates
+            text = re.sub(rf'\b{city_esc}\s+{city_esc}\b', city, text, flags=re.IGNORECASE)
+            
+            # Step 4: Fix "What'S" -> "What's" etc
+            text = re.sub(r"What'S\b", "What's", text)
+            text = re.sub(r"It'S\b", "It's", text)
+            text = re.sub(r"That'S\b", "That's", text)
+            
+            # Step 5: Clean up multiple spaces and trim
+            text = re.sub(r'\s+', ' ', text).strip()
+            
+            # Step 6: Clean up trailing/leading punctuation artifacts
+            text = re.sub(r'\s*[-–—|:]\s*$', '', text)
+            text = re.sub(r'^[-–—|]\s*', '', text)
+            
+            return text
         
-        # Apply to title fields with multiple iterations
+        # Apply to title fields
         for field in ['title', 'h1', 'meta_title', 'meta_description']:
             if field in result and isinstance(result[field], str):
                 original = result[field]
-                for iteration in range(max_iterations):
-                    before = result[field]
-                    for pattern, replacement in patterns:
-                        result[field] = re.sub(pattern, replacement, result[field], flags=re.IGNORECASE)
-                    # Clean up extra spaces
-                    result[field] = re.sub(r'\s+', ' ', result[field]).strip()
-                    if result[field] == before:
-                        break  # No more changes
+                result[field] = clean_heading(result[field], city)
                 if result[field] != original:
                     logger.info(f"Fixed duplicate location in {field}: '{original}' -> '{result[field]}'")
         
-        # Also fix in body content (headings especially) with multiple iterations
+        # Apply to body content - fix each heading separately
         if 'body' in result and isinstance(result['body'], str):
             original_body = result['body']
-            for iteration in range(max_iterations):
-                before = result['body']
-                for pattern, replacement in patterns:
-                    result['body'] = re.sub(pattern, replacement, result['body'], flags=re.IGNORECASE)
-                if result['body'] == before:
-                    break
+            body = result['body']
+            
+            # Fix H2 headings
+            def fix_h2(match):
+                return '<h2>' + clean_heading(match.group(1), city) + '</h2>'
+            body = re.sub(r'<h2>([^<]+)</h2>', fix_h2, body, flags=re.IGNORECASE)
+            
+            # Fix H3 headings
+            def fix_h3(match):
+                return '<h3>' + clean_heading(match.group(1), city) + '</h3>'
+            body = re.sub(r'<h3>([^<]+)</h3>', fix_h3, body, flags=re.IGNORECASE)
+            
+            result['body'] = body
+            
             if result['body'] != original_body:
                 logger.info("Fixed duplicate location patterns in body content")
         
