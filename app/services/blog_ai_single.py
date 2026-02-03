@@ -143,8 +143,19 @@ class BlogAISingle:
         city_escaped = re.escape(city)
         state_escaped = re.escape(state) if state else ''
         
+        # Apply fixes multiple times until no more changes (handles nested duplicates)
+        max_iterations = 5
+        
         # Patterns to fix (order matters - more specific patterns first)
         patterns = [
+            # MOST IMPORTANT: "In City in City" or "In City In City" (case insensitive)
+            (rf'\??\s*[Ii]n\s+{city_escaped}\s+[Ii]n\s+{city_escaped}', f' in {city}'),
+            # "City in City" without "in" prefix
+            (rf'\b{city_escaped}\s+in\s+{city_escaped}\b', city),
+            # "City City" direct duplicate
+            (rf'\b{city_escaped}\s+{city_escaped}\b', city),
+            # "for City ... for City" in same heading
+            (rf'for\s+{city_escaped}[^<]*for\s+{city_escaped}', f'for {city}'),
             # Fix "- Nor In City" or "- Some In City" (partial competitor names)
             (rf'\s*[-–—]\s*\w+\s+In\s+{city_escaped}', ''),
             # Fix "Title - Company In City in City" pattern
@@ -154,7 +165,6 @@ class BlogAISingle:
             # Fix "in City in City: Something"
             (rf'in\s+{city_escaped}\s+in\s+{city_escaped}:', f'in {city}:'),
             # "AC Repair Port Charlotte in Port Charlotte" -> "AC Repair in Port Charlotte"
-            # This handles when keyword already contains city name
             (rf'(\w+)\s+{city_escaped}\s+in\s+{city_escaped}\b', rf'\1 in {city}'),
             # "Top 10 Dentist in Sarasota Florida in Sarasota" -> "Top 10 Dentist in Sarasota, Florida"
             (rf'in\s+{city_escaped}\s+Florida\s+in\s+{city_escaped}', f'in {city}, Florida'),
@@ -162,8 +172,6 @@ class BlogAISingle:
             (rf'in\s+{city_escaped},?\s*{state_escaped}\s+in\s+{city_escaped}', f'in {city}, {state}') if state else None,
             # "Service Sarasota Sarasota" -> "Service Sarasota"
             (rf'(\w+)\s+{city_escaped}\s+{city_escaped}', rf'\1 {city}'),
-            # "Sarasota Sarasota" -> "Sarasota"
-            (rf'\b{city_escaped}\s+{city_escaped}\b', city),
             # "in Sarasota in Sarasota" -> "in Sarasota"
             (rf'in\s+{city_escaped}\s+in\s+{city_escaped}', f'in {city}'),
             # "Sarasota, Florida Sarasota" -> "Sarasota, Florida"
@@ -171,8 +179,6 @@ class BlogAISingle:
             (rf'{city_escaped},?\s*FL\s+{city_escaped}', f'{city}, FL'),
             # "| Sarasota Sarasota" -> "| Sarasota"
             (rf'\|\s*{city_escaped}\s+{city_escaped}', f'| {city}'),
-            # "Port Charlotte in Port Charlotte" at start or after | -> "Port Charlotte"
-            (rf'\b{city_escaped}\s+in\s+{city_escaped}\b', city),
             # Clean up "What'S" -> "What's" (fix title case issues)
             (r"What'S\b", "What's"),
             (r"It'S\b", "It's"),
@@ -189,22 +195,30 @@ class BlogAISingle:
         # Remove None patterns
         patterns = [p for p in patterns if p is not None]
         
-        # Apply to title fields
+        # Apply to title fields with multiple iterations
         for field in ['title', 'h1', 'meta_title', 'meta_description']:
             if field in result and isinstance(result[field], str):
                 original = result[field]
-                for pattern, replacement in patterns:
-                    result[field] = re.sub(pattern, replacement, result[field], flags=re.IGNORECASE)
-                # Clean up extra spaces
-                result[field] = re.sub(r'\s+', ' ', result[field]).strip()
+                for iteration in range(max_iterations):
+                    before = result[field]
+                    for pattern, replacement in patterns:
+                        result[field] = re.sub(pattern, replacement, result[field], flags=re.IGNORECASE)
+                    # Clean up extra spaces
+                    result[field] = re.sub(r'\s+', ' ', result[field]).strip()
+                    if result[field] == before:
+                        break  # No more changes
                 if result[field] != original:
                     logger.info(f"Fixed duplicate location in {field}: '{original}' -> '{result[field]}'")
         
-        # Also fix in body content (headings especially)
+        # Also fix in body content (headings especially) with multiple iterations
         if 'body' in result and isinstance(result['body'], str):
             original_body = result['body']
-            for pattern, replacement in patterns:
-                result['body'] = re.sub(pattern, replacement, result['body'], flags=re.IGNORECASE)
+            for iteration in range(max_iterations):
+                before = result['body']
+                for pattern, replacement in patterns:
+                    result['body'] = re.sub(pattern, replacement, result['body'], flags=re.IGNORECASE)
+                if result['body'] == before:
+                    break
             if result['body'] != original_body:
                 logger.info("Fixed duplicate location patterns in body content")
         
