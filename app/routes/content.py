@@ -193,34 +193,52 @@ def _generate_blog_background(task_id, app, client_id, keyword, word_count, incl
                 return
             
             from app.services.internal_linking_service import internal_linking_service
+            from app.services.blog_ai_single import get_blog_ai_single, BlogRequest
+            
             service_pages = client.get_service_pages() or []
             
             # Get contact info for CTA
             contact_name = getattr(client, 'contact_name', None) or getattr(client, 'owner_name', None)
             phone = getattr(client, 'phone', None)
             email = getattr(client, 'email', None)
+            contact_url = getattr(client, 'contact_url', None)
             
-            logger.info(f"[TASK {task_id}] Calling AI service...")
+            logger.info(f"[TASK {task_id}] Using BlogAISingle for generation...")
             
-            # Generate blog with 100% SEO optimization and internal linking
-            result = ai_service.generate_blog_post(
+            # Parse geo into city/state
+            geo = client.geo or ''
+            geo_parts = geo.split(',') if geo else ['', '']
+            city = geo_parts[0].strip() if len(geo_parts) > 0 else ''
+            state = geo_parts[1].strip() if len(geo_parts) > 1 else 'FL'
+            
+            # Build internal links list
+            internal_links = []
+            for page in service_pages[:6]:
+                if isinstance(page, dict) and page.get('url') and page.get('title'):
+                    url = page['url']
+                    if not url.startswith('http'):
+                        url = f"https://{client.website_url.rstrip('/')}/{url.lstrip('/')}" if client.website_url else url
+                    internal_links.append({'url': url, 'title': page['title']})
+            
+            # Use BlogAISingle - same as sync endpoint
+            blog_gen = get_blog_ai_single()
+            blog_request = BlogRequest(
                 keyword=keyword,
-                geo=client.geo or '',
-                industry=client.industry or '',
-                word_count=word_count,
-                tone=client.tone or 'professional',
-                business_name=client.business_name or '',
-                include_faq=include_faq,
-                faq_count=faq_count,
-                internal_links=service_pages,
-                usps=client.get_unique_selling_points(),
-                contact_name=contact_name,
-                phone=phone,
-                email=email,
-                client_id=client.id  # For fetching related posts
+                company_name=client.business_name or 'Our Company',
+                city=city,
+                state=state,
+                industry=client.industry or 'services',
+                phone=phone or '',
+                email=email or '',
+                contact_url=contact_url or '',
+                target_words=word_count,
+                faq_count=faq_count if include_faq else 0,
+                internal_links=internal_links
             )
             
-            logger.info(f"[TASK {task_id}] AI service returned. Error: {result.get('error', 'None')}")
+            result = blog_gen.generate(blog_request)
+            
+            logger.info(f"[TASK {task_id}] BlogAISingle returned. Word count: {result.get('word_count', 0)}")
             
             if result.get('error'):
                 logger.error(f"[TASK {task_id}] AI error: {result['error']}")
