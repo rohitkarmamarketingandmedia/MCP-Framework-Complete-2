@@ -694,6 +694,10 @@ OUTPUT: Return ONLY valid JSON. No markdown code blocks."""
         # Check if keyword already contains city name
         keyword_has_city = req.city and req.city.lower() in keyword.lower()
         
+        # Build city suffix - only add if keyword doesn't already have city
+        city_suffix = "" if keyword_has_city else f" in {req.city}"
+        city_suffix_for = "" if keyword_has_city else f" for {req.city}"
+        
         # Build CTA templates with contact URL (no inline CSS - use classes only)
         # Mid-CTA: Lighter, more subtle - encourages continued reading
         # Bottom-CTA: Stronger, more prominent - final conversion push
@@ -743,7 +747,10 @@ INTERNAL LINKING RULES:
 - Do NOT use "click here" or "learn more" as anchor text
 - Do NOT add links to pages not listed above (may cause 404 errors)
 
-{"CRITICAL: Keyword ALREADY CONTAINS the city name. Do NOT duplicate city in titles!" if keyword_has_city else ""}
+{"*** CRITICAL WARNING ***" if keyword_has_city else ""}
+{"The keyword '{keyword}' ALREADY CONTAINS the city '{req.city}'." if keyword_has_city else ""}
+{"DO NOT add '{req.city}' again in H1, H2, or H3 headings!" if keyword_has_city else ""}
+{"This would create duplicate city names like 'Service in City in City' which is BAD for SEO." if keyword_has_city else ""}
 
 ===== MANDATORY PRE-WRITING RESEARCH =====
 Before generating, internally analyze:
@@ -796,7 +803,7 @@ LOCAL SEO GUARDRAILS:
    - EXACTLY 3 benefits
    - ≈100 words each
    - Outcome-focused, specific results
-   - Use H2: "Benefits of {{keyword}} in {req.city}"
+   - Use H2: "Benefits of {{keyword}}"{city_suffix}"
    
 3. OUR PROCESS (≈200 words)
    - Explain how {req.company_name} delivers the service
@@ -804,7 +811,7 @@ LOCAL SEO GUARDRAILS:
    - Insert internal links contextually
 
 4. PRICING AND COST FACTORS (≈200 words)
-   - Use H2: "Cost of {{keyword}} in {req.city}"
+   - Use H2: "Cost of {{keyword}}"{city_suffix}"
    - Explain pricing drivers specific to {req.city}, {req.state}
    - Include actual price ranges when possible
    - Emphasize transparency
@@ -824,7 +831,7 @@ LOCAL SEO GUARDRAILS:
    - Questions must reflect real user intent
 
 7. GET STARTED TODAY (≈150 words)
-   - Use H2: "Get Started with {{keyword}} in {req.city} Today"
+   - Use H2: "Get Started with {{keyword}} Today"
    - Reinforce urgency and relevance
    - **INSERT BOTTOM CTA HERE** (at very end, after conclusion):
    {bottom_cta}
@@ -840,7 +847,7 @@ Return ONLY valid JSON:
     "meta_title": "[50-60 chars with keyword]",
     "meta_description": "[150-160 chars with city and CTA]",
     "h1": "{keyword.title()}{'' if keyword_has_city else f' in {req.city}'}: Complete Guide",
-    "body": "<p>Introduction with keyword in first sentence...</p><h2>Benefits of {keyword.title()} in {req.city}</h2><p>Benefit content...</p><h2>Our {keyword.title()} Process</h2><p>Process content...</p>[MID CTA]<h2>Cost of {keyword.title()} in {req.city}</h2><p>Pricing content...</p><h2>Why {req.city} Residents Choose {req.company_name}</h2><p>Why choose content...</p><h2>Get Started with {keyword.title()} in {req.city} Today</h2><p>Conclusion...</p>[BOTTOM CTA]",
+    "body": "<p>Introduction with keyword in first sentence...</p><h2>Benefits of {keyword.title()}{city_suffix}</h2><p>Benefit content...</p><h2>Our {keyword.title()} Process</h2><p>Process content...</p>[MID CTA]<h2>Cost of {keyword.title()}{city_suffix}</h2><p>Pricing content...</p><h2>Why {req.city} Residents Choose {req.company_name}</h2><p>Why choose content...</p><h2>Get Started with {keyword.title()} Today</h2><p>Conclusion...</p>[BOTTOM CTA]",
     "faq_items": [
         {{"question": "What is the cost of {keyword} in {req.city}?", "answer": "60-80 word answer"}},
         {{"question": "How long does {keyword} take?", "answer": "60-80 word answer"}},
