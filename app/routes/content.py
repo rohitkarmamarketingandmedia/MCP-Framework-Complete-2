@@ -761,26 +761,42 @@ def generate_content(current_user):
     contact_name = getattr(client, 'contact_name', None) or getattr(client, 'owner_name', None)
     phone = getattr(client, 'phone', None)
     email = getattr(client, 'email', None)
+    contact_url = getattr(client, 'contact_url', None)
     
-    params = {
-        'keyword': data['keyword'],
-        'geo': data['geo'],
-        'industry': data['industry'],
-        'word_count': data.get('word_count', current_app.config['DEFAULT_BLOG_WORD_COUNT']),
-        'tone': data.get('tone', current_app.config['DEFAULT_TONE']),
-        'business_name': client.business_name or '',
-        'include_faq': data.get('include_faq', True),
-        'faq_count': data.get('faq_count', 5),
-        'internal_links': internal_links,
-        'usps': client.get_unique_selling_points() or [],
-        'contact_name': contact_name,
-        'phone': phone,
-        'email': email,
-        'client_id': client.id
-    }
+    # Parse geo into city/state
+    geo = data.get('geo', '')
+    geo_parts = geo.split(',') if geo else ['', '']
+    city = geo_parts[0].strip() if len(geo_parts) > 0 else ''
+    state = geo_parts[1].strip() if len(geo_parts) > 1 else 'FL'
     
-    # Generate content
-    result = ai_service.generate_blog_post(**params)
+    # Build internal links list for BlogAISingle
+    blog_internal_links = []
+    for page in internal_links[:6]:
+        if isinstance(page, dict) and page.get('url') and page.get('title'):
+            url = page['url']
+            if not url.startswith('http'):
+                url = f"https://{client.website_url.rstrip('/')}/{url.lstrip('/')}" if client.website_url else url
+            blog_internal_links.append({'url': url, 'title': page['title']})
+    
+    # Use BlogAISingle for generation (handles city deduplication)
+    from app.services.blog_ai_single import get_blog_ai_single, BlogRequest
+    
+    blog_gen = get_blog_ai_single()
+    blog_request = BlogRequest(
+        keyword=data['keyword'],
+        company_name=client.business_name or 'Our Company',
+        city=city,
+        state=state,
+        industry=data.get('industry', 'services'),
+        phone=phone or '',
+        email=email or '',
+        contact_url=contact_url or '',
+        target_words=data.get('word_count', current_app.config['DEFAULT_BLOG_WORD_COUNT']),
+        faq_count=data.get('faq_count', 5) if data.get('include_faq', True) else 0,
+        internal_links=blog_internal_links
+    )
+    
+    result = blog_gen.generate(blog_request)
     
     if result.get('error'):
         return jsonify({'error': result['error']}), 500
@@ -923,14 +939,33 @@ def bulk_generate(current_user):
     
     # Get internal linking service
     from app.services.internal_linking_service import internal_linking_service
+    from app.services.blog_ai_single import get_blog_ai_single, BlogRequest
+    
     service_pages = client.get_service_pages() or []
     
     # Get contact info for CTA
     contact_name = getattr(client, 'contact_name', None) or getattr(client, 'owner_name', None)
     phone = getattr(client, 'phone', None)
     email = getattr(client, 'email', None)
+    contact_url = getattr(client, 'contact_url', None)
+    
+    # Parse geo into city/state
+    geo = client.geo or ''
+    geo_parts = geo.split(',') if geo else ['', '']
+    city = geo_parts[0].strip() if len(geo_parts) > 0 else ''
+    state = geo_parts[1].strip() if len(geo_parts) > 1 else 'FL'
+    
+    # Build internal links list for BlogAISingle
+    blog_internal_links = []
+    for page in service_pages[:6]:
+        if isinstance(page, dict) and page.get('url') and page.get('title'):
+            url = page['url']
+            if not url.startswith('http'):
+                url = f"https://{client.website_url.rstrip('/')}/{url.lstrip('/')}" if client.website_url else url
+            blog_internal_links.append({'url': url, 'title': page['title']})
     
     results = []
+    blog_gen = get_blog_ai_single()
     
     for topic in topics[:5]:  # Limit to 5 to avoid timeout
         keyword = topic.get('keyword', '')
@@ -939,26 +974,22 @@ def bulk_generate(current_user):
             continue
         
         try:
-            # Build params from client data with 100% SEO optimization
-            params = {
-                'keyword': keyword,
-                'geo': client.geo or '',
-                'industry': client.industry or '',
-                'word_count': topic.get('word_count', current_app.config.get('DEFAULT_BLOG_WORD_COUNT', 1200)),
-                'tone': client.tone or 'professional',
-                'business_name': client.business_name or '',
-                'include_faq': True,
-                'faq_count': topic.get('faq_count', 5),
-                'internal_links': service_pages,
-                'usps': client.get_unique_selling_points() or [],
-                'contact_name': contact_name,
-                'phone': phone,
-                'email': email,
-                'client_id': client.id
-            }
+            # Use BlogAISingle for generation (handles city deduplication)
+            blog_request = BlogRequest(
+                keyword=keyword,
+                company_name=client.business_name or 'Our Company',
+                city=city,
+                state=state,
+                industry=client.industry or 'services',
+                phone=phone or '',
+                email=email or '',
+                contact_url=contact_url or '',
+                target_words=topic.get('word_count', current_app.config.get('DEFAULT_BLOG_WORD_COUNT', 1200)),
+                faq_count=topic.get('faq_count', 5),
+                internal_links=blog_internal_links
+            )
             
-            # Generate content
-            result = ai_service.generate_blog_post(**params)
+            result = blog_gen.generate(blog_request)
             
             if result.get('error'):
                 results.append({
