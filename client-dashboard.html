@@ -12435,40 +12435,57 @@
                 console.log('Client city:', clientCity);
                 
                 // Step 1: Remove competitor brand suffixes (everything after - or | near the end)
-                // Handle patterns like "Title - Company Name" or "Title | Company Name"
                 optimizedKeyword = decodedTopic
-                    .replace(/\s*[-–—|]\s*[A-Za-z][A-Za-z0-9\s&'\-\.]+$/g, '') // Remove "- Company Name" at end
+                    .replace(/\s*[-–—|]\s*[A-Za-z][A-Za-z0-9\s&'\-\.]+$/g, '')
                     .trim();
                 
                 console.log('After removing brand suffix:', optimizedKeyword);
                 
-                // Step 2: Remove city name completely (we'll add it back once at the end)
+                // Step 2: Remove ALL location patterns (city, state, "in City", "In MN", etc.)
+                // This is aggressive - we'll add back just the city at the end
+                
+                // Remove state abbreviations and full names with prepositions
+                const statePatterns = [
+                    /\s+[Ii]n\s+(MN|Minnesota|FL|Florida|TX|Texas|CA|California|NY|New York|AZ|Arizona)\b/gi,
+                    /\s+(MN|Minnesota|FL|Florida|TX|Texas|CA|California|NY|New York|AZ|Arizona)\s*$/gi,
+                    /,?\s*(MN|Minnesota|FL|Florida|TX|Texas|CA|California|NY|New York|AZ|Arizona)\s*$/gi,
+                ];
+                statePatterns.forEach(pattern => {
+                    optimizedKeyword = optimizedKeyword.replace(pattern, ' ');
+                });
+                
+                // Remove city patterns if we have a city
                 if (clientCity) {
-                    // Escape special regex characters in city name
                     const cityEscaped = clientCity.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-                    // Remove all occurrences of city with optional prepositions
+                    // Also get first word of city for multi-word cities
+                    const cityFirstWord = clientCity.split(' ')[0];
+                    const cityFirstEscaped = cityFirstWord.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                    
                     const cityPatterns = [
-                        new RegExp(`\\s+in\\s+${cityEscaped}`, 'gi'),
-                        new RegExp(`\\s+for\\s+${cityEscaped}`, 'gi'),
-                        new RegExp(`\\s+of\\s+${cityEscaped}`, 'gi'),
-                        new RegExp(`\\s+near\\s+${cityEscaped}`, 'gi'),
-                        new RegExp(`\\s+${cityEscaped}\\s*,?\\s*(FL|Florida|MN|Minnesota)?`, 'gi'),
+                        new RegExp(`\\s+[Ii]n\\s+${cityEscaped}`, 'gi'),
+                        new RegExp(`\\s+[Ff]or\\s+${cityEscaped}`, 'gi'),
+                        new RegExp(`\\s+[Oo]f\\s+${cityEscaped}`, 'gi'),
+                        new RegExp(`\\s+[Nn]ear\\s+${cityEscaped}`, 'gi'),
+                        new RegExp(`\\s+${cityEscaped}\\s*,?\\s*(MN|Minnesota|FL|Florida)?`, 'gi'),
                         new RegExp(`^${cityEscaped}\\s+`, 'gi'),
+                        // Also remove first word of city (e.g., "Brainerd" from "Brainerd Lakes Area")
+                        new RegExp(`\\s+[Ii]n\\s+${cityFirstEscaped}\\b`, 'gi'),
+                        new RegExp(`\\s+${cityFirstEscaped}\\s*,`, 'gi'),
                     ];
                     cityPatterns.forEach(pattern => {
                         optimizedKeyword = optimizedKeyword.replace(pattern, ' ');
                     });
                 }
                 
-                console.log('After removing city:', optimizedKeyword);
+                console.log('After removing location:', optimizedKeyword);
                 
                 // Step 3: Clean up artifacts
                 optimizedKeyword = optimizedKeyword
-                    .replace(/\s*[-–—|:]\s*[-–—|:]\s*/g, ' ') // Double dashes/pipes
-                    .replace(/\s*[-–—|:]\s*$/g, '') // Trailing dash/pipe
-                    .replace(/^\s*[-–—|:]\s*/g, '') // Leading dash/pipe
-                    .replace(/\s+/g, ' ') // Multiple spaces
-                    .replace(/:\s*$/g, '') // Trailing colon
+                    .replace(/\s*[-–—|:]\s*[-–—|:]\s*/g, ' ')
+                    .replace(/\s*[-–—|:]\s*$/g, '')
+                    .replace(/^\s*[-–—|:]\s*/g, '')
+                    .replace(/\s+/g, ' ')
+                    .replace(/:\s*$/g, '')
                     .trim();
                 
                 console.log('After cleanup:', optimizedKeyword);

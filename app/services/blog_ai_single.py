@@ -134,145 +134,182 @@ class BlogAISingle:
         return result
     
     def _fix_duplicate_locations(self, result: Dict[str, Any], city: str, state: str) -> Dict[str, Any]:
-        """Fix duplicate location patterns in titles and body - AGGRESSIVE VERSION"""
+        """Fix duplicate location patterns in titles and body - SUPER AGGRESSIVE VERSION"""
         import re
         
-        logger.info(f"_fix_duplicate_locations called with city='{city}'")
+        logger.info(f"_fix_duplicate_locations called with city='{city}', state='{state}'")
         
         if not city:
             logger.warning("_fix_duplicate_locations: city is empty, skipping")
             return result
         
+        # Get all city variations to check
+        city_variations = [city]
+        city_words = city.split()
+        if len(city_words) > 1:
+            city_variations.append(city_words[0])  # First word (e.g., "Brainerd" from "Brainerd Lakes Area")
+        
+        # State variations
+        state_abbrevs = ['MN', 'FL', 'TX', 'CA', 'NY', 'AZ']
+        state_names = ['Minnesota', 'Florida', 'Texas', 'California', 'New York', 'Arizona']
+        
         def fix_apostrophe_case(text):
-            """Fix What'S -> What's, It'S -> It's, etc."""
+            """Fix What'S -> What's"""
             if not text:
                 return text
-            text = re.sub(r"(\w)'S\b", r"\1's", text)  # Generic fix for any word'S
-            return text
+            return re.sub(r"(\w)'S\b", r"\1's", text)
         
-        def remove_duplicate_city_in_text(text, city):
-            """Remove all but ONE occurrence of 'in City' from text"""
-            if not text or not city:
-                return text
-            
-            city_esc = re.escape(city)
-            
-            # Pattern to find " in City" (with various capitalizations)
-            pattern = rf'(\s+[Ii]n\s+{city_esc})'
-            
-            # Find all matches
-            matches = list(re.finditer(pattern, text, flags=re.IGNORECASE))
-            
-            logger.info(f"Found {len(matches)} occurrences of 'in {city}' in: {text[:100]}...")
-            
-            if len(matches) <= 1:
-                return text
-            
-            # Keep the LAST one, remove the rest
-            result_text = text
-            for match in reversed(matches[:-1]):
-                result_text = result_text[:match.start()] + result_text[match.end():]
-            
-            return result_text
-        
-        def remove_duplicate_city_for_text(text, city):
-            """Remove all but ONE occurrence of 'for City' from text"""
-            if not text or not city:
-                return text
-            
-            city_esc = re.escape(city)
-            pattern = rf'(\s+[Ff]or\s+{city_esc})'
-            matches = list(re.finditer(pattern, text, flags=re.IGNORECASE))
-            
-            if len(matches) <= 1:
-                return text
-            
-            result_text = text
-            for match in reversed(matches[:-1]):
-                result_text = result_text[:match.start()] + result_text[match.end():]
-            
-            return result_text
-        
-        def clean_heading(text, city):
-            """Clean a single heading/title"""
+        def remove_duplicate_locations(text):
+            """Remove duplicate location patterns from text"""
             if not text:
                 return text
             
             original = text
             
-            # Get city variations - if city is "Brainerd Lakes Area", also check "Brainerd"
-            city_variations = [city]
-            words = city.split()
-            if len(words) > 1:
-                city_variations.append(words[0])  # First word (e.g., "Brainerd")
+            # Step 0: Remove standalone "In MN" or "In Minnesota" patterns when followed by another "In"
+            for st in state_abbrevs + state_names:
+                text = re.sub(rf'\s+[Ii]n\s+{st}(?=\s+[Ii]n\s+)', ' ', text, flags=re.IGNORECASE)
             
-            # Step 1: Fix apostrophe case issues (What'S -> What's)
-            text = fix_apostrophe_case(text)
-            
-            # Step 2: Remove duplicate "in City" for each city variation
+            # Step 1: Remove duplicate "in City" patterns (keep only the last one)
             for city_var in city_variations:
-                text = remove_duplicate_city_in_text(text, city_var)
+                city_esc = re.escape(city_var)
+                pattern = rf'(\s+[Ii]n\s+{city_esc})'
+                matches = list(re.finditer(pattern, text, flags=re.IGNORECASE))
+                if len(matches) > 1:
+                    # Remove all but the last one
+                    for match in reversed(matches[:-1]):
+                        text = text[:match.start()] + text[match.end():]
+                    logger.info(f"Removed {len(matches)-1} duplicate 'in {city_var}' occurrences")
             
-            # Step 3: Remove duplicate "for City" for each city variation
+            # Step 2: Remove "In STATE In City" patterns -> "in City"
             for city_var in city_variations:
-                text = remove_duplicate_city_for_text(text, city_var)
+                city_esc = re.escape(city_var)
+                for st in state_abbrevs + state_names:
+                    # "In MN In Brainerd" -> "in Brainerd"
+                    text = re.sub(rf'\s+[Ii]n\s+{st}\s+[Ii]n\s+{city_esc}', f' in {city_var}', text, flags=re.IGNORECASE)
+                    # "In Brainerd In MN" -> "in Brainerd"
+                    text = re.sub(rf'\s+[Ii]n\s+{city_esc}\s+[Ii]n\s+{st}', f' in {city_var}', text, flags=re.IGNORECASE)
+                    # ", MN" after city -> remove
+                    text = re.sub(rf'({city_esc})\s*,?\s*{st}\b', r'\1', text, flags=re.IGNORECASE)
             
-            # Step 4: Remove "City City" direct duplicates for each variation
+            # Step 3: Remove direct "City City" duplicates
             for city_var in city_variations:
                 city_esc = re.escape(city_var)
                 text = re.sub(rf'\b{city_esc}\s+{city_esc}\b', city_var, text, flags=re.IGNORECASE)
             
-            # Step 5: Clean up multiple spaces and trim
+            # Step 4: Remove remaining standalone "In State" when we already have city
+            for city_var in city_variations:
+                city_esc = re.escape(city_var)
+                for st in state_abbrevs + state_names:
+                    if re.search(rf'\b[Ii]n\s+{city_esc}\b', text):
+                        text = re.sub(rf'\s+[Ii]n\s+{st}\b(?!\s+[Ii]n)', ' ', text, flags=re.IGNORECASE)
+            
+            # Step 5: Clean up multiple spaces
             text = re.sub(r'\s+', ' ', text).strip()
             
-            # Step 6: Clean up trailing/leading punctuation artifacts
-            text = re.sub(r'\s*[-–—|:]:\s*', ': ', text)  # Fix ": :" double colons
-            text = re.sub(r'\s*[-–—|:]\s*$', '', text)
-            text = re.sub(r'^[-–—|]\s*', '', text)
-            
             if text != original:
-                logger.info(f"clean_heading: '{original[:80]}' -> '{text[:80]}'")
+                logger.info(f"remove_duplicate_locations: '{original[:80]}' -> '{text[:80]}'")
             
             return text
         
-        # Apply to title fields
-        logger.info(f"Processing title fields. Result keys: {list(result.keys())}")
-        for field in ['title', 'h1', 'meta_title', 'meta_description']:
+        def clean_h2_heading(text):
+            """Clean H2 headings specifically - handle the terrible AI output format"""
+            if not text:
+                return text
+            
+            original = text
+            
+            # First, remove duplicate locations
+            text = remove_duplicate_locations(text)
+            text = fix_apostrophe_case(text)
+            
+            # Check for the pattern: "Topic in City: Section of Topic in City"
+            # This is when AI repeats the entire topic in the H2
+            if ':' in text:
+                parts = text.split(':', 1)
+                before_colon = parts[0].strip()
+                after_colon = parts[1].strip() if len(parts) > 1 else ''
+                
+                # Common section prefixes
+                section_prefixes = [
+                    'benefits of', 'our', 'the', 'cost of', 'pricing for',
+                    'why choose', 'get started with', 'how to', 'what is',
+                    'understanding', 'exploring', 'guide to'
+                ]
+                
+                after_lower = after_colon.lower()
+                for prefix in section_prefixes:
+                    if after_lower.startswith(prefix):
+                        # Get what's after the prefix
+                        remainder = after_colon[len(prefix):].strip()
+                        
+                        # Check if remainder is repeating the topic (before_colon)
+                        # Compare first few significant words
+                        before_words = [w.lower() for w in before_colon.split() if len(w) > 3][:4]
+                        remainder_words = [w.lower() for w in remainder.split() if len(w) > 3][:4]
+                        
+                        # Count matching words
+                        matches = sum(1 for w in before_words if w in remainder_words)
+                        
+                        if matches >= 2:  # If 2+ words match, it's a repetition
+                            # Just keep "Topic: Section Prefix"
+                            # Capitalize the prefix properly
+                            clean_prefix = prefix.title()
+                            if prefix == 'our':
+                                clean_prefix = 'Our Process'
+                            elif prefix in ['benefits of', 'cost of', 'pricing for']:
+                                clean_prefix = prefix.title().rstrip(' Of').rstrip(' For')
+                            
+                            text = f"{before_colon}: {clean_prefix}"
+                            logger.info(f"Cleaned repeated topic in H2: '{original[:60]}' -> '{text}'")
+                            break
+            
+            # Final cleanup
+            text = re.sub(r':\s*:', ':', text)
+            text = re.sub(r'\s+', ' ', text).strip()
+            text = re.sub(r'\s*[-–—|:]\s*$', '', text)
+            
+            return text
+        
+        # Apply to title/h1/meta fields
+        for field in ['title', 'h1', 'meta_title']:
             if field in result and isinstance(result[field], str):
                 original = result[field]
-                logger.info(f"BEFORE {field}: {original[:100] if len(original) > 100 else original}")
-                result[field] = clean_heading(result[field], city)
-                logger.info(f"AFTER {field}: {result[field][:100] if len(result[field]) > 100 else result[field]}")
+                result[field] = remove_duplicate_locations(result[field])
+                result[field] = fix_apostrophe_case(result[field])
                 if result[field] != original:
-                    logger.info(f"Fixed duplicate location in {field}")
+                    logger.info(f"Fixed {field}: '{original[:60]}' -> '{result[field][:60]}'")
         
-        # Apply to body content - fix each heading separately
+        # Meta description - just remove duplicates, don't restructure
+        if 'meta_description' in result and isinstance(result['meta_description'], str):
+            original = result['meta_description']
+            result['meta_description'] = remove_duplicate_locations(result['meta_description'])
+            result['meta_description'] = fix_apostrophe_case(result['meta_description'])
+        
+        # Apply to body content - fix H2/H3 headings aggressively
         if 'body' in result and isinstance(result['body'], str):
-            original_body = result['body']
             body = result['body']
             
-            # Fix H1 headings (if any in body)
+            # Fix H1 headings
             def fix_h1(match):
-                return '<h1>' + clean_heading(match.group(1), city) + '</h1>'
+                cleaned = remove_duplicate_locations(match.group(1))
+                cleaned = fix_apostrophe_case(cleaned)
+                return f'<h1>{cleaned}</h1>'
             body = re.sub(r'<h1>([^<]+)</h1>', fix_h1, body, flags=re.IGNORECASE)
             
-            # Fix H2 headings
+            # Fix H2 headings - use aggressive cleaning
             def fix_h2(match):
-                return '<h2>' + clean_heading(match.group(1), city) + '</h2>'
+                return f'<h2>{clean_h2_heading(match.group(1))}</h2>'
             body = re.sub(r'<h2>([^<]+)</h2>', fix_h2, body, flags=re.IGNORECASE)
             
             # Fix H3 headings
             def fix_h3(match):
-                return '<h3>' + clean_heading(match.group(1), city) + '</h3>'
+                cleaned = remove_duplicate_locations(match.group(1))
+                cleaned = fix_apostrophe_case(cleaned)
+                return f'<h3>{cleaned}</h3>'
             body = re.sub(r'<h3>([^<]+)</h3>', fix_h3, body, flags=re.IGNORECASE)
             
-            # Also fix apostrophe case in body paragraphs
-            body = fix_apostrophe_case(body)
-            
             result['body'] = body
-            
-            if result['body'] != original_body:
-                logger.info("Fixed duplicate location patterns in body content")
         
         return result
     
@@ -869,15 +906,16 @@ LOCAL SEO GUARDRAILS:
    - EXACTLY 3 benefits
    - ≈100 words each
    - Outcome-focused, specific results
-   - Use H2: "Benefits of {{keyword}}"{city_suffix}"
+   - H2 heading: "Benefits of [Short Topic Description]"
+   - DO NOT repeat the full keyword in every H2!
    
 3. OUR PROCESS (≈200 words)
    - Explain how {req.company_name} delivers the service
-   - Use H2: "Our {{keyword}} Process"
+   - H2 heading: "Our [Service] Process"
    - Insert internal links contextually
 
 4. PRICING AND COST FACTORS (≈200 words)
-   - Use H2: "Cost of {{keyword}}"{city_suffix}"
+   - H2 heading: "[Service] Cost Factors" or "Pricing Guide"
    - Explain pricing drivers specific to {req.city}, {req.state}
    - Include actual price ranges when possible
    - Emphasize transparency
@@ -885,7 +923,7 @@ LOCAL SEO GUARDRAILS:
    {mid_cta}
 
 5. WHY CHOOSE {req.company_name} (≈200 words)
-   - Use H2: "Why {req.city} Residents Choose {req.company_name}"
+   - H2 heading: "Why {req.city} Residents Choose {req.company_name}"
    - Align with business positioning
    - Emphasize trust, experience, credibility
    - Include internal links naturally
