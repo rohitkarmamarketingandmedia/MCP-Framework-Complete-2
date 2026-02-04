@@ -140,29 +140,50 @@ class BlogAISingle:
         """Use AI to fix any remaining issues like duplicate cities, bad H2s, etc."""
         try:
             city = req.city or ''
+            if not city:
+                logger.info("AI cleanup: No city, skipping")
+                return result
             
             # Extract all H2 headings from body
             import re
             body = result.get('body', '')
             h2_matches = re.findall(r'<h2>([^<]+)</h2>', body, re.IGNORECASE)
             
-            # Check if there are issues to fix
+            title = result.get('title', '')
+            h1 = result.get('h1', '')
+            
+            # Check for ANY issues - be aggressive
             has_issues = False
+            city_lower = city.lower()
+            
+            # Check title for duplicate city
+            if city_lower and title.lower().count(city_lower) > 1:
+                has_issues = True
+                logger.info(f"AI cleanup: Found duplicate city in title: '{title[:60]}'")
+            
+            # Check h1 for duplicate city  
+            if city_lower and h1.lower().count(city_lower) > 1:
+                has_issues = True
+                logger.info(f"AI cleanup: Found duplicate city in h1: '{h1[:60]}'")
+            
+            # Check H2s for issues
             for h2 in h2_matches:
-                # Check for duplicate city
-                city_count = h2.lower().count(city.lower()) if city else 0
-                if city_count > 1:
+                h2_lower = h2.lower()
+                # Check for duplicate city in H2
+                if city_lower and h2_lower.count(city_lower) > 1:
                     has_issues = True
+                    logger.info(f"AI cleanup: Found duplicate city in H2: '{h2[:60]}'")
+                    break
+                # Check for "in City" appearing in H2 (often a sign of keyword stuffing)
+                if f'in {city_lower}' in h2_lower and len(h2) > 50:
+                    has_issues = True
+                    logger.info(f"AI cleanup: Found 'in {city}' in long H2: '{h2[:60]}'")
                     break
                 # Check for overly long H2 (keyword stuffing)
-                if len(h2) > 80:
+                if len(h2) > 70:
                     has_issues = True
+                    logger.info(f"AI cleanup: Found overly long H2 ({len(h2)} chars): '{h2[:60]}'")
                     break
-            
-            # Also check title
-            title = result.get('title', '')
-            if city and title.lower().count(city.lower()) > 1:
-                has_issues = True
             
             if not has_issues:
                 logger.info("AI cleanup: No issues detected, skipping")
@@ -171,49 +192,47 @@ class BlogAISingle:
             logger.info("AI cleanup: Issues detected, calling AI to fix...")
             
             # Build cleanup prompt
-            cleanup_prompt = f"""Fix the following blog content issues. The city is "{city}".
+            cleanup_prompt = f"""Fix the following blog content. The target city is "{city}".
 
-ISSUES TO FIX:
-1. Remove duplicate city names (e.g., "in Brainerd in Brainerd" -> "in Brainerd")
-2. Shorten overly long H2 headings (max 60 chars, don't repeat the full keyword)
-3. H2 headings should be simple like "Key Benefits", "Our Process", "Pricing Guide"
+PROBLEMS TO FIX:
+1. DUPLICATE CITY: Remove any duplicate "{city}" - e.g., "in {city} in {city}" should become "in {city}"
+2. LONG H2 HEADINGS: H2 headings should be SHORT (under 50 chars). Don't repeat the full keyword in H2s.
+   - BAD: "Soak Up Summer With Our Top Custom Lake Home Ideas In {city} in {city}: Key Benefits"
+   - GOOD: "Key Benefits of Custom Lake Homes"
+3. Keep the meaning but make it clean and professional
 
-CURRENT CONTENT:
+CURRENT CONTENT TO FIX:
 
-Title: {result.get('title', '')}
+Title: {title}
 
-H1: {result.get('h1', '')}
-
-Meta Title: {result.get('meta_title', '')}
+H1: {h1}
 
 H2 Headings:
 {chr(10).join(['- ' + h2 for h2 in h2_matches])}
 
-Return ONLY a JSON object with the fixed values:
+Return ONLY a JSON object with the fixed values. Only include fields that need fixing:
 {{
-    "title": "fixed title",
-    "h1": "fixed h1", 
-    "meta_title": "fixed meta title",
+    "title": "fixed title if needed",
+    "h1": "fixed h1 if needed", 
     "h2_fixes": [
-        {{"original": "original h2 text", "fixed": "fixed h2 text"}},
-        ...
+        {{"original": "exact original h2 text", "fixed": "short clean h2 text"}}
     ]
 }}
 
-Only include items that need fixing. If something is fine, don't include it."""
+IMPORTANT: H2 fixes should be SHORT like "Key Benefits", "Our Process", "Pricing Guide" - NOT the full keyword repeated."""
 
             response = self.client.chat.completions.create(
-                model="gpt-4o-mini",  # Use fast model for cleanup
+                model="gpt-4o-mini",
                 messages=[
-                    {"role": "system", "content": "You fix blog content issues. Return only valid JSON."},
+                    {"role": "system", "content": "You fix blog content issues. Return only valid JSON. Make H2 headings SHORT and clean."},
                     {"role": "user", "content": cleanup_prompt}
                 ],
                 temperature=0.1,
-                max_tokens=1000
+                max_tokens=1500
             )
             
             cleanup_text = response.choices[0].message.content.strip()
-            logger.info(f"AI cleanup response: {cleanup_text[:200]}...")
+            logger.info(f"AI cleanup response: {cleanup_text[:300]}...")
             
             # Parse the response
             cleanup_data = self._robust_parse_json(cleanup_text)
@@ -231,28 +250,24 @@ Only include items that need fixing. If something is fine, don't include it."""
                 logger.info(f"AI cleanup h1: '{result.get('h1', '')[:50]}' -> '{cleanup_data['h1'][:50]}'")
                 result['h1'] = cleanup_data['h1']
             
-            if cleanup_data.get('meta_title'):
-                logger.info(f"AI cleanup meta_title: '{result.get('meta_title', '')[:50]}' -> '{cleanup_data['meta_title'][:50]}'")
-                result['meta_title'] = cleanup_data['meta_title']
-            
             # Apply H2 fixes to body
             h2_fixes = cleanup_data.get('h2_fixes', [])
             if h2_fixes and body:
                 for fix in h2_fixes:
                     if fix.get('original') and fix.get('fixed'):
+                        # Try exact match first
                         old_h2 = f"<h2>{fix['original']}</h2>"
                         new_h2 = f"<h2>{fix['fixed']}</h2>"
+                        
                         if old_h2 in body:
                             body = body.replace(old_h2, new_h2)
-                            logger.info(f"AI cleanup H2: '{fix['original'][:40]}' -> '{fix['fixed'][:40]}'")
+                            logger.info(f"AI cleanup H2: '{fix['original'][:40]}...' -> '{fix['fixed']}'")
                         else:
-                            # Try case-insensitive replacement
-                            body = re.sub(
-                                re.escape(old_h2), 
-                                new_h2, 
-                                body, 
-                                flags=re.IGNORECASE
-                            )
+                            # Try case-insensitive match
+                            pattern = re.compile(re.escape(old_h2), re.IGNORECASE)
+                            if pattern.search(body):
+                                body = pattern.sub(new_h2, body)
+                                logger.info(f"AI cleanup H2 (case-insensitive): '{fix['original'][:40]}...' -> '{fix['fixed']}'")
                 
                 result['body'] = body
             
@@ -261,6 +276,8 @@ Only include items that need fixing. If something is fine, don't include it."""
             
         except Exception as e:
             logger.error(f"AI cleanup error: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
             return result  # Return original on error
     
     def _fix_duplicate_locations(self, result: Dict[str, Any], city: str, state: str) -> Dict[str, Any]:
