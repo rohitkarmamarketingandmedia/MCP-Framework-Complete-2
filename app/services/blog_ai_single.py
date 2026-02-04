@@ -794,8 +794,19 @@ OUTPUT: Return ONLY valid JSON. No markdown code blocks."""
         if internal:
             links_list = "\n".join([f"- {link.get('title', '')}: {link.get('url', '')}" for link in internal[:5]])
         
-        # Check if keyword already contains city name
-        keyword_has_city = req.city and req.city.lower() in keyword.lower()
+        # Check if keyword already contains city name (or first word of city for multi-word cities)
+        keyword_lower = keyword.lower()
+        city_lower = req.city.lower() if req.city else ''
+        city_first_word = city_lower.split()[0] if city_lower else ''
+        
+        # Check for full city name OR first word of city (4+ chars to avoid false positives)
+        keyword_has_city = False
+        if city_lower and city_lower in keyword_lower:
+            keyword_has_city = True
+        elif city_first_word and len(city_first_word) >= 4 and city_first_word in keyword_lower:
+            keyword_has_city = True
+        
+        logger.info(f"keyword_has_city: city='{req.city}', first_word='{city_first_word}', keyword contains city={keyword_has_city}")
         
         # Build city suffix - only add if keyword doesn't already have city
         city_suffix = "" if keyword_has_city else f" in {req.city}"
