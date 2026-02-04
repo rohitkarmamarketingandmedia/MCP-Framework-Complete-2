@@ -1718,8 +1718,23 @@ OUTPUT JSON:"""
 
         # Ensure city is in H2/H3 headings
         body = result.get("body", "")
-        if req.city:
+        
+        # Check if keyword already contains city - if so, DON'T inject more city references
+        keyword_lower = req.keyword.lower()
+        city_lower = req.city.lower() if req.city else ''
+        city_first_word = city_lower.split()[0] if city_lower else ''
+        
+        keyword_has_city = False
+        if city_lower and city_lower in keyword_lower:
+            keyword_has_city = True
+        elif city_first_word and len(city_first_word) >= 4 and city_first_word in keyword_lower:
+            keyword_has_city = True
+        
+        # Only inject city into headings if keyword doesn't already have it
+        if req.city and not keyword_has_city:
             body = self._inject_city_in_headings(body, req.city)
+        elif keyword_has_city:
+            logger.info(f"Skipping city injection - keyword already contains city '{req.city}'")
         
         # Ensure TWO CTAs are present in the body
         body = self._ensure_two_ctas(body, req)
