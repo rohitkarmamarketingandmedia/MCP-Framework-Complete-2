@@ -199,29 +199,39 @@ class BlogAISingle:
                 return text
             
             original = text
-            city_esc = re.escape(city)
+            
+            # Get city variations - if city is "Brainerd Lakes Area", also check "Brainerd"
+            city_variations = [city]
+            words = city.split()
+            if len(words) > 1:
+                city_variations.append(words[0])  # First word (e.g., "Brainerd")
             
             # Step 1: Fix apostrophe case issues (What'S -> What's)
             text = fix_apostrophe_case(text)
             
-            # Step 2: Remove duplicate "in City" - keep only one
-            text = remove_duplicate_city_in_text(text, city)
+            # Step 2: Remove duplicate "in City" for each city variation
+            for city_var in city_variations:
+                text = remove_duplicate_city_in_text(text, city_var)
             
-            # Step 3: Remove duplicate "for City" - keep only one  
-            text = remove_duplicate_city_for_text(text, city)
+            # Step 3: Remove duplicate "for City" for each city variation
+            for city_var in city_variations:
+                text = remove_duplicate_city_for_text(text, city_var)
             
-            # Step 4: Remove "City City" direct duplicates
-            text = re.sub(rf'\b{city_esc}\s+{city_esc}\b', city, text, flags=re.IGNORECASE)
+            # Step 4: Remove "City City" direct duplicates for each variation
+            for city_var in city_variations:
+                city_esc = re.escape(city_var)
+                text = re.sub(rf'\b{city_esc}\s+{city_esc}\b', city_var, text, flags=re.IGNORECASE)
             
             # Step 5: Clean up multiple spaces and trim
             text = re.sub(r'\s+', ' ', text).strip()
             
             # Step 6: Clean up trailing/leading punctuation artifacts
+            text = re.sub(r'\s*[-–—|:]:\s*', ': ', text)  # Fix ": :" double colons
             text = re.sub(r'\s*[-–—|:]\s*$', '', text)
             text = re.sub(r'^[-–—|]\s*', '', text)
             
             if text != original:
-                logger.info(f"clean_heading: '{original[:80]}...' -> '{text[:80]}...'")
+                logger.info(f"clean_heading: '{original[:80]}' -> '{text[:80]}'")
             
             return text
         
@@ -839,7 +849,7 @@ The exact phrase "{keyword}" must appear in:
 HEADINGS RULES:
 - H1 must include "{keyword}"
 - H2/H3 headings must include "{keyword}" or logical variation where semantic
-- H2/H3 headings must include "{req.city}" in at least 3 headings
+{f'- DO NOT add "{req.city}" to any headings - the keyword already contains the city name!' if keyword_has_city else f'- H2/H3 headings must include "{req.city}" in at least 3 headings'}
 - FAQs must reflect real search phrasing
 
 LOCAL SEO GUARDRAILS:
@@ -922,7 +932,7 @@ Before responding, verify:
 ☐ One mid-article CTA present (after Process section)
 ☐ One bottom CTA present (at end)
 ☐ Only {req.city}, {req.state} referenced (no other cities)
-☐ City name in at least 3 H2/H3 headings
+{f'☐ DO NOT add city "{req.city}" to headings - keyword already contains it!' if keyword_has_city else f'☐ City name in at least 3 H2/H3 headings'}
 ☐ JSON is valid and complete
 ☐ No placeholders remain
 ☐ EXACTLY 5 FAQs in faq_items array
