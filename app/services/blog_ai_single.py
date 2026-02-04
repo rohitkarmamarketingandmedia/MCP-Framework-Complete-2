@@ -907,6 +907,13 @@ LOCAL SEO GUARDRAILS:
 
 ===== REQUIRED STRUCTURE (EXACT ORDER) =====
 
+**CRITICAL: H2 HEADING RULES**
+- H2 headings should be SHORT and DESCRIPTIVE (5-10 words max)
+- DO NOT use the full keyword in H2 headings
+- DO NOT add city name to H2 headings if keyword already contains city
+- Good H2: "Key Benefits", "Our Process", "Pricing Guide"
+- Bad H2: "Benefits of Soak Up Summer With Our Top Custom Lake Home Ideas In Brainerd"
+
 1. INTRODUCTION (≈250 words)
    - Introduce the service and primary keyword
    - Explain why people in {req.city}, {req.state} are searching now
@@ -917,16 +924,15 @@ LOCAL SEO GUARDRAILS:
    - EXACTLY 3 benefits
    - ≈100 words each
    - Outcome-focused, specific results
-   - H2 heading: "Benefits of [Short Topic Description]"
-   - DO NOT repeat the full keyword in every H2!
+   - H2: "Key Benefits" or "Benefits of [2-3 word topic]"
    
 3. OUR PROCESS (≈200 words)
    - Explain how {req.company_name} delivers the service
-   - H2 heading: "Our [Service] Process"
+   - H2: "Our Process" or "How It Works"
    - Insert internal links contextually
 
 4. PRICING AND COST FACTORS (≈200 words)
-   - H2 heading: "[Service] Cost Factors" or "Pricing Guide"
+   - H2: "Pricing Guide" or "Cost Factors"
    - Explain pricing drivers specific to {req.city}, {req.state}
    - Include actual price ranges when possible
    - Emphasize transparency
@@ -934,7 +940,7 @@ LOCAL SEO GUARDRAILS:
    {mid_cta}
 
 5. WHY CHOOSE {req.company_name} (≈200 words)
-   - H2 heading: "Why {req.city} Residents Choose {req.company_name}"
+   - H2: "Why Choose {req.company_name}"
    - Align with business positioning
    - Emphasize trust, experience, credibility
    - Include internal links naturally
@@ -942,11 +948,10 @@ LOCAL SEO GUARDRAILS:
 6. FREQUENTLY ASKED QUESTIONS
    - Do NOT put in body - put in faq_items array only
    - EXACTLY 5 FAQs
-   - At least one must include "{keyword}"
    - Questions must reflect real user intent
 
 7. GET STARTED TODAY (≈150 words)
-   - Use H2: "Get Started with {{keyword}} Today"
+   - H2: "Get Started Today" or "Contact Us"
    - Reinforce urgency and relevance
    - **INSERT BOTTOM CTA HERE** (at very end, after conclusion):
    {bottom_cta}
@@ -961,12 +966,12 @@ Return ONLY valid JSON:
 {{
     "meta_title": "[50-60 chars with keyword]",
     "meta_description": "[150-160 chars with city and CTA]",
-    "h1": "{keyword.title()}{'' if keyword_has_city else f' in {req.city}'}: Complete Guide",
-    "body": "<p>Introduction with keyword in first sentence...</p><h2>Benefits of {keyword.title()}{city_suffix}</h2><p>Benefit content...</p><h2>Our {keyword.title()} Process</h2><p>Process content...</p>[MID CTA]<h2>Cost of {keyword.title()}{city_suffix}</h2><p>Pricing content...</p><h2>Why {req.city} Residents Choose {req.company_name}</h2><p>Why choose content...</p><h2>Get Started with {keyword.title()} Today</h2><p>Conclusion...</p>[BOTTOM CTA]",
+    "h1": "{keyword.title()}",
+    "body": "<p>Introduction with keyword in first sentence...</p><h2>Key Benefits</h2><p>Benefit content...</p><h2>Our Process</h2><p>Process content...</p>[MID CTA]<h2>Pricing and Cost Factors</h2><p>Pricing content...</p><h2>Why {req.city} Residents Choose {req.company_name}</h2><p>Why choose content...</p><h2>Get Started Today</h2><p>Conclusion...</p>[BOTTOM CTA]",
     "faq_items": [
-        {{"question": "What is the cost of {keyword} in {req.city}?", "answer": "60-80 word answer"}},
-        {{"question": "How long does {keyword} take?", "answer": "60-80 word answer"}},
-        {{"question": "Why should I hire {req.company_name} for {keyword}?", "answer": "60-80 word answer"}},
+        {{"question": "What is the cost of [service] in {req.city}?", "answer": "60-80 word answer"}},
+        {{"question": "How long does [service] take?", "answer": "60-80 word answer"}},
+        {{"question": "Why should I hire {req.company_name}?", "answer": "60-80 word answer"}},
         {{"question": "[Question about process]", "answer": "60-80 word answer"}},
         {{"question": "[Question about warranty/guarantee]", "answer": "60-80 word answer"}}
     ],
