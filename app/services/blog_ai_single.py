@@ -1764,7 +1764,31 @@ OUTPUT JSON:"""
         kw_lower = keyword.lower().strip()
         kw_title = self._title_case(keyword)
         
-        # Check if keyword already has city (full name OR first word for multi-word cities)
+        # Extract a SHORT service phrase from the keyword (not the full long keyword)
+        # For "Soak Up Summer with Our Top Custom Lake Home Ideas" -> "custom lake home ideas"
+        kw_words = keyword.split()
+        
+        # Find key service words (skip filler words at the start)
+        skip_words = {'soak', 'up', 'summer', 'with', 'our', 'top', 'the', 'best', 'your', 'a', 'an', 'for', 'in', 'on', 'to', 'and', 'of'}
+        service_words = []
+        for word in kw_words:
+            if word.lower() not in skip_words or len(service_words) > 0:
+                service_words.append(word)
+        
+        # Take last 3-5 meaningful words as the service
+        if len(service_words) > 5:
+            service_phrase = ' '.join(service_words[-5:]).lower()
+        elif len(service_words) > 0:
+            service_phrase = ' '.join(service_words).lower()
+        else:
+            service_phrase = kw_lower
+        
+        # Remove city from service phrase if present
+        if city:
+            city_lower = city.lower()
+            service_phrase = service_phrase.replace(f' in {city_lower}', '').replace(f' {city_lower}', '').strip()
+        
+        # Check if keyword already has city
         city_lower = city.lower() if city else ''
         city_first_word = city_lower.split()[0] if city_lower else ''
         
@@ -1777,29 +1801,32 @@ OUTPUT JSON:"""
         # Phone CTA
         phone_cta = f"Call {phone}" if phone else "Contact us"
         
-        # If existing description is good length, use it
+        # If existing description is good length and doesn't have issues, use it
         if meta_desc and target_min <= len(meta_desc) <= target_max:
-            return meta_desc
+            # Check it's not using the awkward full keyword
+            if kw_lower not in meta_desc.lower() or len(keyword) < 40:
+                return meta_desc
         
-        # Generate description templates (varied for uniqueness)
-        templates = [
-            f"Looking for {kw_lower}? {company_name} offers professional service with quality results. {phone_cta} for a free estimate today!",
-            f"Need {kw_lower}? {company_name} provides expert solutions you can trust. Fast, reliable service. {phone_cta} now for a quote!",
-            f"{company_name} specializes in {kw_lower}. Get quality service from experienced professionals. {phone_cta} for your free consultation!",
-            f"Professional {kw_lower} by {company_name}. We deliver exceptional results every time. {phone_cta} today for a free estimate!",
-            f"Trust {company_name} for all your {kw_lower} needs. Expert service, competitive prices. {phone_cta} to schedule your appointment!",
-            f"Get the best {kw_lower} from {company_name}. Licensed professionals, guaranteed satisfaction. {phone_cta} for a free quote today!",
-            f"Searching for reliable {kw_lower}? {company_name} has you covered with expert service. {phone_cta} now to get started!",
-            f"{company_name}: Your trusted source for {kw_lower}. Quality work, fair prices, great service. {phone_cta} for a free estimate!",
-        ]
-        
-        # Add city-specific templates if city not in keyword
+        # Generate BETTER description templates using short service phrase
+        # These sound more natural
         if city and not keyword_has_city:
-            templates.extend([
-                f"Need {kw_lower} in {city}? {company_name} delivers expert service to local customers. {phone_cta} for your free estimate!",
-                f"{city}'s trusted choice for {kw_lower}. {company_name} provides quality service you can count on. {phone_cta} today!",
-                f"Looking for {kw_lower} in {city}? {company_name} offers professional solutions. {phone_cta} now for a free consultation!",
-            ])
+            templates = [
+                f"Looking for {service_phrase} in {city}? {company_name} offers professional service with quality results. {phone_cta} for a free estimate!",
+                f"Need {service_phrase} in {city}? {company_name} provides expert solutions you can trust. {phone_cta} for a free quote today!",
+                f"{company_name} is {city}'s trusted choice for {service_phrase}. Quality work, competitive prices. {phone_cta} for your free consultation!",
+                f"Professional {service_phrase} in {city} by {company_name}. We deliver exceptional results every time. {phone_cta} today!",
+                f"{city} residents trust {company_name} for {service_phrase}. Expert service, guaranteed satisfaction. {phone_cta} for a free estimate!",
+                f"Get quality {service_phrase} in {city} from {company_name}. Licensed professionals ready to help. {phone_cta} now!",
+            ]
+        else:
+            templates = [
+                f"Looking for {service_phrase}? {company_name} offers professional service with quality results. {phone_cta} for a free estimate today!",
+                f"Need {service_phrase}? {company_name} provides expert solutions you can trust. Fast, reliable service. {phone_cta} for a quote!",
+                f"{company_name} specializes in {service_phrase}. Quality work from experienced professionals. {phone_cta} for your free consultation!",
+                f"Professional {service_phrase} by {company_name}. We deliver exceptional results every time. {phone_cta} for a free estimate!",
+                f"Trust {company_name} for quality {service_phrase}. Expert service, competitive prices. {phone_cta} to get started today!",
+                f"Get the best {service_phrase} from {company_name}. Licensed professionals, guaranteed satisfaction. {phone_cta} for a free quote!",
+            ]
         
         # Shuffle for randomness
         random.shuffle(templates)
