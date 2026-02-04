@@ -117,14 +117,17 @@ class BlogAISingle:
         
         # 7) Fix duplicate locations in titles
         result = self._fix_duplicate_locations(result, req.city, req.state)
+        
+        # 8) AI CLEANUP - Send to AI to fix any remaining issues
+        result = self._ai_cleanup(result, req)
 
-        # 8) Build HTML
+        # 9) Build HTML
         result["html"] = result.get("body", "")
         
-        # 9) Calculate word count
+        # 10) Calculate word count
         result["word_count"] = self._word_count(result.get("body", ""))
         
-        # 10) Final validation
+        # 11) Final validation
         validation_result = self._validate_output(result, req)
         if validation_result['errors']:
             logger.warning(f"Validation errors: {validation_result['errors']}")
@@ -132,6 +135,133 @@ class BlogAISingle:
         logger.info(f"BlogAISingle.generate complete: {result['word_count']} words")
 
         return result
+    
+    def _ai_cleanup(self, result: Dict[str, Any], req: BlogRequest) -> Dict[str, Any]:
+        """Use AI to fix any remaining issues like duplicate cities, bad H2s, etc."""
+        try:
+            city = req.city or ''
+            
+            # Extract all H2 headings from body
+            import re
+            body = result.get('body', '')
+            h2_matches = re.findall(r'<h2>([^<]+)</h2>', body, re.IGNORECASE)
+            
+            # Check if there are issues to fix
+            has_issues = False
+            for h2 in h2_matches:
+                # Check for duplicate city
+                city_count = h2.lower().count(city.lower()) if city else 0
+                if city_count > 1:
+                    has_issues = True
+                    break
+                # Check for overly long H2 (keyword stuffing)
+                if len(h2) > 80:
+                    has_issues = True
+                    break
+            
+            # Also check title
+            title = result.get('title', '')
+            if city and title.lower().count(city.lower()) > 1:
+                has_issues = True
+            
+            if not has_issues:
+                logger.info("AI cleanup: No issues detected, skipping")
+                return result
+            
+            logger.info("AI cleanup: Issues detected, calling AI to fix...")
+            
+            # Build cleanup prompt
+            cleanup_prompt = f"""Fix the following blog content issues. The city is "{city}".
+
+ISSUES TO FIX:
+1. Remove duplicate city names (e.g., "in Brainerd in Brainerd" -> "in Brainerd")
+2. Shorten overly long H2 headings (max 60 chars, don't repeat the full keyword)
+3. H2 headings should be simple like "Key Benefits", "Our Process", "Pricing Guide"
+
+CURRENT CONTENT:
+
+Title: {result.get('title', '')}
+
+H1: {result.get('h1', '')}
+
+Meta Title: {result.get('meta_title', '')}
+
+H2 Headings:
+{chr(10).join(['- ' + h2 for h2 in h2_matches])}
+
+Return ONLY a JSON object with the fixed values:
+{{
+    "title": "fixed title",
+    "h1": "fixed h1", 
+    "meta_title": "fixed meta title",
+    "h2_fixes": [
+        {{"original": "original h2 text", "fixed": "fixed h2 text"}},
+        ...
+    ]
+}}
+
+Only include items that need fixing. If something is fine, don't include it."""
+
+            response = self.client.chat.completions.create(
+                model="gpt-4o-mini",  # Use fast model for cleanup
+                messages=[
+                    {"role": "system", "content": "You fix blog content issues. Return only valid JSON."},
+                    {"role": "user", "content": cleanup_prompt}
+                ],
+                temperature=0.1,
+                max_tokens=1000
+            )
+            
+            cleanup_text = response.choices[0].message.content.strip()
+            logger.info(f"AI cleanup response: {cleanup_text[:200]}...")
+            
+            # Parse the response
+            cleanup_data = self._robust_parse_json(cleanup_text)
+            
+            if not cleanup_data:
+                logger.warning("AI cleanup: Could not parse response")
+                return result
+            
+            # Apply fixes
+            if cleanup_data.get('title'):
+                logger.info(f"AI cleanup title: '{result.get('title', '')[:50]}' -> '{cleanup_data['title'][:50]}'")
+                result['title'] = cleanup_data['title']
+            
+            if cleanup_data.get('h1'):
+                logger.info(f"AI cleanup h1: '{result.get('h1', '')[:50]}' -> '{cleanup_data['h1'][:50]}'")
+                result['h1'] = cleanup_data['h1']
+            
+            if cleanup_data.get('meta_title'):
+                logger.info(f"AI cleanup meta_title: '{result.get('meta_title', '')[:50]}' -> '{cleanup_data['meta_title'][:50]}'")
+                result['meta_title'] = cleanup_data['meta_title']
+            
+            # Apply H2 fixes to body
+            h2_fixes = cleanup_data.get('h2_fixes', [])
+            if h2_fixes and body:
+                for fix in h2_fixes:
+                    if fix.get('original') and fix.get('fixed'):
+                        old_h2 = f"<h2>{fix['original']}</h2>"
+                        new_h2 = f"<h2>{fix['fixed']}</h2>"
+                        if old_h2 in body:
+                            body = body.replace(old_h2, new_h2)
+                            logger.info(f"AI cleanup H2: '{fix['original'][:40]}' -> '{fix['fixed'][:40]}'")
+                        else:
+                            # Try case-insensitive replacement
+                            body = re.sub(
+                                re.escape(old_h2), 
+                                new_h2, 
+                                body, 
+                                flags=re.IGNORECASE
+                            )
+                
+                result['body'] = body
+            
+            logger.info("AI cleanup: Completed successfully")
+            return result
+            
+        except Exception as e:
+            logger.error(f"AI cleanup error: {e}")
+            return result  # Return original on error
     
     def _fix_duplicate_locations(self, result: Dict[str, Any], city: str, state: str) -> Dict[str, Any]:
         """Fix duplicate location patterns in titles and body - SUPER AGGRESSIVE VERSION"""
@@ -165,6 +295,7 @@ class BlogAISingle:
                 return text
             
             original = text
+            logger.info(f"remove_duplicate_locations input: '{text[:100]}...' with city_variations={city_variations}")
             
             # Step 0: Remove standalone "In MN" or "In Minnesota" patterns when followed by another "In"
             for st in state_abbrevs + state_names:
@@ -175,6 +306,7 @@ class BlogAISingle:
                 city_esc = re.escape(city_var)
                 pattern = rf'(\s+[Ii]n\s+{city_esc})'
                 matches = list(re.finditer(pattern, text, flags=re.IGNORECASE))
+                logger.info(f"Checking for 'in {city_var}': found {len(matches)} matches")
                 if len(matches) > 1:
                     # Remove all but the last one
                     for match in reversed(matches[:-1]):
@@ -299,7 +431,10 @@ class BlogAISingle:
             
             # Fix H2 headings - use aggressive cleaning
             def fix_h2(match):
-                return f'<h2>{clean_h2_heading(match.group(1))}</h2>'
+                original_h2 = match.group(1)
+                cleaned = clean_h2_heading(original_h2)
+                logger.info(f"H2 fix: '{original_h2[:80]}' -> '{cleaned[:80]}'")
+                return f'<h2>{cleaned}</h2>'
             body = re.sub(r'<h2>([^<]+)</h2>', fix_h2, body, flags=re.IGNORECASE)
             
             # Fix H3 headings
