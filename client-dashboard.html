@@ -12488,14 +12488,10 @@
                     .replace(/:\s*$/g, '')
                     .trim();
                 
-                console.log('After cleanup:', optimizedKeyword);
-                
-                // Step 4: Add city at the end (only once)
-                if (clientCity && optimizedKeyword) {
-                    optimizedKeyword = `${optimizedKeyword} in ${clientCity}`;
-                }
-                
                 console.log('Final keyword:', optimizedKeyword);
+                
+                // NOTE: Do NOT add city here - the backend handles city injection properly
+                // Adding city in frontend causes duplicate city issues
             }
             
             const confirmMsg = isCounterContent 
