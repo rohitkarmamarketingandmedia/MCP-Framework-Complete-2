@@ -974,6 +974,8 @@ def bulk_generate(current_user):
             continue
         
         try:
+            logger.info(f"[BULK] Starting blog generation for keyword: {keyword}")
+            
             # Use BlogAISingle for generation (handles city deduplication)
             blog_request = BlogRequest(
                 keyword=keyword,
@@ -989,9 +991,12 @@ def bulk_generate(current_user):
                 internal_links=blog_internal_links
             )
             
+            logger.info(f"[BULK] BlogRequest created, calling generate...")
             result = blog_gen.generate(blog_request)
+            logger.info(f"[BULK] Generate returned, checking result...")
             
             if result.get('error'):
+                logger.error(f"[BULK] Generation returned error: {result['error']}")
                 results.append({
                     'keyword': keyword,
                     'success': False,
@@ -1081,12 +1086,16 @@ def bulk_generate(current_user):
                 'links_added': links_added,
                 'seo_score': seo_score
             })
+            logger.info(f"[BULK] Successfully generated blog for '{keyword}'")
             
         except Exception as e:
+            import traceback
+            logger.error(f"[BULK] Exception generating blog for '{keyword}': {str(e)}")
+            logger.error(f"[BULK] Traceback: {traceback.format_exc()}")
             results.append({
                 'keyword': keyword,
                 'success': False,
-                'error': 'An error occurred. Please try again.'
+                'error': str(e)  # Return actual error message
             })
     
     return jsonify({
