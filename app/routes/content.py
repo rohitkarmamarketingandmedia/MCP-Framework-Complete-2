@@ -1325,8 +1325,47 @@ def generate_blog_simple(current_user):
     This endpoint now starts async generation and returns task_id.
     Use /blog/task/<task_id> to check status.
     """
-    # Just call the async version
-    return generate_blog_async(current_user)
+    # Import the logic directly instead of calling decorated function
+    from flask import request, jsonify, current_app
+    import threading
+    import uuid
+    from app.services.blog_ai_single import get_blog_ai_single, BlogRequest
+    
+    if not current_user.can_generate_content:
+        return jsonify({'error': 'Permission denied'}), 403
+    
+    data = request.get_json(silent=True) or {}
+    
+    client_id = data.get('client_id')
+    keyword = data.get('keyword') or data.get('topic', '')
+    word_count = data.get('word_count', current_app.config.get('DEFAULT_BLOG_WORD_COUNT', 1200))
+    
+    if not client_id or not keyword:
+        return jsonify({'error': 'client_id and keyword required'}), 400
+    
+    # Get client
+    client = data_service.get_client(client_id)
+    if not client:
+        return jsonify({'error': 'Client not found'}), 404
+    
+    if not current_user.has_access_to_client(client_id):
+        return jsonify({'error': 'Access denied'}), 403
+    
+    # Generate task ID
+    task_id = str(uuid.uuid4())
+    
+    # Start background generation
+    def background_generate():
+        _generate_blog_background(task_id, client, keyword, word_count, data)
+    
+    thread = threading.Thread(target=background_generate)
+    thread.start()
+    
+    return jsonify({
+        'task_id': task_id,
+        'status': 'started',
+        'message': 'Blog generation started'
+    })
 
 
 @content_bp.route('/blog/<blog_id>', methods=['PATCH'])
