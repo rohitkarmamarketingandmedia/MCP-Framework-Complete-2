@@ -137,7 +137,7 @@ class BlogAISingle:
         return result
     
     def _ai_cleanup(self, result: Dict[str, Any], req: BlogRequest) -> Dict[str, Any]:
-        """Use AI to fix any remaining issues like duplicate cities, bad H2s, etc."""
+        """Use AI to fix any remaining issues like duplicate cities, bad H2s, etc. ALWAYS RUNS."""
         try:
             city = req.city or ''
             if not city:
@@ -152,53 +152,51 @@ class BlogAISingle:
             title = result.get('title', '')
             h1 = result.get('h1', '')
             
-            # Check for ANY issues - be aggressive
-            has_issues = False
             city_lower = city.lower()
+            
+            # ALWAYS check for issues - look at raw body text too
+            issues_found = []
+            
+            # Check for "in City in City" pattern anywhere in body
+            double_city_pattern = rf'[Ii]n\s+{re.escape(city)}[^<]*[Ii]n\s+{re.escape(city)}'
+            if re.search(double_city_pattern, body, re.IGNORECASE):
+                issues_found.append(f"Found 'in {city} ... in {city}' pattern in body")
             
             # Check title for duplicate city
             if city_lower and title.lower().count(city_lower) > 1:
-                has_issues = True
-                logger.info(f"AI cleanup: Found duplicate city in title: '{title[:60]}'")
+                issues_found.append(f"Duplicate city in title")
             
             # Check h1 for duplicate city  
             if city_lower and h1.lower().count(city_lower) > 1:
-                has_issues = True
-                logger.info(f"AI cleanup: Found duplicate city in h1: '{h1[:60]}'")
+                issues_found.append(f"Duplicate city in h1")
             
-            # Check H2s for issues
+            # Check each H2 for issues
             for h2 in h2_matches:
                 h2_lower = h2.lower()
-                # Check for duplicate city in H2
+                # Duplicate city in H2
                 if city_lower and h2_lower.count(city_lower) > 1:
-                    has_issues = True
-                    logger.info(f"AI cleanup: Found duplicate city in H2: '{h2[:60]}'")
-                    break
-                # Check for "in City" appearing in H2 (often a sign of keyword stuffing)
-                if f'in {city_lower}' in h2_lower and len(h2) > 50:
-                    has_issues = True
-                    logger.info(f"AI cleanup: Found 'in {city}' in long H2: '{h2[:60]}'")
-                    break
-                # Check for overly long H2 (keyword stuffing)
-                if len(h2) > 70:
-                    has_issues = True
-                    logger.info(f"AI cleanup: Found overly long H2 ({len(h2)} chars): '{h2[:60]}'")
-                    break
+                    issues_found.append(f"Duplicate city in H2: '{h2[:50]}'")
+                # "in City" in a long H2 (keyword stuffing)
+                elif f'in {city_lower}' in h2_lower and len(h2) > 50:
+                    issues_found.append(f"Long H2 with city: '{h2[:50]}'")
+                # Just too long
+                elif len(h2) > 70:
+                    issues_found.append(f"Overly long H2: '{h2[:50]}'")
             
-            if not has_issues:
+            if not issues_found:
                 logger.info("AI cleanup: No issues detected, skipping")
                 return result
             
-            logger.info("AI cleanup: Issues detected, calling AI to fix...")
+            logger.info(f"AI cleanup: Found {len(issues_found)} issues: {issues_found[:3]}")
             
             # Build cleanup prompt
             cleanup_prompt = f"""Fix the following blog content. The target city is "{city}".
 
 PROBLEMS TO FIX:
 1. DUPLICATE CITY: Remove any duplicate "{city}" - e.g., "in {city} in {city}" should become "in {city}"
-2. LONG H2 HEADINGS: H2 headings should be SHORT (under 50 chars). Don't repeat the full keyword in H2s.
+2. LONG H2 HEADINGS: H2 headings should be SHORT (under 50 chars). Don't repeat the full keyword.
    - BAD: "Soak Up Summer With Our Top Custom Lake Home Ideas In {city} in {city}: Key Benefits"
-   - GOOD: "Key Benefits of Custom Lake Homes"
+   - GOOD: "Key Benefits"
 3. Keep the meaning but make it clean and professional
 
 CURRENT CONTENT TO FIX:
@@ -207,32 +205,35 @@ Title: {title}
 
 H1: {h1}
 
-H2 Headings:
+H2 Headings (fix any that are too long or have duplicate city):
 {chr(10).join(['- ' + h2 for h2 in h2_matches])}
 
-Return ONLY a JSON object with the fixed values. Only include fields that need fixing:
+Return ONLY a JSON object with the fixed values:
 {{
-    "title": "fixed title if needed",
-    "h1": "fixed h1 if needed", 
+    "title": "fixed title without duplicate city",
+    "h1": "fixed h1 without duplicate city", 
     "h2_fixes": [
         {{"original": "exact original h2 text", "fixed": "short clean h2 text"}}
     ]
 }}
 
-IMPORTANT: H2 fixes should be SHORT like "Key Benefits", "Our Process", "Pricing Guide" - NOT the full keyword repeated."""
+CRITICAL: 
+- H2 fixes should be SHORT like "Key Benefits", "Our Process", "Pricing Guide"
+- Remove duplicate city names
+- Only include fields that need fixing"""
 
             response = self.client.chat.completions.create(
                 model="gpt-4o-mini",
                 messages=[
-                    {"role": "system", "content": "You fix blog content issues. Return only valid JSON. Make H2 headings SHORT and clean."},
+                    {"role": "system", "content": "You fix blog content issues. Return only valid JSON. Make H2 headings SHORT."},
                     {"role": "user", "content": cleanup_prompt}
                 ],
                 temperature=0.1,
-                max_tokens=1500
+                max_tokens=2000
             )
             
             cleanup_text = response.choices[0].message.content.strip()
-            logger.info(f"AI cleanup response: {cleanup_text[:300]}...")
+            logger.info(f"AI cleanup response: {cleanup_text[:400]}...")
             
             # Parse the response
             cleanup_data = self._robust_parse_json(cleanup_text)
@@ -243,33 +244,58 @@ IMPORTANT: H2 fixes should be SHORT like "Key Benefits", "Our Process", "Pricing
             
             # Apply fixes
             if cleanup_data.get('title'):
-                logger.info(f"AI cleanup title: '{result.get('title', '')[:50]}' -> '{cleanup_data['title'][:50]}'")
-                result['title'] = cleanup_data['title']
+                old_title = result.get('title', '')
+                new_title = cleanup_data['title']
+                if old_title != new_title:
+                    logger.info(f"AI cleanup title: '{old_title[:50]}' -> '{new_title[:50]}'")
+                    result['title'] = new_title
             
             if cleanup_data.get('h1'):
-                logger.info(f"AI cleanup h1: '{result.get('h1', '')[:50]}' -> '{cleanup_data['h1'][:50]}'")
-                result['h1'] = cleanup_data['h1']
+                old_h1 = result.get('h1', '')
+                new_h1 = cleanup_data['h1']
+                if old_h1 != new_h1:
+                    logger.info(f"AI cleanup h1: '{old_h1[:50]}' -> '{new_h1[:50]}'")
+                    result['h1'] = new_h1
             
             # Apply H2 fixes to body
             h2_fixes = cleanup_data.get('h2_fixes', [])
             if h2_fixes and body:
+                fixes_applied = 0
                 for fix in h2_fixes:
                     if fix.get('original') and fix.get('fixed'):
-                        # Try exact match first
-                        old_h2 = f"<h2>{fix['original']}</h2>"
-                        new_h2 = f"<h2>{fix['fixed']}</h2>"
+                        original = fix['original']
+                        fixed = fix['fixed']
                         
-                        if old_h2 in body:
-                            body = body.replace(old_h2, new_h2)
-                            logger.info(f"AI cleanup H2: '{fix['original'][:40]}...' -> '{fix['fixed']}'")
+                        # Try multiple matching strategies
+                        old_h2_exact = f"<h2>{original}</h2>"
+                        new_h2 = f"<h2>{fixed}</h2>"
+                        
+                        if old_h2_exact in body:
+                            body = body.replace(old_h2_exact, new_h2)
+                            fixes_applied += 1
+                            logger.info(f"AI cleanup H2 (exact): '{original[:40]}' -> '{fixed}'")
                         else:
-                            # Try case-insensitive match
-                            pattern = re.compile(re.escape(old_h2), re.IGNORECASE)
+                            # Case-insensitive search
+                            pattern = re.compile(r'<h2>' + re.escape(original) + r'</h2>', re.IGNORECASE)
                             if pattern.search(body):
                                 body = pattern.sub(new_h2, body)
-                                logger.info(f"AI cleanup H2 (case-insensitive): '{fix['original'][:40]}...' -> '{fix['fixed']}'")
+                                fixes_applied += 1
+                                logger.info(f"AI cleanup H2 (case-insensitive): '{original[:40]}' -> '{fixed}'")
+                            else:
+                                # Partial match - the original might be truncated
+                                if len(original) > 20:
+                                    partial = original[:30]
+                                    partial_pattern = re.compile(r'<h2>([^<]*' + re.escape(partial) + r'[^<]*)</h2>', re.IGNORECASE)
+                                    match = partial_pattern.search(body)
+                                    if match:
+                                        full_original = match.group(0)
+                                        body = body.replace(full_original, new_h2)
+                                        fixes_applied += 1
+                                        logger.info(f"AI cleanup H2 (partial): '{match.group(1)[:40]}' -> '{fixed}'")
                 
-                result['body'] = body
+                if fixes_applied > 0:
+                    result['body'] = body
+                    logger.info(f"AI cleanup: Applied {fixes_applied} H2 fixes")
             
             logger.info("AI cleanup: Completed successfully")
             return result
@@ -1695,12 +1721,29 @@ OUTPUT JSON:"""
                 if target_min <= len(test) <= target_max:
                     return test
         
-        # If too long, truncate
+        # If too long, truncate intelligently
         if len(base) > target_max:
-            # Try without company name
-            if len(kw_title) <= target_max - 3:
-                return kw_title[:target_max]
-            return base[:target_max-3] + "..."
+            # For very long keywords, create a shortened version
+            # Try to keep the most important parts
+            kw_words = kw_title.split()
+            
+            # Try shorter versions of the keyword
+            for num_words in range(len(kw_words) - 1, 2, -1):
+                short_kw = ' '.join(kw_words[:num_words])
+                test_title = f"{short_kw} | {company_name}"
+                if len(test_title) <= target_max:
+                    # Truncate at word boundary and add ...
+                    if len(test_title) < target_min:
+                        test_title = f"{short_kw}... | {company_name}"
+                    return test_title
+            
+            # Last resort: just the keyword truncated at word boundary
+            for num_words in range(len(kw_words) - 1, 2, -1):
+                short_kw = ' '.join(kw_words[:num_words])
+                if len(short_kw) <= target_max - 3:
+                    return short_kw + "..."
+            
+            return kw_title[:target_max-3] + "..."
         
         return base
 
