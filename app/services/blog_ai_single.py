@@ -363,20 +363,48 @@ class BlogAISingle:
     
     def _detect_city(self, req: BlogRequest):
         """Detect city from keyword and store for later correction"""
+        import re
         keyword_lower = req.keyword.lower()
         keyword_city = None
         
+        # First check KNOWN_CITIES
         for city in self.KNOWN_CITIES:
             if city in keyword_lower:
                 keyword_city = city.title()
                 break
+        
+        # If not found in known cities, try to extract from "in [City]" pattern at end
+        if not keyword_city:
+            # Match "in City" or "In City" at the end of keyword
+            match = re.search(r'\s+[Ii]n\s+([A-Z][a-zA-Z\s]+?)(?:\s*,|\s*$)', req.keyword)
+            if match:
+                potential_city = match.group(1).strip()
+                # Basic validation - city name should be 3-25 chars, no numbers
+                if 3 <= len(potential_city) <= 25 and not re.search(r'\d', potential_city):
+                    keyword_city = potential_city.title()
+                    logger.info(f"Extracted city '{keyword_city}' from 'in [City]' pattern in keyword")
+        
+        # Also check if req.city (from client settings) is in the keyword
+        if not keyword_city and req.city:
+            # Check full city name
+            if req.city.lower() in keyword_lower:
+                keyword_city = req.city
+            else:
+                # Check first word of city for multi-word cities
+                city_first_word = req.city.split()[0].lower()
+                if len(city_first_word) >= 4 and city_first_word in keyword_lower:
+                    # Use the form that's in the keyword, not the full city name
+                    match = re.search(rf'\b({re.escape(city_first_word)})\b', req.keyword, re.IGNORECASE)
+                    if match:
+                        keyword_city = match.group(1).title()
+                        logger.info(f"Found city first word '{keyword_city}' in keyword (settings city: '{req.city}')")
         
         self._settings_city = req.city
         self._keyword_city = keyword_city
         
         # Override req.city with keyword city if found
         if keyword_city:
-            logger.info(f"Detected city '{keyword_city}' from keyword (ignoring settings city '{req.city}')")
+            logger.info(f"Detected city '{keyword_city}' from keyword (settings city was '{req.city}')")
             req.city = keyword_city
             
             # DEDUPLICATE: Remove duplicate city from keyword
@@ -1396,8 +1424,18 @@ OUTPUT JSON:"""
         target_min = 50
         target_max = 60
         
-        # Check if keyword already contains city
-        keyword_has_city = city and city.lower() in keyword.lower()
+        # Check if keyword already contains city (full name OR first word for multi-word cities)
+        keyword_lower = keyword.lower()
+        city_lower = city.lower() if city else ''
+        city_first_word = city_lower.split()[0] if city_lower else ''
+        
+        keyword_has_city = False
+        if city_lower and city_lower in keyword_lower:
+            keyword_has_city = True
+        elif city_first_word and len(city_first_word) >= 4 and city_first_word in keyword_lower:
+            keyword_has_city = True
+        
+        logger.info(f"_fix_meta_title: keyword_has_city={keyword_has_city} (city='{city}', first_word='{city_first_word}')")
         
         # Modifiers to use
         prefixes = ["Expert", "Professional", "Quality", "Top", "Best", "Trusted", "Reliable", "Affordable", "Premier", "Leading", "Local", "#1", "Certified", "Licensed"]
@@ -1531,8 +1569,15 @@ OUTPUT JSON:"""
         kw_lower = keyword.lower().strip()
         kw_title = self._title_case(keyword)
         
-        # Check if keyword already has city
-        keyword_has_city = city and city.lower() in kw_lower
+        # Check if keyword already has city (full name OR first word for multi-word cities)
+        city_lower = city.lower() if city else ''
+        city_first_word = city_lower.split()[0] if city_lower else ''
+        
+        keyword_has_city = False
+        if city_lower and city_lower in kw_lower:
+            keyword_has_city = True
+        elif city_first_word and len(city_first_word) >= 4 and city_first_word in kw_lower:
+            keyword_has_city = True
         
         # Phone CTA
         phone_cta = f"Call {phone}" if phone else "Contact us"
