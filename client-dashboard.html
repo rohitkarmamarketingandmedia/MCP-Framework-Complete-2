@@ -10617,6 +10617,30 @@
             // Get keywords for blogs
             const keywords = availableKeywords.slice(0, actualBlogCount);
             
+            // Helper function to poll for task completion
+            async function waitForTask(taskId, keyword, maxAttempts = 60) {
+                for (let attempt = 0; attempt < maxAttempts; attempt++) {
+                    await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2 seconds
+                    
+                    try {
+                        const statusResponse = await fetch(`/api/content/blog/task/${taskId}`, {
+                            headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
+                        });
+                        const statusData = await statusResponse.json();
+                        
+                        if (statusData.status === 'completed') {
+                            return { success: true, data: statusData };
+                        } else if (statusData.status === 'failed') {
+                            return { success: false, error: statusData.error || 'Generation failed' };
+                        }
+                        // Still pending, continue polling
+                    } catch (e) {
+                        console.error('Error polling task:', e);
+                    }
+                }
+                return { success: false, error: 'Timeout waiting for generation' };
+            }
+            
             // Generate blogs
             for (let i = 0; i < keywords.length; i++) {
                 const keyword = keywords[i];
@@ -10624,7 +10648,8 @@
                 progressLog.scrollTop = progressLog.scrollHeight;
                 
                 try {
-                    const response = await fetch('/api/content/blog/generate', {
+                    // Start async generation
+                    const response = await fetch('/api/content/blog/generate-async', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
@@ -10640,13 +10665,23 @@
                         })
                     });
                     
-                    if (response.ok) {
-                        progressLog.innerHTML += `<div class="text-green-400">✓ Blog: ${keyword}</div>`;
+                    const data = await response.json();
+                    
+                    if (response.ok && data.task_id) {
+                        // Wait for task completion
+                        progressLog.innerHTML += `<div class="text-gray-400">   Waiting for generation...</div>`;
+                        const result = await waitForTask(data.task_id, keyword);
+                        
+                        if (result.success) {
+                            progressLog.innerHTML += `<div class="text-green-400">✓ Blog: ${keyword}</div>`;
+                        } else {
+                            progressLog.innerHTML += `<div class="text-red-400">✗ Failed: ${keyword} - ${result.error}</div>`;
+                        }
                     } else {
-                        progressLog.innerHTML += `<div class="text-red-400">✗ Failed: ${keyword}</div>`;
+                        progressLog.innerHTML += `<div class="text-red-400">✗ Failed: ${keyword} - ${data.error || 'Unknown error'}</div>`;
                     }
                 } catch (error) {
-                    progressLog.innerHTML += `<div class="text-red-400">✗ Error: ${keyword}</div>`;
+                    progressLog.innerHTML += `<div class="text-red-400">✗ Error: ${keyword} - ${error.message}</div>`;
                 }
                 
                 completed++;
