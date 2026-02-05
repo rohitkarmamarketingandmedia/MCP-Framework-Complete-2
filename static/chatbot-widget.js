@@ -422,7 +422,10 @@
                     text-decoration: none;
                 }
                 @media (max-width: 480px) {
-                    .mcp-chat-window {
+                    .mcp-chat-window,
+                    .mcp-chatbot-bottom-right .mcp-chat-window,
+                    .mcp-chatbot-bottom-left .mcp-chat-window {
+                        position: fixed !important;
                         width: 100vw !important;
                         height: calc(100vh - 120px) !important;
                         max-height: 85vh !important;
@@ -682,14 +685,21 @@
 
                 const data = await response.json();
                 this.conversationId = data.conversation_id;
-                // Render messages
-                if (this.messages.length === 0) {
-                    this.renderMessage({
-                        role: 'assistant',
-                        content: "Hi, this is the Karma Marketing team. Happy to help if you want to start a project or have a quick question."
+                
+                // FIX: Use messages returned from API instead of hardcoding
+                // The API returns existing messages for resumed conversations
+                // or just the welcome message for new conversations
+                // This prevents duplicate messages
+                if (data.messages && data.messages.length > 0) {
+                    // Clear any existing messages first
+                    this.messages = [];
+                    this.elements.messages.innerHTML = '';
+                    
+                    // Render messages from API
+                    data.messages.forEach(msg => {
+                        this.messages.push(msg);
+                        this.renderMessage(msg);
                     });
-                } else {
-                    this.messages.forEach(msg => this.renderMessage(msg));
                 }
 
                 if (this.triggered) {
@@ -698,10 +708,13 @@
 
             } catch (err) {
                 console.error('MCP Chatbot: Failed to start conversation', err);
-                this.renderMessage({
-                    role: 'assistant',
-                    content: "Hi, this is the Karma Marketing team. Happy to help if you want to start a project or have a quick question."
-                });
+                // Only show fallback message if we have no messages at all
+                if (this.messages.length === 0) {
+                    this.renderMessage({
+                        role: 'assistant',
+                        content: this.config.welcome_message || "Hi! How can I help you today?"
+                    });
+                }
                 if (this.triggered) this.showIntentOptions();
             }
         },
