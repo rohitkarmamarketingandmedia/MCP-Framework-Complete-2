@@ -146,11 +146,17 @@
                     transform: scale(1.05);
                     box-shadow: 0 6px 20px rgba(0,0,0,0.25);
                 }
+                #mcp-chatbot-container svg path {
+                    fill: inherit !important;
+                }
                 .mcp-chat-bubble svg {
                     width: 28px !important;
                     height: 28px !important;
-                    fill: white !important;
+                    fill: #ffffff !important;
                     display: block !important;
+                    opacity: 1 !important;
+                    visibility: visible !important;
+                    transform: none !important;
                 }
                 .mcp-chat-bubble.mcp-has-unread::after {
                     content: '';
@@ -214,8 +220,11 @@
                 .mcp-chat-avatar svg {
                     width: 24px !important;
                     height: 24px !important;
-                    fill: white !important;
+                    fill: #ffffff !important;
                     display: block !important;
+                    opacity: 1 !important;
+                    visibility: visible !important;
+                    transform: none !important;
                 }
                 .mcp-chat-title {
                     flex: 1;
@@ -234,26 +243,35 @@
                     gap: 8px;
                 }
                 .mcp-chat-controls button {
-                    background: rgba(255,255,255,0.2);
-                    border: none;
-                    width: 32px;
-                    height: 32px;
-                    border-radius: 8px;
-                    cursor: pointer;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    transition: background 0.2s;
+                    background: rgba(255,255,255,0.2) !important;
+                    border: none !important;
+                    width: 32px !important;
+                    height: 32px !important;
+                    min-width: 32px !important;
+                    min-height: 32px !important;
+                    border-radius: 8px !important;
+                    cursor: pointer !important;
+                    display: flex !important;
+                    align-items: center !important;
+                    justify-content: center !important;
+                    transition: background 0.2s !important;
+                    padding: 0 !important;
+                    margin: 0 !important;
+                    opacity: 1 !important;
+                    visibility: visible !important;
                 }
                 .mcp-chat-controls button:hover {
-                    background: rgba(255,255,255,0.3);
+                    background: rgba(255,255,255,0.3) !important;
                 }
                 .mcp-chat-controls button svg {
                     width: 18px !important;
                     height: 18px !important;
-                    fill: white !important;
+                    fill: #ffffff !important;
                     display: block !important;
-                    pointer-events: none;
+                    pointer-events: none !important;
+                    opacity: 1 !important;
+                    visibility: visible !important;
+                    transform: none !important;
                 }
                 .mcp-chat-messages {
                     flex: 1;
@@ -330,29 +348,38 @@
                     border-color: #3b82f6;
                 }
                 .mcp-chat-send {
-                    width: 44px;
-                    height: 44px;
-                    border-radius: 50%;
-                    border: none;
-                    cursor: pointer;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    transition: transform 0.2s;
+                    width: 44px !important;
+                    height: 44px !important;
+                    min-width: 44px !important;
+                    min-height: 44px !important;
+                    border-radius: 50% !important;
+                    border: none !important;
+                    cursor: pointer !important;
+                    display: flex !important;
+                    align-items: center !important;
+                    justify-content: center !important;
+                    transition: transform 0.2s !important;
+                    padding: 0 !important;
+                    margin: 0 !important;
+                    opacity: 1 !important;
+                    visibility: visible !important;
                 }
                 .mcp-chat-send:hover {
-                    transform: scale(1.05);
+                    transform: scale(1.05) !important;
                 }
                 .mcp-chat-send:disabled {
-                    opacity: 0.5;
-                    cursor: not-allowed;
+                    opacity: 0.5 !important;
+                    cursor: not-allowed !important;
                 }
                 .mcp-chat-send svg {
                     width: 20px !important;
                     height: 20px !important;
-                    fill: white !important;
+                    fill: #ffffff !important;
                     display: block !important;
-                    pointer-events: none;
+                    pointer-events: none !important;
+                    opacity: 1 !important;
+                    visibility: visible !important;
+                    transform: none !important;
                 }
                 .mcp-lead-form {
                     display: none;
@@ -415,7 +442,7 @@
         getWidgetHTML: function () {
             return `
                 <div class="mcp-chat-bubble" title="Chat with us">
-                    <svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H5.17L4 17.17V4h16v12z"/><path d="M7 9h10v2H7zm0-4h10v2H7z"/></svg>
+                    <svg viewBox="0 0 24 24" width="28" height="28"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H5.17L4 17.17V4h16v12z"/><path d="M7 9h10v2H7zm0-4h10v2H7z"/></svg>
                 </div>
                 <div class="mcp-chat-window">
                     <div class="mcp-chat-header">
@@ -475,10 +502,10 @@
                 msg.style.background = `linear-gradient(135deg, ${primary}, ${secondary})`;
             });
 
-            this.elements.sendBtn.style.background = primary;
+            this.elements.sendBtn.style.setProperty('background', primary, 'important');
 
             const leadBtn = this.elements.leadForm.querySelector('button');
-            if (leadBtn) leadBtn.style.background = primary;
+            if (leadBtn) leadBtn.style.setProperty('background', primary, 'important');
         },
 
         bindEvents: function () {

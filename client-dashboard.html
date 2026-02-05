@@ -128,6 +128,45 @@
             }
         }
 
+        /* Chat Modal Styles */
+        .chat-bubble {
+            max-width: 80%;
+            padding: 12px 16px;
+            border-radius: 16px;
+            font-size: 0.95rem;
+            line-height: 1.5;
+            position: relative;
+        }
+
+        .chat-row {
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+            margin-bottom: 12px;
+        }
+
+        .chat-bubble-user {
+            align-self: flex-end;
+            background: rgba(59, 130, 246, 0.15);
+            color: white;
+            border-bottom-right-radius: 4px;
+            border: 1px solid rgba(59, 130, 246, 0.2);
+        }
+
+        .chat-bubble-assistant {
+            align-self: flex-start;
+            background: rgba(255, 255, 255, 0.05);
+            color: #cbd5e1;
+            border-bottom-left-radius: 4px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .chat-time {
+            font-size: 0.75rem;
+            color: #64748b;
+            margin-top: 4px;
+        }
+
         /* Health score circle animation */
         .health-circle {
             stroke-dasharray: 283;
@@ -3067,6 +3106,77 @@
                 </div>
             </div>
 
+            <!-- Chat Conversations Modal -->
+            <div id="chatModal" class="hidden fixed inset-0 bg-black/95 z-50 overflow-y-auto"
+                onclick="if(event.target === this) closeChatModal()">
+                <div class="max-w-4xl mx-auto py-8 px-4">
+                    <div class="glass-light rounded-2xl overflow-hidden fade-in" onclick="event.stopPropagation()">
+                        <div class="bg-gradient-to-r from-blue-600 to-indigo-600 p-6 flex items-center justify-between">
+                            <div>
+                                <h2 id="chatModalTitle" class="text-2xl font-bold text-white">AI Chat Conversations</h2>
+                                <p id="chatModalSubtitle" class="text-white/70 text-sm">Review interaction history</p>
+                            </div>
+                            <div class="flex items-center gap-3">
+                                <button id="chatBackBtn" onclick="showConversationList()"
+                                    class="hidden px-3 py-1 bg-white/20 hover:bg-white/30 text-white rounded-lg text-sm transition">
+                                    <i class="fas fa-arrow-left mr-1"></i> Back to List
+                                </button>
+                                <button onclick="closeChatModal()" class="p-2 hover:bg-white/20 rounded-lg transition">
+                                    <i class="fas fa-times text-white text-xl"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- List View -->
+                        <div id="chatListView" class="p-6">
+                            <div class="overflow-x-auto">
+                                <table class="w-full text-left">
+                                    <thead>
+                                        <tr
+                                            class="text-gray-400 text-sm border-b border-white/10 uppercase tracking-wider">
+                                            <th class="pb-4 font-medium">Visitor</th>
+                                            <th class="pb-4 font-medium">Status</th>
+                                            <th class="pb-4 font-medium">Messages</th>
+                                            <th class="pb-4 font-medium">Last Interaction</th>
+                                            <th class="pb-4 font-medium">Action</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="allConversationsBody" class="text-white divide-y divide-white/5">
+                                        <!-- Populated by JS -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- Detail View (Initially Hidden) -->
+                        <div id="chatDetailView" class="hidden h-[600px] flex flex-col bg-slate-900/50">
+                            <div class="p-4 border-b border-white/10 bg-white/5 flex items-center justify-between">
+                                <div class="flex items-center gap-3">
+                                    <div id="detailVisitorAvatar"
+                                        class="w-10 h-10 rounded-full bg-blue-500/20 flex items-center justify-center text-blue-400 text-lg">
+                                        <i class="fas fa-user"></i>
+                                    </div>
+                                    <div>
+                                        <h4 id="detailVisitorName" class="text-white font-bold">Anonymous Visitor</h4>
+                                        <p id="detailVisitorMeta" class="text-xs text-gray-400">ID: unknown</p>
+                                    </div>
+                                </div>
+                                <div id="detailLeadStatus"
+                                    class="px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest">
+                                </div>
+                            </div>
+                            <div id="chatMessageHistory" class="flex-1 overflow-y-auto p-6 flex flex-col gap-4">
+                                <!-- Messages go here -->
+                            </div>
+                            <div class="p-4 bg-white/5 border-t border-white/10 text-xs text-gray-500 text-center">
+                                <i class="fas fa-info-circle mr-1"></i> This is a read-only record of the automated AI
+                                support conversation.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Leads Panel -->
             <div id="panel-leads" class="hidden fade-in">
                 <!-- Lead Stats -->
@@ -3764,7 +3874,7 @@
                         <button onclick="setCtaTitle('Have Questions? We Can Help!')"
                             class="px-2 py-1 bg-gray-100 hover:bg-gray-200 rounded text-xs">Have Questions? We Can
                             Help!</button>
-                        <button onclick="setCtaTitle('Let\\'s Discuss Your Project')"
+                        <button onclick="setCtaTitle('Let\'s Discuss Your Project')"
                             class="px-2 py-1 bg-gray-100 hover:bg-gray-200 rounded text-xs">Let's Discuss Your
                             Project</button>
                     </div>
@@ -14174,13 +14284,13 @@
 
                     if (data.conversations && data.conversations.length > 0) {
                         container.innerHTML = data.conversations.map(conv => `
-                            <div class="p-3 glass rounded-lg">
+                            <div class="p-3 glass rounded-lg cursor-pointer hover:bg-white/10 transition" onclick="viewConversation('${conv.id}')">
                                 <div class="flex items-center justify-between mb-1">
                                     <span class="text-white font-medium text-sm">${escapeHtml(conv.visitor_name || 'Anonymous')}</span>
-                                    <span class="text-xs text-gray-500">${getTimeAgo(conv.last_message_at)}</span>
+                                    <span class="text-xs text-gray-400">${getTimeAgo(conv.last_message_at)}</span>
                                 </div>
                                 <div class="flex items-center gap-2 text-xs">
-                                    <span class="text-gray-400">${conv.message_count} messages</span>
+                                    <span class="text-gray-500">${conv.message_count} messages</span>
                                     ${conv.is_lead_captured ? '<span class="text-green-400">✓ Lead</span>' : ''}
                                 </div>
                             </div>
@@ -14316,8 +14426,129 @@
             });
         }
 
-        function viewAllConversations() {
-            alert('Full conversation view coming soon! For now, conversations are listed here.');
+        async function viewAllConversations() {
+            if (!currentClient) return;
+
+            document.getElementById('chatModal').classList.remove('hidden');
+            showConversationList();
+
+            const body = document.getElementById('allConversationsBody');
+            body.innerHTML = '<tr><td colspan="5" class="py-12 text-center text-gray-500">Loading conversations...</td></tr>';
+
+            try {
+                const response = await fetch(`${API_URL}/api/chatbot/conversations?client_id=${currentClient.id}&limit=100`, {
+                    headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.conversations && data.conversations.length > 0) {
+                        body.innerHTML = data.conversations.map(conv => {
+                            const date = new Date(conv.last_message_at).toLocaleString();
+                            return `
+                                <tr class="hover:bg-white/5 transition group">
+                                    <td class="py-4">
+                                        <div class="font-medium text-white">${escapeHtml(conv.visitor_name || 'Anonymous')}</div>
+                                        <div class="text-xs text-gray-500 truncate max-w-[200px]">${conv.visitor_id}</div>
+                                    </td>
+                                    <td class="py-4">
+                                        <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase ${conv.status === 'active' ? 'bg-green-500/20 text-green-400' : 'bg-gray-500/20 text-gray-400'}">
+                                            ${conv.status}
+                                        </span>
+                                    </td>
+                                    <td class="py-4 text-sm">${conv.message_count}</td>
+                                    <td class="py-4 text-sm text-gray-400">${date}</td>
+                                    <td class="py-4">
+                                        <button onclick="viewConversation('${conv.id}')" class="text-blue-400 hover:text-blue-300 text-sm font-medium">
+                                            View Transcript
+                                        </button>
+                                    </td>
+                                </tr>
+                            `;
+                        }).join('');
+                    } else {
+                        body.innerHTML = '<tr><td colspan="5" class="py-12 text-center text-gray-500">No conversations found</td></tr>';
+                    }
+                }
+            } catch (error) {
+                console.error('Failed to load all conversations:', error);
+                body.innerHTML = '<tr><td colspan="5" class="py-12 text-center text-red-400">Error loading conversations</td></tr>';
+            }
+        }
+
+        async function viewConversation(id) {
+            if (!id) return;
+
+            // Show modal and switch to detail view
+            document.getElementById('chatModal').classList.remove('hidden');
+            document.getElementById('chatListView').classList.add('hidden');
+            document.getElementById('chatDetailView').classList.remove('hidden');
+            document.getElementById('chatBackBtn').classList.remove('hidden');
+            document.getElementById('chatModalTitle').textContent = 'Conversation History';
+
+            const historyContainer = document.getElementById('chatMessageHistory');
+            historyContainer.innerHTML = '<div class="flex-1 flex items-center justify-center text-gray-500">Loading message history...</div>';
+
+            try {
+                const response = await fetch(`${API_URL}/api/chatbot/conversations/${id}`, {
+                    headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+
+                    // Update header info
+                    document.getElementById('detailVisitorName').textContent = data.visitor_name || 'Anonymous Visitor';
+                    document.getElementById('detailVisitorMeta').textContent = `ID: ${data.visitor_id} • Started ${getTimeAgo(data.started_at)}`;
+
+                    const leadStatus = document.getElementById('detailLeadStatus');
+                    if (data.is_lead_captured) {
+                        leadStatus.textContent = 'LEAD CAPTURED';
+                        leadStatus.className = 'px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest bg-green-500/20 text-green-400';
+                    } else {
+                        leadStatus.textContent = 'NO LEAD';
+                        leadStatus.className = 'px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest bg-gray-500/20 text-gray-400';
+                    }
+
+                    // Render messages
+                    if (data.messages && data.messages.length > 0) {
+                        historyContainer.innerHTML = data.messages.map(msg => {
+                            const isUser = msg.role === 'user';
+                            return `
+                                <div class="chat-row">
+                                    <div class="chat-bubble ${isUser ? 'chat-bubble-user' : 'chat-bubble-assistant'}">
+                                        ${escapeHtml(msg.content).replace(/\n/g, '<br>')}
+                                    </div>
+                                    <div class="chat-time ${isUser ? 'text-right' : ''}">
+                                        ${new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                    </div>
+                                </div>
+                            `;
+                        }).join('');
+
+                        // Scroll to bottom
+                        setTimeout(() => {
+                            historyContainer.scrollTop = historyContainer.scrollHeight;
+                        }, 100);
+                    } else {
+                        historyContainer.innerHTML = '<div class="flex-1 flex items-center justify-center text-gray-500">No messages found in this conversation</div>';
+                    }
+                }
+            } catch (error) {
+                console.error('Failed to load conversation details:', error);
+                historyContainer.innerHTML = '<div class="flex-1 flex items-center justify-center text-red-400">Error loading message history</div>';
+            }
+        }
+
+        function showConversationList() {
+            document.getElementById('chatListView').classList.remove('hidden');
+            document.getElementById('chatDetailView').classList.add('hidden');
+            document.getElementById('chatBackBtn').classList.add('hidden');
+            document.getElementById('chatModalTitle').textContent = 'AI Chat Conversations';
+        }
+
+        function closeChatModal() {
+            document.getElementById('chatModal').classList.add('hidden');
         }
 
         // ==========================================
