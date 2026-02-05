@@ -298,9 +298,23 @@ def get_lead_stats(current_user):
     if not current_user.has_access_to_client(client_id):
         return jsonify({'error': 'Access denied'}), 403
     
-    days = safe_int(request.args.get('days'), 30, max_val=365)
+    days_val = safe_int(request.args.get('days'), 30, max_val=365)
     
-    stats = lead_service.get_lead_stats(client_id, days)
+    # Check if we should use calendar month
+    use_calendar = request.args.get('calendar', 'true').lower() == 'true'
+    period = 'month'
+    if days_val <= 7: period = 'week'
+    elif days_val > 60: period = 'quarter'
+    
+    start_date, end_date, _, _ = comparative.get_period_dates(period, use_calendar=use_calendar)
+    
+    # We need to update lead_service to take dates, but for now we can calculate effective days
+    effective_days = (datetime.utcnow() - start_date).days
+    stats = lead_service.get_lead_stats(client_id, effective_days)
+    
+    # Override period_days in response to show it's correctly calculating
+    stats['period_days'] = effective_days
+    stats['start_date'] = start_date.isoformat()
     
     return jsonify(stats)
 
@@ -321,9 +335,18 @@ def get_lead_trends(current_user):
     if not current_user.has_access_to_client(client_id):
         return jsonify({'error': 'Access denied'}), 403
     
-    days = safe_int(request.args.get('days'), 30, max_val=365)
+    days_val = safe_int(request.args.get('days'), 30, max_val=365)
     
-    trends = lead_service.get_lead_trends(client_id, days)
+    # Check if we should use calendar month
+    use_calendar = request.args.get('calendar', 'true').lower() == 'true'
+    period = 'month'
+    if days_val <= 7: period = 'week'
+    elif days_val > 60: period = 'quarter'
+    
+    start_date, end_date, _, _ = comparative.get_period_dates(period, use_calendar=use_calendar)
+    effective_days = (datetime.utcnow() - start_date).days
+    
+    trends = lead_service.get_lead_trends(client_id, effective_days)
     
     return jsonify({'trends': trends})
 

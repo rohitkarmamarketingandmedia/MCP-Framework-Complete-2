@@ -31,20 +31,19 @@ def get_overview(current_user, client_id):
     if not current_user.has_access_to_client(client_id):
         return jsonify({'error': 'Access denied'}), 403
     
-    period = request.args.get('period', '30d')
+    period = request.args.get('period', 'month')
     
-    # Parse period
-    if period.endswith('d'):
-        days = int(period[:-1])
-    elif period.endswith('w'):
-        days = int(period[:-1]) * 7
-    elif period.endswith('m'):
-        days = int(period[:-1]) * 30
-    else:
-        days = 30
+    # Map old d/w/m format to service format
+    mapped_period = 'month'
+    if period == '7d' or period == 'week':
+        mapped_period = 'week'
+    elif period == '30d' or period == 'month':
+        mapped_period = 'month'
+    elif period == '90d' or period == 'quarter':
+        mapped_period = 'quarter'
     
-    start_date = datetime.utcnow() - timedelta(days=days)
-    end_date = datetime.utcnow()
+    start_date, end_date, _, _ = comparative.get_period_dates(mapped_period)
+    days = (datetime.utcnow() - start_date).days
     
     client = data_service.get_client(client_id)
     if not client:
@@ -59,19 +58,25 @@ def get_overview(current_user, client_id):
     
     # Get content stats
     content_list = data_service.get_client_blog_posts(client_id)
+    content_this_period = [c for c in content_list if c.created_at and c.created_at >= start_date]
+    
     content_stats = {
-        'total': len(content_list),
-        'published': sum(1 for c in content_list if c.status == 'published'),
-        'draft': sum(1 for c in content_list if c.status in ['draft', 'review', 'approved']),
-        'scheduled': sum(1 for c in content_list if c.status == 'scheduled')
+        'total': len(content_this_period),
+        'published': sum(1 for c in content_this_period if c.status == 'published'),
+        'draft': sum(1 for c in content_this_period if c.status in ['draft', 'review', 'approved']),
+        'scheduled': sum(1 for c in content_this_period if c.status == 'scheduled'),
+        'all_time_total': len(content_list)
     }
     
     # Get social stats
     social_posts = data_service.get_client_social_posts(client_id)
+    social_this_period = [p for p in social_posts if p.created_at and p.created_at >= start_date]
+    
     social_stats = {
-        'total': len(social_posts),
-        'published': sum(1 for p in social_posts if p.status == 'published'),
-        'scheduled': sum(1 for p in social_posts if p.scheduled_for or p.status == 'scheduled')
+        'total': len(social_this_period),
+        'published': sum(1 for p in social_this_period if p.status == 'published'),
+        'scheduled': sum(1 for p in social_this_period if p.scheduled_for or p.status == 'scheduled'),
+        'all_time_total': len(social_posts)
     }
     
     # Get phone calls from CallRail
@@ -114,7 +119,9 @@ def get_overview(current_user, client_id):
         'answer_rate': answer_rate,
         'leads': leads_count,
         'new_leads': leads_count,
-        'content_count': content_stats['total'],
+        'content_count': content_stats['total'] + social_stats['total'],
+        'blogs_count': content_stats['total'],
+        'social_count': social_stats['total'],
         'blogs_published': content_stats['published']
     })
 
