@@ -423,13 +423,14 @@
                 }
                 @media (max-width: 480px) {
                     .mcp-chat-window {
-                        width: calc(100vw - 32px) !important;
+                        width: 100vw !important;
                         height: calc(100vh - 120px) !important;
                         max-height: 85vh !important;
                         bottom: 80px !important;
-                        left: 16px !important;
-                        right: 16px !important;
+                        left: 0 !important;
+                        right: 0 !important;
                         margin: 0 !important;
+                        border-radius: 16px 16px 0 0 !important;
                     }
                 }
                 .mcp-intent-options {
