@@ -3168,9 +3168,21 @@
                             <div id="chatMessageHistory" class="flex-1 overflow-y-auto p-6 flex flex-col gap-4">
                                 <!-- Messages go here -->
                             </div>
-                            <div class="p-4 bg-white/5 border-t border-white/10 text-xs text-gray-500 text-center">
-                                <i class="fas fa-info-circle mr-1"></i> This is a read-only record of the automated AI
-                                support conversation.
+                            <div class="p-4 bg-white/10 border-t border-white/10">
+                                <div class="flex gap-3">
+                                    <input type="text" id="chatReplyInput" placeholder="Type a manual reply..."
+                                        class="flex-1 bg-gray-800 border border-white/10 rounded-xl px-4 py-2 text-white text-sm focus:outline-none focus:border-blue-500"
+                                        onkeypress="if(event.key==='Enter') sendReply()">
+                                    <button onclick="sendReply()" id="chatSendBtn"
+                                        class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-medium transition flex items-center gap-2">
+                                        <span>Send</span>
+                                        <i class="fas fa-paper-plane"></i>
+                                    </button>
+                                </div>
+                                <p class="text-[10px] text-gray-400 mt-2 text-center">
+                                    <i class="fas fa-info-circle mr-1"></i> Manual replies appear as "Assistant"
+                                    messages in the visitor's widget.
+                                </p>
                             </div>
                         </div>
                     </div>
@@ -14283,18 +14295,23 @@
                     const container = document.getElementById('recentConversations');
 
                     if (data.conversations && data.conversations.length > 0) {
-                        container.innerHTML = data.conversations.map(conv => `
-                            <div class="p-3 glass rounded-lg cursor-pointer hover:bg-white/10 transition" onclick="viewConversation('${conv.id}')">
-                                <div class="flex items-center justify-between mb-1">
-                                    <span class="text-white font-medium text-sm">${escapeHtml(conv.visitor_name || 'Anonymous')}</span>
-                                    <span class="text-xs text-gray-400">${getTimeAgo(conv.last_message_at)}</span>
+                        const filtered = data.conversations.filter(c => c.message_count > 1);
+                        if (filtered.length > 0) {
+                            container.innerHTML = filtered.map(conv => `
+                                <div class="p-3 glass rounded-lg cursor-pointer hover:bg-white/10 transition" onclick="viewConversation('${conv.id}')">
+                                    <div class="flex items-center justify-between mb-1">
+                                        <span class="text-white font-medium text-sm">${escapeHtml(conv.visitor_name || 'Anonymous')}</span>
+                                        <span class="text-xs text-gray-400">${getTimeAgo(conv.last_message_at)}</span>
+                                    </div>
+                                    <div class="flex items-center gap-2 text-xs">
+                                        <span class="text-gray-500">${conv.message_count} messages</span>
+                                        ${conv.is_lead_captured ? '<span class="text-green-400">✓ Lead</span>' : ''}
+                                    </div>
                                 </div>
-                                <div class="flex items-center gap-2 text-xs">
-                                    <span class="text-gray-500">${conv.message_count} messages</span>
-                                    ${conv.is_lead_captured ? '<span class="text-green-400">✓ Lead</span>' : ''}
-                                </div>
-                            </div>
-                        `).join('');
+                            `).join('');
+                        } else {
+                            container.innerHTML = '<p class="text-gray-500 text-sm text-center py-4">No conversations yet</p>';
+                        }
                     } else {
                         container.innerHTML = '<p class="text-gray-500 text-sm text-center py-4">No conversations yet</p>';
                     }
@@ -14403,7 +14420,8 @@
         });
         document.getElementById('chatbotName')?.addEventListener('input', updateChatbotPreview);
         document.getElementById('chatbotWelcome')?.addEventListener('input', updateChatbotPreview);
-
+        // Chat global state
+        let currentChatId = null;
         // Preview toggle
         document.getElementById('previewBubble')?.addEventListener('click', function () {
             const window = document.getElementById('previewWindow');
@@ -14458,9 +14476,12 @@
                                     </td>
                                     <td class="py-4 text-sm">${conv.message_count}</td>
                                     <td class="py-4 text-sm text-gray-400">${date}</td>
-                                    <td class="py-4">
+                                    <td class="py-4 flex items-center gap-4">
                                         <button onclick="viewConversation('${conv.id}')" class="text-blue-400 hover:text-blue-300 text-sm font-medium">
                                             View Transcript
+                                        </button>
+                                        <button onclick="deleteConversation('${conv.id}')" class="text-gray-500 hover:text-red-400 text-sm transition" title="Delete conversation">
+                                            <i class="fas fa-trash-alt"></i>
                                         </button>
                                     </td>
                                 </tr>
@@ -14484,6 +14505,8 @@
             document.getElementById('chatListView').classList.add('hidden');
             document.getElementById('chatDetailView').classList.remove('hidden');
             document.getElementById('chatBackBtn').classList.remove('hidden');
+            currentChatId = id;
+            document.getElementById('chatReplyInput').value = '';
             document.getElementById('chatModalTitle').textContent = 'Conversation History';
 
             const historyContainer = document.getElementById('chatMessageHistory');
@@ -14545,6 +14568,69 @@
             document.getElementById('chatDetailView').classList.add('hidden');
             document.getElementById('chatBackBtn').classList.add('hidden');
             document.getElementById('chatModalTitle').textContent = 'AI Chat Conversations';
+        }
+
+        async function sendReply() {
+            if (!currentChatId) return;
+            const input = document.getElementById('chatReplyInput');
+            const message = input.value.trim();
+            if (!message) return;
+
+            const btn = document.getElementById('chatSendBtn');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+
+            try {
+                const response = await fetch(`${API_URL}/api/chatbot/conversations/${currentChatId}/reply`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${AUTH_TOKEN}`
+                    },
+                    body: JSON.stringify({ message })
+                });
+
+                if (response.ok) {
+                    input.value = '';
+                    // Reload conversation to show the new message
+                    await viewConversation(currentChatId);
+                } else {
+                    alert('Failed to send reply');
+                }
+            } catch (error) {
+                console.error('Error sending reply:', error);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<span>Send</span><i class="fas fa-paper-plane"></i>';
+            }
+        }
+
+        async function deleteConversation(id) {
+            if (!confirm('Are you sure you want to delete this conversation? This cannot be undone.')) return;
+
+            try {
+                const response = await fetch(`${API_URL}/api/chatbot/conversations/${id}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
+                });
+
+                if (response.ok) {
+                    // If we are currently viewing this conversation, close it or go back
+                    if (currentChatId === id) {
+                        currentChatId = null;
+                        showConversationList();
+                    }
+                    // Refresh current list view
+                    await viewAllConversations();
+                    // Also refresh dashboard count
+                    loadChatbotAnalytics();
+                    loadRecentConversations();
+                } else {
+                    alert('Failed to delete conversation');
+                }
+            } catch (error) {
+                console.error('Error deleting conversation:', error);
+            }
         }
 
         function closeChatModal() {

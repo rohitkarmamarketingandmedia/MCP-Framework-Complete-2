@@ -350,6 +350,9 @@ def capture_lead(chatbot_id):
         )
         db.session.add(lead)
         
+        if data.get('message'):
+            lead.message = data['message']
+        
         # Link to conversation
         conversation.lead_id = lead.id
         
@@ -462,12 +465,38 @@ def list_conversations(current_user):
     if status:
         query = query.filter_by(status=status)
     
+    # Filter out empty conversations (id: 34)
+    # Most active sessions have at least 1 message (the welcome message)
+    # We only want to show ones where the user or AI actually interacted beyond the start
+    query = query.filter(DBChatConversation.message_count > 1)
+    
     conversations = query.order_by(DBChatConversation.last_message_at.desc()).limit(limit).all()
     
     return jsonify({
         'conversations': [c.to_dict() for c in conversations],
         'total': query.count()
     })
+
+
+@chatbot_bp.route('/conversations/<conversation_id>', methods=['DELETE'])
+@token_required
+def delete_conversation(current_user, conversation_id):
+    """Delete a conversation (id: 33)"""
+    conversation = DBChatConversation.query.get(conversation_id)
+    
+    if not conversation:
+        return jsonify({'error': 'Conversation not found'}), 404
+    
+    if not current_user.has_access_to_client(conversation.client_id):
+        return jsonify({'error': 'Access denied'}), 403
+    
+    # Delete associated messages first (if cascade not set)
+    DBChatMessage.query.filter_by(conversation_id=conversation_id).delete()
+    
+    db.session.delete(conversation)
+    db.session.commit()
+    
+    return jsonify({'success': True})
 
 
 @chatbot_bp.route('/conversations/<conversation_id>', methods=['GET'])

@@ -425,14 +425,15 @@
                 }
                 @media (max-width: 480px) {
                     .mcp-chat-window {
-                        width: calc(100vw - 20px);
-                        height: calc(100vh - 100px);
-                        bottom: 70px;
+                        width: calc(100vw - 20px) !important;
+                        height: calc(100vh - 100px) !important;
+                        max-height: 80vh !important;
+                        bottom: 70px !important;
                     }
                     .mcp-chatbot-bottom-right .mcp-chat-window,
                     .mcp-chatbot-bottom-left .mcp-chat-window {
-                        right: 10px;
-                        left: 10px;
+                        right: 10px !important;
+                        left: 10px !important;
                     }
                 }
             `;
@@ -474,6 +475,7 @@
                         ${this.config.collect_name ? '<input type="text" placeholder="Your name" class="mcp-lead-name">' : ''}
                         ${this.config.collect_email ? '<input type="email" placeholder="Email address" class="mcp-lead-email">' : ''}
                         ${this.config.collect_phone ? '<input type="tel" placeholder="Phone number" class="mcp-lead-phone">' : ''}
+                        <textarea placeholder="Message (optional)" class="mcp-lead-message" style="width:100%; padding:10px; border:1px solid #e2e8f0; border-radius:8px; font-size:14px; margin-bottom:8px; resize:none; height:60px;"></textarea>
                         <button class="mcp-lead-submit">Submit</button>
                     </div>
                     <div class="mcp-chat-footer">
@@ -677,12 +679,14 @@
             const nameInput = this.elements.leadForm.querySelector('.mcp-lead-name');
             const emailInput = this.elements.leadForm.querySelector('.mcp-lead-email');
             const phoneInput = this.elements.leadForm.querySelector('.mcp-lead-phone');
+            const messageInput = this.elements.leadForm.querySelector('.mcp-lead-message');
 
             const data = {
                 conversation_id: this.conversationId,
                 name: nameInput ? nameInput.value.trim() : '',
                 email: emailInput ? emailInput.value.trim() : '',
-                phone: phoneInput ? phoneInput.value.trim() : ''
+                phone: phoneInput ? phoneInput.value.trim() : '',
+                message: messageInput ? messageInput.value.trim() : ''
             };
 
             // Validate
