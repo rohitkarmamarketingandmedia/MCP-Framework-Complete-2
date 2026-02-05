@@ -726,8 +726,10 @@
             // Clear input
             this.elements.input.value = '';
 
-            // Add user message
-            this.renderMessage({ role: 'user', content });
+            // Add user message to array AND render
+            const userMsg = { role: 'user', content };
+            this.messages.push(userMsg);
+            this.renderMessage(userMsg);
 
             // Show typing indicator
             this.showTyping();
@@ -749,8 +751,10 @@
                 // Hide typing
                 this.hideTyping();
 
-                // Add assistant response
-                this.renderMessage(data.message);
+                // Add assistant response to array AND render
+                const assistantMsg = data.message || { role: 'assistant', content: data.response };
+                this.messages.push(assistantMsg);
+                this.renderMessage(assistantMsg);
 
                 // Show lead form if needed
                 if (data.should_capture_lead && !this.leadCaptured) {
@@ -760,10 +764,12 @@
             } catch (err) {
                 console.error('MCP Chatbot: Failed to send message', err);
                 this.hideTyping();
-                this.renderMessage({
+                const errorMsg = {
                     role: 'assistant',
                     content: "I'm having trouble responding right now. Please try again or leave your contact info!"
-                });
+                };
+                this.messages.push(errorMsg);
+                this.renderMessage(errorMsg);
             }
         },
 
@@ -833,11 +839,13 @@
                 this.leadCaptured = true;
                 this.hideLeadForm();
 
-                // Show thank you message
-                this.renderMessage({
+                // Show thank you message - add to array AND render
+                const thankYouMsg = {
                     role: 'assistant',
                     content: result.message || "Thank you! We'll be in touch soon."
-                });
+                };
+                this.messages.push(thankYouMsg);
+                this.renderMessage(thankYouMsg);
 
             } catch (err) {
                 console.error('MCP Chatbot: Failed to submit lead', err);
@@ -854,11 +862,17 @@
         handleIntent: function (intent) {
             this.elements.intentOptions.classList.remove('mcp-show');
             if (intent === 'yes') {
-                this.renderMessage({ role: 'user', content: "Yes, I have some questions." });
+                const msg = { role: 'user', content: "Yes, I have some questions." };
+                this.messages.push(msg);
+                this.renderMessage(msg);
                 // We'll let the AI handle it, or just show the lead form if configured
             } else {
-                this.renderMessage({ role: 'user', content: "Not right now, just looking." });
-                this.renderMessage({ role: 'assistant', content: "No problem! Feel free to ask whenever you're ready." });
+                const userMsg = { role: 'user', content: "Not right now, just looking." };
+                const assistantMsg = { role: 'assistant', content: "No problem! Feel free to ask whenever you're ready." };
+                this.messages.push(userMsg);
+                this.renderMessage(userMsg);
+                this.messages.push(assistantMsg);
+                this.renderMessage(assistantMsg);
             }
         },
 
