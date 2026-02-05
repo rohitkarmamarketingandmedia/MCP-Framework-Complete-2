@@ -1325,11 +1325,9 @@ def generate_blog_simple(current_user):
     This endpoint now starts async generation and returns task_id.
     Use /blog/task/<task_id> to check status.
     """
-    # Import the logic directly instead of calling decorated function
     from flask import request, jsonify, current_app
     import threading
     import uuid
-    from app.services.blog_ai_single import get_blog_ai_single, BlogRequest
     
     if not current_user.can_generate_content:
         return jsonify({'error': 'Permission denied'}), 403
@@ -1339,6 +1337,8 @@ def generate_blog_simple(current_user):
     client_id = data.get('client_id')
     keyword = data.get('keyword') or data.get('topic', '')
     word_count = data.get('word_count', current_app.config.get('DEFAULT_BLOG_WORD_COUNT', 1200))
+    include_faq = data.get('include_faq', True)
+    faq_count = data.get('faq_count', 5)
     
     if not client_id or not keyword:
         return jsonify({'error': 'client_id and keyword required'}), 400
@@ -1354,11 +1354,18 @@ def generate_blog_simple(current_user):
     # Generate task ID
     task_id = str(uuid.uuid4())
     
-    # Start background generation
-    def background_generate():
-        _generate_blog_background(task_id, client, keyword, word_count, data)
+    # Initialize task status
+    _set_task(task_id, {'status': 'started', 'keyword': keyword})
     
-    thread = threading.Thread(target=background_generate)
+    # Get the app for context
+    app = current_app._get_current_object()
+    user_id = current_user.id
+    
+    # Start background generation with correct arguments
+    thread = threading.Thread(
+        target=_generate_blog_background,
+        args=(task_id, app, client_id, keyword, word_count, include_faq, faq_count, user_id)
+    )
     thread.start()
     
     return jsonify({
