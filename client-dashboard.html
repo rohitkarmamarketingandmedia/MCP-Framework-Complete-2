@@ -10618,7 +10618,7 @@
             const keywords = availableKeywords.slice(0, actualBlogCount);
             
             // Helper function to poll for task completion
-            async function waitForTask(taskId, keyword, maxAttempts = 60) {
+            async function waitForTask(taskId, keyword, maxAttempts = 90) {
                 for (let attempt = 0; attempt < maxAttempts; attempt++) {
                     await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2 seconds
                     
@@ -10628,12 +10628,13 @@
                         });
                         const statusData = await statusResponse.json();
                         
-                        if (statusData.status === 'completed') {
+                        // Check for completion (status is 'complete' not 'completed')
+                        if (statusData.status === 'complete') {
                             return { success: true, data: statusData };
-                        } else if (statusData.status === 'failed') {
+                        } else if (statusData.status === 'error' || statusData.status === 'failed') {
                             return { success: false, error: statusData.error || 'Generation failed' };
                         }
-                        // Still pending, continue polling
+                        // Still pending (status is 'started' or 'generating'), continue polling
                     } catch (e) {
                         console.error('Error polling task:', e);
                     }
