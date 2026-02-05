@@ -3133,12 +3133,12 @@
                                 <table class="w-full text-left">
                                     <thead>
                                         <tr
-                                            class="text-gray-400 text-sm border-b border-white/10 uppercase tracking-wider">
-                                            <th class="pb-4 font-medium">Visitor</th>
-                                            <th class="pb-4 font-medium">Status</th>
-                                            <th class="pb-4 font-medium">Messages</th>
-                                            <th class="pb-4 font-medium">Last Interaction</th>
-                                            <th class="pb-4 font-medium">Action</th>
+                                            class="text-gray-300 text-sm border-b border-white/20 uppercase tracking-wider">
+                                            <th class="pb-4 font-bold text-white">Visitor</th>
+                                            <th class="pb-4 font-bold text-white">Status</th>
+                                            <th class="pb-4 font-bold text-white">Messages</th>
+                                            <th class="pb-4 font-bold text-white">Last Interaction</th>
+                                            <th class="pb-4 font-bold text-white">Action</th>
                                         </tr>
                                     </thead>
                                     <tbody id="allConversationsBody" class="text-white divide-y divide-white/5">
@@ -3149,7 +3149,7 @@
                         </div>
 
                         <!-- Detail View (Initially Hidden) -->
-                        <div id="chatDetailView" class="hidden h-[600px] flex flex-col bg-slate-900/50">
+                        <div id="chatDetailView" class="hidden h-[600px] flex flex-col bg-slate-950">
                             <div class="p-4 border-b border-white/10 bg-white/5 flex items-center justify-between">
                                 <div class="flex items-center gap-3">
                                     <div id="detailVisitorAvatar"
@@ -3157,8 +3157,10 @@
                                         <i class="fas fa-user"></i>
                                     </div>
                                     <div>
-                                        <h4 id="detailVisitorName" class="text-white font-bold">Anonymous Visitor</h4>
-                                        <p id="detailVisitorMeta" class="text-xs text-gray-400">ID: unknown</p>
+                                        <h4 id="detailVisitorName" class="text-white font-bold text-lg">Anonymous
+                                            Visitor</h4>
+                                        <p id="detailVisitorMeta"
+                                            class="text-xs text-blue-300 font-medium tracking-wide">ID: unknown</p>
                                     </div>
                                 </div>
                                 <div id="detailLeadStatus"
@@ -14466,16 +14468,16 @@
                             return `
                                 <tr class="hover:bg-white/5 transition group">
                                     <td class="py-4">
-                                        <div class="font-medium text-white">${escapeHtml(conv.visitor_name || 'Anonymous')}</div>
-                                        <div class="text-xs text-gray-500 truncate max-w-[200px]">${conv.visitor_id}</div>
+                                        <div class="font-bold text-white text-base">${escapeHtml(conv.visitor_name || 'Anonymous')}</div>
+                                        <div class="text-xs text-blue-300 font-medium truncate max-w-[200px]">${conv.visitor_id}</div>
                                     </td>
                                     <td class="py-4">
                                         <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase ${conv.status === 'active' ? 'bg-green-500/20 text-green-400' : 'bg-gray-500/20 text-gray-400'}">
                                             ${conv.status}
                                         </span>
                                     </td>
-                                    <td class="py-4 text-sm">${conv.message_count}</td>
-                                    <td class="py-4 text-sm text-gray-400">${date}</td>
+                                    <td class="py-4 text-sm font-medium text-gray-100">${conv.message_count}</td>
+                                    <td class="py-4 text-sm text-gray-200">${date}</td>
                                     <td class="py-4 flex items-center gap-4">
                                         <button onclick="viewConversation('${conv.id}')" class="text-blue-400 hover:text-blue-300 text-sm font-medium">
                                             View Transcript

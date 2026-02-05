@@ -47,6 +47,7 @@
             this.loadConfig().then(() => {
                 this.createWidget();
                 this.bindEvents();
+                this.startPolling();
                 this.initialized = true;
 
                 // Auto-open if configured
@@ -425,15 +426,12 @@
                 }
                 @media (max-width: 480px) {
                     .mcp-chat-window {
-                        width: calc(100vw - 20px) !important;
+                        width: auto !important;
                         height: calc(100vh - 100px) !important;
                         max-height: 80vh !important;
-                        bottom: 70px !important;
-                    }
-                    .mcp-chatbot-bottom-right .mcp-chat-window,
-                    .mcp-chatbot-bottom-left .mcp-chat-window {
-                        right: 10px !important;
+                        bottom: 75px !important;
                         left: 10px !important;
+                        right: 10px !important;
                     }
                 }
             `;
@@ -560,6 +558,33 @@
         close: function () {
             this.isOpen = false;
             this.elements.window.classList.remove('mcp-open');
+        },
+
+        startPolling: function () {
+            setInterval(() => {
+                if (this.isOpen && this.conversationId) {
+                    this.fetchMessages();
+                }
+            }, 5000);
+        },
+
+        fetchMessages: async function () {
+            try {
+                const response = await fetch(`${this.apiUrl}/api/chatbot/widget/${this.chatbotId}/messages/${this.conversationId}`);
+                if (!response.ok) return;
+
+                const data = await response.json();
+                if (data.messages && data.messages.length > this.messages.length) {
+                    // New messages found
+                    const newMessages = data.messages.slice(this.messages.length);
+                    newMessages.forEach(msg => {
+                        this.messages.push(msg);
+                        this.renderMessage(msg);
+                    });
+                }
+            } catch (err) {
+                console.error('MCP Chatbot: Failed to fetch messages', err);
+            }
         },
 
         startConversation: async function () {

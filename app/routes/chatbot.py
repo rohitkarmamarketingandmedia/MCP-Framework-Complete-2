@@ -378,6 +378,21 @@ def capture_lead(chatbot_id):
         })
 
 
+@chatbot_bp.route('/widget/<chatbot_id>/messages/<conversation_id>', methods=['GET'])
+def get_widget_messages(chatbot_id, conversation_id):
+    """Public endpoint - Get messages for widget polling (id: 37)"""
+    conversation = DBChatConversation.query.get(conversation_id)
+    
+    if not conversation or conversation.chatbot_id != chatbot_id:
+        return jsonify({'error': 'Invalid conversation'}), 404
+        
+    messages = [m.to_dict() for m in conversation.messages.order_by(DBChatMessage.created_at).all()]
+    return jsonify({
+        'messages': messages,
+        'status': conversation.status
+    })
+
+
 @chatbot_bp.route('/widget/<chatbot_id>/end', methods=['POST'])
 def end_conversation(chatbot_id):
     """Public endpoint - End a conversation"""
