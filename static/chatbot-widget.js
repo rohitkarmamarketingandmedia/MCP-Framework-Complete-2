@@ -19,7 +19,7 @@
  * </script>
  */
 
-(function() {
+(function () {
     'use strict';
 
     // Prevent double initialization
@@ -37,18 +37,18 @@
         isMinimized: false,
         leadCaptured: false,
 
-        init: function(options) {
+        init: function (options) {
             if (this.initialized) return;
-            
+
             this.chatbotId = options.chatbotId;
             this.apiUrl = options.apiUrl.replace(/\/$/, '');
             this.visitorId = this.getVisitorId();
-            
+
             this.loadConfig().then(() => {
                 this.createWidget();
                 this.bindEvents();
                 this.initialized = true;
-                
+
                 // Auto-open if configured
                 if (this.config.auto_open_delay > 0) {
                     setTimeout(() => {
@@ -60,7 +60,7 @@
             });
         },
 
-        getVisitorId: function() {
+        getVisitorId: function () {
             let id = localStorage.getItem('mcp_visitor_id');
             if (!id) {
                 id = 'v_' + Math.random().toString(36).substr(2, 9) + Date.now().toString(36);
@@ -69,13 +69,13 @@
             return id;
         },
 
-        loadConfig: async function() {
+        loadConfig: async function () {
             const response = await fetch(`${this.apiUrl}/api/chatbot/widget/${this.chatbotId}/config`);
             if (!response.ok) throw new Error('Failed to load config');
             this.config = await response.json();
         },
 
-        createWidget: function() {
+        createWidget: function () {
             // Check mobile
             if (!this.config.show_on_mobile && window.innerWidth < 768) {
                 return;
@@ -109,7 +109,7 @@
             this.applyBranding();
         },
 
-        injectStyles: function() {
+        injectStyles: function () {
             if (document.getElementById('mcp-chatbot-styles')) return;
 
             const styles = document.createElement('style');
@@ -147,9 +147,10 @@
                     box-shadow: 0 6px 20px rgba(0,0,0,0.25);
                 }
                 .mcp-chat-bubble svg {
-                    width: 28px;
-                    height: 28px;
-                    fill: white;
+                    width: 28px !important;
+                    height: 28px !important;
+                    fill: white !important;
+                    display: block !important;
                 }
                 .mcp-chat-bubble.mcp-has-unread::after {
                     content: '';
@@ -211,9 +212,10 @@
                     object-fit: cover;
                 }
                 .mcp-chat-avatar svg {
-                    width: 24px;
-                    height: 24px;
-                    fill: white;
+                    width: 24px !important;
+                    height: 24px !important;
+                    fill: white !important;
+                    display: block !important;
                 }
                 .mcp-chat-title {
                     flex: 1;
@@ -247,9 +249,11 @@
                     background: rgba(255,255,255,0.3);
                 }
                 .mcp-chat-controls button svg {
-                    width: 16px;
-                    height: 16px;
-                    fill: white;
+                    width: 18px !important;
+                    height: 18px !important;
+                    fill: white !important;
+                    display: block !important;
+                    pointer-events: none;
                 }
                 .mcp-chat-messages {
                     flex: 1;
@@ -344,9 +348,11 @@
                     cursor: not-allowed;
                 }
                 .mcp-chat-send svg {
-                    width: 20px;
-                    height: 20px;
-                    fill: white;
+                    width: 20px !important;
+                    height: 20px !important;
+                    fill: white !important;
+                    display: block !important;
+                    pointer-events: none;
                 }
                 .mcp-lead-form {
                     display: none;
@@ -371,14 +377,14 @@
                     font-size: 14px;
                 }
                 .mcp-lead-form button {
-                    width: 100%;
-                    padding: 10px;
-                    border: none;
-                    border-radius: 8px;
-                    font-size: 14px;
-                    font-weight: 500;
-                    color: white;
-                    cursor: pointer;
+                    width: 100% !important;
+                    padding: 10px !important;
+                    border: none !important;
+                    border-radius: 8px !important;
+                    font-size: 14px !important;
+                    font-weight: 500 !important;
+                    color: white !important;
+                    cursor: pointer !important;
                 }
                 .mcp-powered {
                     text-align: center;
@@ -406,7 +412,7 @@
             document.head.appendChild(styles);
         },
 
-        getWidgetHTML: function() {
+        getWidgetHTML: function () {
             return `
                 <div class="mcp-chat-bubble" title="Chat with us">
                     <svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H5.17L4 17.17V4h16v12z"/><path d="M7 9h10v2H7zm0-4h10v2H7z"/></svg>
@@ -414,10 +420,10 @@
                 <div class="mcp-chat-window">
                     <div class="mcp-chat-header">
                         <div class="mcp-chat-avatar">
-                            ${this.config.avatar_url 
-                                ? `<img src="${this.config.avatar_url}" alt="Avatar">`
-                                : '<svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/></svg>'
-                            }
+                            ${this.config.avatar_url
+                    ? `<img src="${this.config.avatar_url}" alt="Avatar">`
+                    : '<svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/></svg>'
+                }
                         </div>
                         <div class="mcp-chat-title">
                             <h4>${this.escapeHtml(this.config.name)}</h4>
@@ -425,10 +431,10 @@
                         </div>
                         <div class="mcp-chat-controls">
                             <button class="mcp-chat-minimize" title="Minimize">
-                                <svg viewBox="0 0 24 24"><path d="M19 13H5v-2h14v2z"/></svg>
+                                <svg viewBox="0 0 24 24" width="18" height="18"><path d="M19 13H5v-2h14v2z"/></svg>
                             </button>
                             <button class="mcp-chat-close" title="Close">
-                                <svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+                                <svg viewBox="0 0 24 24" width="18" height="18"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
                             </button>
                         </div>
                     </div>
@@ -445,8 +451,8 @@
                     </div>
                     <div class="mcp-chat-footer">
                         <input type="text" class="mcp-chat-input" placeholder="${this.escapeHtml(this.config.placeholder_text)}">
-                        <button class="mcp-chat-send">
-                            <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+                        <button class="mcp-chat-send" title="Send message">
+                            <svg viewBox="0 0 24 24" width="20" height="20"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
                         </button>
                     </div>
                     <div class="mcp-powered">
@@ -456,26 +462,26 @@
             `;
         },
 
-        applyBranding: function() {
+        applyBranding: function () {
             const primary = this.config.primary_color;
             const secondary = this.config.secondary_color || primary;
 
             this.elements.bubble.style.background = `linear-gradient(135deg, ${primary}, ${secondary})`;
-            this.elements.window.querySelector('.mcp-chat-header').style.background = 
+            this.elements.window.querySelector('.mcp-chat-header').style.background =
                 `linear-gradient(135deg, ${primary}, ${secondary})`;
-            
+
             const userMessages = this.elements.messages.querySelectorAll('.mcp-message-user');
             userMessages.forEach(msg => {
                 msg.style.background = `linear-gradient(135deg, ${primary}, ${secondary})`;
             });
 
             this.elements.sendBtn.style.background = primary;
-            
+
             const leadBtn = this.elements.leadForm.querySelector('button');
             if (leadBtn) leadBtn.style.background = primary;
         },
 
-        bindEvents: function() {
+        bindEvents: function () {
             // Bubble click
             this.elements.bubble.addEventListener('click', () => this.toggle());
 
@@ -500,7 +506,7 @@
             }
         },
 
-        toggle: function() {
+        toggle: function () {
             if (this.isOpen) {
                 this.close();
             } else {
@@ -508,7 +514,7 @@
             }
         },
 
-        open: async function() {
+        open: async function () {
             this.isOpen = true;
             this.elements.window.classList.add('mcp-open');
             this.elements.bubble.classList.remove('mcp-has-unread');
@@ -522,12 +528,12 @@
             setTimeout(() => this.elements.input.focus(), 300);
         },
 
-        close: function() {
+        close: function () {
             this.isOpen = false;
             this.elements.window.classList.remove('mcp-open');
         },
 
-        startConversation: async function() {
+        startConversation: async function () {
             try {
                 const response = await fetch(`${this.apiUrl}/api/chatbot/widget/${this.chatbotId}/start`, {
                     method: 'POST',
@@ -558,7 +564,7 @@
             }
         },
 
-        sendMessage: async function() {
+        sendMessage: async function () {
             const content = this.elements.input.value.trim();
             if (!content) return;
 
@@ -606,7 +612,7 @@
             }
         },
 
-        renderMessage: function(msg) {
+        renderMessage: function (msg) {
             const div = document.createElement('div');
             div.className = `mcp-message mcp-message-${msg.role}`;
             div.textContent = msg.content;
@@ -619,28 +625,28 @@
             this.scrollToBottom();
         },
 
-        showTyping: function() {
+        showTyping: function () {
             this.elements.typingIndicator.classList.add('mcp-show');
             this.scrollToBottom();
         },
 
-        hideTyping: function() {
+        hideTyping: function () {
             this.elements.typingIndicator.classList.remove('mcp-show');
         },
 
-        scrollToBottom: function() {
+        scrollToBottom: function () {
             this.elements.messages.scrollTop = this.elements.messages.scrollHeight;
         },
 
-        showLeadForm: function() {
+        showLeadForm: function () {
             this.elements.leadForm.classList.add('mcp-show');
         },
 
-        hideLeadForm: function() {
+        hideLeadForm: function () {
             this.elements.leadForm.classList.remove('mcp-show');
         },
 
-        submitLead: async function() {
+        submitLead: async function () {
             const nameInput = this.elements.leadForm.querySelector('.mcp-lead-name');
             const emailInput = this.elements.leadForm.querySelector('.mcp-lead-email');
             const phoneInput = this.elements.leadForm.querySelector('.mcp-lead-phone');
@@ -682,7 +688,7 @@
             }
         },
 
-        escapeHtml: function(text) {
+        escapeHtml: function (text) {
             const div = document.createElement('div');
             div.textContent = text;
             return div.innerHTML;
