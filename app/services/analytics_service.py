@@ -356,19 +356,38 @@ class AnalyticsService:
 class ComparativeAnalytics:
     """Service for period-over-period comparative analytics"""
     
-    def get_period_dates(self, period: str = 'month') -> tuple:
+    def get_period_dates(self, period: str = 'month', use_calendar: bool = True) -> tuple:
         """
         Get start/end dates for current and previous periods
         
         Args:
             period: 'week', 'month', 'quarter', 'year'
+            use_calendar: If true, use calendar boundaries (e.g. 1st of month)
             
         Returns:
             (current_start, current_end, previous_start, previous_end)
         """
         now = datetime.utcnow()
         
-        if period == 'week':
+        if period == 'month' and use_calendar:
+            # Current month: 1st of this month to now
+            current_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+            
+            # Previous month: 1st of last month to last day of last month
+            if current_start.month == 1:
+                previous_start = current_start.replace(year=current_start.year - 1, month=12)
+            else:
+                previous_start = current_start.replace(month=current_start.month - 1)
+            
+            previous_end = current_start - timedelta(microseconds=1)
+            
+        elif period == 'week' and use_calendar:
+            # Current week: Monday to now
+            current_start = (now - timedelta(days=now.weekday())).replace(hour=0, minute=0, second=0, microsecond=0)
+            previous_start = current_start - timedelta(days=7)
+            previous_end = current_start - timedelta(microseconds=1)
+            
+        elif period == 'week':
             current_start = now - timedelta(days=7)
             previous_start = now - timedelta(days=14)
             previous_end = current_start
@@ -622,41 +641,19 @@ class ComparativeAnalytics:
     
     def get_client_health_score(self, client_id: str) -> Dict:
         """Calculate comprehensive health score (0-100)"""
-        scores = {'leads': 0, 'content': 0, 'rankings': 0}
+        from app.services.client_health_service import get_client_health_service
         
-        # Lead score (33 points max)
-        lead_data = self.get_lead_analytics(client_id, 'month')
-        lead_change = lead_data['comparison']['leads']['change']
-        if lead_change >= 20:
-            scores['leads'] = 33
-        elif lead_change >= 0:
-            scores['leads'] = 25
-        elif lead_change >= -10:
-            scores['leads'] = 15
-        else:
-            scores['leads'] = 5
+        health_service = get_client_health_service()
+        health = health_service.calculate_health_score(client_id)
         
-        # Content score (33 points max)
-        content_data = self.get_content_analytics(client_id, 'month')
-        if content_data['current']['total'] >= 10:
-            scores['content'] = 33
-        elif content_data['current']['total'] >= 5:
-            scores['content'] = 25
-        elif content_data['current']['total'] >= 2:
-            scores['content'] = 15
-        else:
-            scores['content'] = 5
-        
-        # Ranking score (34 points max)
-        rank_data = self.get_ranking_analytics(client_id, 'month')
-        if rank_data['current']['top_10'] >= 10:
-            scores['rankings'] = 34
-        elif rank_data['current']['top_10'] >= 5:
-            scores['rankings'] = 25
-        elif rank_data['current']['top_10'] >= 2:
-            scores['rankings'] = 15
-        else:
-            scores['rankings'] = 5
+        return {
+            'client_id': client_id,
+            'score': health.total,
+            'status': health.status,
+            'color': health.color,
+            'breakdown': health.to_dict()['breakdown'],
+            'grade': health.grade
+        }
         
         total = sum(scores.values())
         

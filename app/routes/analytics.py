@@ -62,7 +62,8 @@ def get_overview(current_user, client_id):
     content_stats = {
         'total': len(content_list),
         'published': sum(1 for c in content_list if c.status == 'published'),
-        'draft': sum(1 for c in content_list if c.status == 'draft')
+        'draft': sum(1 for c in content_list if c.status in ['draft', 'review', 'approved']),
+        'scheduled': sum(1 for c in content_list if c.status == 'scheduled')
     }
     
     # Get social stats
@@ -70,7 +71,7 @@ def get_overview(current_user, client_id):
     social_stats = {
         'total': len(social_posts),
         'published': sum(1 for p in social_posts if p.status == 'published'),
-        'scheduled': sum(1 for p in social_posts if p.scheduled_for)
+        'scheduled': sum(1 for p in social_posts if p.scheduled_for or p.status == 'scheduled')
     }
     
     # Get phone calls from CallRail
@@ -113,7 +114,7 @@ def get_overview(current_user, client_id):
         'answer_rate': answer_rate,
         'leads': leads_count,
         'new_leads': leads_count,
-        'content_count': content_stats['published'],
+        'content_count': content_stats['total'],
         'blogs_published': content_stats['published']
     })
 

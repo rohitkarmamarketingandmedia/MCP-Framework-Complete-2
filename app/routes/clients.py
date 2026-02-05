@@ -10,6 +10,7 @@ from app.models.db_models import DBClient, UserRole
 from datetime import datetime
 import json
 import logging
+from app.services.client_health_service import get_client_health_service
 
 logger = logging.getLogger(__name__)
 logger.info("========== CLIENTS.PY VERSION 2.0 LOADED ==========")
@@ -354,11 +355,13 @@ def get_client_summary(current_user, client_id):
             'content': {
                 'total': len(blog_posts),
                 'published': sum(1 for c in blog_posts if c.status == 'published'),
-                'draft': sum(1 for c in blog_posts if c.status == 'draft')
+                'draft': sum(1 for c in blog_posts if c.status in ['draft', 'review', 'approved']),
+                'scheduled': sum(1 for c in blog_posts if c.status == 'scheduled')
             },
             'social': {
                 'total': len(social_posts),
-                'by_platform': {}
+                'by_platform': {},
+                'published': sum(1 for p in social_posts if p.status == 'published')
             },
             'campaigns': {
                 'total': len(campaigns),
@@ -651,98 +654,30 @@ def get_health_score(current_user, client_id):
     if not client:
         return jsonify({'error': 'Client not found'}), 404
     
-    # Calculate health score based on various factors
-    score = 0
+    # Calculate health score using unified service
+    health_service = get_client_health_service()
+    health = health_service.calculate_health_score(client_id)
+    breakdown = health.to_dict()
+    
+    # Map to existing API format for backward compatibility
     factors = []
-    
-    # Check WordPress connection (+25)
-    logger.info(f"WordPress URL: {client.wordpress_url}")
-    if client.wordpress_url:
-        score += 25
-        factors.append({'name': 'WordPress Connected', 'points': 25, 'max': 25, 'status': 'good'})
-    else:
-        factors.append({'name': 'WordPress Not Connected', 'points': 0, 'max': 25, 'status': 'missing'})
-    
-    # Check keywords defined (+20)
-    keywords = client.get_keywords()
-    keyword_count = len(keywords.get('primary', [])) + len(keywords.get('secondary', []))
-    logger.info(f"Keywords count: {keyword_count}")
-    if keyword_count >= 5:
-        score += 20
-        factors.append({'name': f'{keyword_count} Keywords Tracked', 'points': 20, 'max': 20, 'status': 'good'})
-    elif keyword_count > 0:
-        partial = min(keyword_count * 4, 20)
-        score += partial
-        factors.append({'name': f'{keyword_count} Keywords Tracked', 'points': partial, 'max': 20, 'status': 'partial'})
-    else:
-        factors.append({'name': 'No Keywords', 'points': 0, 'max': 20, 'status': 'missing'})
-    
-    # Check content created (+25)
-    from app.models.db_models import DBBlogPost
-    content_count = DBBlogPost.query.filter_by(client_id=client_id, status='published').count()
-    logger.info(f"Published content count: {content_count}")
-    if content_count >= 10:
-        score += 25
-        factors.append({'name': f'{content_count} Published Posts', 'points': 25, 'max': 25, 'status': 'good'})
-    elif content_count >= 5:
-        score += 20
-        factors.append({'name': f'{content_count} Published Posts', 'points': 20, 'max': 25, 'status': 'good'})
-    elif content_count > 0:
-        partial = min(content_count * 4, 25)
-        score += partial
-        factors.append({'name': f'{content_count} Published Posts', 'points': partial, 'max': 25, 'status': 'partial'})
-    else:
-        factors.append({'name': 'No Published Content', 'points': 0, 'max': 25, 'status': 'missing'})
-    
-    # Check CallRail configured (+15)
-    logger.info(f"CallRail company_id: {client.callrail_company_id}")
-    if client.callrail_company_id:
-        score += 15
-        factors.append({'name': 'Call Tracking Active', 'points': 15, 'max': 15, 'status': 'good'})
-    else:
-        factors.append({'name': 'No Call Tracking', 'points': 0, 'max': 15, 'status': 'missing'})
-    
-    # Check social connections (+15)
-    from app.models.db_models import DBSocialConnection
-    social_count = DBSocialConnection.query.filter_by(client_id=client_id, is_active=True).count()
-    logger.info(f"Social connections count: {social_count}")
-    if social_count >= 2:
-        score += 15
-        factors.append({'name': f'{social_count} Social Accounts', 'points': 15, 'max': 15, 'status': 'good'})
-    elif social_count > 0:
-        score += 8
-        factors.append({'name': f'{social_count} Social Account', 'points': 8, 'max': 15, 'status': 'partial'})
-    else:
-        factors.append({'name': 'No Social Accounts', 'points': 0, 'max': 15, 'status': 'missing'})
-    
-    # Determine grade
-    if score >= 90:
-        grade = 'A+'
-        grade_label = 'Excellent'
-    elif score >= 80:
-        grade = 'A'
-        grade_label = 'Great'
-    elif score >= 70:
-        grade = 'B'
-        grade_label = 'Good'
-    elif score >= 60:
-        grade = 'C'
-        grade_label = 'Fair'
-    elif score >= 40:
-        grade = 'D'
-        grade_label = 'Needs Work'
-    else:
-        grade = 'F'
-        grade_label = 'Getting Started'
-    
-    logger.info(f"Final health score: {score}, grade: {grade}")
+    for component, data in breakdown['breakdown'].items():
+        status = 'good' if data['percent'] >= 80 else 'partial' if data['percent'] >= 40 else 'missing'
+        factors.append({
+            'name': data['detail'] or component.title(),
+            'points': data['score'],
+            'max': data['max'],
+            'status': status
+        })
     
     return jsonify({
-        'score': score,
-        'health_score': score,
+        'score': health.total,
+        'health_score': health.total,
         'factors': factors,
-        'grade': grade,
-        'grade_label': grade_label
+        'grade': health.grade,
+        'grade_label': 'Excellent' if health.total >= 80 else 'Good' if health.total >= 60 else 'Needs Work',
+        'color': health.color,
+        'breakdown': breakdown['breakdown']
     })
 
 
