@@ -4567,7 +4567,7 @@
         async function quickApprove(blogId) {
             try {
                 const response = await fetch(`${API_URL}/api/content/blog/${blogId}`, {
-                    method: 'PUT',
+                    method: 'PATCH',
                     headers: {
                         'Authorization': `Bearer ${AUTH_TOKEN}`,
                         'Content-Type': 'application/json'
@@ -4576,10 +4576,22 @@
                 });
                 
                 if (response.ok) {
-                    // Refresh the overview
-                    loadOverviewData();
-                    loadBlogs();
+                    // Refresh data
+                    if (typeof loadOverviewData === 'function') loadOverviewData();
+                    if (typeof loadBlogs === 'function') loadBlogs();
                     showToast('Content approved!', 'success');
+                    
+                    // Update local state if allBlogs exists
+                    if (typeof allBlogs !== 'undefined') {
+                        const blog = allBlogs.find(b => b.id === blogId);
+                        if (blog) blog.status = 'approved';
+                    }
+                    
+                    // Refresh the pending list
+                    loadPendingApprovals();
+                } else {
+                    const error = await response.json();
+                    showToast('Error: ' + (error.error || 'Failed to approve'), 'error');
                 }
             } catch (error) {
                 console.error('Error approving blog:', error);
@@ -4588,16 +4600,21 @@
         }
         
         function viewBlog(blogId) {
-            // Switch to blogs tab and highlight the blog
-            showTab('blogs');
-            setTimeout(() => {
-                const blogCard = document.querySelector(`[data-blog-id="${blogId}"]`);
-                if (blogCard) {
-                    blogCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    blogCard.classList.add('ring-2', 'ring-purple-500');
-                    setTimeout(() => blogCard.classList.remove('ring-2', 'ring-purple-500'), 3000);
-                }
-            }, 100);
+            // Open the blog modal directly
+            if (typeof openBlogModal === 'function') {
+                openBlogModal(blogId);
+            } else {
+                // Fallback to tab switch if modal function missing
+                showTab('blogs');
+                setTimeout(() => {
+                    const blogCard = document.querySelector(`[data-blog-id="${blogId}"]`);
+                    if (blogCard) {
+                        blogCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        blogCard.classList.add('ring-2', 'ring-purple-500');
+                        setTimeout(() => blogCard.classList.remove('ring-2', 'ring-purple-500'), 3000);
+                    }
+                }, 100);
+            }
         }
         
         // Toast notification system
