@@ -3110,7 +3110,8 @@
             <div id="chatModal" class="hidden fixed inset-0 bg-black/95 z-50 overflow-y-auto"
                 onclick="if(event.target === this) closeChatModal()">
                 <div class="max-w-4xl mx-auto py-8 px-4">
-                    <div class="glass-light rounded-2xl overflow-hidden fade-in" onclick="event.stopPropagation()">
+                    <div class="bg-gray-950 border border-white/20 rounded-2xl overflow-hidden shadow-2xl fade-in"
+                        onclick="event.stopPropagation()">
                         <div class="bg-gradient-to-r from-blue-600 to-indigo-600 p-6 flex items-center justify-between">
                             <div>
                                 <h2 id="chatModalTitle" class="text-2xl font-bold text-white">AI Chat Conversations</h2>
@@ -3141,7 +3142,7 @@
                                             <th class="pb-4 font-bold text-white">Action</th>
                                         </tr>
                                     </thead>
-                                    <tbody id="allConversationsBody" class="text-white divide-y divide-white/5">
+                                    <tbody id="allConversationsBody" class="text-white divide-y divide-white/10">
                                         <!-- Populated by JS -->
                                     </tbody>
                                 </table>

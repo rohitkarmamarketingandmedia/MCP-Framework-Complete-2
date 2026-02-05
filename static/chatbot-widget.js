@@ -50,12 +50,8 @@
                 this.startPolling();
                 this.initialized = true;
 
-                // Auto-open if configured
-                if (this.config.auto_open_delay > 0) {
-                    setTimeout(() => {
-                        if (!this.isOpen) this.open();
-                    }, this.config.auto_open_delay * 1000);
-                }
+                // Start triggers
+                this.initTriggers();
             }).catch(err => {
                 console.error('MCP Chatbot: Failed to initialize', err);
             });
@@ -103,7 +99,8 @@
                 closeBtn: container.querySelector('.mcp-chat-close'),
                 minimizeBtn: container.querySelector('.mcp-chat-minimize'),
                 leadForm: container.querySelector('.mcp-lead-form'),
-                typingIndicator: container.querySelector('.mcp-typing')
+                typingIndicator: container.querySelector('.mcp-typing'),
+                intentOptions: container.querySelector('.mcp-intent-options')
             };
 
             // Apply branding
@@ -426,13 +423,55 @@
                 }
                 @media (max-width: 480px) {
                     .mcp-chat-window {
-                        width: auto !important;
-                        height: calc(100vh - 100px) !important;
-                        max-height: 80vh !important;
-                        bottom: 75px !important;
-                        left: 10px !important;
-                        right: 10px !important;
+                        width: calc(100vw - 32px) !important;
+                        height: calc(100vh - 120px) !important;
+                        max-height: 85vh !important;
+                        bottom: 80px !important;
+                        left: 16px !important;
+                        right: 16px !important;
+                        margin: 0 !important;
                     }
+                }
+                .mcp-intent-options {
+                    padding: 16px;
+                    display: none;
+                    flex-direction: column;
+                    gap: 10px;
+                    background: #f8fafc;
+                    border-top: 1px solid #e2e8f0;
+                }
+                .mcp-intent-options.mcp-show {
+                    display: flex;
+                }
+                .mcp-intent-options p {
+                    margin: 0;
+                    font-size: 14px;
+                    color: #1e293b;
+                    font-weight: 500;
+                    text-align: center;
+                }
+                .mcp-intent-btns {
+                    display: flex;
+                    flex-direction: column;
+                    gap: 8px;
+                }
+                .mcp-intent-btn {
+                    padding: 10px !important;
+                    border: 1px solid #e2e8f0 !important;
+                    border-radius: 8px !important;
+                    background: white !important;
+                    color: #1e293b !important;
+                    font-size: 13px !important;
+                    font-weight: 500 !important;
+                    cursor: pointer !important;
+                    transition: all 0.2s !important;
+                }
+                .mcp-intent-btn:hover {
+                    background: #f1f5f9 !important;
+                    border-color: #cbd5e1 !important;
+                }
+                .mcp-intent-btn-primary:hover {
+                    color: white !important;
                 }
             `;
             document.head.appendChild(styles);
@@ -452,8 +491,8 @@
                 }
                         </div>
                         <div class="mcp-chat-title">
-                            <h4>${this.escapeHtml(this.config.name)}</h4>
-                            <span>Online now</span>
+                            <h4>Quick Project Intake</h4>
+                            <span>Karma Marketing Team</span>
                         </div>
                         <div class="mcp-chat-controls">
                             <button class="mcp-chat-minimize" title="Minimize">
@@ -467,6 +506,13 @@
                     <div class="mcp-chat-messages"></div>
                     <div class="mcp-typing">
                         <span></span><span></span><span></span>
+                    </div>
+                    <div class="mcp-intent-options">
+                        <p>Want to see if we are a good fit?</p>
+                        <div class="mcp-intent-btns">
+                            <button class="mcp-intent-btn mcp-intent-btn-primary" data-intent="yes">Yes, quick questions</button>
+                            <button class="mcp-intent-btn" data-intent="no">Not right now</button>
+                        </div>
                     </div>
                     <div class="mcp-lead-form">
                         <h5>📬 Get in touch</h5>
@@ -531,6 +577,37 @@
             if (submitBtn) {
                 submitBtn.addEventListener('click', () => this.submitLead());
             }
+
+            // Intent buttons
+            this.elements.intentOptions.querySelectorAll('.mcp-intent-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => this.handleIntent(e.target.dataset.intent));
+            });
+        },
+
+        initTriggers: function () {
+            // 1. Page Visit Trigger
+            let visits = parseInt(localStorage.getItem('mcp_page_visits') || '0');
+            visits++;
+            localStorage.setItem('mcp_page_visits', visits);
+            if (visits >= 2) this.trigger('page_visits');
+
+            // 2. Scroll Trigger (50-60%)
+            window.addEventListener('scroll', () => {
+                const scrolled = (window.scrollY / (document.documentElement.scrollHeight - window.innerHeight)) * 100;
+                if (scrolled > 55) this.trigger('scroll');
+            }, { passive: true });
+
+            // 3. Exit Intent (Desktop)
+            document.addEventListener('mouseleave', (e) => {
+                if (e.clientY < 0) this.trigger('exit_intent');
+            });
+        },
+
+        trigger: function (type) {
+            if (this.isOpen || this.conversationId || this.triggered) return;
+            this.triggered = true;
+            console.log('MCP Chatbot: Triggered by', type);
+            this.open();
         },
 
         toggle: function () {
@@ -604,17 +681,27 @@
 
                 const data = await response.json();
                 this.conversationId = data.conversation_id;
-                this.messages = data.messages || [];
-
                 // Render messages
-                this.messages.forEach(msg => this.renderMessage(msg));
+                if (this.messages.length === 0) {
+                    this.renderMessage({
+                        role: 'assistant',
+                        content: "Hi, this is the Karma Marketing team. Happy to help if you want to start a project or have a quick question."
+                    });
+                } else {
+                    this.messages.forEach(msg => this.renderMessage(msg));
+                }
+
+                if (this.triggered) {
+                    this.showIntentOptions();
+                }
 
             } catch (err) {
                 console.error('MCP Chatbot: Failed to start conversation', err);
                 this.renderMessage({
                     role: 'assistant',
-                    content: this.config.welcome_message
+                    content: "Hi, this is the Karma Marketing team. Happy to help if you want to start a project or have a quick question."
                 });
+                if (this.triggered) this.showIntentOptions();
             }
         },
 
@@ -741,6 +828,23 @@
             } catch (err) {
                 console.error('MCP Chatbot: Failed to submit lead', err);
                 alert('Failed to submit. Please try again.');
+            }
+        },
+
+        showIntentOptions: function () {
+            this.elements.intentOptions.classList.add('mcp-show');
+            const primaryBtn = this.elements.intentOptions.querySelector('.mcp-intent-btn-primary');
+            if (primaryBtn) primaryBtn.style.background = this.config.primary_color;
+        },
+
+        handleIntent: function (intent) {
+            this.elements.intentOptions.classList.remove('mcp-show');
+            if (intent === 'yes') {
+                this.renderMessage({ role: 'user', content: "Yes, I have some questions." });
+                // We'll let the AI handle it, or just show the lead form if configured
+            } else {
+                this.renderMessage({ role: 'user', content: "Not right now, just looking." });
+                this.renderMessage({ role: 'assistant', content: "No problem! Feel free to ask whenever you're ready." });
             }
         },
 
