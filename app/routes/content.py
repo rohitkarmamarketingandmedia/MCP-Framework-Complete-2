@@ -1151,6 +1151,9 @@ def update_content(current_user, content_id):
         content.meta_description = data['meta_description']
     if 'status' in data:
         content.status = data['status']
+    if 'tags' in data:
+        import json
+        content.tags = json.dumps(data['tags']) if isinstance(data['tags'], list) else data['tags']
     if 'scheduled_for' in data:
         from datetime import datetime
         scheduled = data['scheduled_for']
