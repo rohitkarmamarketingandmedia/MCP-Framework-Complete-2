@@ -482,6 +482,10 @@
         },
 
         getWidgetHTML: function () {
+            // Use config values for header, with fallbacks
+            const headerTitle = this.config.header_title || this.config.name || 'Chat Support';
+            const headerSubtitle = this.config.header_subtitle || 'Online';
+            
             return `
                 <div class="mcp-chat-bubble" title="Chat with us">
                     <svg viewBox="0 0 24 24" width="28" height="28"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H5.17L4 17.17V4h16v12z"/><path d="M7 9h10v2H7zm0-4h10v2H7z"/></svg>
@@ -495,8 +499,8 @@
                 }
                         </div>
                         <div class="mcp-chat-title">
-                            <h4>Quick Project Intake</h4>
-                            <span>Karma Marketing Team</span>
+                            <h4>${this.escapeHtml(headerTitle)}</h4>
+                            <span>${this.escapeHtml(headerSubtitle)}</span>
                         </div>
                         <div class="mcp-chat-controls">
                             <button class="mcp-chat-minimize" title="Minimize">
@@ -756,9 +760,12 @@
                 this.messages.push(assistantMsg);
                 this.renderMessage(assistantMsg);
 
-                // Show lead form if needed
+                // Show lead form if needed - delay so user can read response first
                 if (data.should_capture_lead && !this.leadCaptured) {
-                    this.showLeadForm();
+                    setTimeout(() => {
+                        this.showLeadForm();
+                        this.scrollToBottom();
+                    }, 1500); // 1.5 second delay
                 }
 
             } catch (err) {

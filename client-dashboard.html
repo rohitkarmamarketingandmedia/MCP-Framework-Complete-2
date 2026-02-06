@@ -2912,6 +2912,18 @@
                                     class="fas fa-palette mr-2 text-pink-400"></i>Appearance</h3>
                             <div class="grid sm:grid-cols-2 gap-4">
                                 <div>
+                                    <label class="block text-sm text-gray-400 mb-2">Header Title</label>
+                                    <input type="text" id="chatbotHeaderTitle" value="Chat Support"
+                                        placeholder="e.g., Quick Project Intake"
+                                        class="w-full px-4 py-2 glass rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500">
+                                </div>
+                                <div>
+                                    <label class="block text-sm text-gray-400 mb-2">Header Subtitle</label>
+                                    <input type="text" id="chatbotHeaderSubtitle" value="Online"
+                                        placeholder="e.g., Karma Marketing Team"
+                                        class="w-full px-4 py-2 glass rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500">
+                                </div>
+                                <div>
                                     <label class="block text-sm text-gray-400 mb-2">Bot Name</label>
                                     <input type="text" id="chatbotName" value="Support Assistant"
                                         class="w-full px-4 py-2 glass rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500">
@@ -14230,6 +14242,8 @@
 
         function populateChatbotForm(config) {
             document.getElementById('chatbotEnabled').checked = config.is_active;
+            document.getElementById('chatbotHeaderTitle').value = config.header_title || 'Chat Support';
+            document.getElementById('chatbotHeaderSubtitle').value = config.header_subtitle || 'Online';
             document.getElementById('chatbotName').value = config.name || 'Support Assistant';
             document.getElementById('chatbotPosition').value = config.position || 'bottom-right';
             document.getElementById('chatbotColor').value = config.primary_color || '#8b5cf6';
@@ -14348,6 +14362,8 @@
 
             const config = {
                 is_active: document.getElementById('chatbotEnabled').checked,
+                header_title: document.getElementById('chatbotHeaderTitle').value,
+                header_subtitle: document.getElementById('chatbotHeaderSubtitle').value,
                 name: document.getElementById('chatbotName').value,
                 position: document.getElementById('chatbotPosition').value,
                 primary_color: document.getElementById('chatbotColor').value,

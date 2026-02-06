@@ -1502,6 +1502,8 @@ class DBChatbotConfig(db.Model):
     name: Mapped[str] = mapped_column(String(100), default='Support Assistant')
     welcome_message: Mapped[str] = mapped_column(Text, default='Hi! How can I help you today?')
     placeholder_text: Mapped[str] = mapped_column(String(200), default='Type your message...')
+    header_title: Mapped[str] = mapped_column(String(200), default='Chat Support')
+    header_subtitle: Mapped[str] = mapped_column(String(200), default='Online')
     
     # Appearance
     primary_color: Mapped[str] = mapped_column(String(20), default='#3b82f6')
@@ -1565,6 +1567,8 @@ class DBChatbotConfig(db.Model):
             'name': self.name,
             'welcome_message': self.welcome_message,
             'placeholder_text': self.placeholder_text,
+            'header_title': self.header_title,
+            'header_subtitle': self.header_subtitle,
             'primary_color': self.primary_color,
             'secondary_color': self.secondary_color,
             'position': self.position,
