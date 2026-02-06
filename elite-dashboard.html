@@ -1430,11 +1430,19 @@
         // KEYWORD GAP ANALYSIS
         // ==========================================
         function populateGapHeaders() {
-            if (competitors && competitors.length > 0) {
+            const hasCompetitors = competitors && competitors.length > 0;
+            
+            if (hasCompetitors) {
                 document.getElementById('gapComp1Header').textContent = competitors[0]?.domain || 'Competitor 1';
                 if (competitors.length > 1) {
                     document.getElementById('gapComp2Header').textContent = competitors[1]?.domain || 'Competitor 2';
+                } else {
+                    document.getElementById('gapComp2Header').textContent = 'No Competitor';
                 }
+            } else {
+                // No competitors configured - update headers to indicate this
+                document.getElementById('gapComp1Header').textContent = 'Add Competitor';
+                document.getElementById('gapComp2Header').textContent = 'Add Competitor';
             }
         }
         
@@ -1486,6 +1494,9 @@
             const geo = currentClient?.geo || '';
             const clientKeywords = currentClient?.primary_keywords || [];
             
+            // Check if client has actual competitors configured
+            const hasCompetitors = competitors && competitors.length > 0;
+            
             // Extract just the city name (before comma)
             const cityName = geo.includes(',') ? geo.split(',')[0].trim().toLowerCase() : geo.split(' ')[0].toLowerCase();
             
@@ -1518,22 +1529,33 @@
                 return {
                     keyword: fullKw,
                     you: Math.random() > 0.3 ? Math.floor(Math.random() * 30) + 1 : null,
-                    comp1: Math.random() > 0.2 ? Math.floor(Math.random() * 20) + 1 : null,
-                    comp2: Math.random() > 0.4 ? Math.floor(Math.random() * 25) + 1 : null,
+                    // Only show competitor data if competitors are actually configured
+                    comp1: hasCompetitors && competitors[0] ? (Math.random() > 0.2 ? Math.floor(Math.random() * 20) + 1 : null) : null,
+                    comp2: hasCompetitors && competitors[1] ? (Math.random() > 0.4 ? Math.floor(Math.random() * 25) + 1 : null) : null,
                     volume: Math.floor(Math.random() * 5000) + 100,
                     priority: i < 3 ? 'HIGH' : (i < 6 ? 'MEDIUM' : 'LOW')
                 };
             });
             
-            return { gaps, source: 'demo' };
+            return { gaps, source: 'demo', hasCompetitors };
         }
         
         function renderKeywordGapTable(gaps) {
             const table = document.getElementById('keywordGapTable');
+            const hasCompetitors = competitors && competitors.length > 0;
             
             if (gaps.length === 0) {
                 table.innerHTML = '<tr><td colspan="7" class="text-center py-8 text-gray-500">No keyword gaps found</td></tr>';
                 return;
+            }
+            
+            // Show notice if no competitors are configured
+            if (!hasCompetitors) {
+                const headerEl = document.querySelector('#panel-keywordGap h3');
+                if (headerEl && !headerEl.innerHTML.includes('Add competitors')) {
+                    headerEl.innerHTML = `<i class="fas fa-th-list mr-2 text-purple-400"></i>Keyword Gap Analysis 
+                        <span class="text-xs text-amber-400 ml-2">(Add competitors to compare rankings)</span>`;
+                }
             }
             
             // Clean up keywords - remove duplicate city/geo references
@@ -1575,7 +1597,7 @@
             
             table.innerHTML = gaps.map(gap => {
                 const posClass = (pos) => {
-                    if (!pos) return 'text-red-400';
+                    if (!pos) return 'text-gray-500';
                     if (pos <= 3) return 'text-green-400';
                     if (pos <= 10) return 'text-blue-400';
                     if (pos <= 20) return 'text-yellow-400';
@@ -1588,12 +1610,16 @@
                     LOW: 'bg-green-500/20 text-green-400'
                 };
                 
+                // Show N/A for competitor columns if no competitors configured
+                const comp1Display = hasCompetitors && competitors[0] ? (gap.comp1 ? '#' + gap.comp1 : '—') : '<span class="text-gray-600">N/A</span>';
+                const comp2Display = hasCompetitors && competitors[1] ? (gap.comp2 ? '#' + gap.comp2 : '—') : '<span class="text-gray-600">N/A</span>';
+                
                 return `
                     <tr class="border-b border-white/5 hover:bg-white/5">
                         <td class="py-3 px-2 text-white">${escapeHtml(gap.keyword)}</td>
                         <td class="py-3 px-2 text-center ${posClass(gap.you)} font-bold">${gap.you ? '#' + gap.you : '—'}</td>
-                        <td class="py-3 px-2 text-center ${posClass(gap.comp1)}">${gap.comp1 ? '#' + gap.comp1 : '—'}</td>
-                        <td class="py-3 px-2 text-center ${posClass(gap.comp2)}">${gap.comp2 ? '#' + gap.comp2 : '—'}</td>
+                        <td class="py-3 px-2 text-center ${hasCompetitors && competitors[0] ? posClass(gap.comp1) : 'text-gray-600'}">${comp1Display}</td>
+                        <td class="py-3 px-2 text-center ${hasCompetitors && competitors[1] ? posClass(gap.comp2) : 'text-gray-600'}">${comp2Display}</td>
                         <td class="py-3 px-2 text-center text-gray-300">${gap.volume?.toLocaleString() || '—'}</td>
                         <td class="py-3 px-2 text-center">
                             <span class="px-2 py-1 rounded text-xs ${priorityClass[gap.priority] || ''}">${escapeHtml(gap.priority) || 'LOW'}</span>
