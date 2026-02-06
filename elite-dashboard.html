@@ -845,6 +845,14 @@
             }).join('');
         }
 
+        // Content Queue Pagination State
+        let contentQueueData = {
+            posts: [],
+            queue: [],
+            currentPage: 1,
+            itemsPerPage: 5
+        };
+        
         async function loadContentQueue() {
             const container = document.getElementById('contentQueue');
             
@@ -854,7 +862,7 @@
                     headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
                 });
                 const queueData = await queueRes.json();
-                const queue = queueData.queue || [];
+                contentQueueData.queue = queueData.queue || [];
                 
                 // Get ALL blog posts, then filter for pending ones
                 const draftsRes = await fetch(`${API_URL}/api/content/client/${currentClientId}?type=blog`, {
@@ -866,11 +874,14 @@
                 const allPosts = draftsData.content || draftsData.posts || [];
                 
                 // Filter for draft and review status (content that needs attention)
-                const pendingPosts = allPosts.filter(p => 
+                contentQueueData.posts = allPosts.filter(p => 
                     p.status === 'draft' || p.status === 'review'
                 );
+                
+                // Reset to page 1 when loading new data
+                contentQueueData.currentPage = 1;
 
-                const totalPending = queue.length + pendingPosts.length;
+                const totalPending = contentQueueData.queue.length + contentQueueData.posts.length;
                 document.getElementById('queueCount').textContent = `${totalPending} pending`;
 
                 if (totalPending === 0) {
@@ -884,33 +895,61 @@
                     return;
                 }
 
-                // Combine queue items and drafts
-                let html = '';
-                
-                // Show pending blog posts first (limit to 10)
-                pendingPosts.slice(0, 10).forEach(post => {
-                    const statusColor = post.status === 'review' ? 'yellow' : 'blue';
-                    const statusLabel = post.status === 'review' ? 'Review' : 'Draft';
+                renderContentQueuePage();
+
+            } catch (e) {
+                console.error('Failed to load queue:', e);
+                container.innerHTML = `
+                    <div class="glass-card rounded-xl p-8 text-center">
+                        <i class="fas fa-exclamation-triangle text-4xl text-orange-400 mb-4"></i>
+                        <p class="text-gray-400">Failed to load content queue</p>
+                        <p class="text-xs text-gray-500 mt-2">${e.message}</p>
+                    </div>
+                `;
+            }
+        }
+        
+        function renderContentQueuePage() {
+            const container = document.getElementById('contentQueue');
+            const { posts, queue, currentPage, itemsPerPage } = contentQueueData;
+            
+            // Combine all items: posts first, then queue items
+            const allItems = [
+                ...posts.map(p => ({ ...p, itemType: 'post' })),
+                ...queue.map(q => ({ ...q, itemType: 'queue' }))
+            ];
+            
+            const totalItems = allItems.length;
+            const totalPages = Math.ceil(totalItems / itemsPerPage);
+            const startIndex = (currentPage - 1) * itemsPerPage;
+            const endIndex = startIndex + itemsPerPage;
+            const pageItems = allItems.slice(startIndex, endIndex);
+            
+            let html = '';
+            
+            // Render items for current page
+            pageItems.forEach(item => {
+                if (item.itemType === 'post') {
+                    const statusColor = item.status === 'review' ? 'yellow' : 'blue';
+                    const statusLabel = item.status === 'review' ? 'Review' : 'Draft';
                     
                     html += `
-                        <div class="glass-card rounded-xl p-4 queue-item cursor-pointer hover:bg-white/5" onclick="window.location.href='/client?view=content&post=${post.id}'">
+                        <div class="glass-card rounded-xl p-4 queue-item cursor-pointer hover:bg-white/5" onclick="window.location.href='/client?view=content&post=${item.id}'">
                             <div class="flex items-start justify-between mb-2">
                                 <span class="px-2 py-1 bg-${statusColor}-500/20 text-${statusColor}-400 rounded text-xs">
                                     <i class="fas fa-edit mr-1"></i>${statusLabel}
                                 </span>
-                                <span class="text-green-400 text-sm font-bold">SEO: ${post.seo_score || '--'}</span>
+                                <span class="text-green-400 text-sm font-bold">SEO: ${item.seo_score || '--'}</span>
                             </div>
-                            <h3 class="font-medium mb-1 line-clamp-2">${escapeHtml(post.title || 'Untitled')}</h3>
+                            <h3 class="font-medium mb-1 line-clamp-2">${escapeHtml(item.title || 'Untitled')}</h3>
                             <div class="flex items-center justify-between text-xs text-gray-400">
-                                <span><i class="fas fa-key mr-1"></i>${escapeHtml(post.primary_keyword || 'N/A')}</span>
-                                <span>${post.word_count || 0} words</span>
+                                <span><i class="fas fa-key mr-1"></i>${escapeHtml(item.primary_keyword || 'N/A')}</span>
+                                <span>${item.word_count || 0} words</span>
                             </div>
                         </div>
                     `;
-                });
-                
-                // Show queue items (from competitor monitoring)
-                queue.forEach(item => {
+                } else {
+                    // Queue item (from competitor monitoring)
                     html += `
                         <div class="glass-card rounded-xl p-4 queue-item cursor-pointer hover:bg-white/5" onclick="showContent('${item.id}')">
                             <div class="flex items-start justify-between mb-2">
@@ -930,30 +969,49 @@
                             </div>
                         </div>
                     `;
-                });
-                
-                // Show "View All" link if there are more
-                if (pendingPosts.length > 10) {
-                    html += `
-                        <div class="text-center pt-2">
-                            <a href="/client?view=content" class="text-sm text-blue-400 hover:text-blue-300">
-                                View all ${pendingPosts.length} posts →
-                            </a>
-                        </div>
-                    `;
                 }
-                
-                container.innerHTML = html;
-
-            } catch (e) {
-                console.error('Failed to load queue:', e);
-                container.innerHTML = `
-                    <div class="glass-card rounded-xl p-8 text-center">
-                        <i class="fas fa-exclamation-triangle text-4xl text-orange-400 mb-4"></i>
-                        <p class="text-gray-400">Failed to load content queue</p>
-                        <p class="text-xs text-gray-500 mt-2">${e.message}</p>
+            });
+            
+            // Add pagination controls if more than one page
+            if (totalPages > 1) {
+                html += `
+                    <div class="flex items-center justify-between pt-4 border-t border-white/10 mt-2">
+                        <button 
+                            onclick="changeQueuePage(-1)" 
+                            class="px-3 py-1.5 glass rounded-lg text-sm ${currentPage === 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-white/10'}"
+                            ${currentPage === 1 ? 'disabled' : ''}>
+                            <i class="fas fa-chevron-left mr-1"></i>Prev
+                        </button>
+                        <span class="text-sm text-gray-400">
+                            Page ${currentPage} of ${totalPages}
+                            <span class="text-gray-600 ml-2">(${totalItems} items)</span>
+                        </span>
+                        <button 
+                            onclick="changeQueuePage(1)" 
+                            class="px-3 py-1.5 glass rounded-lg text-sm ${currentPage === totalPages ? 'opacity-50 cursor-not-allowed' : 'hover:bg-white/10'}"
+                            ${currentPage === totalPages ? 'disabled' : ''}>
+                            Next<i class="fas fa-chevron-right ml-1"></i>
+                        </button>
                     </div>
                 `;
+            }
+            
+            container.innerHTML = html;
+        }
+        
+        function changeQueuePage(delta) {
+            const { posts, queue, itemsPerPage } = contentQueueData;
+            const totalItems = posts.length + queue.length;
+            const totalPages = Math.ceil(totalItems / itemsPerPage);
+            
+            const newPage = contentQueueData.currentPage + delta;
+            
+            if (newPage >= 1 && newPage <= totalPages) {
+                contentQueueData.currentPage = newPage;
+                renderContentQueuePage();
+                
+                // Scroll to top of content queue section
+                document.getElementById('contentQueue').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
             }
         }
 
