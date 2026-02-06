@@ -361,7 +361,20 @@ def capture_lead(chatbot_id):
         
         db.session.commit()
         
-        # TODO: Send notification email/SMS
+        # Send notification email if enabled
+        if config.email_notifications and config.notification_email:
+            try:
+                _send_lead_notification_email(
+                    to_email=config.notification_email,
+                    lead_name=data.get('name', 'Anonymous'),
+                    lead_email=data.get('email', 'Not provided'),
+                    lead_phone=data.get('phone', 'Not provided'),
+                    lead_message=data.get('message', ''),
+                    page_url=conversation.page_url or 'Unknown',
+                    client_id=config.client_id
+                )
+            except Exception as e:
+                logger.error(f"Failed to send lead notification email: {e}")
         
         return jsonify({
             'success': True,
@@ -376,6 +389,95 @@ def capture_lead(chatbot_id):
             'success': False,
             'message': 'Thank you! We received your information.'
         })
+
+
+def _send_lead_notification_email(to_email, lead_name, lead_email, lead_phone, lead_message, page_url, client_id):
+    """Send email notification for new chatbot lead"""
+    from app.services.email_service import get_email_service
+    import os
+    
+    email_service = get_email_service()
+    app_url = os.getenv('APP_URL', 'https://mcp.karmamarketingandmedia.com')
+    
+    # Get client name if available
+    client = DBClient.query.get(client_id) if client_id else None
+    client_name = client.business_name if client else 'Your Website'
+    
+    html = f"""
+    <!DOCTYPE html>
+    <html>
+    <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
+                 background: #f4f4f5; padding: 20px; margin: 0;">
+        <div style="max-width: 600px; margin: 0 auto; background: white; border-radius: 12px; 
+                    overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+            
+            <div style="background: linear-gradient(135deg, #22c55e, #16a34a); padding: 24px 30px;">
+                <h1 style="color: white; margin: 0; font-size: 22px;">🎉 New Lead from Chatbot!</h1>
+            </div>
+            
+            <div style="padding: 30px;">
+                <p style="color: #374151; font-size: 16px; line-height: 1.6; margin: 0 0 20px 0;">
+                    Great news! A visitor just submitted their contact information through the chatbot widget on <strong>{client_name}</strong>.
+                </p>
+                
+                <table style="width: 100%; margin: 20px 0; border-collapse: collapse;">
+                    <tr>
+                        <td style="padding: 12px; color: #666; width: 100px; border-bottom: 1px solid #e5e7eb;">Name:</td>
+                        <td style="padding: 12px; color: #111; font-weight: 500; border-bottom: 1px solid #e5e7eb;">{lead_name}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 12px; color: #666; border-bottom: 1px solid #e5e7eb;">Email:</td>
+                        <td style="padding: 12px; color: #111; font-weight: 500; border-bottom: 1px solid #e5e7eb;">
+                            <a href="mailto:{lead_email}" style="color: #2563eb; text-decoration: none;">{lead_email}</a>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 12px; color: #666; border-bottom: 1px solid #e5e7eb;">Phone:</td>
+                        <td style="padding: 12px; color: #111; font-weight: 500; border-bottom: 1px solid #e5e7eb;">
+                            <a href="tel:{lead_phone}" style="color: #2563eb; text-decoration: none;">{lead_phone}</a>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 12px; color: #666; border-bottom: 1px solid #e5e7eb;">Page:</td>
+                        <td style="padding: 12px; color: #111; font-weight: 500; border-bottom: 1px solid #e5e7eb;">
+                            <a href="{page_url}" style="color: #2563eb; text-decoration: none;">{page_url[:50]}...</a>
+                        </td>
+                    </tr>
+                    {f'''<tr>
+                        <td style="padding: 12px; color: #666; vertical-align: top;">Message:</td>
+                        <td style="padding: 12px; color: #111;">{lead_message}</td>
+                    </tr>''' if lead_message else ''}
+                </table>
+                
+                <div style="text-align: center; margin-top: 30px;">
+                    <a href="{app_url}/client/{client_id}" 
+                       style="display: inline-block; padding: 14px 28px; background: linear-gradient(135deg, #22c55e, #16a34a); 
+                              color: white; text-decoration: none; border-radius: 8px; font-weight: 600;">
+                        View in Dashboard →
+                    </a>
+                </div>
+            </div>
+            
+            <div style="background: #f8f8f8; padding: 20px; text-align: center; color: #9ca3af; font-size: 12px;">
+                <p style="margin: 0;">This notification was sent from your chatbot widget.</p>
+                <p style="margin: 5px 0 0 0;">
+                    <a href="{app_url}/settings" style="color: #22c55e;">Manage Notification Settings</a>
+                </p>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+    
+    subject = f"🎉 New Chatbot Lead: {lead_name}"
+    
+    success = email_service.send_simple(to_email, subject, html, html=True)
+    if success:
+        logger.info(f"Lead notification email sent to {to_email}")
+    else:
+        logger.warning(f"Failed to send lead notification email to {to_email}")
+    
+    return success
 
 
 @chatbot_bp.route('/widget/<chatbot_id>/messages/<conversation_id>', methods=['GET'])
