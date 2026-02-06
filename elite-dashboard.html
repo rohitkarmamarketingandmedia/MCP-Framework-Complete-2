@@ -101,6 +101,38 @@
                 #1f2937 0deg
             );
         }
+        
+        /* Fix for Windows dropdown styling */
+        select {
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%239ca3af' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 12px center;
+            padding-right: 36px;
+        }
+        
+        /* Dark themed selects - need dark background for options */
+        select,
+        select.glass,
+        #clientSelector {
+            background-color: #1e293b !important;
+        }
+        
+        select option,
+        #clientSelector option {
+            background-color: #1e293b;
+            color: white;
+            padding: 8px 12px;
+        }
+        
+        select option:hover,
+        select option:checked,
+        #clientSelector option:hover,
+        #clientSelector option:checked {
+            background-color: #334155;
+        }
     </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.6/purify.min.js"></script>
 </head>
@@ -713,6 +745,12 @@
                 
                 // Initialize rank chart with keywords
                 initRankChart();
+                
+                // Update Keyword Gap headers with competitor names
+                populateGapHeaders();
+                
+                // Auto-refresh the currently active analysis tab
+                refreshActiveAnalysisTab();
 
             } catch (e) {
                 console.error('Failed to load client:', e);
@@ -1190,6 +1228,35 @@
             if (tab === 'rankHistory') initRankChart();
             if (tab === 'keywordGap') populateGapHeaders();
             if (tab === 'competitorCompare') populateCompareData();
+        }
+        
+        // Refresh the currently active analysis tab when client changes
+        function refreshActiveAnalysisTab() {
+            const tabs = ['rankHistory', 'keywordGap', 'competitorCompare', 'contentChanges'];
+            for (const tab of tabs) {
+                const panel = document.getElementById(`panel-${tab}`);
+                if (panel && !panel.classList.contains('hidden')) {
+                    // This tab is active, refresh its data
+                    if (tab === 'rankHistory') initRankChart();
+                    if (tab === 'keywordGap') {
+                        populateGapHeaders();
+                        // Also clear and show message to click Analyze
+                        const table = document.getElementById('keywordGapTable');
+                        if (table) {
+                            table.innerHTML = '<tr><td colspan="7" class="text-center py-8 text-gray-500">Click "Analyze" to load keyword gap data for this client</td></tr>';
+                        }
+                    }
+                    if (tab === 'competitorCompare') populateCompareData();
+                    if (tab === 'contentChanges') {
+                        // Clear content changes and show message
+                        const container = document.getElementById('contentChangesList');
+                        if (container) {
+                            container.innerHTML = '<div class="text-center py-8 text-gray-500">Click "Scan Now" to check for competitor content changes</div>';
+                        }
+                    }
+                    break;
+                }
+            }
         }
         
         // ==========================================
