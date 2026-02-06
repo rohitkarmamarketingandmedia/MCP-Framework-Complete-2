@@ -123,6 +123,8 @@ def get_widget_config(chatbot_id):
     return jsonify({
         'id': config.id,
         'name': config.name,
+        'header_title': config.header_title,
+        'header_subtitle': config.header_subtitle,
         'welcome_message': config.welcome_message,
         'placeholder_text': config.placeholder_text,
         'primary_color': config.primary_color,
