@@ -61,6 +61,7 @@ def update_chatbot_config(current_user, client_id):
     # Update allowed fields
     allowed_fields = [
         'name', 'welcome_message', 'placeholder_text',
+        'header_title', 'header_subtitle',
         'primary_color', 'secondary_color', 'position', 'avatar_url',
         'auto_open_delay', 'show_on_mobile',
         'collect_email', 'collect_phone', 'collect_name',
