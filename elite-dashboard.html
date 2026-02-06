@@ -846,6 +846,8 @@
         }
 
         async function loadContentQueue() {
+            const container = document.getElementById('contentQueue');
+            
             try {
                 // Get content queue items (from competitor monitoring)
                 const queueRes = await fetch(`${API_URL}/api/monitoring/queue?client_id=${currentClientId}&status=pending`, {
@@ -854,17 +856,22 @@
                 const queueData = await queueRes.json();
                 const queue = queueData.queue || [];
                 
-                // Also get draft blog posts
-                const draftsRes = await fetch(`${API_URL}/api/content/client/${currentClientId}?type=blog&status=draft`, {
+                // Get ALL blog posts, then filter for pending ones
+                const draftsRes = await fetch(`${API_URL}/api/content/client/${currentClientId}?type=blog`, {
                     headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
                 });
                 const draftsData = await draftsRes.json();
-                const drafts = (draftsData.posts || []).filter(p => p.status === 'draft').slice(0, 10);
+                
+                // API returns 'content' not 'posts' - check both for compatibility
+                const allPosts = draftsData.content || draftsData.posts || [];
+                
+                // Filter for draft and review status (content that needs attention)
+                const pendingPosts = allPosts.filter(p => 
+                    p.status === 'draft' || p.status === 'review'
+                );
 
-                const totalPending = queue.length + drafts.length;
+                const totalPending = queue.length + pendingPosts.length;
                 document.getElementById('queueCount').textContent = `${totalPending} pending`;
-
-                const container = document.getElementById('contentQueue');
 
                 if (totalPending === 0) {
                     container.innerHTML = `
@@ -880,20 +887,23 @@
                 // Combine queue items and drafts
                 let html = '';
                 
-                // Show draft blog posts first
-                drafts.forEach(draft => {
+                // Show pending blog posts first (limit to 10)
+                pendingPosts.slice(0, 10).forEach(post => {
+                    const statusColor = post.status === 'review' ? 'yellow' : 'blue';
+                    const statusLabel = post.status === 'review' ? 'Review' : 'Draft';
+                    
                     html += `
-                        <div class="glass-card rounded-xl p-4 queue-item cursor-pointer hover:bg-white/5" onclick="window.location.href='/client?view=content&post=${draft.id}'">
+                        <div class="glass-card rounded-xl p-4 queue-item cursor-pointer hover:bg-white/5" onclick="window.location.href='/client?view=content&post=${post.id}'">
                             <div class="flex items-start justify-between mb-2">
-                                <span class="px-2 py-1 bg-blue-500/20 text-blue-400 rounded text-xs">
-                                    <i class="fas fa-edit mr-1"></i>Draft
+                                <span class="px-2 py-1 bg-${statusColor}-500/20 text-${statusColor}-400 rounded text-xs">
+                                    <i class="fas fa-edit mr-1"></i>${statusLabel}
                                 </span>
-                                <span class="text-green-400 text-sm font-bold">SEO: ${draft.seo_score || '--'}</span>
+                                <span class="text-green-400 text-sm font-bold">SEO: ${post.seo_score || '--'}</span>
                             </div>
-                            <h3 class="font-medium mb-1 line-clamp-2">${escapeHtml(draft.title || 'Untitled')}</h3>
+                            <h3 class="font-medium mb-1 line-clamp-2">${escapeHtml(post.title || 'Untitled')}</h3>
                             <div class="flex items-center justify-between text-xs text-gray-400">
-                                <span><i class="fas fa-key mr-1"></i>${escapeHtml(draft.primary_keyword || 'N/A')}</span>
-                                <span>${draft.word_count || 0} words</span>
+                                <span><i class="fas fa-key mr-1"></i>${escapeHtml(post.primary_keyword || 'N/A')}</span>
+                                <span>${post.word_count || 0} words</span>
                             </div>
                         </div>
                     `;
@@ -913,19 +923,37 @@
                                     <span class="text-orange-400 text-sm">${item.competitor_seo_score}</span>
                                 </div>
                             </div>
-                            <h3 class="font-medium mb-1 line-clamp-2">${item.title || 'Untitled'}</h3>
+                            <h3 class="font-medium mb-1 line-clamp-2">${escapeHtml(item.title || 'Untitled')}</h3>
                             <div class="flex items-center justify-between text-xs text-gray-400">
-                                <span><i class="fas fa-key mr-1"></i>${item.primary_keyword || 'N/A'}</span>
-                                <span>${item.word_count} words</span>
+                                <span><i class="fas fa-key mr-1"></i>${escapeHtml(item.primary_keyword || 'N/A')}</span>
+                                <span>${item.word_count || 0} words</span>
                             </div>
                         </div>
                     `;
                 });
                 
+                // Show "View All" link if there are more
+                if (pendingPosts.length > 10) {
+                    html += `
+                        <div class="text-center pt-2">
+                            <a href="/client?view=content" class="text-sm text-blue-400 hover:text-blue-300">
+                                View all ${pendingPosts.length} posts →
+                            </a>
+                        </div>
+                    `;
+                }
+                
                 container.innerHTML = html;
 
             } catch (e) {
                 console.error('Failed to load queue:', e);
+                container.innerHTML = `
+                    <div class="glass-card rounded-xl p-8 text-center">
+                        <i class="fas fa-exclamation-triangle text-4xl text-orange-400 mb-4"></i>
+                        <p class="text-gray-400">Failed to load content queue</p>
+                        <p class="text-xs text-gray-500 mt-2">${e.message}</p>
+                    </div>
+                `;
             }
         }
 
