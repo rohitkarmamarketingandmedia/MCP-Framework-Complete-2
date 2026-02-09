@@ -37,23 +37,37 @@ class ChatbotService:
         # Get services
         services = client_data.get('services', [])
         if isinstance(services, str):
-            services = json.loads(services) if services else []
+            try:
+                services = json.loads(services) if services and services.strip() else []
+            except (json.JSONDecodeError, TypeError):
+                services = []
         services_text = ', '.join(services[:10]) if services else 'various services'
         
         # Get service areas
         service_areas = client_data.get('service_areas', [])
         if isinstance(service_areas, str):
-            service_areas = json.loads(service_areas) if service_areas else []
+            try:
+                service_areas = json.loads(service_areas) if service_areas and service_areas.strip() else []
+            except (json.JSONDecodeError, TypeError):
+                service_areas = []
         areas_text = ', '.join(service_areas[:10]) if service_areas else geo
         
         # Get USPs
         usps = client_data.get('unique_selling_points', [])
         if isinstance(usps, str):
-            usps = json.loads(usps) if usps else []
+            try:
+                usps = json.loads(usps) if usps and usps.strip() else []
+            except (json.JSONDecodeError, TypeError):
+                usps = []
         usps_text = '\n'.join([f"- {u}" for u in usps[:5]]) if usps else ''
         
         # Get FAQs if available
         faqs = client_data.get('faqs', [])
+        if isinstance(faqs, str):
+            try:
+                faqs = json.loads(faqs) if faqs and faqs.strip() else []
+            except (json.JSONDecodeError, TypeError):
+                faqs = []
         faqs_text = ''
         if faqs:
             faqs_text = '\n\nCommon Questions:\n'
@@ -320,7 +334,10 @@ If asked about something outside MCP, politely redirect to MCP-related help or s
         for faq in faqs:
             keywords = faq.get('keywords', [])
             if isinstance(keywords, str):
-                keywords = json.loads(keywords) if keywords else []
+                try:
+                    keywords = json.loads(keywords) if keywords and keywords.strip() else []
+                except (json.JSONDecodeError, TypeError):
+                    keywords = []
             
             # Check if any keyword is in the message
             for keyword in keywords:
