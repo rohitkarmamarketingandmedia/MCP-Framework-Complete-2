@@ -1114,6 +1114,17 @@ class DBServicePage(db.Model):
     client: Mapped["DBClient"] = relationship("DBClient", back_populates="service_pages_rel")
     
     def to_dict(self) -> dict:
+        # Calculate word count from content
+        word_count = 0
+        if self.hero_headline:
+            word_count += len(self.hero_headline.split())
+        if self.hero_subheadline:
+            word_count += len(self.hero_subheadline.split())
+        if self.intro_text:
+            word_count += len(self.intro_text.split())
+        if self.body_content:
+            word_count += len(self.body_content.split())
+        
         return {
             'id': self.id,
             'client_id': self.client_id,
@@ -1123,12 +1134,25 @@ class DBServicePage(db.Model):
             'service': self.service,
             'location': self.location,
             'primary_keyword': self.primary_keyword,
+            'secondary_keywords': self.secondary_keywords,
             'hero_headline': self.hero_headline,
+            'hero_subheadline': self.hero_subheadline,
+            'intro_text': self.intro_text,
+            'body_content': self.body_content,
+            'cta_headline': self.cta_headline,
+            'cta_button_text': self.cta_button_text,
+            'form_headline': self.form_headline,
+            'trust_badges': self.trust_badges,
             'meta_title': self.meta_title,
             'meta_description': self.meta_description,
+            'schema_markup': self.schema_markup,
             'status': self.status,
+            'wordpress_id': self.wordpress_id,
             'published_url': self.published_url,
-            'created_at': self.created_at.isoformat() if self.created_at else None
+            'published_at': self.published_at.isoformat() if self.published_at else None,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+            'word_count': word_count
         }
 
 

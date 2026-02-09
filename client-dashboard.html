@@ -7172,9 +7172,131 @@
             }
         }
 
-        function viewPage(pageId) {
-            showToast('Page preview coming soon!', 'info');
-            // TODO: Open page preview modal
+        async function viewPage(pageId) {
+            try {
+                const response = await fetch(`${API_URL}/api/pages/${pageId}`, {
+                    headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
+                });
+                
+                if (!response.ok) {
+                    showToast('Failed to load page', 'error');
+                    return;
+                }
+                
+                const data = await response.json();
+                const page = data.page || data;
+                
+                // Create modal HTML
+                const modalHtml = `
+                    <div id="pagePreviewModal" class="fixed inset-0 bg-black/90 z-50 overflow-y-auto" onclick="if(event.target === this) closePagePreview()">
+                        <div class="max-w-4xl mx-auto py-8 px-4">
+                            <div class="glass-light rounded-2xl overflow-hidden">
+                                <!-- Header -->
+                                <div class="bg-gradient-to-r from-purple-600 to-pink-600 p-6">
+                                    <div class="flex items-start justify-between">
+                                        <div class="flex-1">
+                                            <span class="inline-block px-3 py-1 bg-white/20 rounded-full text-white text-sm mb-2">
+                                                ${page.page_type || 'Service'} Page
+                                            </span>
+                                            <h1 class="text-2xl md:text-3xl font-bold text-white">${page.title || 'Untitled Page'}</h1>
+                                            <p class="text-white/80 mt-2">${page.hero_subheadline || ''}</p>
+                                        </div>
+                                        <button onclick="closePagePreview()" class="p-2 hover:bg-white/20 rounded-lg transition ml-4">
+                                            <i class="fas fa-times text-white text-xl"></i>
+                                        </button>
+                                    </div>
+                                    <div class="flex items-center gap-4 mt-4 text-white/80 text-sm">
+                                        <span><i class="fas fa-map-marker-alt mr-1"></i>${page.location || 'No location'}</span>
+                                        <span><i class="fas fa-tag mr-1"></i>${page.primary_keyword || ''}</span>
+                                        <span class="px-2 py-1 bg-white/20 rounded">${page.status || 'draft'}</span>
+                                    </div>
+                                </div>
+                                
+                                <!-- Content -->
+                                <div class="p-6 md:p-8 bg-slate-900">
+                                    <!-- Hero Section Preview -->
+                                    <div class="mb-8 p-6 bg-gradient-to-br from-slate-800 to-slate-900 rounded-xl border border-white/10">
+                                        <h2 class="text-2xl font-bold text-white mb-2">${page.hero_headline || page.title || ''}</h2>
+                                        <p class="text-gray-400">${page.hero_subheadline || ''}</p>
+                                    </div>
+                                    
+                                    <!-- Intro Text -->
+                                    ${page.intro_text ? `
+                                        <div class="mb-6">
+                                            <h3 class="text-lg font-semibold text-white mb-2">Introduction</h3>
+                                            <p class="text-gray-300">${page.intro_text}</p>
+                                        </div>
+                                    ` : ''}
+                                    
+                                    <!-- Body Content -->
+                                    <div class="mb-6">
+                                        <h3 class="text-lg font-semibold text-white mb-2">Main Content</h3>
+                                        <div class="prose prose-invert max-w-none text-gray-300">
+                                            ${page.body_content || '<p class="text-gray-500 italic">No content generated yet</p>'}
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- CTA Preview -->
+                                    <div class="mb-6 p-6 bg-purple-500/10 rounded-xl border border-purple-500/30">
+                                        <h3 class="text-xl font-bold text-white mb-2">${page.cta_headline || 'Get Started Today'}</h3>
+                                        <button class="mt-2 px-6 py-2 bg-purple-600 text-white rounded-lg">
+                                            ${page.cta_button_text || 'Contact Us'}
+                                        </button>
+                                    </div>
+                                    
+                                    <!-- Trust Badges -->
+                                    ${page.trust_badges && page.trust_badges.length > 0 ? `
+                                        <div class="flex flex-wrap gap-2 mb-6">
+                                            ${(Array.isArray(page.trust_badges) ? page.trust_badges : []).map(badge => 
+                                                `<span class="px-3 py-1 bg-green-500/20 text-green-400 rounded-full text-sm">
+                                                    <i class="fas fa-check mr-1"></i>${badge}
+                                                </span>`
+                                            ).join('')}
+                                        </div>
+                                    ` : ''}
+                                    
+                                    <!-- Meta Info -->
+                                    <div class="mt-8 p-4 bg-slate-800 rounded-lg">
+                                        <h4 class="text-sm font-semibold text-gray-400 mb-2">SEO Info</h4>
+                                        <p class="text-sm text-white"><strong>Meta Title:</strong> ${page.meta_title || page.title || ''}</p>
+                                        <p class="text-sm text-gray-400 mt-1"><strong>Meta Description:</strong> ${page.meta_description || 'Not set'}</p>
+                                        <p class="text-sm text-gray-400 mt-1"><strong>Slug:</strong> /${page.slug || ''}</p>
+                                    </div>
+                                </div>
+                                
+                                <!-- Actions -->
+                                <div class="p-4 bg-slate-800 border-t border-white/10 flex justify-end gap-3">
+                                    <button onclick="editPage('${page.id}')" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm">
+                                        <i class="fas fa-edit mr-1"></i>Edit
+                                    </button>
+                                    <button onclick="publishPageToWP('${page.id}')" class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm">
+                                        <i class="fab fa-wordpress mr-1"></i>Publish to WordPress
+                                    </button>
+                                    <button onclick="closePagePreview()" class="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg text-sm">
+                                        Close
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
+                // Remove existing modal if any
+                const existingModal = document.getElementById('pagePreviewModal');
+                if (existingModal) existingModal.remove();
+                
+                // Add modal to page
+                document.body.insertAdjacentHTML('beforeend', modalHtml);
+                
+            } catch (error) {
+                console.error('Error loading page:', error);
+                showToast('Error loading page preview', 'error');
+            }
+        }
+
+        function closePagePreview() {
+            const modal = document.getElementById('pagePreviewModal');
+            if (modal) modal.remove();
         }
 
         function editPage(pageId) {
