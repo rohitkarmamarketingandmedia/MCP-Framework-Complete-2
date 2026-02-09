@@ -549,6 +549,44 @@ def client_keyword_gap(current_user, client_id):
     gaps = result.get('gap_keywords', []) or result.get('gaps', [])
     industry = (client.industry or '').lower()
     
+    # Transform SEMRush data format to frontend format
+    # SEMRush returns: your_position, competitor_positions
+    # Frontend expects: you, comp1, comp2
+    transformed_gaps = []
+    for gap in gaps:
+        transformed = {
+            'keyword': gap.get('keyword', ''),
+            'volume': gap.get('volume', 0),
+            'you': gap.get('your_position') or gap.get('you'),  # Support both formats
+            'priority': gap.get('priority', 'MEDIUM')
+        }
+        
+        # Map competitor positions
+        comp_positions = gap.get('competitor_positions', {})
+        if comp_positions:
+            comp_list = list(comp_positions.values())
+            transformed['comp1'] = comp_list[0] if len(comp_list) > 0 else None
+            transformed['comp2'] = comp_list[1] if len(comp_list) > 1 else None
+        else:
+            transformed['comp1'] = gap.get('comp1')
+            transformed['comp2'] = gap.get('comp2')
+        
+        # Calculate priority based on position gap
+        your_pos = transformed.get('you') or 100
+        comp1_pos = transformed.get('comp1') or 100
+        if your_pos > 20 and comp1_pos <= 10:
+            transformed['priority'] = 'HIGH'
+        elif your_pos > 10 and comp1_pos <= 5:
+            transformed['priority'] = 'HIGH'
+        elif your_pos > comp1_pos + 10:
+            transformed['priority'] = 'MEDIUM'
+        else:
+            transformed['priority'] = 'LOW'
+            
+        transformed_gaps.append(transformed)
+    
+    gaps = transformed_gaps
+    
     # Industry keyword filters - keep only relevant keywords
     industry_filters = {
         'dental': ['dental', 'dentist', 'teeth', 'tooth', 'orthodon', 'braces', 'implant', 'crown', 'filling', 'whitening', 'gum', 'oral', 'smile', 'cavity', 'root canal', 'extraction', 'cleaning', 'hygiene', 'periodon', 'enamel', 'veneer', 'denture'],
