@@ -84,6 +84,10 @@ class ServicePageGenerator:
         # Create page record
         page_id = f"svcpg_{uuid.uuid4().hex[:12]}"
         
+        # Ensure required fields have defaults
+        hero_headline = content.get('hero_headline') or content.get('headline') or f"{service.title()} Services in {location}"
+        body_content = content.get('body_content') or content.get('content') or content.get('main_content') or f"Professional {service} services from {client.business_name}."
+        
         page = DBServicePage(
             id=page_id,
             client_id=client.id,
@@ -94,10 +98,10 @@ class ServicePageGenerator:
             location=location,
             primary_keyword=primary_keyword,
             secondary_keywords=content.get('secondary_keywords', []),
-            hero_headline=content['hero_headline'],
-            hero_subheadline=content.get('hero_subheadline'),
-            intro_text=content.get('intro_text'),
-            body_content=content['body_content'],
+            hero_headline=hero_headline,
+            hero_subheadline=content.get('hero_subheadline') or content.get('subheadline') or f"Trusted {service} experts serving {location}",
+            intro_text=content.get('intro_text') or content.get('introduction'),
+            body_content=body_content,
             cta_headline=content.get('cta_headline', f"Get Your Free {service.title()} Quote"),
             cta_button_text=content.get('cta_button_text', 'Get Free Estimate'),
             form_headline=content.get('form_headline', "Request Your Free Quote"),
@@ -116,10 +120,10 @@ class ServicePageGenerator:
             'success': True,
             'page': page.to_dict(),
             'full_content': {
-                'hero_headline': content['hero_headline'],
-                'hero_subheadline': content.get('hero_subheadline'),
-                'intro_text': content.get('intro_text'),
-                'body_content': content['body_content'],
+                'hero_headline': hero_headline,
+                'hero_subheadline': content.get('hero_subheadline') or content.get('subheadline'),
+                'intro_text': content.get('intro_text') or content.get('introduction'),
+                'body_content': body_content,
                 'cta_headline': content.get('cta_headline'),
                 'trust_badges': content.get('trust_badges'),
                 'faq': content.get('faq', [])
