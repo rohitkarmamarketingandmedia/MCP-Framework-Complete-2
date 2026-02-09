@@ -249,69 +249,69 @@ def send_message(chatbot_id):
         
         # Build system prompt
         system_prompt = chatbot_service.build_system_prompt(client_data, config.to_dict())
-    
-    # Get conversation history
-    history = []
-    for msg in conversation.messages.order_by(DBChatMessage.created_at).all():
-        history.append({
-            'role': msg.role,
-            'content': msg.content
+        
+        # Get conversation history
+        history = []
+        for msg in conversation.messages.order_by(DBChatMessage.created_at).all():
+            history.append({
+                'role': msg.role,
+                'content': msg.content
+            })
+        history.append({'role': 'user', 'content': message_content})
+        
+        # Check FAQ match first
+        faqs = DBChatbotFAQ.query.filter_by(client_id=config.client_id, is_active=True).all()
+        faq_match = chatbot_service.check_faq_match(message_content, [f.to_dict() for f in faqs])
+        
+        if faq_match:
+            response_content = faq_match
+            tokens_used = 0
+            response_time = 0
+        else:
+            # Get AI response
+            ai_result = chatbot_service.get_ai_response_sync(
+                messages=history,
+                system_prompt=system_prompt,
+                temperature=config.temperature,
+                max_tokens=config.max_tokens
+            )
+            response_content = ai_result['content']
+            tokens_used = ai_result.get('tokens_used', 0)
+            response_time = ai_result.get('response_time_ms', 0)
+        
+        # Check if we should add lead capture prompt
+        should_capture = chatbot_service.should_capture_lead(
+            conversation.message_count,
+            config.lead_capture_trigger
+        )
+        
+        if should_capture and not conversation.is_lead_captured and config.lead_capture_enabled:
+            lead_prompt = chatbot_service.get_lead_capture_message(
+                config.collect_name,
+                config.collect_email,
+                config.collect_phone
+            )
+            if lead_prompt:
+                response_content += f"\n\n{lead_prompt}"
+        
+        # Save assistant message
+        assistant_msg = DBChatMessage(
+            conversation_id=conversation_id,
+            role='assistant',
+            content=response_content,
+            tokens_used=tokens_used,
+            response_time_ms=response_time
+        )
+        db.session.add(assistant_msg)
+        conversation.message_count += 1
+        
+        db.session.commit()
+        
+        return jsonify({
+            'message': assistant_msg.to_dict(),
+            'should_capture_lead': should_capture and not conversation.is_lead_captured and config.lead_capture_enabled
         })
-    history.append({'role': 'user', 'content': message_content})
-    
-    # Check FAQ match first
-    faqs = DBChatbotFAQ.query.filter_by(client_id=config.client_id, is_active=True).all()
-    faq_match = chatbot_service.check_faq_match(message_content, [f.to_dict() for f in faqs])
-    
-    if faq_match:
-        response_content = faq_match
-        tokens_used = 0
-        response_time = 0
-    else:
-        # Get AI response
-        ai_result = chatbot_service.get_ai_response_sync(
-            messages=history,
-            system_prompt=system_prompt,
-            temperature=config.temperature,
-            max_tokens=config.max_tokens
-        )
-        response_content = ai_result['content']
-        tokens_used = ai_result.get('tokens_used', 0)
-        response_time = ai_result.get('response_time_ms', 0)
-    
-    # Check if we should add lead capture prompt
-    should_capture = chatbot_service.should_capture_lead(
-        conversation.message_count,
-        config.lead_capture_trigger
-    )
-    
-    if should_capture and not conversation.is_lead_captured and config.lead_capture_enabled:
-        lead_prompt = chatbot_service.get_lead_capture_message(
-            config.collect_name,
-            config.collect_email,
-            config.collect_phone
-        )
-        if lead_prompt:
-            response_content += f"\n\n{lead_prompt}"
-    
-    # Save assistant message
-    assistant_msg = DBChatMessage(
-        conversation_id=conversation_id,
-        role='assistant',
-        content=response_content,
-        tokens_used=tokens_used,
-        response_time_ms=response_time
-    )
-    db.session.add(assistant_msg)
-    conversation.message_count += 1
-    
-    db.session.commit()
-    
-    return jsonify({
-        'message': assistant_msg.to_dict(),
-        'should_capture_lead': should_capture and not conversation.is_lead_captured and config.lead_capture_enabled
-    })
-    
+        
     except Exception as e:
         logger.error(f"Chatbot message error for {chatbot_id}: {str(e)}")
         import traceback
