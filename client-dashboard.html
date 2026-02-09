@@ -6697,16 +6697,79 @@
                 const answeredCalls = calls.filter(c => c.answered).length;
                 const totalDuration = calls.reduce((sum, c) => sum + (c.duration || 0), 0);
                 const avgDuration = totalCalls > 0 ? Math.round(totalDuration / totalCalls) : 0;
-                const leadsGenerated = calls.filter(c => c.lead_created || c.first_call).length;
+                // Count leads: first time callers, or calls marked as lead, or long calls (potential leads)
+                const leadsGenerated = calls.filter(c => c.lead_created || c.first_call || (c.answered && c.duration > 120)).length;
 
                 document.getElementById('callsTotal').textContent = totalCalls;
                 document.getElementById('callsAnswered').textContent = answeredCalls;
                 document.getElementById('callsAvgDuration').textContent = formatCallDuration(avgDuration);
                 document.getElementById('callsLeads').textContent = leadsGenerated;
 
-                // Update insights (from calls data)
-                document.getElementById('topQuestions').innerHTML = '<p class="text-gray-500 text-sm">Analysis requires call transcripts</p>';
-                document.getElementById('callKeywords').innerHTML = '<p class="text-gray-500 text-sm">Analysis requires call transcripts</p>';
+                // Check if any calls have transcripts
+                const callsWithTranscripts = calls.filter(c => c.has_transcript || c.transcript);
+                
+                if (callsWithTranscripts.length > 0) {
+                    // We have transcripts - fetch AI analysis
+                    try {
+                        const analysisRes = await fetch(`${API_URL}/api/intelligence/report/${currentClient.id}?days=30`, {
+                            headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
+                        });
+                        if (analysisRes.ok) {
+                            const analysis = await analysisRes.json();
+                            const insights = analysis.combined_insights || {};
+                            
+                            // Show questions
+                            const questions = insights.top_questions || [];
+                            if (questions.length > 0) {
+                                document.getElementById('topQuestions').innerHTML = questions.slice(0, 5).map(q => {
+                                    const text = typeof q === 'string' ? q : (q.question || q.text || '');
+                                    return `<div class="p-2 bg-white/5 rounded text-sm text-gray-300"><i class="fas fa-question-circle mr-2 text-yellow-400"></i>${text}</div>`;
+                                }).join('');
+                            } else {
+                                document.getElementById('topQuestions').innerHTML = '<p class="text-gray-500 text-sm">No questions detected in transcripts</p>';
+                            }
+                            
+                            // Show keywords
+                            const keywords = insights.top_keywords || [];
+                            if (keywords.length > 0) {
+                                document.getElementById('callKeywords').innerHTML = keywords.slice(0, 8).map(k => {
+                                    const text = typeof k === 'string' ? k : (k.keyword || k.name || '');
+                                    return `<span class="px-2 py-1 bg-blue-500/20 text-blue-400 text-xs rounded-full">${text}</span>`;
+                                }).join('');
+                            } else {
+                                document.getElementById('callKeywords').innerHTML = '<p class="text-gray-500 text-sm">No keywords detected</p>';
+                            }
+                        }
+                    } catch (e) {
+                        console.error('Failed to load analysis:', e);
+                    }
+                } else {
+                    // No transcripts - show call insights from metadata
+                    const peakHours = getCallPeakHours(calls);
+                    const firstTimeCallers = calls.filter(c => c.first_call).length;
+                    
+                    document.getElementById('topQuestions').innerHTML = `
+                        <div class="space-y-2">
+                            <div class="p-2 bg-amber-500/10 rounded text-sm text-amber-300">
+                                <i class="fas fa-info-circle mr-2"></i>Enable CallRail Conversation Intelligence for AI-analyzed questions
+                            </div>
+                            <div class="p-2 bg-white/5 rounded text-sm text-gray-400">
+                                <i class="fas fa-chart-line mr-2 text-green-400"></i>${answeredCalls}/${totalCalls} calls answered (${Math.round(answeredCalls/totalCalls*100) || 0}% answer rate)
+                            </div>
+                            <div class="p-2 bg-white/5 rounded text-sm text-gray-400">
+                                <i class="fas fa-user-plus mr-2 text-blue-400"></i>${firstTimeCallers} first-time callers
+                            </div>
+                        </div>
+                    `;
+                    
+                    document.getElementById('callKeywords').innerHTML = `
+                        <div class="flex flex-wrap gap-2">
+                            ${peakHours.map(h => `<span class="px-2 py-1 bg-purple-500/20 text-purple-400 text-xs rounded-full">Peak: ${h}</span>`).join('')}
+                            <span class="px-2 py-1 bg-green-500/20 text-green-400 text-xs rounded-full">Avg: ${formatCallDuration(avgDuration)}</span>
+                            ${leadsGenerated > 0 ? `<span class="px-2 py-1 bg-yellow-500/20 text-yellow-400 text-xs rounded-full">${leadsGenerated} potential leads</span>` : ''}
+                        </div>
+                    `;
+                }
 
                 if (calls.length === 0) {
                     container.innerHTML = `
@@ -6766,6 +6829,33 @@
             const mins = Math.floor(seconds / 60);
             const secs = seconds % 60;
             return `${mins}:${secs.toString().padStart(2, '0')}`;
+        }
+
+        function getCallPeakHours(calls) {
+            // Analyze call times to find peak hours
+            const hourCounts = {};
+            calls.forEach(call => {
+                if (call.date) {
+                    try {
+                        const date = new Date(call.date);
+                        const hour = date.getHours();
+                        hourCounts[hour] = (hourCounts[hour] || 0) + 1;
+                    } catch (e) {}
+                }
+            });
+            
+            // Sort by count and get top 3 hours
+            const sortedHours = Object.entries(hourCounts)
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 3)
+                .map(([hour, count]) => {
+                    const h = parseInt(hour);
+                    const ampm = h >= 12 ? 'PM' : 'AM';
+                    const displayHour = h % 12 || 12;
+                    return `${displayHour}${ampm}`;
+                });
+            
+            return sortedHours.length > 0 ? sortedHours : ['No data'];
         }
 
         // ==========================================
