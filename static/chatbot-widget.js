@@ -36,6 +36,7 @@
         isOpen: false,
         isMinimized: false,
         leadCaptured: false,
+        leadFormAsked: false,
 
         init: function (options) {
             if (this.initialized) return;
@@ -763,13 +764,12 @@
                 // Scroll to show the response
                 this.scrollToBottom();
 
-                // Show lead form if needed - delay so user can read response first
-                if (data.should_capture_lead && !this.leadCaptured) {
+                // If lead capture should trigger, ask user first instead of auto-showing form
+                if (data.should_capture_lead && !this.leadCaptured && !this.leadFormAsked) {
+                    this.leadFormAsked = true; // Only ask once
                     setTimeout(() => {
-                        this.showLeadForm();
-                        // Scroll again after form appears so user can see both
-                        setTimeout(() => this.scrollToBottom(), 100);
-                    }, 3000); // 3 second delay to read response
+                        this.askForLeadForm();
+                    }, 2000); // 2 second delay before asking
                 }
 
             } catch (err) {
@@ -808,6 +808,57 @@
 
         scrollToBottom: function () {
             this.elements.messages.scrollTop = this.elements.messages.scrollHeight;
+        },
+
+        askForLeadForm: function () {
+            // Create a message asking if user wants to share contact info
+            const askMsg = {
+                role: 'assistant',
+                content: "Would you like to share your contact information so we can follow up with you? 📬"
+            };
+            this.messages.push(askMsg);
+            this.renderMessage(askMsg);
+            
+            // Show Yes/No buttons
+            const buttonsHtml = `
+                <div class="mcp-lead-ask-buttons" style="display: flex; gap: 10px; margin-top: 10px; padding: 0 16px;">
+                    <button onclick="MCPChatbot.handleLeadResponse(true)" style="flex: 1; padding: 10px; background: linear-gradient(135deg, ${this.config.primary_color || '#3b82f6'}, ${this.config.secondary_color || '#1e40af'}); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 500;">Yes, please</button>
+                    <button onclick="MCPChatbot.handleLeadResponse(false)" style="flex: 1; padding: 10px; background: #e2e8f0; color: #475569; border: none; border-radius: 8px; cursor: pointer; font-weight: 500;">No thanks</button>
+                </div>
+            `;
+            this.elements.messages.insertAdjacentHTML('beforeend', buttonsHtml);
+            this.scrollToBottom();
+        },
+
+        handleLeadResponse: function (accepted) {
+            // Remove the buttons
+            const buttons = this.elements.messages.querySelector('.mcp-lead-ask-buttons');
+            if (buttons) buttons.remove();
+            
+            // Add user's response as a message
+            const userResponse = {
+                role: 'user',
+                content: accepted ? "Yes, I'd like to share my contact info" : "No thanks, not right now"
+            };
+            this.messages.push(userResponse);
+            this.renderMessage(userResponse);
+            
+            if (accepted) {
+                // Show the lead form
+                setTimeout(() => {
+                    this.showLeadForm();
+                    this.scrollToBottom();
+                }, 500);
+            } else {
+                // Acknowledge and continue
+                const responseMsg = {
+                    role: 'assistant',
+                    content: "No problem! Feel free to continue asking questions. I'm here to help! 😊"
+                };
+                this.messages.push(responseMsg);
+                this.renderMessage(responseMsg);
+                this.scrollToBottom();
+            }
         },
 
         showLeadForm: function () {
