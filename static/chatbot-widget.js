@@ -759,13 +759,17 @@
                 const assistantMsg = data.message || { role: 'assistant', content: data.response };
                 this.messages.push(assistantMsg);
                 this.renderMessage(assistantMsg);
+                
+                // Scroll to show the response
+                this.scrollToBottom();
 
                 // Show lead form if needed - delay so user can read response first
                 if (data.should_capture_lead && !this.leadCaptured) {
                     setTimeout(() => {
                         this.showLeadForm();
-                        this.scrollToBottom();
-                    }, 1500); // 1.5 second delay
+                        // Scroll again after form appears so user can see both
+                        setTimeout(() => this.scrollToBottom(), 100);
+                    }, 3000); // 3 second delay to read response
                 }
 
             } catch (err) {
