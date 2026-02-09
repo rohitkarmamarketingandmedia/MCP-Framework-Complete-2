@@ -17,6 +17,114 @@ pages_bp = Blueprint('pages', __name__)
 # Page Generation
 # ==========================================
 
+@pages_bp.route('/generate', methods=['POST'])
+@token_required
+def generate_page(current_user):
+    """
+    Generate a service/landing page (unified endpoint)
+    
+    POST /api/pages/generate
+    {
+        "client_id": "client_xxx",
+        "page_type": "service|location|landing|about|contact",
+        "service": "roof repair",
+        "location": "Sarasota, FL",
+        "title": "Custom Title (optional)",
+        "word_count": 1200,
+        "include_faq": true,
+        "include_cta": true,
+        "include_schema": true
+    }
+    """
+    if not current_user.can_generate_content:
+        return jsonify({'error': 'Permission denied'}), 403
+    
+    data = request.get_json(silent=True) or {}
+    client_id = data.get('client_id')
+    page_type = data.get('page_type', 'service')
+    service = data.get('service')
+    location = data.get('location')
+    custom_title = data.get('title')
+    word_count = data.get('word_count', 1200)
+    include_faq = data.get('include_faq', True)
+    include_cta = data.get('include_cta', True)
+    include_schema = data.get('include_schema', True)
+    
+    if not client_id:
+        return jsonify({'error': 'client_id is required'}), 400
+    
+    if not current_user.has_access_to_client(client_id):
+        return jsonify({'error': 'Access denied'}), 403
+    
+    client = DBClient.query.get(client_id)
+    if not client:
+        return jsonify({'error': 'Client not found'}), 404
+    
+    # Set up AI service
+    try:
+        from app.services.ai_service import ai_service
+        service_page_generator.set_ai_service(ai_service)
+    except Exception as e:
+        pass
+    
+    # Use client geo if no location specified
+    if not location:
+        location = client.geo
+    
+    # Generate based on page type
+    try:
+        if page_type == 'location':
+            result = service_page_generator.generate_location_page(
+                client=client,
+                location=location,
+                services=client.get_services()[:5] if hasattr(client, 'get_services') else None
+            )
+        elif page_type in ['about', 'contact', 'landing']:
+            # For now, use service page generator with modified title
+            page_titles = {
+                'about': f'About {client.business_name}',
+                'contact': f'Contact {client.business_name}',
+                'landing': custom_title or f'{client.business_name} - {location}'
+            }
+            result = service_page_generator.generate_service_page(
+                client=client,
+                service=page_titles.get(page_type, custom_title or page_type),
+                location=location,
+                additional_context={
+                    'word_count': word_count,
+                    'include_faq': include_faq,
+                    'include_cta': include_cta,
+                    'include_schema': include_schema,
+                    'custom_title': page_titles.get(page_type, custom_title),
+                    'page_type': page_type
+                }
+            )
+        else:
+            # Default: service page
+            if not service:
+                return jsonify({'error': 'service is required for service pages'}), 400
+            
+            result = service_page_generator.generate_service_page(
+                client=client,
+                service=service,
+                location=location,
+                additional_context={
+                    'word_count': word_count,
+                    'include_faq': include_faq,
+                    'include_cta': include_cta,
+                    'include_schema': include_schema,
+                    'custom_title': custom_title
+                }
+            )
+        
+        return jsonify(result)
+        
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
+
 @pages_bp.route('/generate/service', methods=['POST'])
 @token_required
 def generate_service_page(current_user):
