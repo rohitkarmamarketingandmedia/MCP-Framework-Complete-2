@@ -119,26 +119,26 @@ def get_widget_config(chatbot_id):
     if not config or not config.is_active:
         return jsonify({'error': 'Chatbot not found or inactive'}), 404
     
-    # Return only public config
+    # Return only public config with fallbacks for null values
     return jsonify({
         'id': config.id,
-        'name': config.name,
-        'header_title': config.header_title,
-        'header_subtitle': config.header_subtitle,
-        'welcome_message': config.welcome_message,
-        'placeholder_text': config.placeholder_text,
-        'primary_color': config.primary_color,
-        'secondary_color': config.secondary_color,
-        'position': config.position,
+        'name': config.name or 'Support Assistant',
+        'header_title': config.header_title or config.name or 'Chat Support',
+        'header_subtitle': config.header_subtitle or 'Online',
+        'welcome_message': config.welcome_message or 'Hi! How can I help you today?',
+        'placeholder_text': config.placeholder_text or 'Type your message...',
+        'primary_color': config.primary_color or '#3b82f6',
+        'secondary_color': config.secondary_color or '#1e40af',
+        'position': config.position or 'bottom-right',
         'avatar_url': config.avatar_url,
-        'auto_open_delay': config.auto_open_delay,
-        'show_on_mobile': config.show_on_mobile,
-        'collect_email': config.collect_email,
-        'collect_phone': config.collect_phone,
-        'collect_name': config.collect_name,
-        'lead_capture_enabled': config.lead_capture_enabled,
-        'business_hours_only': config.business_hours_only,
-        'offline_message': config.offline_message
+        'auto_open_delay': config.auto_open_delay or 0,
+        'show_on_mobile': config.show_on_mobile if config.show_on_mobile is not None else True,
+        'collect_email': config.collect_email if config.collect_email is not None else True,
+        'collect_phone': config.collect_phone if config.collect_phone is not None else True,
+        'collect_name': config.collect_name if config.collect_name is not None else True,
+        'lead_capture_enabled': config.lead_capture_enabled if config.lead_capture_enabled is not None else True,
+        'business_hours_only': config.business_hours_only if config.business_hours_only is not None else False,
+        'offline_message': config.offline_message or "We're currently offline. Leave your info and we'll get back to you!"
     })
 
 
@@ -208,42 +208,47 @@ def start_conversation(chatbot_id):
 @chatbot_bp.route('/widget/<chatbot_id>/message', methods=['POST'])
 def send_message(chatbot_id):
     """Public endpoint - Send a message and get AI response"""
-    config = DBChatbotConfig.query.get(chatbot_id)
-    
-    if not config or not config.is_active:
-        return jsonify({'error': 'Chatbot not found or inactive'}), 404
-    
-    data = request.get_json(silent=True) or {}
-    conversation_id = data.get('conversation_id')
-    message_content = data.get('message', '').strip()
-    
-    if not conversation_id:
-        return jsonify({'error': 'conversation_id required'}), 400
-    
-    if not message_content:
-        return jsonify({'error': 'message required'}), 400
-    
-    conversation = DBChatConversation.query.get(conversation_id)
-    
-    if not conversation or conversation.chatbot_id != chatbot_id:
-        return jsonify({'error': 'Invalid conversation'}), 404
-    
-    # Save user message
-    user_msg = DBChatMessage(
-        conversation_id=conversation_id,
-        role='user',
-        content=message_content
-    )
-    db.session.add(user_msg)
-    conversation.message_count += 1
-    conversation.last_message_at = datetime.utcnow()
-    
-    # Get client data for context
-    client = DBClient.query.get(config.client_id)
-    client_data = client.to_dict() if client else {}
-    
-    # Build system prompt
-    system_prompt = chatbot_service.build_system_prompt(client_data, config.to_dict())
+    try:
+        config = DBChatbotConfig.query.get(chatbot_id)
+        
+        if not config or not config.is_active:
+            return jsonify({'error': 'Chatbot not found or inactive'}), 404
+        
+        data = request.get_json(silent=True) or {}
+        conversation_id = data.get('conversation_id')
+        message_content = data.get('message', '').strip()
+        
+        if not conversation_id:
+            return jsonify({'error': 'conversation_id required'}), 400
+        
+        if not message_content:
+            return jsonify({'error': 'message required'}), 400
+        
+        conversation = DBChatConversation.query.get(conversation_id)
+        
+        if not conversation or conversation.chatbot_id != chatbot_id:
+            return jsonify({'error': 'Invalid conversation'}), 404
+        
+        # Save user message
+        user_msg = DBChatMessage(
+            conversation_id=conversation_id,
+            role='user',
+            content=message_content
+        )
+        db.session.add(user_msg)
+        conversation.message_count += 1
+        conversation.last_message_at = datetime.utcnow()
+        
+        # Get client data for context
+        client = DBClient.query.get(config.client_id)
+        if not client:
+            logger.warning(f"Client not found for chatbot {chatbot_id}, client_id: {config.client_id}")
+            client_data = {'business_name': 'Our Company', 'industry': 'Business'}
+        else:
+            client_data = client.to_dict()
+        
+        # Build system prompt
+        system_prompt = chatbot_service.build_system_prompt(client_data, config.to_dict())
     
     # Get conversation history
     history = []
@@ -306,6 +311,20 @@ def send_message(chatbot_id):
         'message': assistant_msg.to_dict(),
         'should_capture_lead': should_capture and not conversation.is_lead_captured and config.lead_capture_enabled
     })
+    
+    except Exception as e:
+        logger.error(f"Chatbot message error for {chatbot_id}: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        db.session.rollback()
+        return jsonify({
+            'message': {
+                'role': 'assistant',
+                'content': "I'm having trouble responding right now. Please try again or leave your contact info!"
+            },
+            'should_capture_lead': True,
+            'error': str(e)
+        })
 
 
 @chatbot_bp.route('/widget/<chatbot_id>/lead', methods=['POST'])
