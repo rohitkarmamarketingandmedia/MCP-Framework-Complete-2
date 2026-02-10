@@ -441,8 +441,8 @@ class DBBlogPost(db.Model):
     
     title: Mapped[str] = mapped_column(String(500), nullable=False)
     slug: Mapped[str] = mapped_column(String(500), default='')
-    meta_title: Mapped[str] = mapped_column(String(100), default='')
-    meta_description: Mapped[str] = mapped_column(String(200), default='')
+    meta_title: Mapped[str] = mapped_column(String(500), default='')
+    meta_description: Mapped[str] = mapped_column(String(500), default='')
     
     body: Mapped[str] = mapped_column(Text, default='')
     excerpt: Mapped[str] = mapped_column(Text, default='')
@@ -488,10 +488,10 @@ class DBBlogPost(db.Model):
     def __init__(self, client_id: str, title: str, **kwargs):
         self.id = f"post_{uuid.uuid4().hex[:12]}"
         self.client_id = client_id
-        self.title = title
+        self.title = title[:500] if title else title
         self.slug = kwargs.get('slug', '')
-        self.meta_title = kwargs.get('meta_title', '')
-        self.meta_description = kwargs.get('meta_description', '')
+        self.meta_title = (kwargs.get('meta_title', '') or '')[:500]
+        self.meta_description = (kwargs.get('meta_description', '') or '')[:500]
         self.body = kwargs.get('body', '')
         self.excerpt = kwargs.get('excerpt', '')
         self.primary_keyword = kwargs.get('primary_keyword', '')
@@ -884,8 +884,8 @@ class DBContentQueue(db.Model):
     # Content
     title: Mapped[str] = mapped_column(String(500), default='')
     body: Mapped[str] = mapped_column(Text, default='')
-    meta_title: Mapped[str] = mapped_column(String(100), default='')
-    meta_description: Mapped[str] = mapped_column(String(200), default='')
+    meta_title: Mapped[str] = mapped_column(String(500), default='')
+    meta_description: Mapped[str] = mapped_column(String(500), default='')
     primary_keyword: Mapped[str] = mapped_column(String(255), default='')
     word_count: Mapped[int] = mapped_column(Integer, default=0)
     
@@ -1106,8 +1106,8 @@ class DBServicePage(db.Model):
     trust_badges: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)  # ["Licensed", "Insured", "5-Star"]
     
     # SEO
-    meta_title: Mapped[Optional[str]] = mapped_column(String(70), nullable=True)
-    meta_description: Mapped[Optional[str]] = mapped_column(String(160), nullable=True)
+    meta_title: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    meta_description: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
     schema_markup: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     
     # Publishing

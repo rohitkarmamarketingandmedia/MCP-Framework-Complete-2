@@ -77,6 +77,40 @@ def run_migrations(app):
                 db.session.commit()
                 logger.info("✓ Added target_city column")
             
+            # Check if tags column exists in blog_posts
+            result = db.session.execute(text("""
+                SELECT column_name FROM information_schema.columns 
+                WHERE table_name = 'blog_posts' AND column_name = 'tags'
+            """))
+            if not result.fetchone():
+                logger.info("Adding missing columns to blog_posts table...")
+                db.session.execute(text("ALTER TABLE blog_posts ADD COLUMN tags TEXT DEFAULT '[]'"))
+                db.session.commit()
+                logger.info("✓ Added tags column")
+            
+            # Check if revision_notes column exists in blog_posts
+            result = db.session.execute(text("""
+                SELECT column_name FROM information_schema.columns 
+                WHERE table_name = 'blog_posts' AND column_name = 'revision_notes'
+            """))
+            if not result.fetchone():
+                logger.info("Adding revision_notes column to blog_posts table...")
+                db.session.execute(text("ALTER TABLE blog_posts ADD COLUMN revision_notes TEXT"))
+                db.session.commit()
+                logger.info("✓ Added revision_notes column")
+            
+            # Check if approved_at column exists in blog_posts
+            result = db.session.execute(text("""
+                SELECT column_name FROM information_schema.columns 
+                WHERE table_name = 'blog_posts' AND column_name = 'approved_at'
+            """))
+            if not result.fetchone():
+                logger.info("Adding approval columns to blog_posts table...")
+                db.session.execute(text("ALTER TABLE blog_posts ADD COLUMN approved_at TIMESTAMP"))
+                db.session.execute(text("ALTER TABLE blog_posts ADD COLUMN approved_by VARCHAR(50)"))
+                db.session.commit()
+                logger.info("✓ Added approval columns")
+            
             # Add blog_tasks table if not exists
             db.session.execute(text("""
                 CREATE TABLE IF NOT EXISTS blog_tasks (
@@ -87,6 +121,67 @@ def run_migrations(app):
                 )
             """))
             db.session.commit()
+            
+            # Widen meta_title and meta_description columns in blog_posts
+            # (PostgreSQL will reject inserts if AI-generated titles exceed old limits)
+            try:
+                result = db.session.execute(text("""
+                    SELECT character_maximum_length FROM information_schema.columns 
+                    WHERE table_name = 'blog_posts' AND column_name = 'meta_title'
+                """))
+                row = result.fetchone()
+                if row and row[0] and row[0] < 500:
+                    logger.info("Widening meta_title/meta_description columns in blog_posts...")
+                    db.session.execute(text("ALTER TABLE blog_posts ALTER COLUMN meta_title TYPE VARCHAR(500)"))
+                    db.session.execute(text("ALTER TABLE blog_posts ALTER COLUMN meta_description TYPE VARCHAR(500)"))
+                    db.session.commit()
+                    logger.info("✓ Widened blog_posts meta columns to 500")
+            except Exception as e:
+                logger.debug(f"blog_posts meta column check: {e}")
+                try:
+                    db.session.rollback()
+                except:
+                    pass
+            
+            # Same for content_queue table
+            try:
+                result = db.session.execute(text("""
+                    SELECT character_maximum_length FROM information_schema.columns 
+                    WHERE table_name = 'content_queue' AND column_name = 'meta_title'
+                """))
+                row = result.fetchone()
+                if row and row[0] and row[0] < 500:
+                    logger.info("Widening meta_title/meta_description columns in content_queue...")
+                    db.session.execute(text("ALTER TABLE content_queue ALTER COLUMN meta_title TYPE VARCHAR(500)"))
+                    db.session.execute(text("ALTER TABLE content_queue ALTER COLUMN meta_description TYPE VARCHAR(500)"))
+                    db.session.commit()
+                    logger.info("✓ Widened content_queue meta columns to 500")
+            except Exception as e:
+                logger.debug(f"content_queue meta column check: {e}")
+                try:
+                    db.session.rollback()
+                except:
+                    pass
+            
+            # Same for service_pages table
+            try:
+                result = db.session.execute(text("""
+                    SELECT character_maximum_length FROM information_schema.columns 
+                    WHERE table_name = 'service_pages' AND column_name = 'meta_title'
+                """))
+                row = result.fetchone()
+                if row and row[0] and row[0] < 500:
+                    logger.info("Widening meta_title/meta_description columns in service_pages...")
+                    db.session.execute(text("ALTER TABLE service_pages ALTER COLUMN meta_title TYPE VARCHAR(500)"))
+                    db.session.execute(text("ALTER TABLE service_pages ALTER COLUMN meta_description TYPE VARCHAR(500)"))
+                    db.session.commit()
+                    logger.info("✓ Widened service_pages meta columns to 500")
+            except Exception as e:
+                logger.debug(f"service_pages meta column check: {e}")
+                try:
+                    db.session.rollback()
+                except:
+                    pass
             
         except Exception as e:
             logger.warning(f"Migration check: {e}")

@@ -163,10 +163,10 @@ class DataService:
         existing = DBBlogPost.query.get(post.id)
         if existing:
             # Update existing
-            existing.title = post.title
+            existing.title = (post.title or '')[:500]
             existing.slug = post.slug
-            existing.meta_title = post.meta_title
-            existing.meta_description = post.meta_description
+            existing.meta_title = (post.meta_title or '')[:500]
+            existing.meta_description = (post.meta_description or '')[:500]
             existing.body = post.body
             existing.excerpt = post.excerpt
             existing.primary_keyword = post.primary_keyword
