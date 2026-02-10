@@ -177,7 +177,7 @@ class DataService:
             existing.external_links = post.external_links
             existing.schema_markup = post.schema_markup
             existing.faq_content = post.faq_content
-            existing.tags = post.tags
+            existing.tags = getattr(post, 'tags', existing.tags)  # Preserve existing if not provided
             existing.status = post.status
             existing.updated_at = datetime.utcnow()
         else:

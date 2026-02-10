@@ -474,6 +474,9 @@ class DBBlogPost(db.Model):
     # Target city for this blog post (may differ from client's default geo)
     target_city: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     
+    # Tags for categorization
+    tags: Mapped[str] = mapped_column(Text, default='[]')  # JSON array
+    
     # Approval workflow
     revision_notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     approved_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
@@ -501,9 +504,14 @@ class DBBlogPost(db.Model):
         self.faq_content = json.dumps(kwargs.get('faq_content')) if kwargs.get('faq_content') else None
         self.featured_image_url = kwargs.get('featured_image_url')
         self.target_city = kwargs.get('target_city')
+        self.tags = json.dumps(kwargs.get('tags', []))
         self.status = kwargs.get('status', ContentStatus.DRAFT)
         self.created_at = datetime.utcnow()
         self.updated_at = datetime.utcnow()
+    
+    def get_tags(self) -> list:
+        """Get tags as list"""
+        return safe_json_loads(self.tags, [])
     
     def to_dict(self) -> dict:
         return {
@@ -525,6 +533,7 @@ class DBBlogPost(db.Model):
             'faq_content': safe_json_loads(self.faq_content, None),
             'featured_image_url': self.featured_image_url,
             'target_city': self.target_city,
+            'tags': self.get_tags(),
             'status': self.status,
             'scheduled_for': self.scheduled_for.isoformat() if self.scheduled_for else None,
             'published_url': self.published_url,
