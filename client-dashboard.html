@@ -7458,12 +7458,34 @@
                                         class="hidden w-full bg-white/10 border border-white/20 rounded-lg px-4 py-3 text-white">${escapeHtml(page.intro_text || '')}</textarea>
                                 </div>
                                 
-                                <!-- Body Content -->
+                                <!-- Body Content with Rich Text Editor -->
                                 <div class="mb-6">
                                     <label class="block text-sm font-medium text-gray-400 mb-2">Main Content</label>
                                     <div id="pageBodyView" class="prose prose-invert max-w-none text-gray-300 p-4 bg-white/5 rounded-lg page-content">${page.body_content || '<p class="text-gray-500 italic">No content</p>'}</div>
-                                    <textarea id="pageBodyEdit" rows="15"
-                                        class="hidden w-full bg-white/10 border border-white/20 rounded-lg px-4 py-3 text-white font-mono text-sm">${escapeHtml(page.body_content || '')}</textarea>
+                                    
+                                    <!-- Rich Text Editor (hidden by default) -->
+                                    <div id="pageBodyEditContainer" class="hidden">
+                                        <div class="flex flex-wrap items-center gap-1 p-2 bg-gray-700 border border-gray-600 rounded-t-lg">
+                                            <button type="button" onclick="pageExecCmd('bold')" class="p-2 hover:bg-gray-600 rounded text-white font-bold" title="Bold">B</button>
+                                            <button type="button" onclick="pageExecCmd('italic')" class="p-2 hover:bg-gray-600 rounded text-white italic" title="Italic">I</button>
+                                            <button type="button" onclick="pageExecCmd('underline')" class="p-2 hover:bg-gray-600 rounded text-white underline" title="Underline">U</button>
+                                            <span class="w-px h-6 bg-gray-500 mx-1"></span>
+                                            <button type="button" onclick="pageExecCmd('formatBlock', 'h2')" class="p-2 hover:bg-gray-600 rounded text-white text-sm font-bold" title="Heading 2">H2</button>
+                                            <button type="button" onclick="pageExecCmd('formatBlock', 'h3')" class="p-2 hover:bg-gray-600 rounded text-white text-sm font-bold" title="Heading 3">H3</button>
+                                            <button type="button" onclick="pageExecCmd('formatBlock', 'p')" class="p-2 hover:bg-gray-600 rounded text-white text-sm" title="Paragraph">P</button>
+                                            <span class="w-px h-6 bg-gray-500 mx-1"></span>
+                                            <button type="button" onclick="pageExecCmd('insertUnorderedList')" class="p-2 hover:bg-gray-600 rounded text-white" title="Bullet List"><i class="fas fa-list-ul"></i></button>
+                                            <button type="button" onclick="pageExecCmd('insertOrderedList')" class="p-2 hover:bg-gray-600 rounded text-white" title="Numbered List"><i class="fas fa-list-ol"></i></button>
+                                            <span class="w-px h-6 bg-gray-500 mx-1"></span>
+                                            <button type="button" onclick="pageInsertLink()" class="p-2 hover:bg-gray-600 rounded text-white" title="Insert Link"><i class="fas fa-link"></i></button>
+                                            <button type="button" onclick="pageExecCmd('removeFormat')" class="p-2 hover:bg-gray-600 rounded text-white" title="Clear Formatting"><i class="fas fa-eraser"></i></button>
+                                        </div>
+                                        <div id="pageBodyEdit" contenteditable="true"
+                                            class="w-full min-h-[300px] max-h-[400px] overflow-y-auto px-4 py-3 border border-gray-600 border-t-0 rounded-b-lg bg-slate-800 text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                            style="font-family: system-ui, -apple-system, sans-serif; line-height: 1.7;"
+                                            oninput="updatePageWordCount()"></div>
+                                        <p class="text-xs text-gray-500 mt-2">Word count: <span id="pageBodyWordCount">0</span></p>
+                                    </div>
                                 </div>
                                 
                                 <!-- CTA Section -->
@@ -7547,7 +7569,9 @@
             document.getElementById('pageIntroEdit').classList.remove('hidden');
             
             document.getElementById('pageBodyView').classList.add('hidden');
-            document.getElementById('pageBodyEdit').classList.remove('hidden');
+            document.getElementById('pageBodyEditContainer').classList.remove('hidden');
+            document.getElementById('pageBodyEdit').innerHTML = currentEditingPage.body_content || '';
+            updatePageWordCount();
             
             document.getElementById('pageCtaView').classList.add('hidden');
             document.getElementById('pageCtaEdit').classList.remove('hidden');
@@ -7573,7 +7597,7 @@
             document.getElementById('pageHeadlineEdit').value = page.hero_headline || '';
             document.getElementById('pageSubheadlineEdit').value = page.hero_subheadline || '';
             document.getElementById('pageIntroEdit').value = page.intro_text || '';
-            document.getElementById('pageBodyEdit').value = page.body_content || '';
+            document.getElementById('pageBodyEdit').innerHTML = page.body_content || '';
             document.getElementById('pageCtaEdit').value = page.cta_headline || '';
             document.getElementById('pageCtaBtnEdit').value = page.cta_button_text || '';
             document.getElementById('pageMetaTitleEdit').value = page.meta_title || '';
@@ -7598,7 +7622,7 @@
             document.getElementById('pageIntroEdit').classList.add('hidden');
             
             document.getElementById('pageBodyView').classList.remove('hidden');
-            document.getElementById('pageBodyEdit').classList.add('hidden');
+            document.getElementById('pageBodyEditContainer').classList.add('hidden');
             
             document.getElementById('pageCtaView').classList.remove('hidden');
             document.getElementById('pageCtaEdit').classList.add('hidden');
@@ -7622,6 +7646,30 @@
             pageEditMode = false;
         }
 
+        // Rich text editor helper functions for pages
+        function pageExecCmd(command, value = null) {
+            document.execCommand(command, false, value);
+            document.getElementById('pageBodyEdit').focus();
+        }
+
+        function pageInsertLink() {
+            const url = prompt('Enter URL:');
+            if (url) {
+                document.execCommand('createLink', false, url);
+                document.getElementById('pageBodyEdit').focus();
+            }
+        }
+
+        function updatePageWordCount() {
+            const editor = document.getElementById('pageBodyEdit');
+            if (editor) {
+                const text = editor.innerText || '';
+                const count = text.split(/\s+/).filter(w => w.trim()).length;
+                const counter = document.getElementById('pageBodyWordCount');
+                if (counter) counter.textContent = count;
+            }
+        }
+
         async function savePageChanges() {
             if (!currentEditingPage) return;
             
@@ -7635,7 +7683,7 @@
                     hero_headline: document.getElementById('pageHeadlineEdit').value,
                     hero_subheadline: document.getElementById('pageSubheadlineEdit').value,
                     intro_text: document.getElementById('pageIntroEdit').value,
-                    body_content: document.getElementById('pageBodyEdit').value,
+                    body_content: document.getElementById('pageBodyEdit').innerHTML,
                     cta_headline: document.getElementById('pageCtaEdit').value,
                     cta_button_text: document.getElementById('pageCtaBtnEdit').value,
                     meta_title: document.getElementById('pageMetaTitleEdit').value,
@@ -7712,7 +7760,7 @@
                     hero_headline: document.getElementById('pageHeadlineEdit').value,
                     hero_subheadline: document.getElementById('pageSubheadlineEdit').value,
                     intro_text: document.getElementById('pageIntroEdit').value,
-                    body_content: document.getElementById('pageBodyEdit').value,
+                    body_content: document.getElementById('pageBodyEdit').innerHTML,
                     cta_headline: document.getElementById('pageCtaEdit').value,
                     meta_title: document.getElementById('pageMetaTitleEdit').value,
                     meta_description: document.getElementById('pageMetaDescEdit').value
@@ -7741,7 +7789,7 @@
                     if (refined.hero_headline) document.getElementById('pageHeadlineEdit').value = refined.hero_headline;
                     if (refined.hero_subheadline) document.getElementById('pageSubheadlineEdit').value = refined.hero_subheadline;
                     if (refined.intro_text) document.getElementById('pageIntroEdit').value = refined.intro_text;
-                    if (refined.body_content) document.getElementById('pageBodyEdit').value = refined.body_content;
+                    if (refined.body_content) document.getElementById('pageBodyEdit').innerHTML = refined.body_content;
                     if (refined.cta_headline) document.getElementById('pageCtaEdit').value = refined.cta_headline;
                     if (refined.meta_title) document.getElementById('pageMetaTitleEdit').value = refined.meta_title;
                     if (refined.meta_description) document.getElementById('pageMetaDescEdit').value = refined.meta_description;
@@ -7749,8 +7797,9 @@
                     // Update counters
                     document.getElementById('metaTitleCount').textContent = (refined.meta_title || '').length;
                     document.getElementById('metaDescCount').textContent = (refined.meta_description || '').length;
+                    updatePageWordCount();
                     
-                    showToast('Content refined! Review and save changes.', 'success');
+                    showToast('Content refined! Review the updated fields and click Save.', 'success');
                     document.getElementById('pageAiPrompt').value = '';
                 } else {
                     const error = await response.json();
