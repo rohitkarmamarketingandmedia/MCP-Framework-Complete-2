@@ -422,3 +422,90 @@ def preview_page(current_user, page_id):
     html = service_page_generator.export_page_html(page_id, client, include_form=True)
     
     return Response(html, mimetype='text/html')
+
+
+@pages_bp.route('/refine', methods=['POST'])
+@token_required
+def refine_page_content(current_user):
+    """
+    Refine page content using AI
+    
+    POST /api/pages/refine
+    {
+        "page_id": "...",
+        "current_content": {...},
+        "refinement_prompt": "make it more persuasive",
+        "client_id": "..."
+    }
+    """
+    data = request.get_json(silent=True) or {}
+    current_content = data.get('current_content', {})
+    prompt = data.get('refinement_prompt', '')
+    client_id = data.get('client_id')
+    
+    if not prompt:
+        return jsonify({'error': 'refinement_prompt is required'}), 400
+    
+    if not current_user.has_access_to_client(client_id):
+        return jsonify({'error': 'Access denied'}), 403
+    
+    client = DBClient.query.get(client_id)
+    if not client:
+        return jsonify({'error': 'Client not found'}), 404
+    
+    try:
+        from app.services.ai_service import ai_service
+        
+        # Build the refinement prompt
+        refine_prompt = f"""You are refining existing service page content. 
+
+CURRENT CONTENT:
+- Title: {current_content.get('title', '')}
+- Hero Headline: {current_content.get('hero_headline', '')}
+- Subheadline: {current_content.get('hero_subheadline', '')}
+- Introduction: {current_content.get('intro_text', '')}
+- Body Content: {current_content.get('body_content', '')}
+- CTA Headline: {current_content.get('cta_headline', '')}
+- Meta Title: {current_content.get('meta_title', '')}
+- Meta Description: {current_content.get('meta_description', '')}
+
+BUSINESS CONTEXT:
+- Business: {client.business_name}
+- Industry: {client.industry}
+- Location: {client.geo}
+
+REFINEMENT REQUEST: {prompt}
+
+Return the refined content as JSON with these exact keys:
+- title
+- hero_headline
+- hero_subheadline
+- intro_text
+- body_content
+- cta_headline
+- meta_title (max 70 chars)
+- meta_description (max 160 chars)
+
+Keep the same structure but apply the requested changes. Return ONLY valid JSON, no markdown."""
+
+        result = ai_service.generate_raw(
+            user_input=refine_prompt,
+            system_prompt="You are an expert copywriter specializing in service page optimization. Return only valid JSON.",
+            max_tokens=3000
+        )
+        
+        # Parse JSON response
+        if isinstance(result, str):
+            result = result.replace('```json', '').replace('```', '').strip()
+            import json
+            result = json.loads(result)
+        
+        return jsonify({
+            'success': True,
+            'refined_content': result
+        })
+        
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500

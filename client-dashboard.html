@@ -3594,6 +3594,29 @@
                             <i class="fab fa-wordpress mr-1"></i>WordPress
                         </button>
                     </div>
+                    
+                    <!-- AI Refinement Bar for Blogs -->
+                    <div class="mt-4 pt-4 border-t border-white/20">
+                        <div class="flex items-center gap-2 mb-2">
+                            <i class="fas fa-magic text-purple-300"></i>
+                            <span class="text-white/80 text-sm font-medium">AI Content Refinement</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <input type="text" id="blogAiRefinePrompt" placeholder="Describe changes... (e.g., 'add more keywords', 'make shorter', 'improve intro')"
+                                class="flex-1 bg-white/10 border border-white/30 rounded-lg px-3 py-2 text-white placeholder-white/50 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400">
+                            <button onclick="refineBlogWithAI()" id="btnRefineBlogAI" class="px-4 py-2 bg-purple-500 hover:bg-purple-600 text-white rounded-lg text-sm font-medium whitespace-nowrap transition">
+                                <i class="fas fa-wand-magic-sparkles mr-1"></i>Refine
+                            </button>
+                        </div>
+                        <div class="flex flex-wrap gap-1 mt-2">
+                            <button onclick="document.getElementById('blogAiRefinePrompt').value='Improve the introduction to be more engaging'" class="px-2 py-0.5 bg-white/10 hover:bg-white/20 text-white/70 rounded text-xs transition">Better Intro</button>
+                            <button onclick="document.getElementById('blogAiRefinePrompt').value='Add more relevant keywords naturally'" class="px-2 py-0.5 bg-white/10 hover:bg-white/20 text-white/70 rounded text-xs transition">Add Keywords</button>
+                            <button onclick="document.getElementById('blogAiRefinePrompt').value='Make the content more concise'" class="px-2 py-0.5 bg-white/10 hover:bg-white/20 text-white/70 rounded text-xs transition">Shorten</button>
+                            <button onclick="document.getElementById('blogAiRefinePrompt').value='Expand with more details and examples'" class="px-2 py-0.5 bg-white/10 hover:bg-white/20 text-white/70 rounded text-xs transition">Expand</button>
+                            <button onclick="document.getElementById('blogAiRefinePrompt').value='Improve the conclusion with a stronger call-to-action'" class="px-2 py-0.5 bg-white/10 hover:bg-white/20 text-white/70 rounded text-xs transition">Better CTA</button>
+                            <button onclick="document.getElementById('blogAiRefinePrompt').value='Fix any grammar and improve readability'" class="px-2 py-0.5 bg-white/10 hover:bg-white/20 text-white/70 rounded text-xs transition">Fix Grammar</button>
+                        </div>
+                    </div>
                 </div>
                 <div class="p-6 md:p-8">
                     <!-- SEO Score Card -->
@@ -7299,8 +7322,288 @@
             if (modal) modal.remove();
         }
 
-        function editPage(pageId) {
-            showToast('Page editing coming soon!', 'info');
+        // Store current page being edited
+        let currentEditingPage = null;
+
+        async function editPage(pageId) {
+            try {
+                const response = await fetch(`${API_URL}/api/pages/${pageId}`, {
+                    headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
+                });
+                
+                if (!response.ok) {
+                    showToast('Failed to load page', 'error');
+                    return;
+                }
+                
+                const data = await response.json();
+                currentEditingPage = data.page || data;
+                
+                // Close preview modal if open
+                closePagePreview();
+                
+                // Create editor modal
+                const modalHtml = `
+                    <div id="pageEditorModal" class="fixed inset-0 bg-black/95 z-50 overflow-y-auto" onclick="if(event.target === this) closePageEditor()">
+                        <div class="max-w-6xl mx-auto py-6 px-4">
+                            <div class="glass-light rounded-2xl overflow-hidden">
+                                <!-- Header -->
+                                <div class="bg-gradient-to-r from-blue-600 to-purple-600 p-4">
+                                    <div class="flex items-center justify-between">
+                                        <div>
+                                            <h2 class="text-xl font-bold text-white">
+                                                <i class="fas fa-edit mr-2"></i>Edit Page
+                                            </h2>
+                                            <p class="text-white/70 text-sm">${currentEditingPage.title}</p>
+                                        </div>
+                                        <button onclick="closePageEditor()" class="p-2 hover:bg-white/20 rounded-lg transition">
+                                            <i class="fas fa-times text-white text-xl"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                
+                                <!-- AI Refinement Bar -->
+                                <div class="bg-slate-800 p-4 border-b border-white/10">
+                                    <div class="flex items-center gap-3">
+                                        <i class="fas fa-magic text-purple-400 text-xl"></i>
+                                        <input type="text" id="pageAiPrompt" placeholder="Describe how to improve this page... (e.g., 'make it more persuasive', 'add more local keywords', 'shorten the content')"
+                                            class="flex-1 bg-white/10 border border-white/20 rounded-lg px-4 py-2 text-white placeholder-gray-500 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500">
+                                        <button onclick="refinePageWithAI()" id="btnRefinePageAI" class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm font-medium whitespace-nowrap">
+                                            <i class="fas fa-wand-magic-sparkles mr-1"></i>Refine with AI
+                                        </button>
+                                    </div>
+                                    <div class="flex flex-wrap gap-2 mt-3">
+                                        <button onclick="document.getElementById('pageAiPrompt').value='Make the content more persuasive and add urgency'" class="px-2 py-1 bg-white/10 hover:bg-white/20 text-gray-300 rounded text-xs">More Persuasive</button>
+                                        <button onclick="document.getElementById('pageAiPrompt').value='Add more local SEO keywords for ${currentEditingPage.location || 'the area'}'" class="px-2 py-1 bg-white/10 hover:bg-white/20 text-gray-300 rounded text-xs">Add Local Keywords</button>
+                                        <button onclick="document.getElementById('pageAiPrompt').value='Make the content shorter and more concise'" class="px-2 py-1 bg-white/10 hover:bg-white/20 text-gray-300 rounded text-xs">Shorten</button>
+                                        <button onclick="document.getElementById('pageAiPrompt').value='Expand the content with more details and benefits'" class="px-2 py-1 bg-white/10 hover:bg-white/20 text-gray-300 rounded text-xs">Expand</button>
+                                        <button onclick="document.getElementById('pageAiPrompt').value='Make the tone more friendly and approachable'" class="px-2 py-1 bg-white/10 hover:bg-white/20 text-gray-300 rounded text-xs">Friendlier Tone</button>
+                                        <button onclick="document.getElementById('pageAiPrompt').value='Add more trust signals and social proof'" class="px-2 py-1 bg-white/10 hover:bg-white/20 text-gray-300 rounded text-xs">Add Trust Signals</button>
+                                    </div>
+                                </div>
+                                
+                                <!-- Editor Content -->
+                                <div class="p-6 bg-slate-900 max-h-[60vh] overflow-y-auto">
+                                    <div class="grid md:grid-cols-2 gap-6">
+                                        <!-- Left Column -->
+                                        <div class="space-y-4">
+                                            <div>
+                                                <label class="block text-sm font-medium text-gray-300 mb-1">Page Title</label>
+                                                <input type="text" id="editPageTitle" value="${escapeHtml(currentEditingPage.title || '')}"
+                                                    class="w-full bg-white/10 border border-white/20 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-500">
+                                            </div>
+                                            <div>
+                                                <label class="block text-sm font-medium text-gray-300 mb-1">Hero Headline</label>
+                                                <input type="text" id="editPageHeadline" value="${escapeHtml(currentEditingPage.hero_headline || '')}"
+                                                    class="w-full bg-white/10 border border-white/20 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-500">
+                                            </div>
+                                            <div>
+                                                <label class="block text-sm font-medium text-gray-300 mb-1">Subheadline</label>
+                                                <input type="text" id="editPageSubheadline" value="${escapeHtml(currentEditingPage.hero_subheadline || '')}"
+                                                    class="w-full bg-white/10 border border-white/20 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-500">
+                                            </div>
+                                            <div>
+                                                <label class="block text-sm font-medium text-gray-300 mb-1">Introduction</label>
+                                                <textarea id="editPageIntro" rows="3"
+                                                    class="w-full bg-white/10 border border-white/20 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-500">${escapeHtml(currentEditingPage.intro_text || '')}</textarea>
+                                            </div>
+                                        </div>
+                                        
+                                        <!-- Right Column -->
+                                        <div class="space-y-4">
+                                            <div>
+                                                <label class="block text-sm font-medium text-gray-300 mb-1">CTA Headline</label>
+                                                <input type="text" id="editPageCTA" value="${escapeHtml(currentEditingPage.cta_headline || '')}"
+                                                    class="w-full bg-white/10 border border-white/20 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-500">
+                                            </div>
+                                            <div>
+                                                <label class="block text-sm font-medium text-gray-300 mb-1">CTA Button Text</label>
+                                                <input type="text" id="editPageCTAButton" value="${escapeHtml(currentEditingPage.cta_button_text || '')}"
+                                                    class="w-full bg-white/10 border border-white/20 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-500">
+                                            </div>
+                                            <div>
+                                                <label class="block text-sm font-medium text-gray-300 mb-1">Meta Title (SEO)</label>
+                                                <input type="text" id="editPageMetaTitle" value="${escapeHtml(currentEditingPage.meta_title || '')}" maxlength="70"
+                                                    class="w-full bg-white/10 border border-white/20 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-500">
+                                                <p class="text-xs text-gray-500 mt-1"><span id="metaTitleCount">${(currentEditingPage.meta_title || '').length}</span>/70 characters</p>
+                                            </div>
+                                            <div>
+                                                <label class="block text-sm font-medium text-gray-300 mb-1">Meta Description (SEO)</label>
+                                                <textarea id="editPageMetaDesc" rows="2" maxlength="160"
+                                                    class="w-full bg-white/10 border border-white/20 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-500">${escapeHtml(currentEditingPage.meta_description || '')}</textarea>
+                                                <p class="text-xs text-gray-500 mt-1"><span id="metaDescCount">${(currentEditingPage.meta_description || '').length}</span>/160 characters</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Full Width Body Content -->
+                                    <div class="mt-6">
+                                        <label class="block text-sm font-medium text-gray-300 mb-1">Body Content</label>
+                                        <textarea id="editPageBody" rows="12"
+                                            class="w-full bg-white/10 border border-white/20 rounded-lg px-4 py-3 text-white font-mono text-sm focus:outline-none focus:ring-2 focus:ring-purple-500">${escapeHtml(currentEditingPage.body_content || '')}</textarea>
+                                        <p class="text-xs text-gray-500 mt-1">Word count: <span id="bodyWordCount">${(currentEditingPage.body_content || '').split(/\s+/).filter(w => w).length}</span></p>
+                                    </div>
+                                </div>
+                                
+                                <!-- Footer Actions -->
+                                <div class="p-4 bg-slate-800 border-t border-white/10 flex justify-between">
+                                    <button onclick="closePageEditor()" class="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg text-sm">
+                                        Cancel
+                                    </button>
+                                    <div class="flex gap-3">
+                                        <button onclick="savePageChanges()" id="btnSavePage" class="px-6 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium">
+                                            <i class="fas fa-save mr-1"></i>Save Changes
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
+                // Remove existing modal if any
+                const existingModal = document.getElementById('pageEditorModal');
+                if (existingModal) existingModal.remove();
+                
+                // Add modal to page
+                document.body.insertAdjacentHTML('beforeend', modalHtml);
+                
+                // Add character count listeners
+                document.getElementById('editPageMetaTitle').addEventListener('input', (e) => {
+                    document.getElementById('metaTitleCount').textContent = e.target.value.length;
+                });
+                document.getElementById('editPageMetaDesc').addEventListener('input', (e) => {
+                    document.getElementById('metaDescCount').textContent = e.target.value.length;
+                });
+                document.getElementById('editPageBody').addEventListener('input', (e) => {
+                    document.getElementById('bodyWordCount').textContent = e.target.value.split(/\s+/).filter(w => w).length;
+                });
+                
+            } catch (error) {
+                console.error('Error loading page for edit:', error);
+                showToast('Error loading page', 'error');
+            }
+        }
+
+        function closePageEditor() {
+            const modal = document.getElementById('pageEditorModal');
+            if (modal) modal.remove();
+            currentEditingPage = null;
+        }
+
+        async function savePageChanges() {
+            if (!currentEditingPage) return;
+            
+            const btn = document.getElementById('btnSavePage');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i>Saving...';
+            
+            try {
+                const response = await fetch(`${API_URL}/api/pages/${currentEditingPage.id}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${AUTH_TOKEN}`
+                    },
+                    body: JSON.stringify({
+                        title: document.getElementById('editPageTitle').value,
+                        hero_headline: document.getElementById('editPageHeadline').value,
+                        hero_subheadline: document.getElementById('editPageSubheadline').value,
+                        intro_text: document.getElementById('editPageIntro').value,
+                        body_content: document.getElementById('editPageBody').value,
+                        cta_headline: document.getElementById('editPageCTA').value,
+                        cta_button_text: document.getElementById('editPageCTAButton').value,
+                        meta_title: document.getElementById('editPageMetaTitle').value,
+                        meta_description: document.getElementById('editPageMetaDesc').value
+                    })
+                });
+                
+                if (response.ok) {
+                    showToast('Page saved successfully!', 'success');
+                    closePageEditor();
+                    loadPages();
+                } else {
+                    const error = await response.json();
+                    showToast(error.error || 'Failed to save page', 'error');
+                }
+            } catch (error) {
+                console.error('Error saving page:', error);
+                showToast('Error saving page', 'error');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-save mr-1"></i>Save Changes';
+            }
+        }
+
+        async function refinePageWithAI() {
+            const prompt = document.getElementById('pageAiPrompt').value.trim();
+            if (!prompt) {
+                showToast('Please enter instructions for AI refinement', 'error');
+                return;
+            }
+            
+            const btn = document.getElementById('btnRefinePageAI');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i>Refining...';
+            
+            try {
+                const currentContent = {
+                    title: document.getElementById('editPageTitle').value,
+                    hero_headline: document.getElementById('editPageHeadline').value,
+                    hero_subheadline: document.getElementById('editPageSubheadline').value,
+                    intro_text: document.getElementById('editPageIntro').value,
+                    body_content: document.getElementById('editPageBody').value,
+                    cta_headline: document.getElementById('editPageCTA').value,
+                    meta_title: document.getElementById('editPageMetaTitle').value,
+                    meta_description: document.getElementById('editPageMetaDesc').value
+                };
+                
+                const response = await fetch(`${API_URL}/api/pages/refine`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${AUTH_TOKEN}`
+                    },
+                    body: JSON.stringify({
+                        page_id: currentEditingPage.id,
+                        current_content: currentContent,
+                        refinement_prompt: prompt,
+                        client_id: currentClient.id
+                    })
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    const refined = data.refined_content || data;
+                    
+                    // Update form fields with refined content
+                    if (refined.title) document.getElementById('editPageTitle').value = refined.title;
+                    if (refined.hero_headline) document.getElementById('editPageHeadline').value = refined.hero_headline;
+                    if (refined.hero_subheadline) document.getElementById('editPageSubheadline').value = refined.hero_subheadline;
+                    if (refined.intro_text) document.getElementById('editPageIntro').value = refined.intro_text;
+                    if (refined.body_content) document.getElementById('editPageBody').value = refined.body_content;
+                    if (refined.cta_headline) document.getElementById('editPageCTA').value = refined.cta_headline;
+                    if (refined.meta_title) document.getElementById('editPageMetaTitle').value = refined.meta_title;
+                    if (refined.meta_description) document.getElementById('editPageMetaDesc').value = refined.meta_description;
+                    
+                    // Update counters
+                    document.getElementById('metaTitleCount').textContent = (refined.meta_title || '').length;
+                    document.getElementById('metaDescCount').textContent = (refined.meta_description || '').length;
+                    document.getElementById('bodyWordCount').textContent = (refined.body_content || '').split(/\s+/).filter(w => w).length;
+                    
+                    showToast('Content refined with AI!', 'success');
+                    document.getElementById('pageAiPrompt').value = '';
+                } else {
+                    const error = await response.json();
+                    showToast(error.error || 'AI refinement failed', 'error');
+                }
+            } catch (error) {
+                console.error('Error refining with AI:', error);
+                showToast('Error refining content', 'error');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-wand-magic-sparkles mr-1"></i>Refine with AI';
+            }
         }
 
         async function deletePage(pageId) {
@@ -10427,6 +10730,95 @@
                     saveBtn.disabled = false;
                     saveBtn.innerHTML = originalBtnText;
                 }
+            }
+        }
+
+        async function refineBlogWithAI() {
+            if (!currentBlog) {
+                showToast('No blog selected', 'error');
+                return;
+            }
+            
+            const prompt = document.getElementById('blogAiRefinePrompt').value.trim();
+            if (!prompt) {
+                showToast('Please enter instructions for AI refinement', 'error');
+                return;
+            }
+            
+            const btn = document.getElementById('btnRefineBlogAI');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i>Refining...';
+            
+            try {
+                // Get current content from editor if in edit mode, otherwise from blog
+                let currentContent;
+                const editModeContent = document.getElementById('modalBodyEdit');
+                if (editModeContent && !editModeContent.classList.contains('hidden')) {
+                    currentContent = editModeContent.innerHTML;
+                } else {
+                    currentContent = currentBlog.body || '';
+                }
+                
+                const response = await fetch(`${API_URL}/api/content/refine`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${AUTH_TOKEN}`
+                    },
+                    body: JSON.stringify({
+                        content_id: currentBlog.id,
+                        current_title: currentBlog.title,
+                        current_body: currentContent,
+                        current_meta_title: currentBlog.meta_title || '',
+                        current_meta_description: currentBlog.meta_description || '',
+                        keyword: currentBlog.keyword || '',
+                        refinement_prompt: prompt,
+                        client_id: currentClient.id
+                    })
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    const refined = data.refined_content || data;
+                    
+                    // Enter edit mode if not already
+                    if (!document.getElementById('modalBodyEdit') || document.getElementById('modalBodyEdit').classList.contains('hidden')) {
+                        enterEditMode();
+                    }
+                    
+                    // Update content in editor
+                    setTimeout(() => {
+                        if (refined.title) {
+                            const titleEdit = document.getElementById('modalTitleEdit');
+                            if (titleEdit) titleEdit.value = refined.title;
+                        }
+                        if (refined.body) {
+                            const bodyEdit = document.getElementById('modalBodyEdit');
+                            if (bodyEdit) bodyEdit.innerHTML = refined.body;
+                        }
+                        if (refined.meta_title) {
+                            const metaTitleEdit = document.getElementById('modalMetaTitleEdit');
+                            if (metaTitleEdit) metaTitleEdit.value = refined.meta_title;
+                        }
+                        if (refined.meta_description) {
+                            const metaDescEdit = document.getElementById('modalMetaDescEdit');
+                            if (metaDescEdit) metaDescEdit.value = refined.meta_description;
+                        }
+                        
+                        showToast('Content refined! Review changes and save.', 'success');
+                    }, 100);
+                    
+                    document.getElementById('blogAiRefinePrompt').value = '';
+                } else {
+                    const error = await response.json();
+                    showToast(error.error || 'AI refinement failed', 'error');
+                }
+            } catch (error) {
+                console.error('Error refining blog with AI:', error);
+                showToast('Error refining content', 'error');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-wand-magic-sparkles mr-1"></i>Refine';
             }
         }
 

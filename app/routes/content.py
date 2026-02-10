@@ -2118,3 +2118,101 @@ Please review and update the content accordingly.
             'success': True,
             'message': 'Feedback noted (database model pending)'
         })
+
+
+@content_bp.route('/refine', methods=['POST'])
+@token_required
+def refine_content_with_ai(current_user):
+    """
+    Refine blog content using AI
+    
+    POST /api/content/refine
+    {
+        "content_id": "...",
+        "current_title": "...",
+        "current_body": "...",
+        "current_meta_title": "...",
+        "current_meta_description": "...",
+        "keyword": "...",
+        "refinement_prompt": "make it more engaging",
+        "client_id": "..."
+    }
+    """
+    data = request.get_json(silent=True) or {}
+    prompt = data.get('refinement_prompt', '')
+    client_id = data.get('client_id')
+    
+    if not prompt:
+        return jsonify({'error': 'refinement_prompt is required'}), 400
+    
+    if not current_user.has_access_to_client(client_id):
+        return jsonify({'error': 'Access denied'}), 403
+    
+    from app.models.db_models import DBClient
+    client = DBClient.query.get(client_id)
+    if not client:
+        return jsonify({'error': 'Client not found'}), 404
+    
+    try:
+        from app.services.ai_service import ai_service
+        
+        current_title = data.get('current_title', '')
+        current_body = data.get('current_body', '')
+        current_meta_title = data.get('current_meta_title', '')
+        current_meta_description = data.get('current_meta_description', '')
+        keyword = data.get('keyword', '')
+        
+        # Build the refinement prompt
+        refine_prompt = f"""You are refining existing blog content. 
+
+CURRENT CONTENT:
+- Title: {current_title}
+- Target Keyword: {keyword}
+- Meta Title: {current_meta_title}
+- Meta Description: {current_meta_description}
+
+BODY CONTENT:
+{current_body[:5000]}
+
+BUSINESS CONTEXT:
+- Business: {client.business_name}
+- Industry: {client.industry}
+- Location: {client.geo}
+
+REFINEMENT REQUEST: {prompt}
+
+Return the refined content as JSON with these exact keys:
+- title (the blog title)
+- body (the full HTML body content - preserve any HTML formatting)
+- meta_title (max 70 chars, SEO optimized)
+- meta_description (max 160 chars, SEO optimized)
+
+Apply the requested changes while:
+1. Keeping the same general structure
+2. Preserving HTML formatting
+3. Maintaining keyword relevance
+4. Keeping a natural, engaging tone
+
+Return ONLY valid JSON, no markdown code blocks."""
+
+        result = ai_service.generate_raw(
+            user_input=refine_prompt,
+            system_prompt="You are an expert content editor and SEO specialist. Refine blog content as requested. Return only valid JSON with title, body, meta_title, and meta_description fields.",
+            max_tokens=4000
+        )
+        
+        # Parse JSON response
+        if isinstance(result, str):
+            result = result.replace('```json', '').replace('```', '').strip()
+            import json
+            result = json.loads(result)
+        
+        return jsonify({
+            'success': True,
+            'refined_content': result
+        })
+        
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
