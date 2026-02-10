@@ -269,6 +269,10 @@ Answer:"""
         
         # Save as draft if requested
         if save_draft:
+            from app.routes.content import _generate_blog_tags
+            cfi_geo = (client.geo or '')
+            cfi_city = cfi_geo.split(',')[0].strip() if cfi_geo else ''
+            
             blog_post = DBBlogPost(
                 client_id=client_id,
                 title=blog_data['title'],
@@ -278,6 +282,8 @@ Answer:"""
                 status='draft',
                 seo_score=blog_data.get('seo_score', 75),
                 word_count=blog_data['word_count'],
+                target_city=cfi_city,
+                tags=_generate_blog_tags(blog_data['primary_keyword'], city=cfi_city, industry=client.industry, client_name=client.business_name),
                 source='customer_questions'  # Track that this came from real questions
             )
             db.session.add(blog_post)

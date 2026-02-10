@@ -1242,6 +1242,11 @@ class WordPressManager:
             content.wordpress_post_id = result.get('post_id')
             
             # Also save as blog post (use 'body' not 'content')
+            from app.routes.content import _generate_blog_tags
+            wp_client = DBClient.query.get(client_id)
+            wp_geo = (wp_client.geo or '') if wp_client else ''
+            wp_city = wp_geo.split(',')[0].strip() if wp_geo else ''
+            
             blog = DBBlogPost(
                 client_id=client_id,
                 title=content.title,
@@ -1251,7 +1256,9 @@ class WordPressManager:
                 meta_description=content.meta_description,
                 status='published',
                 word_count=content.word_count,
-                seo_score=content.our_seo_score
+                seo_score=content.our_seo_score,
+                target_city=wp_city,
+                tags=_generate_blog_tags(content.primary_keyword, city=wp_city, industry=wp_client.industry if wp_client else '')
             )
             db.session.add(blog)
             db.session.commit()

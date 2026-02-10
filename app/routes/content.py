@@ -22,6 +22,85 @@ ai_service = AIService()
 seo_service = SEOService()
 data_service = DataService()
 
+
+def _generate_blog_tags(keyword, city='', industry='', client_name=''):
+    """
+    Auto-generate 5 Title Case tags for a blog post, including city name.
+    Returns a list of strings.
+    """
+    def title_case(s):
+        if not s:
+            return ''
+        # Title case but keep short words lowercase (except first)
+        small_words = {'a', 'an', 'the', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by'}
+        words = s.strip().split()
+        result = []
+        for i, w in enumerate(words):
+            if i == 0 or w.lower() not in small_words:
+                result.append(w.capitalize())
+            else:
+                result.append(w.lower())
+        return ' '.join(result)
+
+    tags = []
+    city = (city or '').strip()
+    keyword = (keyword or '').strip()
+    industry = (industry or '').strip()
+
+    # 1. Primary keyword with city
+    if keyword and city:
+        tags.append(title_case(f"{keyword} {city}"))
+    elif keyword:
+        tags.append(title_case(keyword))
+
+    # 2. City + keyword (reversed)
+    if city and keyword:
+        tags.append(title_case(f"{city} {keyword}"))
+
+    # 3. City name alone
+    if city:
+        tags.append(title_case(city))
+
+    # 4. Industry + city
+    if industry and city:
+        tags.append(title_case(f"{industry} {city}"))
+    elif industry:
+        tags.append(title_case(industry))
+
+    # 5. Keyword alone (if different from tag 1)
+    if keyword:
+        kw_tag = title_case(keyword)
+        if kw_tag not in tags:
+            tags.append(kw_tag)
+
+    # Fill to 5 with sensible defaults
+    fillers = []
+    if city:
+        fillers += [
+            title_case(f"Local {industry} {city}" if industry else f"Local Services {city}"),
+            title_case(f"Best {keyword}" if keyword else f"Best {industry}"),
+            title_case(f"{city} Services"),
+            title_case(f"Professional {industry}" if industry else "Professional Services"),
+        ]
+    else:
+        fillers += [
+            title_case(f"Professional {industry}" if industry else "Professional Services"),
+            title_case(f"Best {keyword}" if keyword else "Expert Services"),
+        ]
+
+    for filler in fillers:
+        if filler and filler not in tags and len(tags) < 5:
+            tags.append(filler)
+
+    # Deduplicate while preserving order, limit to 5
+    seen = set()
+    unique = []
+    for t in tags:
+        if t and t not in seen:
+            seen.add(t)
+            unique.append(t)
+    return unique[:5]
+
 # Use database-backed task storage to work with multiple Gunicorn workers
 def _get_task(task_id):
     """Get task from database"""
@@ -322,6 +401,8 @@ def _generate_blog_background(task_id, app, client_id, keyword, word_count, incl
                 schema_markup=faq_schema,
                 word_count=len(body_content.split()),
                 seo_score=seo_score,
+                target_city=city,
+                tags=_generate_blog_tags(keyword, city=city, industry=client.industry, client_name=client.business_name),
                 status=ContentStatus.DRAFT
             )
             
@@ -607,6 +688,7 @@ def generate_blog_sync(current_user):
             word_count=actual_word_count,
             seo_score=seo_score,
             target_city=city,  # Store the selected city
+            tags=_generate_blog_tags(keyword, city=city, industry=client.industry, client_name=client.business_name),
             status=ContentStatus.DRAFT
         )
         
@@ -870,6 +952,8 @@ def generate_content(current_user):
         schema_markup=faq_schema,
         word_count=len(body_content.split()),
         seo_score=seo_score,
+        target_city=city,
+        tags=_generate_blog_tags(data['keyword'], city=city, industry=client.industry, client_name=client.business_name),
         status=ContentStatus.DRAFT
     )
     
@@ -1072,6 +1156,8 @@ def bulk_generate(current_user):
                 schema_markup=faq_schema,
                 word_count=len(body_content.split()),
                 seo_score=seo_score,
+                target_city=city,
+                tags=_generate_blog_tags(keyword, city=city, industry=client.industry, client_name=client.business_name),
                 status=ContentStatus.DRAFT
             )
             

@@ -814,6 +814,14 @@ def approve_queue_item(current_user, item_id):
     
     data = request.get_json(silent=True) or {}
     
+    # Get client for tag generation
+    client = DBClient.query.get(item.client_id)
+    geo = (client.geo or '') if client else ''
+    geo_parts = geo.split(',') if geo else ['']
+    mon_city = geo_parts[0].strip() if geo_parts else ''
+    
+    from app.routes.content import _generate_blog_tags
+    
     # Create blog post
     blog_post = DBBlogPost(
         client_id=item.client_id,
@@ -825,6 +833,8 @@ def approve_queue_item(current_user, item_id):
         secondary_keywords=[],
         faq_content=[],
         word_count=item.word_count,
+        target_city=mon_city,
+        tags=_generate_blog_tags(item.primary_keyword, city=mon_city, industry=client.industry if client else ''),
         status=ContentStatus.APPROVED
     )
     

@@ -13,6 +13,7 @@ from app.services.seo_service import SEOService
 from app.services.db_service import DataService
 from app.services.semrush_service import SEMRushService
 from app.models.db_models import DBClient, DBBlogPost, DBSocialPost, ContentStatus
+from app.routes.content import _generate_blog_tags
 
 intake_bp = Blueprint('intake', __name__)
 ai_service = AIService()
@@ -437,6 +438,10 @@ def full_pipeline(current_user):
                         body_content = link_result['content']
                         links_added = link_result['links_added']
                     
+                    geo = client.geo or ''
+                    geo_parts = geo.split(',') if geo else ['']
+                    intake_city = geo_parts[0].strip() if geo_parts else ''
+                    
                     blog_post = DBBlogPost(
                         client_id=client.id,
                         title=result.get('title', topic['keyword']),
@@ -448,6 +453,8 @@ def full_pipeline(current_user):
                         internal_links=service_pages,
                         faq_content=result.get('faq_items', []),
                         word_count=len(body_content.split()),
+                        target_city=intake_city,
+                        tags=_generate_blog_tags(topic['keyword'], city=intake_city, industry=client.industry, client_name=client.business_name),
                         status=ContentStatus.DRAFT
                     )
                     data_service.save_blog_post(blog_post)
