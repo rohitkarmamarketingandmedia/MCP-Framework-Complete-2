@@ -7324,6 +7324,7 @@
 
         // Store current page being edited
         let currentEditingPage = null;
+        let pageEditMode = false;
 
         async function editPage(pageId) {
             try {
@@ -7338,146 +7339,12 @@
                 
                 const data = await response.json();
                 currentEditingPage = data.page || data;
+                pageEditMode = false;
                 
                 // Close preview modal if open
                 closePagePreview();
                 
-                // Create editor modal
-                const modalHtml = `
-                    <div id="pageEditorModal" class="fixed inset-0 bg-black/95 z-50 overflow-y-auto" onclick="if(event.target === this) closePageEditor()">
-                        <div class="max-w-6xl mx-auto py-6 px-4">
-                            <div class="glass-light rounded-2xl overflow-hidden">
-                                <!-- Header -->
-                                <div class="bg-gradient-to-r from-blue-600 to-purple-600 p-4">
-                                    <div class="flex items-center justify-between">
-                                        <div>
-                                            <h2 class="text-xl font-bold text-white">
-                                                <i class="fas fa-edit mr-2"></i>Edit Page
-                                            </h2>
-                                            <p class="text-white/70 text-sm">${currentEditingPage.title}</p>
-                                        </div>
-                                        <button onclick="closePageEditor()" class="p-2 hover:bg-white/20 rounded-lg transition">
-                                            <i class="fas fa-times text-white text-xl"></i>
-                                        </button>
-                                    </div>
-                                </div>
-                                
-                                <!-- AI Refinement Bar -->
-                                <div class="bg-slate-800 p-4 border-b border-white/10">
-                                    <div class="flex items-center gap-3">
-                                        <i class="fas fa-magic text-purple-400 text-xl"></i>
-                                        <input type="text" id="pageAiPrompt" placeholder="Describe how to improve this page... (e.g., 'make it more persuasive', 'add more local keywords', 'shorten the content')"
-                                            class="flex-1 bg-white/10 border border-white/20 rounded-lg px-4 py-2 text-white placeholder-gray-500 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500">
-                                        <button onclick="refinePageWithAI()" id="btnRefinePageAI" class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm font-medium whitespace-nowrap">
-                                            <i class="fas fa-wand-magic-sparkles mr-1"></i>Refine with AI
-                                        </button>
-                                    </div>
-                                    <div class="flex flex-wrap gap-2 mt-3">
-                                        <button onclick="document.getElementById('pageAiPrompt').value='Make the content more persuasive and add urgency'" class="px-2 py-1 bg-white/10 hover:bg-white/20 text-gray-300 rounded text-xs">More Persuasive</button>
-                                        <button onclick="document.getElementById('pageAiPrompt').value='Add more local SEO keywords for ${currentEditingPage.location || 'the area'}'" class="px-2 py-1 bg-white/10 hover:bg-white/20 text-gray-300 rounded text-xs">Add Local Keywords</button>
-                                        <button onclick="document.getElementById('pageAiPrompt').value='Make the content shorter and more concise'" class="px-2 py-1 bg-white/10 hover:bg-white/20 text-gray-300 rounded text-xs">Shorten</button>
-                                        <button onclick="document.getElementById('pageAiPrompt').value='Expand the content with more details and benefits'" class="px-2 py-1 bg-white/10 hover:bg-white/20 text-gray-300 rounded text-xs">Expand</button>
-                                        <button onclick="document.getElementById('pageAiPrompt').value='Make the tone more friendly and approachable'" class="px-2 py-1 bg-white/10 hover:bg-white/20 text-gray-300 rounded text-xs">Friendlier Tone</button>
-                                        <button onclick="document.getElementById('pageAiPrompt').value='Add more trust signals and social proof'" class="px-2 py-1 bg-white/10 hover:bg-white/20 text-gray-300 rounded text-xs">Add Trust Signals</button>
-                                    </div>
-                                </div>
-                                
-                                <!-- Editor Content -->
-                                <div class="p-6 bg-slate-900 max-h-[60vh] overflow-y-auto">
-                                    <div class="grid md:grid-cols-2 gap-6">
-                                        <!-- Left Column -->
-                                        <div class="space-y-4">
-                                            <div>
-                                                <label class="block text-sm font-medium text-gray-300 mb-1">Page Title</label>
-                                                <input type="text" id="editPageTitle" value="${escapeHtml(currentEditingPage.title || '')}"
-                                                    class="w-full bg-white/10 border border-white/20 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-500">
-                                            </div>
-                                            <div>
-                                                <label class="block text-sm font-medium text-gray-300 mb-1">Hero Headline</label>
-                                                <input type="text" id="editPageHeadline" value="${escapeHtml(currentEditingPage.hero_headline || '')}"
-                                                    class="w-full bg-white/10 border border-white/20 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-500">
-                                            </div>
-                                            <div>
-                                                <label class="block text-sm font-medium text-gray-300 mb-1">Subheadline</label>
-                                                <input type="text" id="editPageSubheadline" value="${escapeHtml(currentEditingPage.hero_subheadline || '')}"
-                                                    class="w-full bg-white/10 border border-white/20 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-500">
-                                            </div>
-                                            <div>
-                                                <label class="block text-sm font-medium text-gray-300 mb-1">Introduction</label>
-                                                <textarea id="editPageIntro" rows="3"
-                                                    class="w-full bg-white/10 border border-white/20 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-500">${escapeHtml(currentEditingPage.intro_text || '')}</textarea>
-                                            </div>
-                                        </div>
-                                        
-                                        <!-- Right Column -->
-                                        <div class="space-y-4">
-                                            <div>
-                                                <label class="block text-sm font-medium text-gray-300 mb-1">CTA Headline</label>
-                                                <input type="text" id="editPageCTA" value="${escapeHtml(currentEditingPage.cta_headline || '')}"
-                                                    class="w-full bg-white/10 border border-white/20 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-500">
-                                            </div>
-                                            <div>
-                                                <label class="block text-sm font-medium text-gray-300 mb-1">CTA Button Text</label>
-                                                <input type="text" id="editPageCTAButton" value="${escapeHtml(currentEditingPage.cta_button_text || '')}"
-                                                    class="w-full bg-white/10 border border-white/20 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-500">
-                                            </div>
-                                            <div>
-                                                <label class="block text-sm font-medium text-gray-300 mb-1">Meta Title (SEO)</label>
-                                                <input type="text" id="editPageMetaTitle" value="${escapeHtml(currentEditingPage.meta_title || '')}" maxlength="70"
-                                                    class="w-full bg-white/10 border border-white/20 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-500">
-                                                <p class="text-xs text-gray-500 mt-1"><span id="metaTitleCount">${(currentEditingPage.meta_title || '').length}</span>/70 characters</p>
-                                            </div>
-                                            <div>
-                                                <label class="block text-sm font-medium text-gray-300 mb-1">Meta Description (SEO)</label>
-                                                <textarea id="editPageMetaDesc" rows="2" maxlength="160"
-                                                    class="w-full bg-white/10 border border-white/20 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-500">${escapeHtml(currentEditingPage.meta_description || '')}</textarea>
-                                                <p class="text-xs text-gray-500 mt-1"><span id="metaDescCount">${(currentEditingPage.meta_description || '').length}</span>/160 characters</p>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    
-                                    <!-- Full Width Body Content -->
-                                    <div class="mt-6">
-                                        <label class="block text-sm font-medium text-gray-300 mb-1">Body Content</label>
-                                        <textarea id="editPageBody" rows="12"
-                                            class="w-full bg-white/10 border border-white/20 rounded-lg px-4 py-3 text-white font-mono text-sm focus:outline-none focus:ring-2 focus:ring-purple-500">${escapeHtml(currentEditingPage.body_content || '')}</textarea>
-                                        <p class="text-xs text-gray-500 mt-1">Word count: <span id="bodyWordCount">${(currentEditingPage.body_content || '').split(/\s+/).filter(w => w).length}</span></p>
-                                    </div>
-                                </div>
-                                
-                                <!-- Footer Actions -->
-                                <div class="p-4 bg-slate-800 border-t border-white/10 flex justify-between">
-                                    <button onclick="closePageEditor()" class="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg text-sm">
-                                        Cancel
-                                    </button>
-                                    <div class="flex gap-3">
-                                        <button onclick="savePageChanges()" id="btnSavePage" class="px-6 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium">
-                                            <i class="fas fa-save mr-1"></i>Save Changes
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                `;
-                
-                // Remove existing modal if any
-                const existingModal = document.getElementById('pageEditorModal');
-                if (existingModal) existingModal.remove();
-                
-                // Add modal to page
-                document.body.insertAdjacentHTML('beforeend', modalHtml);
-                
-                // Add character count listeners
-                document.getElementById('editPageMetaTitle').addEventListener('input', (e) => {
-                    document.getElementById('metaTitleCount').textContent = e.target.value.length;
-                });
-                document.getElementById('editPageMetaDesc').addEventListener('input', (e) => {
-                    document.getElementById('metaDescCount').textContent = e.target.value.length;
-                });
-                document.getElementById('editPageBody').addEventListener('input', (e) => {
-                    document.getElementById('bodyWordCount').textContent = e.target.value.split(/\s+/).filter(w => w).length;
-                });
+                showPageEditorModal();
                 
             } catch (error) {
                 console.error('Error loading page for edit:', error);
@@ -7485,42 +7352,330 @@
             }
         }
 
+        function showPageEditorModal() {
+            const page = currentEditingPage;
+            if (!page) return;
+            
+            // Calculate word count
+            let wordCount = 0;
+            if (page.hero_headline) wordCount += page.hero_headline.split(/\s+/).filter(w => w).length;
+            if (page.hero_subheadline) wordCount += page.hero_subheadline.split(/\s+/).filter(w => w).length;
+            if (page.intro_text) wordCount += page.intro_text.split(/\s+/).filter(w => w).length;
+            if (page.body_content) wordCount += page.body_content.split(/\s+/).filter(w => w).length;
+            
+            const modalHtml = `
+                <div id="pageEditorModal" class="fixed inset-0 bg-black/90 z-50 overflow-y-auto" onclick="if(event.target === this) closePageEditor()">
+                    <div class="max-w-5xl mx-auto py-8 px-4">
+                        <div class="glass-light rounded-2xl overflow-hidden">
+                            <!-- Header -->
+                            <div class="bg-gradient-to-r from-purple-600 to-pink-600 p-6">
+                                <div class="flex items-start justify-between">
+                                    <div class="flex-1">
+                                        <span class="inline-block px-3 py-1 bg-white/20 rounded-full text-white text-sm mb-2">
+                                            ${page.page_type || 'Service'} Page
+                                        </span>
+                                        <h1 id="pageModalTitle" class="text-2xl md:text-3xl font-bold text-white">${escapeHtml(page.title || 'Untitled Page')}</h1>
+                                        <input type="text" id="pageModalTitleEdit" value="${escapeHtml(page.title || '')}" 
+                                            class="hidden w-full text-2xl font-bold bg-white/20 border border-white/30 rounded-lg px-3 py-2 text-white mt-2">
+                                    </div>
+                                    <button onclick="closePageEditor()" class="p-2 hover:bg-white/20 rounded-lg transition ml-4">
+                                        <i class="fas fa-times text-white text-xl"></i>
+                                    </button>
+                                </div>
+                                <div class="flex items-center gap-4 mt-4 text-white/80 text-sm">
+                                    <span><i class="fas fa-file-alt mr-1"></i><span id="pageWordCount">${wordCount}</span> words</span>
+                                    <span><i class="fas fa-map-marker-alt mr-1"></i>${page.location || 'No location'}</span>
+                                    <span class="px-2 py-1 bg-white/20 rounded">${page.status || 'draft'}</span>
+                                </div>
+                                
+                                <!-- Action Buttons -->
+                                <div class="flex flex-wrap gap-2 mt-4 pt-4 border-t border-white/20">
+                                    <button onclick="enterPageEditMode()" id="btnPageEdit"
+                                        class="px-3 py-1.5 bg-white/20 hover:bg-white/30 text-white rounded-lg text-sm font-medium transition">
+                                        <i class="fas fa-edit mr-1"></i>Edit
+                                    </button>
+                                    <button onclick="savePageChanges()" id="btnPageSave"
+                                        class="hidden px-3 py-1.5 bg-green-500 hover:bg-green-600 text-white rounded-lg text-sm font-medium transition">
+                                        <i class="fas fa-save mr-1"></i>Save
+                                    </button>
+                                    <button onclick="cancelPageEditMode()" id="btnPageCancel"
+                                        class="hidden px-3 py-1.5 bg-gray-500 hover:bg-gray-600 text-white rounded-lg text-sm font-medium transition">
+                                        <i class="fas fa-times mr-1"></i>Cancel
+                                    </button>
+                                    <button onclick="publishPageToWP('${page.id}')"
+                                        class="px-3 py-1.5 bg-sky-500/80 hover:bg-sky-500 text-white rounded-lg text-sm font-medium transition">
+                                        <i class="fab fa-wordpress mr-1"></i>WordPress
+                                    </button>
+                                    <button onclick="deletePageFromEditor('${page.id}')"
+                                        class="px-3 py-1.5 bg-red-500/80 hover:bg-red-500 text-white rounded-lg text-sm font-medium transition">
+                                        <i class="fas fa-trash mr-1"></i>Delete
+                                    </button>
+                                </div>
+                                
+                                <!-- AI Refinement Bar -->
+                                <div class="mt-4 pt-4 border-t border-white/20">
+                                    <div class="flex items-center gap-2 mb-2">
+                                        <i class="fas fa-magic text-purple-300"></i>
+                                        <span class="text-white/80 text-sm font-medium">AI Content Refinement</span>
+                                    </div>
+                                    <div class="flex items-center gap-2">
+                                        <input type="text" id="pageAiPrompt" placeholder="Describe changes... (e.g., 'more persuasive', 'add local keywords')"
+                                            class="flex-1 bg-white/10 border border-white/30 rounded-lg px-3 py-2 text-white placeholder-white/50 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400">
+                                        <button onclick="refinePageWithAI()" id="btnRefinePageAI" class="px-4 py-2 bg-purple-500 hover:bg-purple-600 text-white rounded-lg text-sm font-medium whitespace-nowrap transition">
+                                            <i class="fas fa-wand-magic-sparkles mr-1"></i>Refine
+                                        </button>
+                                    </div>
+                                    <div class="flex flex-wrap gap-1 mt-2">
+                                        <button onclick="document.getElementById('pageAiPrompt').value='Make the content more persuasive with urgency'" class="px-2 py-0.5 bg-white/10 hover:bg-white/20 text-white/70 rounded text-xs transition">More Persuasive</button>
+                                        <button onclick="document.getElementById('pageAiPrompt').value='Add more local SEO keywords for ${page.location || 'the area'}'" class="px-2 py-0.5 bg-white/10 hover:bg-white/20 text-white/70 rounded text-xs transition">Local Keywords</button>
+                                        <button onclick="document.getElementById('pageAiPrompt').value='Make the content shorter and more concise'" class="px-2 py-0.5 bg-white/10 hover:bg-white/20 text-white/70 rounded text-xs transition">Shorten</button>
+                                        <button onclick="document.getElementById('pageAiPrompt').value='Expand with more details and benefits'" class="px-2 py-0.5 bg-white/10 hover:bg-white/20 text-white/70 rounded text-xs transition">Expand</button>
+                                        <button onclick="document.getElementById('pageAiPrompt').value='Add more trust signals and social proof'" class="px-2 py-0.5 bg-white/10 hover:bg-white/20 text-white/70 rounded text-xs transition">Trust Signals</button>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Content Area -->
+                            <div class="p-6 md:p-8 bg-slate-900 max-h-[65vh] overflow-y-auto">
+                                <!-- Hero Section -->
+                                <div class="mb-6 p-6 bg-gradient-to-br from-slate-800 to-slate-900 rounded-xl border border-white/10">
+                                    <label class="block text-xs text-gray-500 mb-1">Hero Headline</label>
+                                    <h2 id="pageHeadlineView" class="text-2xl font-bold text-white">${escapeHtml(page.hero_headline || '')}</h2>
+                                    <input type="text" id="pageHeadlineEdit" value="${escapeHtml(page.hero_headline || '')}"
+                                        class="hidden w-full text-2xl font-bold bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-white">
+                                    
+                                    <label class="block text-xs text-gray-500 mt-4 mb-1">Subheadline</label>
+                                    <p id="pageSubheadlineView" class="text-gray-400">${escapeHtml(page.hero_subheadline || '')}</p>
+                                    <input type="text" id="pageSubheadlineEdit" value="${escapeHtml(page.hero_subheadline || '')}"
+                                        class="hidden w-full bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-white">
+                                </div>
+                                
+                                <!-- Introduction -->
+                                <div class="mb-6">
+                                    <label class="block text-sm font-medium text-gray-400 mb-2">Introduction</label>
+                                    <div id="pageIntroView" class="text-gray-300 p-4 bg-white/5 rounded-lg">${escapeHtml(page.intro_text || 'No introduction')}</div>
+                                    <textarea id="pageIntroEdit" rows="3"
+                                        class="hidden w-full bg-white/10 border border-white/20 rounded-lg px-4 py-3 text-white">${escapeHtml(page.intro_text || '')}</textarea>
+                                </div>
+                                
+                                <!-- Body Content -->
+                                <div class="mb-6">
+                                    <label class="block text-sm font-medium text-gray-400 mb-2">Main Content</label>
+                                    <div id="pageBodyView" class="prose prose-invert max-w-none text-gray-300 p-4 bg-white/5 rounded-lg page-content">${page.body_content || '<p class="text-gray-500 italic">No content</p>'}</div>
+                                    <textarea id="pageBodyEdit" rows="15"
+                                        class="hidden w-full bg-white/10 border border-white/20 rounded-lg px-4 py-3 text-white font-mono text-sm">${escapeHtml(page.body_content || '')}</textarea>
+                                </div>
+                                
+                                <!-- CTA Section -->
+                                <div class="mb-6 p-6 bg-purple-500/10 rounded-xl border border-purple-500/30">
+                                    <label class="block text-xs text-gray-500 mb-1">CTA Headline</label>
+                                    <h3 id="pageCtaView" class="text-xl font-bold text-white mb-2">${escapeHtml(page.cta_headline || 'Get Started Today')}</h3>
+                                    <input type="text" id="pageCtaEdit" value="${escapeHtml(page.cta_headline || '')}"
+                                        class="hidden w-full bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-white mb-2">
+                                    
+                                    <label class="block text-xs text-gray-500 mb-1">Button Text</label>
+                                    <span id="pageCtaBtnView" class="inline-block mt-2 px-6 py-2 bg-purple-600 text-white rounded-lg">${escapeHtml(page.cta_button_text || 'Contact Us')}</span>
+                                    <input type="text" id="pageCtaBtnEdit" value="${escapeHtml(page.cta_button_text || '')}"
+                                        class="hidden w-full bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-white">
+                                </div>
+                                
+                                <!-- SEO Section -->
+                                <div class="p-4 bg-slate-800 rounded-lg">
+                                    <h4 class="text-sm font-semibold text-gray-400 mb-3">SEO Settings</h4>
+                                    <div class="grid md:grid-cols-2 gap-4">
+                                        <div>
+                                            <label class="block text-xs text-gray-500 mb-1">Meta Title</label>
+                                            <p id="pageMetaTitleView" class="text-sm text-white">${escapeHtml(page.meta_title || page.title || '')}</p>
+                                            <input type="text" id="pageMetaTitleEdit" value="${escapeHtml(page.meta_title || '')}" maxlength="70"
+                                                class="hidden w-full bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-white text-sm">
+                                            <p class="hidden text-xs text-gray-500 mt-1" id="metaTitleCounter"><span id="metaTitleCount">${(page.meta_title || '').length}</span>/70</p>
+                                        </div>
+                                        <div>
+                                            <label class="block text-xs text-gray-500 mb-1">Meta Description</label>
+                                            <p id="pageMetaDescView" class="text-sm text-gray-400">${escapeHtml(page.meta_description || 'Not set')}</p>
+                                            <textarea id="pageMetaDescEdit" rows="2" maxlength="160"
+                                                class="hidden w-full bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-white text-sm">${escapeHtml(page.meta_description || '')}</textarea>
+                                            <p class="hidden text-xs text-gray-500 mt-1" id="metaDescCounter"><span id="metaDescCount">${(page.meta_description || '').length}</span>/160</p>
+                                        </div>
+                                    </div>
+                                    <div class="mt-3">
+                                        <label class="block text-xs text-gray-500 mb-1">URL Slug</label>
+                                        <p class="text-sm text-blue-400">/${page.slug || ''}</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            // Remove existing modal if any
+            const existingModal = document.getElementById('pageEditorModal');
+            if (existingModal) existingModal.remove();
+            
+            // Add modal to page
+            document.body.insertAdjacentHTML('beforeend', modalHtml);
+            
+            // Add character count listeners
+            document.getElementById('pageMetaTitleEdit').addEventListener('input', (e) => {
+                document.getElementById('metaTitleCount').textContent = e.target.value.length;
+            });
+            document.getElementById('pageMetaDescEdit').addEventListener('input', (e) => {
+                document.getElementById('metaDescCount').textContent = e.target.value.length;
+            });
+        }
+
+        function enterPageEditMode() {
+            pageEditMode = true;
+            
+            // Toggle buttons
+            document.getElementById('btnPageEdit').classList.add('hidden');
+            document.getElementById('btnPageSave').classList.remove('hidden');
+            document.getElementById('btnPageCancel').classList.remove('hidden');
+            
+            // Toggle view/edit fields
+            document.getElementById('pageModalTitle').classList.add('hidden');
+            document.getElementById('pageModalTitleEdit').classList.remove('hidden');
+            
+            document.getElementById('pageHeadlineView').classList.add('hidden');
+            document.getElementById('pageHeadlineEdit').classList.remove('hidden');
+            
+            document.getElementById('pageSubheadlineView').classList.add('hidden');
+            document.getElementById('pageSubheadlineEdit').classList.remove('hidden');
+            
+            document.getElementById('pageIntroView').classList.add('hidden');
+            document.getElementById('pageIntroEdit').classList.remove('hidden');
+            
+            document.getElementById('pageBodyView').classList.add('hidden');
+            document.getElementById('pageBodyEdit').classList.remove('hidden');
+            
+            document.getElementById('pageCtaView').classList.add('hidden');
+            document.getElementById('pageCtaEdit').classList.remove('hidden');
+            
+            document.getElementById('pageCtaBtnView').classList.add('hidden');
+            document.getElementById('pageCtaBtnEdit').classList.remove('hidden');
+            
+            document.getElementById('pageMetaTitleView').classList.add('hidden');
+            document.getElementById('pageMetaTitleEdit').classList.remove('hidden');
+            document.getElementById('metaTitleCounter').classList.remove('hidden');
+            
+            document.getElementById('pageMetaDescView').classList.add('hidden');
+            document.getElementById('pageMetaDescEdit').classList.remove('hidden');
+            document.getElementById('metaDescCounter').classList.remove('hidden');
+        }
+
+        function cancelPageEditMode() {
+            pageEditMode = false;
+            
+            // Restore original values
+            const page = currentEditingPage;
+            document.getElementById('pageModalTitleEdit').value = page.title || '';
+            document.getElementById('pageHeadlineEdit').value = page.hero_headline || '';
+            document.getElementById('pageSubheadlineEdit').value = page.hero_subheadline || '';
+            document.getElementById('pageIntroEdit').value = page.intro_text || '';
+            document.getElementById('pageBodyEdit').value = page.body_content || '';
+            document.getElementById('pageCtaEdit').value = page.cta_headline || '';
+            document.getElementById('pageCtaBtnEdit').value = page.cta_button_text || '';
+            document.getElementById('pageMetaTitleEdit').value = page.meta_title || '';
+            document.getElementById('pageMetaDescEdit').value = page.meta_description || '';
+            
+            // Toggle buttons
+            document.getElementById('btnPageEdit').classList.remove('hidden');
+            document.getElementById('btnPageSave').classList.add('hidden');
+            document.getElementById('btnPageCancel').classList.add('hidden');
+            
+            // Toggle back to view mode
+            document.getElementById('pageModalTitle').classList.remove('hidden');
+            document.getElementById('pageModalTitleEdit').classList.add('hidden');
+            
+            document.getElementById('pageHeadlineView').classList.remove('hidden');
+            document.getElementById('pageHeadlineEdit').classList.add('hidden');
+            
+            document.getElementById('pageSubheadlineView').classList.remove('hidden');
+            document.getElementById('pageSubheadlineEdit').classList.add('hidden');
+            
+            document.getElementById('pageIntroView').classList.remove('hidden');
+            document.getElementById('pageIntroEdit').classList.add('hidden');
+            
+            document.getElementById('pageBodyView').classList.remove('hidden');
+            document.getElementById('pageBodyEdit').classList.add('hidden');
+            
+            document.getElementById('pageCtaView').classList.remove('hidden');
+            document.getElementById('pageCtaEdit').classList.add('hidden');
+            
+            document.getElementById('pageCtaBtnView').classList.remove('hidden');
+            document.getElementById('pageCtaBtnEdit').classList.add('hidden');
+            
+            document.getElementById('pageMetaTitleView').classList.remove('hidden');
+            document.getElementById('pageMetaTitleEdit').classList.add('hidden');
+            document.getElementById('metaTitleCounter').classList.add('hidden');
+            
+            document.getElementById('pageMetaDescView').classList.remove('hidden');
+            document.getElementById('pageMetaDescEdit').classList.add('hidden');
+            document.getElementById('metaDescCounter').classList.add('hidden');
+        }
+
         function closePageEditor() {
             const modal = document.getElementById('pageEditorModal');
             if (modal) modal.remove();
             currentEditingPage = null;
+            pageEditMode = false;
         }
 
         async function savePageChanges() {
             if (!currentEditingPage) return;
             
-            const btn = document.getElementById('btnSavePage');
+            const btn = document.getElementById('btnPageSave');
             btn.disabled = true;
             btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i>Saving...';
             
             try {
+                const updatedData = {
+                    title: document.getElementById('pageModalTitleEdit').value,
+                    hero_headline: document.getElementById('pageHeadlineEdit').value,
+                    hero_subheadline: document.getElementById('pageSubheadlineEdit').value,
+                    intro_text: document.getElementById('pageIntroEdit').value,
+                    body_content: document.getElementById('pageBodyEdit').value,
+                    cta_headline: document.getElementById('pageCtaEdit').value,
+                    cta_button_text: document.getElementById('pageCtaBtnEdit').value,
+                    meta_title: document.getElementById('pageMetaTitleEdit').value,
+                    meta_description: document.getElementById('pageMetaDescEdit').value
+                };
+                
                 const response = await fetch(`${API_URL}/api/pages/${currentEditingPage.id}`, {
                     method: 'PUT',
                     headers: {
                         'Content-Type': 'application/json',
                         'Authorization': `Bearer ${AUTH_TOKEN}`
                     },
-                    body: JSON.stringify({
-                        title: document.getElementById('editPageTitle').value,
-                        hero_headline: document.getElementById('editPageHeadline').value,
-                        hero_subheadline: document.getElementById('editPageSubheadline').value,
-                        intro_text: document.getElementById('editPageIntro').value,
-                        body_content: document.getElementById('editPageBody').value,
-                        cta_headline: document.getElementById('editPageCTA').value,
-                        cta_button_text: document.getElementById('editPageCTAButton').value,
-                        meta_title: document.getElementById('editPageMetaTitle').value,
-                        meta_description: document.getElementById('editPageMetaDesc').value
-                    })
+                    body: JSON.stringify(updatedData)
                 });
                 
                 if (response.ok) {
+                    const result = await response.json();
+                    currentEditingPage = result.page || result;
+                    
+                    // Update view elements
+                    document.getElementById('pageModalTitle').textContent = updatedData.title;
+                    document.getElementById('pageHeadlineView').textContent = updatedData.hero_headline;
+                    document.getElementById('pageSubheadlineView').textContent = updatedData.hero_subheadline;
+                    document.getElementById('pageIntroView').textContent = updatedData.intro_text || 'No introduction';
+                    document.getElementById('pageBodyView').innerHTML = updatedData.body_content || '<p class="text-gray-500 italic">No content</p>';
+                    document.getElementById('pageCtaView').textContent = updatedData.cta_headline;
+                    document.getElementById('pageCtaBtnView').textContent = updatedData.cta_button_text;
+                    document.getElementById('pageMetaTitleView').textContent = updatedData.meta_title;
+                    document.getElementById('pageMetaDescView').textContent = updatedData.meta_description || 'Not set';
+                    
+                    // Update word count
+                    let wordCount = 0;
+                    wordCount += (updatedData.hero_headline || '').split(/\s+/).filter(w => w).length;
+                    wordCount += (updatedData.hero_subheadline || '').split(/\s+/).filter(w => w).length;
+                    wordCount += (updatedData.intro_text || '').split(/\s+/).filter(w => w).length;
+                    wordCount += (updatedData.body_content || '').split(/\s+/).filter(w => w).length;
+                    document.getElementById('pageWordCount').textContent = wordCount;
+                    
+                    cancelPageEditMode();
                     showToast('Page saved successfully!', 'success');
-                    closePageEditor();
                     loadPages();
                 } else {
                     const error = await response.json();
@@ -7531,7 +7686,7 @@
                 showToast('Error saving page', 'error');
             } finally {
                 btn.disabled = false;
-                btn.innerHTML = '<i class="fas fa-save mr-1"></i>Save Changes';
+                btn.innerHTML = '<i class="fas fa-save mr-1"></i>Save';
             }
         }
 
@@ -7546,16 +7701,21 @@
             btn.disabled = true;
             btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i>Refining...';
             
+            // Enter edit mode first if not already
+            if (!pageEditMode) {
+                enterPageEditMode();
+            }
+            
             try {
                 const currentContent = {
-                    title: document.getElementById('editPageTitle').value,
-                    hero_headline: document.getElementById('editPageHeadline').value,
-                    hero_subheadline: document.getElementById('editPageSubheadline').value,
-                    intro_text: document.getElementById('editPageIntro').value,
-                    body_content: document.getElementById('editPageBody').value,
-                    cta_headline: document.getElementById('editPageCTA').value,
-                    meta_title: document.getElementById('editPageMetaTitle').value,
-                    meta_description: document.getElementById('editPageMetaDesc').value
+                    title: document.getElementById('pageModalTitleEdit').value,
+                    hero_headline: document.getElementById('pageHeadlineEdit').value,
+                    hero_subheadline: document.getElementById('pageSubheadlineEdit').value,
+                    intro_text: document.getElementById('pageIntroEdit').value,
+                    body_content: document.getElementById('pageBodyEdit').value,
+                    cta_headline: document.getElementById('pageCtaEdit').value,
+                    meta_title: document.getElementById('pageMetaTitleEdit').value,
+                    meta_description: document.getElementById('pageMetaDescEdit').value
                 };
                 
                 const response = await fetch(`${API_URL}/api/pages/refine`, {
@@ -7577,21 +7737,20 @@
                     const refined = data.refined_content || data;
                     
                     // Update form fields with refined content
-                    if (refined.title) document.getElementById('editPageTitle').value = refined.title;
-                    if (refined.hero_headline) document.getElementById('editPageHeadline').value = refined.hero_headline;
-                    if (refined.hero_subheadline) document.getElementById('editPageSubheadline').value = refined.hero_subheadline;
-                    if (refined.intro_text) document.getElementById('editPageIntro').value = refined.intro_text;
-                    if (refined.body_content) document.getElementById('editPageBody').value = refined.body_content;
-                    if (refined.cta_headline) document.getElementById('editPageCTA').value = refined.cta_headline;
-                    if (refined.meta_title) document.getElementById('editPageMetaTitle').value = refined.meta_title;
-                    if (refined.meta_description) document.getElementById('editPageMetaDesc').value = refined.meta_description;
+                    if (refined.title) document.getElementById('pageModalTitleEdit').value = refined.title;
+                    if (refined.hero_headline) document.getElementById('pageHeadlineEdit').value = refined.hero_headline;
+                    if (refined.hero_subheadline) document.getElementById('pageSubheadlineEdit').value = refined.hero_subheadline;
+                    if (refined.intro_text) document.getElementById('pageIntroEdit').value = refined.intro_text;
+                    if (refined.body_content) document.getElementById('pageBodyEdit').value = refined.body_content;
+                    if (refined.cta_headline) document.getElementById('pageCtaEdit').value = refined.cta_headline;
+                    if (refined.meta_title) document.getElementById('pageMetaTitleEdit').value = refined.meta_title;
+                    if (refined.meta_description) document.getElementById('pageMetaDescEdit').value = refined.meta_description;
                     
                     // Update counters
                     document.getElementById('metaTitleCount').textContent = (refined.meta_title || '').length;
                     document.getElementById('metaDescCount').textContent = (refined.meta_description || '').length;
-                    document.getElementById('bodyWordCount').textContent = (refined.body_content || '').split(/\s+/).filter(w => w).length;
                     
-                    showToast('Content refined with AI!', 'success');
+                    showToast('Content refined! Review and save changes.', 'success');
                     document.getElementById('pageAiPrompt').value = '';
                 } else {
                     const error = await response.json();
@@ -7602,7 +7761,28 @@
                 showToast('Error refining content', 'error');
             } finally {
                 btn.disabled = false;
-                btn.innerHTML = '<i class="fas fa-wand-magic-sparkles mr-1"></i>Refine with AI';
+                btn.innerHTML = '<i class="fas fa-wand-magic-sparkles mr-1"></i>Refine';
+            }
+        }
+
+        async function deletePageFromEditor(pageId) {
+            if (!confirm('Are you sure you want to delete this page?')) return;
+            
+            try {
+                const response = await fetch(`${API_URL}/api/pages/${pageId}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
+                });
+                
+                if (response.ok) {
+                    showToast('Page deleted', 'success');
+                    closePageEditor();
+                    loadPages();
+                } else {
+                    showToast('Failed to delete page', 'error');
+                }
+            } catch (error) {
+                showToast('Error deleting page', 'error');
             }
         }
 

@@ -457,7 +457,7 @@ def refine_page_content(current_user):
         from app.services.ai_service import ai_service
         
         # Build the refinement prompt
-        refine_prompt = f"""You are refining existing service page content. 
+        refine_prompt = f"""You are an expert copywriter refining service page content.
 
 CURRENT CONTENT:
 - Title: {current_content.get('title', '')}
@@ -488,11 +488,7 @@ Return the refined content as JSON with these exact keys:
 
 Keep the same structure but apply the requested changes. Return ONLY valid JSON, no markdown."""
 
-        result = ai_service.generate_raw(
-            user_input=refine_prompt,
-            system_prompt="You are an expert copywriter specializing in service page optimization. Return only valid JSON.",
-            max_tokens=3000
-        )
+        result = ai_service.generate_raw(refine_prompt, max_tokens=3000)
         
         # Parse JSON response
         if isinstance(result, str):

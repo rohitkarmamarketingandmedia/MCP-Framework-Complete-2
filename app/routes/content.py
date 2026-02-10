@@ -2163,7 +2163,7 @@ def refine_content_with_ai(current_user):
         keyword = data.get('keyword', '')
         
         # Build the refinement prompt
-        refine_prompt = f"""You are refining existing blog content. 
+        refine_prompt = f"""You are an expert content editor refining blog content.
 
 CURRENT CONTENT:
 - Title: {current_title}
@@ -2195,11 +2195,7 @@ Apply the requested changes while:
 
 Return ONLY valid JSON, no markdown code blocks."""
 
-        result = ai_service.generate_raw(
-            user_input=refine_prompt,
-            system_prompt="You are an expert content editor and SEO specialist. Refine blog content as requested. Return only valid JSON with title, body, meta_title, and meta_description fields.",
-            max_tokens=4000
-        )
+        result = ai_service.generate_raw(refine_prompt, max_tokens=4000)
         
         # Parse JSON response
         if isinstance(result, str):
