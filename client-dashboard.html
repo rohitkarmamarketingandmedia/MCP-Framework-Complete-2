@@ -10979,11 +10979,13 @@
             btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i>Refining...';
             
             try {
-                // Get current content from editor if in edit mode, otherwise from blog
+                // Get current content - check if in edit mode by checking bodyEditMode visibility
                 let currentContent;
-                const editModeContent = document.getElementById('modalBodyEdit');
-                if (editModeContent && !editModeContent.classList.contains('hidden')) {
-                    currentContent = editModeContent.innerHTML;
+                const bodyEditMode = document.getElementById('bodyEditMode');
+                const isInEditMode = bodyEditMode && !bodyEditMode.classList.contains('hidden');
+                
+                if (isInEditMode) {
+                    currentContent = document.getElementById('modalBodyEdit').innerHTML;
                 } else {
                     currentContent = currentBlog.body || '';
                 }
@@ -11011,31 +11013,65 @@
                     const refined = data.refined_content || data;
                     
                     // Enter edit mode if not already
-                    if (!document.getElementById('modalBodyEdit') || document.getElementById('modalBodyEdit').classList.contains('hidden')) {
+                    const bodyEditModeCheck = document.getElementById('bodyEditMode');
+                    if (!bodyEditModeCheck || bodyEditModeCheck.classList.contains('hidden')) {
                         enterEditMode();
                     }
                     
-                    // Update content in editor
+                    // Update content in editor with a small delay to ensure edit mode is active
                     setTimeout(() => {
+                        // Update title
                         if (refined.title) {
                             const titleEdit = document.getElementById('modalTitleEdit');
-                            if (titleEdit) titleEdit.value = refined.title;
-                        }
-                        if (refined.body) {
-                            const bodyEdit = document.getElementById('modalBodyEdit');
-                            if (bodyEdit) bodyEdit.innerHTML = refined.body;
-                        }
-                        if (refined.meta_title) {
-                            const metaTitleEdit = document.getElementById('modalMetaTitleEdit');
-                            if (metaTitleEdit) metaTitleEdit.value = refined.meta_title;
-                        }
-                        if (refined.meta_description) {
-                            const metaDescEdit = document.getElementById('modalMetaDescEdit');
-                            if (metaDescEdit) metaDescEdit.value = refined.meta_description;
+                            if (titleEdit) {
+                                titleEdit.value = refined.title;
+                                titleEdit.classList.add('bg-green-100', 'border-green-500');
+                                setTimeout(() => titleEdit.classList.remove('bg-green-100', 'border-green-500'), 2000);
+                            }
                         }
                         
-                        showToast('Content refined! Review changes and save.', 'success');
-                    }, 100);
+                        // Update body - this is the main content
+                        if (refined.body) {
+                            const bodyEdit = document.getElementById('modalBodyEdit');
+                            if (bodyEdit) {
+                                bodyEdit.innerHTML = refined.body;
+                                bodyEdit.classList.add('ring-2', 'ring-green-500');
+                                setTimeout(() => bodyEdit.classList.remove('ring-2', 'ring-green-500'), 2000);
+                                updateEditWordCount();
+                            }
+                        }
+                        
+                        // Update meta title
+                        if (refined.meta_title) {
+                            const metaTitleEdit = document.getElementById('modalMetaTitleEdit');
+                            if (metaTitleEdit) {
+                                metaTitleEdit.value = refined.meta_title;
+                                metaTitleEdit.classList.add('bg-green-100', 'border-green-500');
+                                setTimeout(() => metaTitleEdit.classList.remove('bg-green-100', 'border-green-500'), 2000);
+                            }
+                        }
+                        
+                        // Update meta description
+                        if (refined.meta_description) {
+                            const metaDescEdit = document.getElementById('modalMetaDescEdit');
+                            if (metaDescEdit) {
+                                metaDescEdit.value = refined.meta_description;
+                                metaDescEdit.classList.add('bg-green-100', 'border-green-500');
+                                setTimeout(() => metaDescEdit.classList.remove('bg-green-100', 'border-green-500'), 2000);
+                            }
+                        }
+                        
+                        // Update character counts
+                        updateMetaCounts();
+                        
+                        // Scroll to show the body editor
+                        const bodyEdit = document.getElementById('modalBodyEdit');
+                        if (bodyEdit) {
+                            bodyEdit.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        }
+                        
+                        showToast('✨ Content refined! Fields highlighted in green. Review and click Save.', 'success');
+                    }, 200);
                     
                     document.getElementById('blogAiRefinePrompt').value = '';
                 } else {
