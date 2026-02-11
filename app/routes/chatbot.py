@@ -393,7 +393,9 @@ def capture_lead(chatbot_id):
                     lead_phone=data.get('phone', 'Not provided'),
                     lead_message=data.get('message', ''),
                     page_url=conversation.page_url or 'Unknown',
-                    client_id=config.client_id
+                    client_id=config.client_id,
+                    conversation_id=conversation_id,
+                    chatbot_id=chatbot_id
                 )
             except Exception as e:
                 logger.error(f"Failed to send lead notification email: {e}")
@@ -413,8 +415,8 @@ def capture_lead(chatbot_id):
         })
 
 
-def _send_lead_notification_email(to_email, lead_name, lead_email, lead_phone, lead_message, page_url, client_id):
-    """Send email notification for new chatbot lead"""
+def _send_lead_notification_email(to_email, lead_name, lead_email, lead_phone, lead_message, page_url, client_id, conversation_id=None, chatbot_id=None):
+    """Send email notification for new chatbot lead with chat history link"""
     from app.services.email_service import get_email_service
     import os
     
@@ -424,6 +426,65 @@ def _send_lead_notification_email(to_email, lead_name, lead_email, lead_phone, l
     # Get client name if available
     client = DBClient.query.get(client_id) if client_id else None
     client_name = client.business_name if client else 'Your Website'
+    
+    # Build chat history URL
+    chat_history_url = ''
+    if conversation_id and client_id:
+        chat_history_url = f"{app_url}/client-dashboard?client={client_id}&tab=chatbot&conversation={conversation_id}"
+    
+    # Get conversation transcript
+    chat_transcript_html = ''
+    if conversation_id:
+        try:
+            conversation = DBChatConversation.query.get(conversation_id)
+            if conversation:
+                messages = DBChatMessage.query.filter_by(
+                    conversation_id=conversation_id
+                ).order_by(DBChatMessage.created_at.asc()).all()
+                
+                if messages:
+                    rows = ''
+                    for msg in messages:
+                        if msg.role == 'system':
+                            continue
+                        is_visitor = msg.role == 'user'
+                        label = 'Visitor' if is_visitor else 'Chatbot'
+                        bg_color = '#eff6ff' if is_visitor else '#f0fdf4'
+                        label_color = '#2563eb' if is_visitor else '#16a34a'
+                        # Truncate long messages
+                        content = msg.content or ''
+                        if len(content) > 300:
+                            content = content[:300] + '...'
+                        # Escape HTML
+                        content = content.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;').replace('\n', '<br>')
+                        
+                        rows += f'''
+                        <div style="margin-bottom: 8px; padding: 10px 14px; background: {bg_color}; border-radius: 8px;">
+                            <span style="font-size: 11px; font-weight: 600; color: {label_color}; text-transform: uppercase;">{label}</span>
+                            <p style="margin: 4px 0 0 0; color: #374151; font-size: 14px; line-height: 1.5;">{content}</p>
+                        </div>'''
+                    
+                    chat_transcript_html = f'''
+                    <div style="margin-top: 25px; border-top: 1px solid #e5e7eb; padding-top: 20px;">
+                        <h3 style="color: #111; font-size: 16px; margin: 0 0 12px 0;">💬 Chat Conversation</h3>
+                        <div style="max-height: 400px; overflow: hidden;">
+                            {rows}
+                        </div>
+                    </div>'''
+        except Exception as e:
+            logger.warning(f"Could not load chat transcript for email: {e}")
+    
+    # Build chat history button
+    chat_history_button = ''
+    if chat_history_url:
+        chat_history_button = f'''
+                <div style="text-align: center; margin-top: 15px;">
+                    <a href="{chat_history_url}" 
+                       style="display: inline-block; padding: 14px 28px; background: linear-gradient(135deg, #3b82f6, #2563eb); 
+                              color: white; text-decoration: none; border-radius: 8px; font-weight: 600;">
+                        💬 View Full Chat History →
+                    </a>
+                </div>'''
     
     html = f"""
     <!DOCTYPE html>
@@ -471,13 +532,16 @@ def _send_lead_notification_email(to_email, lead_name, lead_email, lead_phone, l
                     </tr>''' if lead_message else ''}
                 </table>
                 
+                {chat_transcript_html}
+                
                 <div style="text-align: center; margin-top: 30px;">
-                    <a href="{app_url}/client/{client_id}" 
+                    <a href="{app_url}/client-dashboard?client={client_id}" 
                        style="display: inline-block; padding: 14px 28px; background: linear-gradient(135deg, #22c55e, #16a34a); 
                               color: white; text-decoration: none; border-radius: 8px; font-weight: 600;">
                         View in Dashboard →
                     </a>
                 </div>
+                {chat_history_button}
             </div>
             
             <div style="background: #f8f8f8; padding: 20px; text-align: center; color: #9ca3af; font-size: 12px;">
