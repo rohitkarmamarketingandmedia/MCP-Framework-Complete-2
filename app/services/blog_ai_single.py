@@ -1043,6 +1043,19 @@ OUTPUT: Return ONLY valid JSON. No markdown code blocks."""
 <p class="cta-phone"><a href="tel:{req.phone}" class="cta-phone-link"><strong>Call Now: {req.phone}</strong></a></p>{contact_button}
 </div>'''
 
+        # Build dynamic FAQ example items based on faq_count
+        faq_templates = [
+            f'{{"question": "What is the cost of [service] in {req.city}?", "answer": "60-80 word answer"}}',
+            f'{{"question": "How long does [service] take?", "answer": "60-80 word answer"}}',
+            f'{{"question": "Why should I hire {req.company_name}?", "answer": "60-80 word answer"}}',
+            '{"question": "[Question about process]", "answer": "60-80 word answer"}',
+            '{"question": "[Question about warranty/guarantee]", "answer": "60-80 word answer"}',
+            '{"question": "[Question about preparation]", "answer": "60-80 word answer"}',
+            '{"question": "[Question about timeline]", "answer": "60-80 word answer"}',
+        ]
+        faq_items_list = faq_templates[:faq_count]
+        faq_example_items = ',\n        '.join(f'        {item}' for item in faq_items_list)
+
         return f"""CLAUDE MASTER PROMPT — AI-OPTIMIZED LOCAL SEO BLOG GENERATION (STRICT MODE)
 
 ===== INPUT VARIABLES (DO NOT ALTER) =====
@@ -1153,7 +1166,7 @@ LOCAL SEO GUARDRAILS:
 
 6. FREQUENTLY ASKED QUESTIONS
    - Do NOT put in body - put in faq_items array only
-   - EXACTLY 5 FAQs
+   - EXACTLY {faq_count} FAQs
    - Questions must reflect real user intent
 
 7. GET STARTED TODAY (≈150 words)
@@ -1175,11 +1188,7 @@ Return ONLY valid JSON:
     "h1": "{keyword.title()}",
     "body": "<p>Introduction with keyword in first sentence...</p><h2>Key Benefits</h2><p>Benefit content...</p><h2>Our Process</h2><p>Process content...</p>[MID CTA]<h2>Pricing and Cost Factors</h2><p>Pricing content...</p><h2>Why {req.city} Residents Choose {req.company_name}</h2><p>Why choose content...</p><h2>Get Started Today</h2><p>Conclusion...</p>[BOTTOM CTA]",
     "faq_items": [
-        {{"question": "What is the cost of [service] in {req.city}?", "answer": "60-80 word answer"}},
-        {{"question": "How long does [service] take?", "answer": "60-80 word answer"}},
-        {{"question": "Why should I hire {req.company_name}?", "answer": "60-80 word answer"}},
-        {{"question": "[Question about process]", "answer": "60-80 word answer"}},
-        {{"question": "[Question about warranty/guarantee]", "answer": "60-80 word answer"}}
+{faq_example_items}
     ],
     "cta": {{"company_name": "{req.company_name}", "phone": "{req.phone}", "email": "{req.email}"}}
 }}
@@ -1195,7 +1204,7 @@ Before responding, verify:
 {f'☐ DO NOT add city "{req.city}" to headings - keyword already contains it!' if keyword_has_city else f'☐ City name in at least 3 H2/H3 headings'}
 ☐ JSON is valid and complete
 ☐ No placeholders remain
-☐ EXACTLY 5 FAQs in faq_items array
+☐ EXACTLY {faq_count} FAQs in faq_items array
 
 IMPORTANT:
 - Write {req.target_words}+ words of REAL, helpful content
