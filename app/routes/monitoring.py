@@ -2090,12 +2090,20 @@ def save_crawl_settings(current_user):
     POST /api/monitoring/crawl-settings
     {
         "client_id": "...",
-        "crawl_frequency": "daily|weekly|manual"
+        "crawl_frequency": "daily|weekly|manual",
+        "crawl_hour": 3,       // 0-23 UTC
+        "crawl_day": 0         // 0=Monday, 6=Sunday (for weekly)
     }
     """
     data = request.get_json(silent=True) or {}
     client_id = data.get('client_id')
     frequency = data.get('crawl_frequency', 'daily')
+    crawl_hour = int(data.get('crawl_hour', 3))
+    crawl_day = int(data.get('crawl_day', 0))
+    
+    # Validate
+    crawl_hour = max(0, min(23, crawl_hour))
+    crawl_day = max(0, min(6, crawl_day))
     
     if not client_id:
         return jsonify({'error': 'client_id required'}), 400
@@ -2109,22 +2117,44 @@ def save_crawl_settings(current_user):
         is_active=True
     ).all()
     
+    now = datetime.utcnow()
+    
     for comp in competitors:
         comp.crawl_frequency = frequency
+        comp.crawl_hour = crawl_hour
+        comp.crawl_day = crawl_day
         
         if frequency == 'daily':
-            comp.next_crawl_at = datetime.utcnow() + timedelta(days=1)
+            # Next crawl today at crawl_hour, or tomorrow if already past
+            next_run = now.replace(hour=crawl_hour, minute=0, second=0, microsecond=0)
+            if next_run <= now:
+                next_run += timedelta(days=1)
+            comp.next_crawl_at = next_run
         elif frequency == 'weekly':
-            comp.next_crawl_at = datetime.utcnow() + timedelta(weeks=1)
+            # Next crawl on the specified weekday at crawl_hour
+            days_ahead = crawl_day - now.weekday()
+            if days_ahead < 0 or (days_ahead == 0 and now.hour >= crawl_hour):
+                days_ahead += 7
+            next_run = now.replace(hour=crawl_hour, minute=0, second=0, microsecond=0) + timedelta(days=days_ahead)
+            comp.next_crawl_at = next_run
         else:
             comp.next_crawl_at = None
     
     db.session.commit()
     
+    day_names = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+    schedule_desc = frequency
+    if frequency == 'daily':
+        schedule_desc = f"Daily at {crawl_hour:02d}:00 UTC"
+    elif frequency == 'weekly':
+        schedule_desc = f"Every {day_names[crawl_day]} at {crawl_hour:02d}:00 UTC"
+    
     return jsonify({
         'success': True,
-        'message': f'Crawl frequency set to {frequency}',
-        'competitors_updated': len(competitors)
+        'message': f'Crawl schedule set: {schedule_desc}',
+        'schedule': schedule_desc,
+        'competitors_updated': len(competitors),
+        'next_crawl_at': competitors[0].next_crawl_at.isoformat() if competitors and competitors[0].next_crawl_at else None
     })
 
 

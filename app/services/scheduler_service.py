@@ -48,12 +48,12 @@ def init_scheduler(app):
 def _add_scheduled_jobs(app):
     """Add all scheduled jobs"""
     
-    # Daily competitor crawl at 3 AM
+    # Competitor crawl check - runs every hour to pick up competitors that are due
     scheduler.add_job(
         func=run_competitor_crawl,
-        trigger=CronTrigger(hour=3, minute=0),
-        id='daily_competitor_crawl',
-        name='Daily Competitor Crawl',
+        trigger=CronTrigger(minute=0),  # Every hour on the hour
+        id='hourly_competitor_crawl_check',
+        name='Hourly Competitor Crawl Check',
         replace_existing=True,
         kwargs={'app': app}
     )
@@ -152,40 +152,66 @@ def _add_scheduled_jobs(app):
 
 
 def run_competitor_crawl(app):
-    """Crawl all competitors for all active clients"""
+    """Crawl competitors that are due based on their schedule"""
     with app.app_context():
         from app.database import db
         from app.models.db_models import DBClient, DBCompetitor
         from app.services.competitor_monitoring_service import CompetitorMonitoringService
         
-        logger.info("Starting scheduled competitor crawl...")
+        logger.info("Starting scheduled competitor crawl check...")
         
-        clients = DBClient.query.filter_by(is_active=True).all()
+        now = datetime.utcnow()
+        
+        # Only crawl competitors that are due (next_crawl_at <= now)
+        due_competitors = DBCompetitor.query.filter(
+            DBCompetitor.is_active == True,
+            DBCompetitor.crawl_frequency != 'manual',
+            DBCompetitor.next_crawl_at != None,
+            DBCompetitor.next_crawl_at <= now
+        ).all()
+        
+        if not due_competitors:
+            logger.info("No competitors due for crawl.")
+            return
+        
+        logger.info(f"Found {len(due_competitors)} competitors due for crawl.")
         total_new_pages = 0
         
-        for client in clients:
-            competitors = DBCompetitor.query.filter_by(
-                client_id=client.id,
-                is_active=True
-            ).all()
-            
-            for competitor in competitors:
-                try:
-                    service = CompetitorMonitoringService(client.id)
-                    result = service.crawl_competitor(competitor.id)
-                    new_pages = result.get('new_pages', 0)
-                    total_new_pages += new_pages
+        for competitor in due_competitors:
+            try:
+                service = CompetitorMonitoringService(competitor.client_id)
+                result = service.crawl_competitor(competitor.id)
+                new_pages = result.get('new_pages', 0)
+                total_new_pages += new_pages
+                
+                if new_pages > 0:
+                    client = DBClient.query.get(competitor.client_id)
+                    client_name = client.business_name if client else competitor.client_id
+                    logger.info(f"Found {new_pages} new pages for {competitor.name} (client: {client_name})")
                     
-                    if new_pages > 0:
-                        logger.info(f"Found {new_pages} new pages for {competitor.name} (client: {client.business_name})")
-                        
-                        # Auto-generate counter content for new pages
-                        _auto_generate_counter_content(client.id, competitor.id, result.get('new_page_ids', []))
-                        
-                except Exception as e:
-                    logger.error(f"Error crawling {competitor.domain}: {e}")
+                    # Auto-generate counter content for new pages
+                    _auto_generate_counter_content(competitor.client_id, competitor.id, result.get('new_page_ids', []))
+                
+                # Update last_crawl_at and compute next_crawl_at
+                competitor.last_crawl_at = now
+                crawl_hour = competitor.crawl_hour if competitor.crawl_hour is not None else 3
+                crawl_day = competitor.crawl_day if competitor.crawl_day is not None else 0
+                
+                if competitor.crawl_frequency == 'daily':
+                    next_run = now.replace(hour=crawl_hour, minute=0, second=0, microsecond=0) + timedelta(days=1)
+                    competitor.next_crawl_at = next_run
+                elif competitor.crawl_frequency == 'weekly':
+                    days_ahead = crawl_day - now.weekday()
+                    if days_ahead <= 0:
+                        days_ahead += 7
+                    next_run = now.replace(hour=crawl_hour, minute=0, second=0, microsecond=0) + timedelta(days=days_ahead)
+                    competitor.next_crawl_at = next_run
+                    
+            except Exception as e:
+                logger.error(f"Error crawling {competitor.domain}: {e}")
         
-        logger.info(f"Competitor crawl complete. Found {total_new_pages} new pages across all clients.")
+        db.session.commit()
+        logger.info(f"Competitor crawl complete. Found {total_new_pages} new pages across {len(due_competitors)} competitors.")
         
         # Send notification if new content found
         if total_new_pages > 0:

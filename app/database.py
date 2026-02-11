@@ -187,6 +187,25 @@ def run_migrations(app):
             try:
                 result = db.session.execute(text("""
                     SELECT column_name FROM information_schema.columns 
+                    WHERE table_name = 'competitors' AND column_name = 'crawl_hour'
+                """))
+                if not result.fetchone():
+                    logger.info("Adding crawl_hour and crawl_day columns to competitors table...")
+                    db.session.execute(text("ALTER TABLE competitors ADD COLUMN crawl_hour INTEGER DEFAULT 3"))
+                    db.session.execute(text("ALTER TABLE competitors ADD COLUMN crawl_day INTEGER DEFAULT 0"))
+                    db.session.commit()
+                    logger.info("✓ Added crawl_hour and crawl_day columns")
+            except Exception as e:
+                logger.debug(f"crawl columns migration: {e}")
+                try:
+                    db.session.rollback()
+                except:
+                    pass
+            
+            # Check if share_token column exists in chat_conversations
+            try:
+                result = db.session.execute(text("""
+                    SELECT column_name FROM information_schema.columns 
                     WHERE table_name = 'chat_conversations' AND column_name = 'share_token'
                 """))
                 if not result.fetchone():

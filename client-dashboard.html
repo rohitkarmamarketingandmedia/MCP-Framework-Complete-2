@@ -2105,30 +2105,83 @@
                         <div class="p-4 bg-white/5 rounded-xl border border-white/10">
                             <label class="flex items-center gap-3 cursor-pointer">
                                 <input type="radio" name="crawlFrequency" value="daily" checked
-                                    class="w-4 h-4 text-cyan-500">
+                                    class="w-4 h-4 text-cyan-500" onchange="toggleCrawlOptions()">
                                 <div>
                                     <span class="text-white font-medium">Daily</span>
-                                    <p class="text-xs text-gray-500">Crawl every day at 3 AM</p>
+                                    <p class="text-xs text-gray-500">Crawl every day at a specific time</p>
                                 </div>
                             </label>
                         </div>
                         <div class="p-4 bg-white/5 rounded-xl border border-white/10">
                             <label class="flex items-center gap-3 cursor-pointer">
-                                <input type="radio" name="crawlFrequency" value="weekly" class="w-4 h-4 text-cyan-500">
+                                <input type="radio" name="crawlFrequency" value="weekly" class="w-4 h-4 text-cyan-500"
+                                    onchange="toggleCrawlOptions()">
                                 <div>
                                     <span class="text-white font-medium">Weekly</span>
-                                    <p class="text-xs text-gray-500">Crawl every Monday</p>
+                                    <p class="text-xs text-gray-500">Crawl on a specific day and time</p>
                                 </div>
                             </label>
                         </div>
                         <div class="p-4 bg-white/5 rounded-xl border border-white/10">
                             <label class="flex items-center gap-3 cursor-pointer">
-                                <input type="radio" name="crawlFrequency" value="manual" class="w-4 h-4 text-cyan-500">
+                                <input type="radio" name="crawlFrequency" value="manual" class="w-4 h-4 text-cyan-500"
+                                    onchange="toggleCrawlOptions()">
                                 <div>
                                     <span class="text-white font-medium">Manual Only</span>
                                     <p class="text-xs text-gray-500">Click "Crawl Now" to update</p>
                                 </div>
                             </label>
+                        </div>
+                    </div>
+
+                    <!-- Time & Day Options -->
+                    <div id="crawlTimeOptions" class="grid md:grid-cols-2 gap-4 mb-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-300 mb-2">
+                                <i class="fas fa-clock mr-1"></i>Time of Day (UTC)
+                            </label>
+                            <select id="crawlHour"
+                                class="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white focus:outline-none focus:border-cyan-500">
+                                <option value="0">12:00 AM (Midnight)</option>
+                                <option value="1">1:00 AM</option>
+                                <option value="2">2:00 AM</option>
+                                <option value="3" selected>3:00 AM</option>
+                                <option value="4">4:00 AM</option>
+                                <option value="5">5:00 AM</option>
+                                <option value="6">6:00 AM</option>
+                                <option value="7">7:00 AM</option>
+                                <option value="8">8:00 AM</option>
+                                <option value="9">9:00 AM</option>
+                                <option value="10">10:00 AM</option>
+                                <option value="11">11:00 AM</option>
+                                <option value="12">12:00 PM (Noon)</option>
+                                <option value="13">1:00 PM</option>
+                                <option value="14">2:00 PM</option>
+                                <option value="15">3:00 PM</option>
+                                <option value="16">4:00 PM</option>
+                                <option value="17">5:00 PM</option>
+                                <option value="18">6:00 PM</option>
+                                <option value="19">7:00 PM</option>
+                                <option value="20">8:00 PM</option>
+                                <option value="21">9:00 PM</option>
+                                <option value="22">10:00 PM</option>
+                                <option value="23">11:00 PM</option>
+                            </select>
+                        </div>
+                        <div id="crawlDayWrapper">
+                            <label class="block text-sm font-medium text-gray-300 mb-2">
+                                <i class="fas fa-calendar-day mr-1"></i>Day of Week
+                            </label>
+                            <select id="crawlDay"
+                                class="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white focus:outline-none focus:border-cyan-500">
+                                <option value="0" selected>Monday</option>
+                                <option value="1">Tuesday</option>
+                                <option value="2">Wednesday</option>
+                                <option value="3">Thursday</option>
+                                <option value="4">Friday</option>
+                                <option value="5">Saturday</option>
+                                <option value="6">Sunday</option>
+                            </select>
                         </div>
                     </div>
 
@@ -14423,6 +14476,21 @@
             }
         }
 
+        function toggleCrawlOptions() {
+            const freq = document.querySelector('input[name="crawlFrequency"]:checked')?.value || 'daily';
+            const timeOptions = document.getElementById('crawlTimeOptions');
+            const dayWrapper = document.getElementById('crawlDayWrapper');
+            
+            if (freq === 'manual') {
+                timeOptions.style.display = 'none';
+            } else {
+                timeOptions.style.display = '';
+                dayWrapper.style.display = freq === 'weekly' ? '' : 'none';
+            }
+        }
+        // Initialize on load
+        toggleCrawlOptions();
+
         async function saveCrawlSettings() {
             if (!currentClient) {
                 showToast('Please select a client first', 'warning');
@@ -14430,6 +14498,8 @@
             }
 
             const frequency = document.querySelector('input[name="crawlFrequency"]:checked')?.value || 'daily';
+            const crawlHour = parseInt(document.getElementById('crawlHour')?.value || '3');
+            const crawlDay = parseInt(document.getElementById('crawlDay')?.value || '0');
 
             try {
                 const response = await fetch(`${API_URL}/api/monitoring/crawl-settings`, {
@@ -14440,12 +14510,18 @@
                     },
                     body: JSON.stringify({
                         client_id: currentClient.id,
-                        crawl_frequency: frequency
+                        crawl_frequency: frequency,
+                        crawl_hour: crawlHour,
+                        crawl_day: crawlDay
                     })
                 });
 
                 if (response.ok) {
-                    showToast('Crawl settings saved!', 'success');
+                    const data = await response.json();
+                    const nextCrawl = data.next_crawl_at 
+                        ? new Date(data.next_crawl_at).toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
+                        : 'N/A';
+                    showToast(`${data.message}. Next crawl: ${nextCrawl}`, 'success');
                 } else {
                     showToast('Failed to save settings', 'error');
                 }

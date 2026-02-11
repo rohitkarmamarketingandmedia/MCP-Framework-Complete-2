@@ -730,7 +730,9 @@ class DBCompetitor(db.Model):
     
     # Monitoring settings
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
-    crawl_frequency: Mapped[str] = mapped_column(String(20), default='daily')  # daily, weekly
+    crawl_frequency: Mapped[str] = mapped_column(String(20), default='daily')  # daily, weekly, manual
+    crawl_hour: Mapped[int] = mapped_column(Integer, default=3)  # Hour of day to crawl (0-23, UTC)
+    crawl_day: Mapped[int] = mapped_column(Integer, default=0)  # Day of week for weekly (0=Monday, 6=Sunday)
     last_crawl_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     next_crawl_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     
@@ -747,6 +749,8 @@ class DBCompetitor(db.Model):
         self.domain = domain.lower().strip()
         self.name = kwargs.get('name', domain)
         self.crawl_frequency = kwargs.get('crawl_frequency', 'daily')
+        self.crawl_hour = kwargs.get('crawl_hour', 3)
+        self.crawl_day = kwargs.get('crawl_day', 0)
         self.is_active = True
         self.created_at = datetime.utcnow()
         self.updated_at = datetime.utcnow()
@@ -759,6 +763,8 @@ class DBCompetitor(db.Model):
             'name': self.name,
             'is_active': self.is_active,
             'crawl_frequency': self.crawl_frequency,
+            'crawl_hour': self.crawl_hour,
+            'crawl_day': self.crawl_day,
             'last_crawl_at': self.last_crawl_at.isoformat() if self.last_crawl_at else None,
             'next_crawl_at': self.next_crawl_at.isoformat() if self.next_crawl_at else None,
             'known_pages_count': self.known_pages_count,
