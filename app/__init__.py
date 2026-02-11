@@ -64,6 +64,10 @@ def create_app(config_name=None):
     from app.routes import register_routes
     register_routes(app)
     
+    # Exempt chatbot widget endpoints from rate limiting (they poll frequently)
+    from app.routes.chatbot import chatbot_bp
+    limiter.exempt(chatbot_bp)
+    
     # ==========================================
     # GLOBAL ERROR HANDLERS
     # ==========================================
@@ -156,6 +160,12 @@ def create_app(config_name=None):
     @app.route('/portal')
     def portal_dashboard():
         return send_from_directory(root_dir, 'portal-dashboard.html')
+    
+    # Public chat history page (no login required)
+    @app.route('/chat/<share_token>')
+    def public_chat_page(share_token):
+        from app.routes.chatbot import public_chat_history
+        return public_chat_history(share_token)
     
     # Health check
     @app.route('/health')

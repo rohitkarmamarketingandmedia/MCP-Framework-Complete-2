@@ -433,13 +433,13 @@ def _send_lead_notification_email(to_email, lead_name, lead_email, lead_phone, l
         try:
             conv = DBChatConversation.query.get(conversation_id)
             if conv and conv.share_token:
-                chat_history_url = f"{app_url}/api/chatbot/chat/{conv.share_token}"
+                chat_history_url = f"{app_url}/chat/{conv.share_token}"
             elif conv:
                 # Generate share token if missing
                 import uuid as _uuid
                 conv.share_token = _uuid.uuid4().hex + _uuid.uuid4().hex[:8]
                 db.session.commit()
-                chat_history_url = f"{app_url}/api/chatbot/chat/{conv.share_token}"
+                chat_history_url = f"{app_url}/chat/{conv.share_token}"
         except Exception as e:
             logger.warning(f"Could not build chat history URL: {e}")
     
