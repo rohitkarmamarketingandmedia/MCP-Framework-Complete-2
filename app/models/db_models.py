@@ -1661,6 +1661,9 @@ class DBChatConversation(db.Model):
     rating: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)  # 1-5 stars
     feedback: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     
+    # Public share token for viewing chat history without login
+    share_token: Mapped[Optional[str]] = mapped_column(String(64), nullable=True, unique=True, index=True)
+    
     # Timestamps
     started_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     last_message_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
@@ -1674,6 +1677,7 @@ class DBChatConversation(db.Model):
         self.chatbot_id = chatbot_id
         self.client_id = client_id
         self.visitor_id = visitor_id
+        self.share_token = uuid.uuid4().hex + uuid.uuid4().hex[:8]  # 40-char unique token
         for key, value in kwargs.items():
             if hasattr(self, key):
                 setattr(self, key, value)
@@ -1697,7 +1701,8 @@ class DBChatConversation(db.Model):
             'feedback': self.feedback,
             'started_at': self.started_at.isoformat() if self.started_at else None,
             'last_message_at': self.last_message_at.isoformat() if self.last_message_at else None,
-            'ended_at': self.ended_at.isoformat() if self.ended_at else None
+            'ended_at': self.ended_at.isoformat() if self.ended_at else None,
+            'share_token': self.share_token
         }
         if include_messages:
             result['messages'] = [m.to_dict() for m in self.messages.all()]

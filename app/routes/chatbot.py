@@ -427,10 +427,21 @@ def _send_lead_notification_email(to_email, lead_name, lead_email, lead_phone, l
     client = DBClient.query.get(client_id) if client_id else None
     client_name = client.business_name if client else 'Your Website'
     
-    # Build chat history URL
+    # Build chat history URL (public, no login required)
     chat_history_url = ''
-    if conversation_id and client_id:
-        chat_history_url = f"{app_url}/client-dashboard?client={client_id}&tab=chatbot&conversation={conversation_id}"
+    if conversation_id:
+        try:
+            conv = DBChatConversation.query.get(conversation_id)
+            if conv and conv.share_token:
+                chat_history_url = f"{app_url}/api/chatbot/chat/{conv.share_token}"
+            elif conv:
+                # Generate share token if missing
+                import uuid as _uuid
+                conv.share_token = _uuid.uuid4().hex + _uuid.uuid4().hex[:8]
+                db.session.commit()
+                chat_history_url = f"{app_url}/api/chatbot/chat/{conv.share_token}"
+        except Exception as e:
+            logger.warning(f"Could not build chat history URL: {e}")
     
     # Get conversation transcript
     chat_transcript_html = ''
@@ -579,6 +590,142 @@ def get_widget_messages(chatbot_id, conversation_id):
         'messages': messages,
         'status': conversation.status
     })
+
+
+@chatbot_bp.route('/chat/<share_token>', methods=['GET'])
+def public_chat_history(share_token):
+    """
+    Public endpoint - View full chat history via unique share link.
+    No login required. Accessed from notification emails.
+    """
+    from markupsafe import escape
+    
+    conversation = DBChatConversation.query.filter_by(share_token=share_token).first()
+    
+    if not conversation:
+        return """
+        <!DOCTYPE html>
+        <html><head><title>Chat Not Found</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        </head>
+        <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
+                     background: #111827; color: white; display: flex; align-items: center; 
+                     justify-content: center; min-height: 100vh; margin: 0;">
+            <div style="text-align: center; padding: 40px;">
+                <h1 style="font-size: 48px; margin: 0;">🔒</h1>
+                <h2 style="margin: 20px 0 10px;">Chat Not Found</h2>
+                <p style="color: #9ca3af;">This chat conversation doesn't exist or the link has expired.</p>
+            </div>
+        </body></html>
+        """, 404
+    
+    # Get client info
+    client = DBClient.query.get(conversation.client_id)
+    client_name = escape(client.business_name) if client else 'Chat'
+    
+    # Get messages
+    messages = DBChatMessage.query.filter_by(
+        conversation_id=conversation.id
+    ).order_by(DBChatMessage.created_at.asc()).all()
+    
+    # Build message bubbles
+    message_html = ''
+    for msg in messages:
+        if msg.role == 'system':
+            continue
+        
+        is_visitor = msg.role == 'user'
+        content = escape(msg.content or '')
+        content = str(content).replace('\n', '<br>')
+        timestamp = msg.created_at.strftime('%b %d, %I:%M %p') if msg.created_at else ''
+        
+        if is_visitor:
+            message_html += f'''
+            <div style="display: flex; justify-content: flex-end; margin-bottom: 16px;">
+                <div style="max-width: 75%; background: linear-gradient(135deg, #3b82f6, #2563eb); 
+                            color: white; padding: 14px 18px; border-radius: 18px 18px 4px 18px;">
+                    <p style="margin: 0; font-size: 15px; line-height: 1.5;">{content}</p>
+                    <p style="margin: 6px 0 0; font-size: 11px; opacity: 0.7; text-align: right;">{timestamp}</p>
+                </div>
+            </div>'''
+        else:
+            message_html += f'''
+            <div style="display: flex; justify-content: flex-start; margin-bottom: 16px;">
+                <div style="max-width: 75%; background: #1f2937; color: #e5e7eb; 
+                            padding: 14px 18px; border-radius: 18px 18px 18px 4px; border: 1px solid #374151;">
+                    <p style="margin: 0; font-size: 15px; line-height: 1.5;">{content}</p>
+                    <p style="margin: 6px 0 0; font-size: 11px; color: #6b7280;">{timestamp}</p>
+                </div>
+            </div>'''
+    
+    # Visitor info section
+    visitor_info = ''
+    if conversation.visitor_name or conversation.visitor_email or conversation.visitor_phone:
+        info_rows = ''
+        if conversation.visitor_name:
+            info_rows += f'<span style="background: #1f2937; padding: 6px 14px; border-radius: 20px; font-size: 13px;">👤 {escape(conversation.visitor_name)}</span>'
+        if conversation.visitor_email:
+            info_rows += f'<span style="background: #1f2937; padding: 6px 14px; border-radius: 20px; font-size: 13px;">✉️ {escape(conversation.visitor_email)}</span>'
+        if conversation.visitor_phone:
+            info_rows += f'<span style="background: #1f2937; padding: 6px 14px; border-radius: 20px; font-size: 13px;">📞 {escape(conversation.visitor_phone)}</span>'
+        visitor_info = f'''
+        <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; padding: 16px; 
+                    background: #111827; border-radius: 12px; border: 1px solid #1f2937;">
+            {info_rows}
+        </div>'''
+    
+    started = conversation.started_at.strftime('%B %d, %Y at %I:%M %p') if conversation.started_at else 'Unknown'
+    page_url = escape(conversation.page_url or '')
+    
+    return f"""
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>Chat History - {client_name}</title>
+        <meta name="robots" content="noindex, nofollow">
+        <style>
+            * {{ box-sizing: border-box; }}
+            body {{ 
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                background: #0b0f19; color: #e5e7eb; margin: 0; padding: 0;
+            }}
+            .container {{ max-width: 700px; margin: 0 auto; padding: 20px; }}
+            @media (max-width: 640px) {{
+                .container {{ padding: 12px; }}
+                div[style*="max-width: 75%"] {{ max-width: 88% !important; }}
+            }}
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <!-- Header -->
+            <div style="text-align: center; padding: 30px 20px 20px;">
+                <div style="width: 56px; height: 56px; background: linear-gradient(135deg, #22c55e, #16a34a); 
+                            border-radius: 16px; display: inline-flex; align-items: center; justify-content: center;
+                            font-size: 26px; margin-bottom: 16px;">💬</div>
+                <h1 style="color: white; font-size: 22px; margin: 0 0 6px;">{client_name} — Chat History</h1>
+                <p style="color: #6b7280; font-size: 14px; margin: 0;">{started}</p>
+                {"<p style='color: #6b7280; font-size: 13px; margin: 6px 0 0;'>Page: " + str(page_url)[:60] + "</p>" if page_url else ""}
+            </div>
+            
+            {visitor_info}
+            
+            <!-- Messages -->
+            <div style="padding: 10px 0;">
+                {message_html if message_html else '<p style="text-align: center; color: #6b7280; padding: 40px;">No messages in this conversation.</p>'}
+            </div>
+            
+            <!-- Footer -->
+            <div style="text-align: center; padding: 30px 20px; color: #4b5563; font-size: 12px; border-top: 1px solid #1f2937; margin-top: 20px;">
+                <p style="margin: 0;">{len(messages)} messages • {client_name}</p>
+                <p style="margin: 6px 0 0; color: #374151;">Powered by Karma Marketing + Media</p>
+            </div>
+        </div>
+    </body>
+    </html>
+    """, 200
 
 
 @chatbot_bp.route('/widget/<chatbot_id>/end', methods=['POST'])

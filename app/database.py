@@ -183,6 +183,37 @@ def run_migrations(app):
                 except:
                     pass
             
+            # Check if share_token column exists in chat_conversations
+            try:
+                result = db.session.execute(text("""
+                    SELECT column_name FROM information_schema.columns 
+                    WHERE table_name = 'chat_conversations' AND column_name = 'share_token'
+                """))
+                if not result.fetchone():
+                    logger.info("Adding share_token column to chat_conversations table...")
+                    db.session.execute(text("ALTER TABLE chat_conversations ADD COLUMN share_token VARCHAR(64)"))
+                    db.session.commit()
+                    logger.info("✓ Added share_token column")
+                    
+                    # Backfill existing conversations with share tokens
+                    import uuid as _uuid
+                    existing = db.session.execute(text(
+                        "SELECT id FROM chat_conversations WHERE share_token IS NULL"
+                    )).fetchall()
+                    for row in existing:
+                        token = _uuid.uuid4().hex + _uuid.uuid4().hex[:8]
+                        db.session.execute(text(
+                            "UPDATE chat_conversations SET share_token = :token WHERE id = :cid"
+                        ), {"token": token, "cid": row[0]})
+                    db.session.commit()
+                    logger.info(f"✓ Backfilled {len(existing)} conversations with share tokens")
+            except Exception as e:
+                logger.debug(f"share_token migration: {e}")
+                try:
+                    db.session.rollback()
+                except:
+                    pass
+            
         except Exception as e:
             logger.warning(f"Migration check: {e}")
             try:
