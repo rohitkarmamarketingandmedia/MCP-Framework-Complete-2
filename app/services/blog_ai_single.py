@@ -102,6 +102,13 @@ class BlogAISingle:
 
         # 2) Normalize shape
         result = self._normalize_result(parsed, req)
+        
+        # Log what the AI actually returned vs what we normalized to
+        logger.info(f"[TITLE DEBUG] AI raw title: '{parsed.get('title', 'MISSING')}'")
+        logger.info(f"[TITLE DEBUG] AI raw meta_title: '{parsed.get('meta_title', 'MISSING')}'")
+        logger.info(f"[TITLE DEBUG] AI raw meta_desc: '{str(parsed.get('meta_description', 'MISSING'))[:80]}'")
+        logger.info(f"[TITLE DEBUG] Normalized title: '{result.get('title', '')}'")
+        logger.info(f"[TITLE DEBUG] Normalized meta_title: '{result.get('meta_title', '')}'")
 
         # 3) Enforce word count by continuation
         result = self._ensure_word_count(result, req)
@@ -1288,10 +1295,44 @@ OUTPUT JSON:"""
         """Ensure all required fields exist with proper values"""
         out: Dict[str, Any] = {}
 
-        out["title"] = (data.get("title") or data.get("meta_title") or f"{req.keyword} - {req.company_name}").strip()
+        # Get title - reject placeholders and keyword-only titles
+        raw_title = (data.get("title") or "").strip()
+        raw_meta_title = (data.get("meta_title") or "").strip()
+        
+        # Detect bad titles (placeholders, brackets, too short, just the keyword)
+        def _is_bad_title(t):
+            if not t or len(t) < 10:
+                return True
+            if '[' in t or ']' in t:  # Placeholder brackets
+                return True
+            if t.lower().strip() == req.keyword.lower().strip():  # Just the raw keyword
+                return True
+            if t.lower().strip() == f"{req.keyword.lower()} | {req.company_name.lower()}":  # Keyword | Company
+                return True
+            if t.lower().strip() == f"{req.keyword.lower()} - {req.company_name.lower()}":  # Keyword - Company
+                return True
+            return False
+        
+        if not _is_bad_title(raw_title):
+            out["title"] = raw_title
+        elif not _is_bad_title(raw_meta_title):
+            out["title"] = raw_meta_title
+        else:
+            # Will be fixed later in _seo_autofix
+            out["title"] = f"{req.keyword} - {req.company_name}"
+        
         out["h1"] = (data.get("h1") or out["title"]).strip()
-        out["meta_title"] = (data.get("meta_title") or out["title"][:60]).strip()
+        
+        if not _is_bad_title(raw_meta_title):
+            out["meta_title"] = raw_meta_title
+        else:
+            out["meta_title"] = out["title"][:60]
+            
         out["meta_description"] = (data.get("meta_description") or "").strip()
+        # Reject placeholder meta descriptions
+        if '[' in out["meta_description"] or len(out["meta_description"]) < 30:
+            out["meta_description"] = ""
+            
         out["body"] = (data.get("body") or "").strip()
 
         # Clean body
@@ -1949,11 +1990,13 @@ OUTPUT JSON:"""
 
         # Fix meta title - only override if AI-generated one is bad
         meta_title = result.get("meta_title", "").strip()
+        meta_title_lower = meta_title.lower()
         ai_title_is_good = (
             meta_title
             and 30 <= len(meta_title) <= 65
-            and meta_title.lower() != kw_l  # Not just the raw keyword
-            and meta_title.lower() != f"{kw_l} | {req.company_name.lower()}"  # Not just "keyword | company"
+            and meta_title_lower != kw_l  # Not just the raw keyword
+            and meta_title_lower != f"{kw_l} | {req.company_name.lower()}"  # Not just "keyword | company"
+            and meta_title_lower != f"{kw_l} - {req.company_name.lower()}"  # Not just "keyword - company"
             and '[' not in meta_title  # No placeholder brackets
         )
         if ai_title_is_good:
@@ -1965,27 +2008,44 @@ OUTPUT JSON:"""
             result["meta_title"] = meta_title
             logger.info(f"Kept AI meta_title: '{meta_title}' ({len(meta_title)} chars)")
         else:
+            logger.info(f"AI meta_title was bad: '{meta_title}' — generating new one")
             meta_title = self._fix_meta_title(meta_title, kw, req.company_name, req.city)
             result["meta_title"] = meta_title
             logger.info(f"Generated meta_title: '{meta_title}' ({len(meta_title)} chars)")
+
+        # Also fix blog title if it's just "keyword - company" or "keyword | company"
+        title = result.get("title", "").strip()
+        title_lower = title.lower()
+        title_is_bad = (
+            not title
+            or len(title) < 15
+            or title_lower == kw_l
+            or title_lower == f"{kw_l} | {req.company_name.lower()}"
+            or title_lower == f"{kw_l} - {req.company_name.lower()}"
+            or '[' in title
+        )
+        if title_is_bad:
+            # Use the meta_title as the blog title (it's already been fixed above)
+            result["title"] = result["meta_title"]
+            logger.info(f"Fixed blog title (was bad): '{title}' -> '{result['title']}'")
 
         # Fix meta description - only override if AI-generated one is bad
         meta_desc = result.get("meta_description", "").strip()
         ai_desc_is_good = (
             meta_desc
-            and 120 <= len(meta_desc) <= 165
+            and 100 <= len(meta_desc) <= 170
             and '[' not in meta_desc  # No placeholder brackets
             and meta_desc.lower() != "150-160 chars"  # Not a placeholder
+            and 'professional service with quality results' not in meta_desc.lower()  # Not our generic template
         )
         if ai_desc_is_good:
             result["meta_description"] = meta_desc
             logger.info(f"Kept AI meta_description: '{meta_desc[:50]}...' ({len(meta_desc)} chars)")
         else:
+            logger.info(f"AI meta_description was bad ({len(meta_desc)} chars): '{meta_desc[:60]}' — generating new one")
             meta_desc = self._fix_meta_description(meta_desc, kw, req.company_name, req.phone, req.city)
             result["meta_description"] = meta_desc
             logger.info(f"Generated meta_description: '{meta_desc[:50]}...' ({len(meta_desc)} chars)")
-        result["meta_description"] = meta_desc
-        logger.info(f"Final meta_description: '{meta_desc}' ({len(meta_desc)} chars)")
 
         # Add internal links if missing or insufficient
         internal = req.internal_links or []
