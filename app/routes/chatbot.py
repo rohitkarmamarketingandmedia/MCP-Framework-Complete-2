@@ -67,7 +67,7 @@ def update_chatbot_config(current_user, client_id):
         'collect_email', 'collect_phone', 'collect_name',
         'system_prompt_override', 'temperature', 'max_tokens',
         'lead_capture_enabled', 'lead_capture_trigger',
-        'email_notifications', 'notification_email',
+        'email_notifications', 'notification_email', 'notification_cc', 'notification_bcc',
         'sms_notifications', 'notification_phone',
         'business_hours_only', 'business_hours_start', 'business_hours_end',
         'timezone', 'offline_message', 'is_active'
