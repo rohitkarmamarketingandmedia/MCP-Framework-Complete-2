@@ -1176,15 +1176,23 @@ LOCAL SEO GUARDRAILS:
    {bottom_cta}
 
 ===== META REQUIREMENTS =====
-Meta Title: 50-60 characters, includes "{keyword}"
-Meta Description: 150-160 characters, includes "{req.city}" and CTA
+Meta Title: 50-60 characters. MUST be unique and compelling — NOT just "Keyword | Company Name".
+  Good: "Affordable Roof Repair in Tampa — Fast & Licensed | Acme Roofing"
+  Good: "Why Tampa Homeowners Trust Acme Roofing for Roof Repair"
+  Bad: "Roof Repair Tampa | Acme Roofing" (too generic)
+
+Meta Description: 150-160 characters. MUST be unique per blog — NOT a generic template. 
+  Include the keyword naturally, mention a specific benefit or differentiator, and end with a call-to-action.
+  Good: "Dealing with roof damage in Tampa? Our licensed team completes most repairs in one day with a 10-year warranty. Get your free inspection today."
+  Bad: "Looking for roof repair? We offer professional service with quality results. Call for a free estimate!" (too generic)
 
 ===== OUTPUT FORMAT (ABSOLUTE REQUIREMENT) =====
 Return ONLY valid JSON:
 
 {{
-    "meta_title": "[50-60 chars with keyword]",
-    "meta_description": "[150-160 chars with city and CTA]",
+    "title": "[Compelling blog post title — descriptive and engaging, 40-70 chars]",
+    "meta_title": "[Unique, compelling 50-60 char title with keyword — NOT just Keyword | Company]",
+    "meta_description": "[Unique 150-160 char description with specific benefit, keyword, and CTA — NOT a generic template]",
     "h1": "{keyword.title()}",
     "body": "<p>Introduction with keyword in first sentence...</p><h2>Key Benefits</h2><p>Benefit content...</p><h2>Our Process</h2><p>Process content...</p>[MID CTA]<h2>Pricing and Cost Factors</h2><p>Pricing content...</p><h2>Why {req.city} Residents Choose {req.company_name}</h2><p>Why choose content...</p><h2>Get Started Today</h2><p>Conclusion...</p>[BOTTOM CTA]",
     "faq_items": [
@@ -1205,6 +1213,8 @@ Before responding, verify:
 ☐ JSON is valid and complete
 ☐ No placeholders remain
 ☐ EXACTLY {faq_count} FAQs in faq_items array
+☐ Meta title is unique and compelling (NOT just "Keyword | Company Name")
+☐ Meta description is unique with a specific benefit (NOT a generic template)
 
 IMPORTANT:
 - Write {req.target_words}+ words of REAL, helpful content
@@ -1816,25 +1826,28 @@ OUTPUT JSON:"""
             if kw_lower not in meta_desc.lower() or len(keyword) < 40:
                 return meta_desc
         
-        # Generate BETTER description templates using short service phrase
-        # These sound more natural
+        # Generate varied description templates using short service phrase
         if city and not keyword_has_city:
             templates = [
                 f"Looking for {service_phrase} in {city}? {company_name} offers professional service with quality results. {phone_cta} for a free estimate!",
                 f"Need {service_phrase} in {city}? {company_name} provides expert solutions you can trust. {phone_cta} for a free quote today!",
                 f"{company_name} is {city}'s trusted choice for {service_phrase}. Quality work, competitive prices. {phone_cta} for your free consultation!",
-                f"Professional {service_phrase} in {city} by {company_name}. We deliver exceptional results every time. {phone_cta} today!",
-                f"{city} residents trust {company_name} for {service_phrase}. Expert service, guaranteed satisfaction. {phone_cta} for a free estimate!",
-                f"Get quality {service_phrase} in {city} from {company_name}. Licensed professionals ready to help. {phone_cta} now!",
+                f"Searching for reliable {service_phrase} in {city}? {company_name} delivers fast turnarounds and guaranteed satisfaction. {phone_cta}!",
+                f"Top-rated {service_phrase} in {city}. {company_name} brings years of expertise to every project. Schedule your free consultation today!",
+                f"{city} homeowners choose {company_name} for {service_phrase}. Licensed, insured, and committed to excellence. {phone_cta} now!",
+                f"Discover why {city} trusts {company_name} for {service_phrase}. Honest pricing, expert work, real results. Get your free estimate today!",
+                f"Don't settle for less — get {service_phrase} done right in {city}. {company_name} guarantees quality on every job. {phone_cta}!",
             ]
         else:
             templates = [
                 f"Looking for {service_phrase}? {company_name} offers professional service with quality results. {phone_cta} for a free estimate today!",
                 f"Need {service_phrase}? {company_name} provides expert solutions you can trust. Fast, reliable service. {phone_cta} for a quote!",
                 f"{company_name} specializes in {service_phrase}. Quality work from experienced professionals. {phone_cta} for your free consultation!",
-                f"Professional {service_phrase} by {company_name}. We deliver exceptional results every time. {phone_cta} for a free estimate!",
-                f"Trust {company_name} for quality {service_phrase}. Expert service, competitive prices. {phone_cta} to get started today!",
-                f"Get the best {service_phrase} from {company_name}. Licensed professionals, guaranteed satisfaction. {phone_cta} for a free quote!",
+                f"Searching for reliable {service_phrase}? {company_name} delivers results you can count on. Licensed and insured. {phone_cta} today!",
+                f"Get expert {service_phrase} from {company_name}. We combine skill, speed, and fair pricing on every project. {phone_cta} now!",
+                f"Why choose {company_name} for {service_phrase}? Trusted by hundreds of satisfied customers. Get your free estimate today!",
+                f"Stop searching — {company_name} is your go-to for quality {service_phrase}. Proven results, honest pricing. {phone_cta} for details!",
+                f"Experience top-tier {service_phrase} with {company_name}. Our team delivers exceptional results every time. {phone_cta} today!",
             ]
         
         # Shuffle for randomness
@@ -1934,15 +1947,43 @@ OUTPUT JSON:"""
             result["h1"] = self._title_case(kw) + f" | {req.company_name}"
             logger.info(f"Fixed H1 to include keyword")
 
-        # Fix meta title - SEO best practices: 50-60 chars, "Keyword Phrase | Brand Name"
-        meta_title = result.get("meta_title", "")
-        meta_title = self._fix_meta_title(meta_title, kw, req.company_name, req.city)
-        result["meta_title"] = meta_title
-        logger.info(f"Final meta_title: '{meta_title}' ({len(meta_title)} chars)")
+        # Fix meta title - only override if AI-generated one is bad
+        meta_title = result.get("meta_title", "").strip()
+        ai_title_is_good = (
+            meta_title
+            and 30 <= len(meta_title) <= 65
+            and meta_title.lower() != kw_l  # Not just the raw keyword
+            and meta_title.lower() != f"{kw_l} | {req.company_name.lower()}"  # Not just "keyword | company"
+            and '[' not in meta_title  # No placeholder brackets
+        )
+        if ai_title_is_good:
+            # AI gave a decent title - just ensure proper length and pipe format
+            if '|' not in meta_title and req.company_name:
+                meta_title = f"{meta_title} | {req.company_name}"
+            if len(meta_title) > 60:
+                meta_title = meta_title[:57].rsplit(' ', 1)[0] + "..."
+            result["meta_title"] = meta_title
+            logger.info(f"Kept AI meta_title: '{meta_title}' ({len(meta_title)} chars)")
+        else:
+            meta_title = self._fix_meta_title(meta_title, kw, req.company_name, req.city)
+            result["meta_title"] = meta_title
+            logger.info(f"Generated meta_title: '{meta_title}' ({len(meta_title)} chars)")
 
-        # Fix meta description - must be 150-160 chars for SEO
-        meta_desc = result.get("meta_description", "")
-        meta_desc = self._fix_meta_description(meta_desc, kw, req.company_name, req.phone, req.city)
+        # Fix meta description - only override if AI-generated one is bad
+        meta_desc = result.get("meta_description", "").strip()
+        ai_desc_is_good = (
+            meta_desc
+            and 120 <= len(meta_desc) <= 165
+            and '[' not in meta_desc  # No placeholder brackets
+            and meta_desc.lower() != "150-160 chars"  # Not a placeholder
+        )
+        if ai_desc_is_good:
+            result["meta_description"] = meta_desc
+            logger.info(f"Kept AI meta_description: '{meta_desc[:50]}...' ({len(meta_desc)} chars)")
+        else:
+            meta_desc = self._fix_meta_description(meta_desc, kw, req.company_name, req.phone, req.city)
+            result["meta_description"] = meta_desc
+            logger.info(f"Generated meta_description: '{meta_desc[:50]}...' ({len(meta_desc)} chars)")
         result["meta_description"] = meta_desc
         logger.info(f"Final meta_description: '{meta_desc}' ({len(meta_desc)} chars)")
 
