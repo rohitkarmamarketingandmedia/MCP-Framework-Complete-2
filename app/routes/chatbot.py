@@ -386,6 +386,10 @@ def capture_lead(chatbot_id):
         # Send notification email if enabled
         if config.email_notifications and config.notification_email:
             try:
+                # Parse CC/BCC from config
+                cc_list = [e.strip() for e in (config.notification_cc or '').split(',') if e.strip()]
+                bcc_list = [e.strip() for e in (config.notification_bcc or '').split(',') if e.strip()]
+                
                 _send_lead_notification_email(
                     to_email=config.notification_email,
                     lead_name=data.get('name', 'Anonymous'),
@@ -395,7 +399,9 @@ def capture_lead(chatbot_id):
                     page_url=conversation.page_url or 'Unknown',
                     client_id=config.client_id,
                     conversation_id=conversation_id,
-                    chatbot_id=chatbot_id
+                    chatbot_id=chatbot_id,
+                    cc=cc_list or None,
+                    bcc=bcc_list or None
                 )
             except Exception as e:
                 logger.error(f"Failed to send lead notification email: {e}")
@@ -415,7 +421,7 @@ def capture_lead(chatbot_id):
         })
 
 
-def _send_lead_notification_email(to_email, lead_name, lead_email, lead_phone, lead_message, page_url, client_id, conversation_id=None, chatbot_id=None):
+def _send_lead_notification_email(to_email, lead_name, lead_email, lead_phone, lead_message, page_url, client_id, conversation_id=None, chatbot_id=None, cc=None, bcc=None):
     """Send email notification for new chatbot lead with chat history link"""
     from app.services.email_service import get_email_service
     import os
@@ -568,7 +574,7 @@ def _send_lead_notification_email(to_email, lead_name, lead_email, lead_phone, l
     
     subject = f"🎉 New Chatbot Lead: {lead_name}"
     
-    success = email_service.send_simple(to_email, subject, html, html=True)
+    success = email_service.send_simple(to_email, subject, html, html=True, cc=cc, bcc=bcc)
     if success:
         logger.info(f"Lead notification email sent to {to_email}")
     else:

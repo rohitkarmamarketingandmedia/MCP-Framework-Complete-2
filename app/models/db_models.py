@@ -1569,6 +1569,8 @@ class DBChatbotConfig(db.Model):
     # Notifications
     email_notifications: Mapped[bool] = mapped_column(Boolean, default=True)
     notification_email: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    notification_cc: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)  # Comma-separated CC emails
+    notification_bcc: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)  # Comma-separated BCC emails
     sms_notifications: Mapped[bool] = mapped_column(Boolean, default=False)
     notification_phone: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
     
@@ -1621,6 +1623,8 @@ class DBChatbotConfig(db.Model):
             'lead_capture_trigger': self.lead_capture_trigger,
             'email_notifications': self.email_notifications,
             'notification_email': self.notification_email,
+            'notification_cc': self.notification_cc,
+            'notification_bcc': self.notification_bcc,
             'sms_notifications': self.sms_notifications,
             'business_hours_only': self.business_hours_only,
             'business_hours_start': self.business_hours_start,

@@ -61,13 +61,13 @@ class EmailService:
     def use_sendgrid(self):
         return SENDGRID_AVAILABLE and self.sendgrid_key
         
-    def send_simple(self, to: str, subject: str, body: str, html: bool = False) -> bool:
-        """Send a simple email"""
+    def send_simple(self, to: str, subject: str, body: str, html: bool = False, cc: list = None, bcc: list = None) -> bool:
+        """Send a simple email with optional CC/BCC"""
         try:
             if self.use_sendgrid:
-                return self._send_sendgrid(to, subject, body, html)
+                return self._send_sendgrid(to, subject, body, html, cc=cc, bcc=bcc)
             elif self.smtp_user and self.smtp_pass:
-                return self._send_smtp(to, subject, body, html)
+                return self._send_smtp(to, subject, body, html, cc=cc, bcc=bcc)
             else:
                 logger.warning(f"Email not configured. Would send to {to}: {subject}")
                 return False
@@ -75,7 +75,7 @@ class EmailService:
             logger.error(f"Failed to send email: {e}")
             return False
     
-    def _send_sendgrid(self, to: str, subject: str, body: str, html: bool) -> bool:
+    def _send_sendgrid(self, to: str, subject: str, body: str, html: bool, cc: list = None, bcc: list = None) -> bool:
         """Send via SendGrid"""
         message = Mail(
             from_email=Email(self.from_email, self.from_name),
@@ -85,34 +85,58 @@ class EmailService:
             html_content=body if html else None
         )
         
+        # Add CC recipients
+        if cc:
+            for email in cc:
+                email = email.strip()
+                if email:
+                    message.add_cc(email)
+        
+        # Add BCC recipients
+        if bcc:
+            for email in bcc:
+                email = email.strip()
+                if email:
+                    message.add_bcc(email)
+        
         sg = SendGridAPIClient(self.sendgrid_key)
         response = sg.send(message)
         
         if response.status_code in [200, 201, 202]:
-            logger.info(f"Email sent to {to}: {subject}")
+            logger.info(f"Email sent to {to} (cc: {cc}, bcc: {bcc}): {subject}")
             return True
         else:
             logger.error(f"SendGrid error: {response.status_code}")
             return False
     
-    def _send_smtp(self, to: str, subject: str, body: str, html: bool) -> bool:
+    def _send_smtp(self, to: str, subject: str, body: str, html: bool, cc: list = None, bcc: list = None) -> bool:
         """Send via SMTP"""
         msg = MIMEMultipart('alternative')
         msg['Subject'] = subject
         msg['From'] = f"{self.from_name} <{self.from_email}>"
         msg['To'] = to
         
+        if cc:
+            msg['Cc'] = ', '.join(cc)
+        
         if html:
             msg.attach(MIMEText(body, 'html'))
         else:
             msg.attach(MIMEText(body, 'plain'))
         
+        # Build full recipient list (To + CC + BCC)
+        all_recipients = [to]
+        if cc:
+            all_recipients.extend(cc)
+        if bcc:
+            all_recipients.extend(bcc)
+        
         with smtplib.SMTP(self.smtp_host, self.smtp_port) as server:
             server.starttls()
             server.login(self.smtp_user, self.smtp_pass)
-            server.send_message(msg)
+            server.sendmail(self.from_email, all_recipients, msg.as_string())
         
-        logger.info(f"Email sent to {to}: {subject}")
+        logger.info(f"Email sent to {to} (cc: {cc}, bcc: {bcc}): {subject}")
         return True
     
     def send_alert_digest(self, to: str, alerts: List) -> bool:

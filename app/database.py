@@ -183,7 +183,26 @@ def run_migrations(app):
                 except:
                     pass
             
-            # Check if share_token column exists in chat_conversations
+            # Check if notification_cc/bcc columns exist in chatbot_configs
+            try:
+                result = db.session.execute(text("""
+                    SELECT column_name FROM information_schema.columns 
+                    WHERE table_name = 'chatbot_configs' AND column_name = 'notification_cc'
+                """))
+                if not result.fetchone():
+                    logger.info("Adding notification_cc and notification_bcc columns to chatbot_configs...")
+                    db.session.execute(text("ALTER TABLE chatbot_configs ADD COLUMN notification_cc VARCHAR(500)"))
+                    db.session.execute(text("ALTER TABLE chatbot_configs ADD COLUMN notification_bcc VARCHAR(500)"))
+                    db.session.commit()
+                    logger.info("✓ Added notification CC/BCC columns")
+            except Exception as e:
+                logger.debug(f"notification cc/bcc migration: {e}")
+                try:
+                    db.session.rollback()
+                except:
+                    pass
+            
+            # Check if crawl_hour/crawl_day columns exist in competitors
             try:
                 result = db.session.execute(text("""
                     SELECT column_name FROM information_schema.columns 
