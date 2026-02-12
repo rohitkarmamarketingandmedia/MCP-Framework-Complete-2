@@ -40,7 +40,9 @@ def get_chatbot_config(current_user, client_id):
         db.session.add(config)
         db.session.commit()
     
-    return jsonify(config.to_dict())
+    config_data = config.to_dict()
+    logger.info(f"Chatbot config loaded for {client_id}: cc={config_data.get('notification_cc')}, bcc={config_data.get('notification_bcc')}")
+    return jsonify(config_data)
 
 
 @chatbot_bp.route('/config/<client_id>', methods=['PUT'])
@@ -79,6 +81,8 @@ def update_chatbot_config(current_user, client_id):
     
     config.updated_at = datetime.utcnow()
     db.session.commit()
+    
+    logger.info(f"Chatbot config saved for {client_id}: notification_email={config.notification_email}, cc={config.notification_cc}, bcc={config.notification_bcc}")
     
     return jsonify({
         'message': 'Chatbot configuration updated',
