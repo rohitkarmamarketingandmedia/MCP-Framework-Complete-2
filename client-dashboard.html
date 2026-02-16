@@ -827,6 +827,11 @@
                     <i class="fas fa-file-code sm:mr-2"></i><span class="hidden sm:inline">Pages</span><span
                         class="sm:hidden">Page</span>
                 </button>
+                <button onclick="showTab('accessibility')" id="tab-accessibility"
+                    class="px-3 sm:px-6 py-2 rounded-lg text-xs sm:text-sm font-medium text-gray-400 hover:text-white transition whitespace-nowrap glass">
+                    <i class="fas fa-universal-access sm:mr-2"></i><span class="hidden sm:inline">ADA</span><span
+                        class="sm:hidden">ADA</span>
+                </button>
             </div>
         </div>
 
@@ -3659,10 +3664,112 @@
                     </div>
                 </div>
             </div>
+
+            <!-- Accessibility / ADA Panel -->
+            <div id="panel-accessibility" class="hidden fade-in">
+                <div class="grid lg:grid-cols-3 gap-6">
+                    <!-- Left: Widget Config & Embed -->
+                    <div class="space-y-6">
+                        <!-- Widget Settings -->
+                        <div class="glass rounded-2xl p-6">
+                            <h3 class="text-lg font-bold text-white mb-4">
+                                <i class="fas fa-universal-access mr-2 text-blue-400"></i>Accessibility Widget
+                            </h3>
+                            <p class="text-sm text-gray-400 mb-4">Embeddable ADA compliance widget for your website. Visitors can customize text size, contrast, fonts, and more.</p>
+                            
+                            <div class="space-y-4">
+                                <div class="flex items-center justify-between">
+                                    <span class="text-sm text-gray-300">Enable Widget</span>
+                                    <input type="checkbox" id="a11yEnabled" class="w-5 h-5 accent-blue-500">
+                                </div>
+                                
+                                <div>
+                                    <label class="block text-sm text-gray-400 mb-1">Position</label>
+                                    <select id="a11yPosition" class="w-full px-3 py-2 bg-white/10 border border-white/10 rounded-lg text-white text-sm">
+                                        <option value="left">Bottom Left</option>
+                                        <option value="right">Bottom Right</option>
+                                    </select>
+                                </div>
+                                
+                                <div>
+                                    <label class="block text-sm text-gray-400 mb-1">Accent Color</label>
+                                    <div class="flex items-center gap-2">
+                                        <input type="color" id="a11yColor" value="#0064fe" class="w-10 h-10 rounded cursor-pointer">
+                                        <input type="text" id="a11yColorText" value="#0064fe" class="flex-1 px-3 py-2 bg-white/10 border border-white/10 rounded-lg text-white text-sm">
+                                    </div>
+                                </div>
+                                
+                                <button onclick="saveA11yConfig()" class="w-full py-3 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl text-white font-bold hover:opacity-90 transition">
+                                    <i class="fas fa-save mr-2"></i>Save Widget Settings
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- Embed Code -->
+                        <div class="glass rounded-2xl p-6">
+                            <h3 class="text-lg font-bold text-white mb-3">
+                                <i class="fas fa-code mr-2 text-green-400"></i>Embed Code
+                            </h3>
+                            <p class="text-xs text-gray-500 mb-3">Add this before &lt;/body&gt; on your website</p>
+                            <div class="relative">
+                                <pre id="a11yEmbedCode" class="bg-black/50 p-3 rounded-lg text-xs text-green-400 overflow-x-auto whitespace-pre-wrap" style="max-height:200px;"></pre>
+                                <button onclick="copyA11yEmbedCode()" class="absolute top-2 right-2 px-3 py-1 bg-blue-600 rounded text-white text-xs hover:bg-blue-700 transition">
+                                    <i class="fas fa-copy mr-1"></i>Copy
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Right: Scanner & Report -->
+                    <div class="lg:col-span-2 space-y-6">
+                        <!-- Scanner -->
+                        <div class="glass rounded-2xl p-6">
+                            <div class="flex items-center justify-between mb-4">
+                                <div>
+                                    <h3 class="text-lg font-bold text-white">
+                                        <i class="fas fa-search mr-2 text-cyan-400"></i>ADA Compliance Scanner
+                                    </h3>
+                                    <p class="text-sm text-gray-400 mt-1">Scan your website for WCAG 2.1 accessibility issues</p>
+                                </div>
+                                <button onclick="runA11yScan()" id="a11yScanBtn" class="px-5 py-2.5 bg-gradient-to-r from-cyan-500 to-blue-600 rounded-lg text-white font-medium hover:opacity-90 transition">
+                                    <i class="fas fa-radar mr-2"></i>Run Scan
+                                </button>
+                            </div>
+                            
+                            <!-- Score Overview -->
+                            <div id="a11yScoreCard" class="hidden mb-6">
+                                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                    <div class="bg-white/5 rounded-xl p-4 text-center">
+                                        <div id="a11yScoreValue" class="text-4xl font-black text-white">—</div>
+                                        <div class="text-xs text-gray-400 mt-1">Overall Score</div>
+                                    </div>
+                                    <div class="bg-white/5 rounded-xl p-4 text-center">
+                                        <div id="a11yPassedCount" class="text-2xl font-bold text-green-400">0</div>
+                                        <div class="text-xs text-gray-400 mt-1">Passed</div>
+                                    </div>
+                                    <div class="bg-white/5 rounded-xl p-4 text-center">
+                                        <div id="a11yFailedCount" class="text-2xl font-bold text-red-400">0</div>
+                                        <div class="text-xs text-gray-400 mt-1">Failed</div>
+                                    </div>
+                                    <div class="bg-white/5 rounded-xl p-4 text-center">
+                                        <div id="a11yNACount" class="text-2xl font-bold text-gray-400">0</div>
+                                        <div class="text-xs text-gray-400 mt-1">N/A</div>
+                                    </div>
+                                </div>
+                                <div id="a11yScanDate" class="text-xs text-gray-500 mt-2 text-right"></div>
+                            </div>
+                            
+                            <!-- Detailed Results -->
+                            <div id="a11yResults" class="space-y-2">
+                                <p class="text-gray-500 text-sm text-center py-6">Click "Run Scan" to check your website for accessibility issues.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
         </div>
     </div>
-
-    <!-- Blog Preview Modal -->
     <div id="blogModal" class="hidden fixed inset-0 bg-black/90 z-50 overflow-y-auto"
         onclick="if(event.target === this) closeBlogModal()">
         <div class="max-w-4xl mx-auto py-8 px-4">
@@ -5290,7 +5397,7 @@
         // TABS
         // ==========================================
         function showTab(tab) {
-            const allTabs = ['overview', 'generate', 'blogs', 'social', 'seo', 'calendar', 'reports', 'rankings', 'competitors', 'settings', 'chatbot', 'leads', 'reviews', 'calls', 'pages'];
+            const allTabs = ['overview', 'generate', 'blogs', 'social', 'seo', 'calendar', 'reports', 'rankings', 'competitors', 'settings', 'chatbot', 'leads', 'reviews', 'calls', 'pages', 'accessibility'];
 
             allTabs.forEach(t => {
                 const panel = document.getElementById(`panel-${t}`);
@@ -5377,6 +5484,11 @@
             // Load pages when pages tab is shown
             if (tab === 'pages') {
                 loadPages();
+            }
+
+            // Load accessibility when ADA tab is shown
+            if (tab === 'accessibility') {
+                loadA11yConfig();
             }
 
             // Load blogs when blogs tab is shown
@@ -15958,6 +16070,178 @@
                 console.error('Error deleting entry:', error);
             }
         }
+
+        // ==========================================
+        // Accessibility / ADA
+        // ==========================================
+        
+        let a11yConfig = {};
+
+        async function loadA11yConfig() {
+            if (!currentClient) return;
+            try {
+                const response = await fetch(`${API_URL}/api/accessibility/widget-config/${currentClient.id}`, {
+                    headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
+                });
+                if (response.ok) {
+                    a11yConfig = await response.json();
+                    document.getElementById('a11yEnabled').checked = a11yConfig.enabled || false;
+                    document.getElementById('a11yPosition').value = a11yConfig.position || 'left';
+                    document.getElementById('a11yColor').value = a11yConfig.color || '#0064fe';
+                    document.getElementById('a11yColorText').value = a11yConfig.color || '#0064fe';
+                }
+                loadA11yEmbedCode();
+                loadA11yReport();
+            } catch (e) { console.error('Failed to load a11y config:', e); }
+        }
+
+        async function saveA11yConfig() {
+            if (!currentClient) return;
+            const payload = {
+                enabled: document.getElementById('a11yEnabled').checked,
+                position: document.getElementById('a11yPosition').value,
+                color: document.getElementById('a11yColor').value
+            };
+            try {
+                const response = await fetch(`${API_URL}/api/accessibility/widget-config/${currentClient.id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${AUTH_TOKEN}` },
+                    body: JSON.stringify(payload)
+                });
+                if (response.ok) {
+                    showToast('Widget settings saved!', 'success');
+                    loadA11yEmbedCode();
+                }
+            } catch (e) { showToast('Failed to save', 'error'); }
+        }
+
+        async function loadA11yEmbedCode() {
+            if (!currentClient) return;
+            try {
+                const response = await fetch(`${API_URL}/api/accessibility/embed-code/${currentClient.id}`, {
+                    headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
+                });
+                if (response.ok) {
+                    const data = await response.json();
+                    document.getElementById('a11yEmbedCode').textContent = data.embed_code;
+                }
+            } catch (e) { console.error(e); }
+        }
+
+        function copyA11yEmbedCode() {
+            const code = document.getElementById('a11yEmbedCode').textContent;
+            navigator.clipboard.writeText(code).then(() => showToast('Embed code copied!', 'success'));
+        }
+
+        async function runA11yScan() {
+            if (!currentClient) return;
+            const btn = document.getElementById('a11yScanBtn');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Scanning...';
+            
+            try {
+                const response = await fetch(`${API_URL}/api/accessibility/scan/${currentClient.id}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${AUTH_TOKEN}` },
+                    body: JSON.stringify({ url: currentClient.website_url })
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    renderA11yReport(data.results);
+                    showToast('Scan complete!', 'success');
+                } else {
+                    const err = await response.json();
+                    showToast(err.error || 'Scan failed', 'error');
+                }
+            } catch (e) {
+                showToast('Scan failed: ' + e.message, 'error');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-search mr-2"></i>Run Scan';
+            }
+        }
+
+        async function loadA11yReport() {
+            if (!currentClient) return;
+            try {
+                const response = await fetch(`${API_URL}/api/accessibility/report/${currentClient.id}`, {
+                    headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
+                });
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.has_report) {
+                        renderA11yReport(data.results);
+                    }
+                }
+            } catch (e) { console.error(e); }
+        }
+
+        function renderA11yReport(results) {
+            if (!results) return;
+            const summary = results.summary;
+            
+            // Score card
+            document.getElementById('a11yScoreCard').classList.remove('hidden');
+            const scoreEl = document.getElementById('a11yScoreValue');
+            scoreEl.textContent = summary.score;
+            scoreEl.className = 'text-4xl font-black ' + (summary.score >= 85 ? 'text-green-400' : summary.score >= 60 ? 'text-yellow-400' : 'text-red-400');
+            
+            document.getElementById('a11yPassedCount').textContent = summary.passed;
+            document.getElementById('a11yFailedCount').textContent = summary.failed;
+            document.getElementById('a11yNACount').textContent = summary.not_applicable;
+            document.getElementById('a11yScanDate').textContent = results.scanned_at ? 'Scanned: ' + new Date(results.scanned_at).toLocaleString() : '';
+            
+            // Detailed results
+            const container = document.getElementById('a11yResults');
+            const checks = results.checks || [];
+            
+            if (!checks.length) {
+                container.innerHTML = '<p class="text-gray-500 text-center py-4">No results available</p>';
+                return;
+            }
+            
+            container.innerHTML = checks.map(check => {
+                const scoreColor = !check.relevant ? 'text-gray-500' : check.score >= 100 ? 'text-green-400' : check.score >= 70 ? 'text-yellow-400' : 'text-red-400';
+                const scoreBg = !check.relevant ? 'bg-gray-500/10' : check.score >= 100 ? 'bg-green-500/10' : check.score >= 70 ? 'bg-yellow-500/10' : 'bg-red-500/10';
+                const icon = !check.relevant ? 'fa-minus text-gray-500' : check.score >= 100 ? 'fa-check-circle text-green-400' : 'fa-exclamation-triangle text-red-400';
+                
+                return `
+                    <div class="p-3 bg-white/5 rounded-lg border border-white/10">
+                        <div class="flex items-start justify-between gap-3">
+                            <div class="flex items-start gap-3 flex-1">
+                                <i class="fas ${icon} mt-1"></i>
+                                <div class="flex-1">
+                                    <div class="text-sm font-medium text-white">${check.name}</div>
+                                    <div class="text-xs text-gray-400 mt-0.5">${check.description}</div>
+                                    ${check.relevant ? `<div class="text-xs text-gray-500 mt-1">${check.successes} passed · ${check.failures} failed</div>` : '<div class="text-xs text-gray-600 mt-1">Not applicable</div>'}
+                                    ${check.details && check.details.length ? `
+                                        <div class="mt-2 space-y-1">
+                                            ${check.details.slice(0, 3).map(d => `<div class="text-xs text-red-300/70 bg-red-500/10 px-2 py-1 rounded font-mono truncate">${d.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>`).join('')}
+                                            ${check.details.length > 3 ? `<div class="text-xs text-gray-500">+${check.details.length - 3} more</div>` : ''}
+                                        </div>
+                                    ` : ''}
+                                    ${check.note ? `<div class="text-xs text-blue-400/70 mt-1 italic">${check.note}</div>` : ''}
+                                </div>
+                            </div>
+                            <div class="shrink-0 ${scoreBg} px-3 py-1 rounded-full">
+                                <span class="text-sm font-bold ${scoreColor}">${check.relevant ? check.score + '%' : 'N/A'}</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // a11y color picker sync
+        document.getElementById('a11yColor')?.addEventListener('input', function() {
+            document.getElementById('a11yColorText').value = this.value;
+        });
+        document.getElementById('a11yColorText')?.addEventListener('input', function() {
+            if (/^#[0-9a-f]{6}$/i.test(this.value)) {
+                document.getElementById('a11yColor').value = this.value;
+            }
+        });
 
         function updateChatbotPreview() {
             const color1 = document.getElementById('chatbotColor').value;
