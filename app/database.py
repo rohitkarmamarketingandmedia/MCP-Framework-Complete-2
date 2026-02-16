@@ -251,6 +251,38 @@ def run_migrations(app):
                     db.session.rollback()
                 except:
                     pass
+
+            # Migration: chatbot trigger behavior and guided flow columns
+            try:
+                result = db.session.execute(text("""
+                    SELECT column_name FROM information_schema.columns 
+                    WHERE table_name = 'chatbot_configs' AND column_name = 'trigger_mode'
+                """))
+                if not result.fetchone():
+                    logger.info("Adding chatbot trigger columns...")
+                    chatbot_columns = [
+                        ("trigger_mode", "VARCHAR(30) DEFAULT 'disabled'"),
+                        ("trigger_delay_seconds", "INTEGER DEFAULT 60"),
+                        ("trigger_page_views", "INTEGER DEFAULT 2"),
+                        ("reopen_after_close", "BOOLEAN DEFAULT FALSE"),
+                        ("guided_flow_enabled", "BOOLEAN DEFAULT FALSE"),
+                        ("guided_flow_json", "TEXT"),
+                    ]
+                    for col_name, col_type in chatbot_columns:
+                        try:
+                            db.session.execute(text(f"ALTER TABLE chatbot_configs ADD COLUMN {col_name} {col_type}"))
+                            db.session.commit()
+                            logger.info(f"  ✓ Added chatbot column: {col_name}")
+                        except Exception as col_err:
+                            db.session.rollback()
+                            if 'already exists' not in str(col_err).lower():
+                                logger.warning(f"  Could not add {col_name}: {col_err}")
+            except Exception as e:
+                logger.debug(f"chatbot trigger migration: {e}")
+                try:
+                    db.session.rollback()
+                except:
+                    pass
             
         except Exception as e:
             logger.warning(f"Migration check: {e}")
