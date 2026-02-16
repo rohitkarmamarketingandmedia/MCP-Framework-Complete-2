@@ -1552,6 +1552,17 @@ class DBChatbotConfig(db.Model):
     
     # Behavior
     auto_open_delay: Mapped[int] = mapped_column(Integer, default=0)  # 0 = don't auto open
+    
+    # Trigger behavior
+    trigger_mode: Mapped[str] = mapped_column(String(30), default='disabled')  # disabled, time, pages, scroll, exit_intent
+    trigger_delay_seconds: Mapped[int] = mapped_column(Integer, default=60)  # seconds before auto-open (for 'time' mode)
+    trigger_page_views: Mapped[int] = mapped_column(Integer, default=2)  # pages before auto-open (for 'pages' mode)
+    reopen_after_close: Mapped[bool] = mapped_column(Boolean, default=False)  # if False, once closed stay closed
+    
+    # Guided conversation flow (JSON)
+    guided_flow_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
+    guided_flow_json: Mapped[Optional[str]] = mapped_column(Text, nullable=True)  # JSON array of flow steps
+    
     show_on_mobile: Mapped[bool] = mapped_column(Boolean, default=True)
     collect_email: Mapped[bool] = mapped_column(Boolean, default=True)
     collect_phone: Mapped[bool] = mapped_column(Boolean, default=True)
@@ -1615,6 +1626,12 @@ class DBChatbotConfig(db.Model):
             'position': self.position,
             'avatar_url': self.avatar_url,
             'auto_open_delay': self.auto_open_delay,
+            'trigger_mode': self.trigger_mode,
+            'trigger_delay_seconds': self.trigger_delay_seconds,
+            'trigger_page_views': self.trigger_page_views,
+            'reopen_after_close': self.reopen_after_close,
+            'guided_flow_enabled': self.guided_flow_enabled,
+            'guided_flow_json': self.guided_flow_json,
             'show_on_mobile': self.show_on_mobile,
             'collect_email': self.collect_email,
             'collect_phone': self.collect_phone,

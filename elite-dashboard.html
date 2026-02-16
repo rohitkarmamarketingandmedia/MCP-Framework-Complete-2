@@ -663,6 +663,7 @@
         let currentClient = null;
         let currentQueueItem = null;
         let competitors = [];  // Competitor data for gap analysis
+        let rankingsData = {};  // Ranking data for keywords
         
         // ==========================================
         // UTILITY FUNCTIONS
@@ -792,6 +793,16 @@
                 loadContentQueue();
                 
                 // Initialize rank chart with keywords
+                // First fetch existing ranking data
+                try {
+                    const rankRes = await fetch(`${API_URL}/api/monitoring/rankings?client_id=${clientId}`, {
+                        headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
+                    });
+                    if (rankRes.ok) {
+                        rankingsData = await rankRes.json();
+                    }
+                } catch(e) { console.warn('Could not fetch rankings:', e); }
+                
                 initRankChart();
                 
                 // Update Keyword Gap headers with competitor names
@@ -1154,6 +1165,9 @@
                     return;
                 }
 
+                // Store globally so rank chart can use it
+                rankingsData = data;
+
                 const keywords = data.keywords || [];
                 
                 // Sort by position (top rankings first, unranked at bottom)
@@ -1404,7 +1418,7 @@
             const keywords = currentClient?.primary_keywords || [];
             
             let keywordRankings = {};
-            if (typeof rankingsData !== 'undefined' && rankingsData?.keywords) {
+            if (rankingsData?.keywords) {
                 rankingsData.keywords.forEach(k => {
                     keywordRankings[k.keyword] = k;
                 });
@@ -1415,14 +1429,14 @@
                 const rankInfo = keywordRankings[kw] || {};
                 const pos = rankInfo.position || 999;
                 const prevPos = rankInfo.previous_position || pos;
-                const change = prevPos - pos; // positive = improved
+                const change = rankInfo.change || (prevPos - pos);
                 return {
                     keyword: kw,
                     position: pos,
                     change: change,
-                    best: rankInfo.best_position || pos,
-                    volume: rankInfo.volume || 0,
-                    kd: rankInfo.difficulty || 0
+                    best: rankInfo.best_position || (pos <= 100 ? pos : 999),
+                    volume: rankInfo.search_volume || rankInfo.volume || 0,
+                    kd: rankInfo.keyword_difficulty || rankInfo.difficulty || 0
                 };
             });
             

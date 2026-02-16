@@ -594,22 +594,49 @@
         },
 
         initTriggers: function () {
-            // 1. Page Visit Trigger
-            let visits = parseInt(localStorage.getItem('mcp_page_visits') || '0');
-            visits++;
-            localStorage.setItem('mcp_page_visits', visits);
-            if (visits >= 2) this.trigger('page_visits');
+            const cfg = this.config;
+            const mode = cfg.trigger_mode || 'disabled';
+            
+            // If trigger is disabled OR user has already dismissed, don't auto-open
+            if (mode === 'disabled') return;
+            
+            // Check if user has dismissed during this session and reopen is off
+            const dismissed = sessionStorage.getItem('mcp_chatbot_dismissed');
+            if (dismissed && !cfg.reopen_after_close) return;
 
-            // 2. Scroll Trigger (50-60%)
-            window.addEventListener('scroll', () => {
-                const scrolled = (window.scrollY / (document.documentElement.scrollHeight - window.innerHeight)) * 100;
-                if (scrolled > 55) this.trigger('scroll');
-            }, { passive: true });
+            // 1. Time-based trigger
+            if (mode === 'time') {
+                const delaySec = cfg.trigger_delay_seconds || 60;
+                setTimeout(() => {
+                    if (!sessionStorage.getItem('mcp_chatbot_dismissed') || cfg.reopen_after_close) {
+                        this.trigger('time_delay');
+                    }
+                }, delaySec * 1000);
+            }
 
-            // 3. Exit Intent (Desktop)
-            document.addEventListener('mouseleave', (e) => {
-                if (e.clientY < 0) this.trigger('exit_intent');
-            });
+            // 2. Page views trigger
+            if (mode === 'pages') {
+                let visits = parseInt(sessionStorage.getItem('mcp_page_visits') || '0');
+                visits++;
+                sessionStorage.setItem('mcp_page_visits', visits);
+                const required = cfg.trigger_page_views || 2;
+                if (visits >= required) this.trigger('page_visits');
+            }
+
+            // 3. Scroll trigger
+            if (mode === 'scroll') {
+                window.addEventListener('scroll', () => {
+                    const scrolled = (window.scrollY / (document.documentElement.scrollHeight - window.innerHeight)) * 100;
+                    if (scrolled > 55) this.trigger('scroll');
+                }, { passive: true });
+            }
+
+            // 4. Exit intent (Desktop)
+            if (mode === 'exit_intent') {
+                document.addEventListener('mouseleave', (e) => {
+                    if (e.clientY < 0) this.trigger('exit_intent');
+                });
+            }
         },
 
         trigger: function (type) {
@@ -644,6 +671,8 @@
         close: function () {
             this.isOpen = false;
             this.elements.window.classList.remove('mcp-open');
+            // Mark as dismissed so triggers don't re-pop
+            sessionStorage.setItem('mcp_chatbot_dismissed', '1');
         },
 
         startPolling: function () {
@@ -710,10 +739,16 @@
                 if (this.triggered) {
                     this.showIntentOptions();
                 }
+                
+                // Start guided flow if enabled
+                if (this.config.guided_flow_enabled && this.config.guided_flow && !data.is_resumed) {
+                    this.guidedFlowStep = 0;
+                    this.guidedFlowAnswers = {};
+                    setTimeout(() => this.showGuidedFlowStep(), 800);
+                }
 
             } catch (err) {
                 console.error('MCP Chatbot: Failed to start conversation', err);
-                // Only show fallback message if we have no messages at all
                 if (this.messages.length === 0) {
                     this.renderMessage({
                         role: 'assistant',
@@ -724,12 +759,105 @@
             }
         },
 
+        // ============= GUIDED FLOW =============
+        guidedFlowStep: -1,
+        guidedFlowAnswers: {},
+
+        showGuidedFlowStep: function () {
+            const flow = this.config.guided_flow;
+            if (!flow || this.guidedFlowStep >= flow.length) {
+                this.finishGuidedFlow();
+                return;
+            }
+
+            const step = flow[this.guidedFlowStep];
+            
+            // Show the question as an assistant message
+            this.renderMessage({ role: 'assistant', content: step.question });
+
+            // If step has options, show as buttons
+            if (step.options && step.options.length > 0) {
+                const optionsDiv = document.createElement('div');
+                optionsDiv.className = 'mcp-guided-options';
+                optionsDiv.style.cssText = 'display:flex;flex-wrap:wrap;gap:6px;padding:8px 12px;';
+                
+                step.options.forEach(opt => {
+                    const btn = document.createElement('button');
+                    btn.textContent = typeof opt === 'string' ? opt : opt.label;
+                    btn.style.cssText = `padding:8px 16px;border-radius:18px;border:1.5px solid ${this.config.primary_color || '#3b82f6'};background:transparent;color:${this.config.primary_color || '#3b82f6'};font-size:13px;cursor:pointer;transition:all 0.2s;font-weight:500;`;
+                    btn.addEventListener('mouseover', () => { btn.style.background = this.config.primary_color || '#3b82f6'; btn.style.color = '#fff'; });
+                    btn.addEventListener('mouseout', () => { btn.style.background = 'transparent'; btn.style.color = this.config.primary_color || '#3b82f6'; });
+                    btn.addEventListener('click', () => {
+                        const value = typeof opt === 'string' ? opt : opt.value;
+                        this.handleGuidedFlowAnswer(step.id || `step_${this.guidedFlowStep}`, value, opt);
+                        optionsDiv.remove();
+                    });
+                    optionsDiv.appendChild(btn);
+                });
+
+                this.elements.messages.appendChild(optionsDiv);
+                this.elements.messages.scrollTop = this.elements.messages.scrollHeight;
+            } else if (step.input_type === 'text' || step.input_type === 'email' || step.input_type === 'phone') {
+                // For free-text steps, let the user type normally but intercept
+                this._guidedFlowWaitingForInput = true;
+                this._guidedFlowInputStepId = step.id || `step_${this.guidedFlowStep}`;
+            }
+        },
+
+        handleGuidedFlowAnswer: function (stepId, value, optionObj) {
+            // Show user's answer
+            this.renderMessage({ role: 'user', content: value });
+            this.guidedFlowAnswers[stepId] = value;
+
+            // Check for conditional branching
+            const step = this.config.guided_flow[this.guidedFlowStep];
+            if (optionObj && typeof optionObj === 'object' && optionObj.next_step !== undefined) {
+                // Jump to specific step
+                this.guidedFlowStep = optionObj.next_step;
+            } else if (step.next_step !== undefined) {
+                this.guidedFlowStep = step.next_step;
+            } else {
+                this.guidedFlowStep++;
+            }
+
+            // Show next step after brief delay
+            setTimeout(() => this.showGuidedFlowStep(), 600);
+        },
+
+        finishGuidedFlow: function () {
+            // Send all collected answers to the AI as context
+            const summary = Object.entries(this.guidedFlowAnswers)
+                .map(([key, val]) => `${key}: ${val}`)
+                .join('\n');
+
+            // Send as a single message to the AI
+            this.sendMessageDirect(`[Guided intake completed]\n${summary}`);
+
+            // Show thank you
+            const flow = this.config.guided_flow;
+            const lastStep = flow[flow.length - 1];
+            const thankYou = lastStep?.completion_message || 'Thank you! We will reach out to schedule your consult.';
+            
+            setTimeout(() => {
+                this.renderMessage({ role: 'assistant', content: thankYou });
+            }, 800);
+
+            this.guidedFlowStep = -1;
+        },
+
         sendMessage: async function () {
             const content = this.elements.input.value.trim();
             if (!content) return;
 
             // Clear input
             this.elements.input.value = '';
+
+            // If guided flow is waiting for text input, route through guided flow
+            if (this._guidedFlowWaitingForInput) {
+                this._guidedFlowWaitingForInput = false;
+                this.handleGuidedFlowAnswer(this._guidedFlowInputStepId, content, null);
+                return;
+            }
 
             // Add user message to array AND render
             const userMsg = { role: 'user', content };
@@ -781,6 +909,23 @@
                 };
                 this.messages.push(errorMsg);
                 this.renderMessage(errorMsg);
+            }
+        },
+
+        sendMessageDirect: async function (content) {
+            // Send a message to the API without rendering it in the chat
+            // Used by guided flow to send collected answers as context
+            try {
+                await fetch(`${this.apiUrl}/api/chatbot/widget/${this.chatbotId}/message`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        conversation_id: this.conversationId,
+                        message: content
+                    })
+                });
+            } catch (err) {
+                console.error('MCP Chatbot: Failed to send guided flow data', err);
             }
         },
 
