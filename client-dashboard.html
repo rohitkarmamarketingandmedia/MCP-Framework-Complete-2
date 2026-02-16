@@ -655,7 +655,7 @@
                             title="Edit Client">
                             <i class="fas fa-edit"></i>
                         </button>
-                        <button onclick="confirmDeleteClient()"
+                        <button onclick="confirmDeleteClient()" data-nav-role="admin,manager"
                             class="p-2 glass rounded-lg text-gray-400 hover:text-red-400 transition flex-shrink-0"
                             title="Delete Client">
                             <i class="fas fa-trash"></i>
@@ -1521,7 +1521,7 @@
                             class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium transition">
                             <i class="fas fa-check mr-1"></i>Approve
                         </button>
-                        <button onclick="bulkDeleteBlogs()"
+                        <button onclick="bulkDeleteBlogs()" data-nav-role="admin,manager"
                             class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-medium transition">
                             <i class="fas fa-trash mr-1"></i>Delete
                         </button>
@@ -3693,7 +3693,7 @@
                             class="px-3 py-1.5 bg-white/20 hover:bg-white/30 text-white rounded-lg text-sm font-medium transition">
                             <i class="fas fa-edit mr-1"></i>Edit
                         </button>
-                        <button onclick="confirmDeleteBlog()"
+                        <button onclick="confirmDeleteBlog()" data-nav-role="admin,manager"
                             class="px-3 py-1.5 bg-red-500/80 hover:bg-red-500 text-white rounded-lg text-sm font-medium transition">
                             <i class="fas fa-trash mr-1"></i>Delete
                         </button>
@@ -3986,7 +3986,7 @@
                             class="px-4 py-2 bg-amber-100 hover:bg-amber-200 text-amber-700 rounded-lg text-sm font-medium transition">
                             <i class="fas fa-edit mr-1"></i>Edit
                         </button>
-                        <button onclick="confirmDeleteBlog()"
+                        <button onclick="confirmDeleteBlog()" data-nav-role="admin,manager"
                             class="px-4 py-2 bg-red-100 hover:bg-red-200 text-red-700 rounded-lg text-sm font-medium transition">
                             <i class="fas fa-trash mr-1"></i>Delete
                         </button>
@@ -7188,7 +7188,7 @@
                                                 <i class="fab fa-wordpress mr-1"></i>Publish
                                             </button>
                                         `}
-                                        <button onclick="deletePage('${page.id}')" class="text-sm text-red-400 hover:text-red-300">
+                                        <button onclick="deletePage('${page.id}')" class="text-sm text-red-400 hover:text-red-300" ${USER_ROLE === 'client' || USER_ROLE === 'viewer' ? 'style="display:none"' : ''}>
                                             <i class="fas fa-trash mr-1"></i>Delete
                                         </button>
                                     </div>
@@ -7543,7 +7543,8 @@
                                         <i class="fab fa-wordpress mr-1"></i>WordPress
                                     </button>
                                     <button onclick="deletePageFromEditor('${page.id}')"
-                                        class="px-3 py-1.5 bg-red-500/80 hover:bg-red-500 text-white rounded-lg text-sm font-medium transition">
+                                        class="px-3 py-1.5 bg-red-500/80 hover:bg-red-500 text-white rounded-lg text-sm font-medium transition"
+                                        ${USER_ROLE === 'client' || USER_ROLE === 'viewer' ? 'style="display:none"' : ''}>
                                         <i class="fas fa-trash mr-1"></i>Delete
                                     </button>
                                 </div>
@@ -9288,7 +9289,7 @@
                             <button onclick="event.stopPropagation(); quickEditBlog('${blog.id}')" class="p-2 text-gray-400 hover:text-blue-400 hover:bg-blue-500/10 rounded-lg transition" title="Edit">
                                 <i class="fas fa-edit"></i>
                             </button>
-                            <button onclick="event.stopPropagation(); quickDeleteBlog('${blog.id}', '${(blog.title || '').replace(/'/g, "\\'")}')" class="p-2 text-gray-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition" title="Delete">
+                            <button onclick="event.stopPropagation(); quickDeleteBlog('${blog.id}', '${(blog.title || '').replace(/'/g, "\\'")}')" class="p-2 text-gray-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition" title="Delete" ${USER_ROLE === 'client' || USER_ROLE === 'viewer' ? 'style="display:none"' : ''}>
                                 <i class="fas fa-trash"></i>
                             </button>
                         </div>
@@ -11680,7 +11681,7 @@
                             <button onclick="copySocialPost('${post.id}')" class="p-1.5 text-gray-400 hover:text-white hover:bg-white/10 rounded transition" title="Copy">
                                 <i class="fas fa-copy text-xs"></i>
                             </button>
-                            <button onclick="deleteSocialPost('${post.id}')" class="p-1.5 text-gray-400 hover:text-red-400 hover:bg-red-500/10 rounded transition" title="Delete">
+                            <button onclick="deleteSocialPost('${post.id}')" class="p-1.5 text-gray-400 hover:text-red-400 hover:bg-red-500/10 rounded transition" title="Delete" ${USER_ROLE === 'client' || USER_ROLE === 'viewer' ? 'style="display:none"' : ''}>
                                 <i class="fas fa-trash text-xs"></i>
                             </button>
                         </div>
@@ -14399,7 +14400,7 @@
                                 <button onclick="crawlCompetitor('${comp.id}')" class="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium">
                                     <i class="fas fa-sync-alt mr-1"></i>Crawl Now
                                 </button>
-                                <button onclick="deleteCompetitor('${comp.id}', '${(comp.name || comp.domain).replace(/'/g, "\\'")}')" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm">
+                                <button onclick="deleteCompetitor('${comp.id}', '${(comp.name || comp.domain).replace(/'/g, "\\'")}')" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm" ${USER_ROLE === 'client' || USER_ROLE === 'viewer' ? 'style="display:none"' : ''}>
                                     <i class="fas fa-trash"></i>
                                 </button>
                             </div>
@@ -15833,7 +15834,7 @@
                             <button onclick="toggleKnowledgeEntry('${entry.id}', ${!entry.is_active})" class="p-1.5 hover:bg-white/10 rounded transition" title="${entry.is_active ? 'Disable' : 'Enable'}">
                                 <i class="fas ${entry.is_active ? 'fa-toggle-on text-green-400' : 'fa-toggle-off text-gray-500'} text-sm"></i>
                             </button>
-                            <button onclick="deleteKnowledgeEntry('${entry.id}')" class="p-1.5 hover:bg-red-500/20 rounded transition" title="Delete">
+                            <button onclick="deleteKnowledgeEntry('${entry.id}')" class="p-1.5 hover:bg-red-500/20 rounded transition" title="Delete" ${USER_ROLE === 'client' || USER_ROLE === 'viewer' ? 'style="display:none"' : ''}>
                                 <i class="fas fa-trash text-red-400/60 text-xs"></i>
                             </button>
                         </div>
