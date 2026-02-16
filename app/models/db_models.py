@@ -1788,6 +1788,54 @@ class DBChatbotFAQ(db.Model):
         }
 
 
+class DBChatbotKnowledge(db.Model):
+    """Custom knowledge base entries for training the chatbot"""
+    __tablename__ = 'chatbot_knowledge'
+    
+    id: Mapped[str] = mapped_column(String(50), primary_key=True)
+    client_id: Mapped[str] = mapped_column(String(50), ForeignKey('clients.id'), index=True)
+    
+    # Type: qa (question/answer), info (general info), service (service detail), policy (business policy)
+    entry_type: Mapped[str] = mapped_column(String(20), default='qa')
+    
+    # For Q&A type
+    question: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    answer: Mapped[str] = mapped_column(Text, nullable=False)
+    
+    # For info/service/policy types
+    title: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    
+    # Organization
+    category: Mapped[str] = mapped_column(String(100), default='General')
+    priority: Mapped[int] = mapped_column(Integer, default=0)  # Higher = more important
+    
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    def __init__(self, client_id: str, **kwargs):
+        self.id = f"kb_{uuid.uuid4().hex[:12]}"
+        self.client_id = client_id
+        for key, value in kwargs.items():
+            if hasattr(self, key):
+                setattr(self, key, value)
+    
+    def to_dict(self) -> dict:
+        return {
+            'id': self.id,
+            'client_id': self.client_id,
+            'entry_type': self.entry_type,
+            'question': self.question,
+            'answer': self.answer,
+            'title': self.title,
+            'category': self.category,
+            'priority': self.priority,
+            'is_active': self.is_active,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None
+        }
+
+
 class DBContentFeedback(db.Model):
     """Content feedback and change requests from clients"""
     __tablename__ = 'content_feedback'

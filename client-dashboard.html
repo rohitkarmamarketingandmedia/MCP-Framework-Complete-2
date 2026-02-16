@@ -3153,9 +3153,92 @@
                         </div>
                     </div>
                 </div>
-            </div>
 
-            <!-- Chat Conversations Modal -->
+                <!-- Knowledge Base / Train Your Chatbot -->
+                <div class="glass rounded-2xl p-6 mt-6">
+                    <div class="flex items-center justify-between mb-4">
+                        <div>
+                            <h3 class="text-lg font-bold text-white">
+                                <i class="fas fa-brain mr-2 text-yellow-400"></i>Train Your Chatbot
+                            </h3>
+                            <p class="text-sm text-gray-400 mt-1">Add custom knowledge so your chatbot gives better, more specific answers</p>
+                        </div>
+                        <button onclick="showAddKnowledgeForm()"
+                            class="px-4 py-2 bg-gradient-to-r from-yellow-500 to-orange-500 rounded-lg text-white text-sm font-medium hover:opacity-90 transition">
+                            <i class="fas fa-plus mr-1"></i>Add Entry
+                        </button>
+                    </div>
+
+                    <!-- Add/Edit Form (hidden by default) -->
+                    <div id="knowledgeForm" class="hidden mb-6 p-4 bg-white/5 border border-white/10 rounded-xl">
+                        <input type="hidden" id="kbEditId" value="">
+                        <div class="grid md:grid-cols-2 gap-4 mb-3">
+                            <div>
+                                <label class="block text-sm text-gray-400 mb-1">Type</label>
+                                <select id="kbType" onchange="toggleKbFields()"
+                                    class="w-full px-3 py-2 bg-white/10 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-yellow-500">
+                                    <option value="qa">Q&A (Question & Answer)</option>
+                                    <option value="info">General Info</option>
+                                    <option value="service">Service Detail</option>
+                                    <option value="policy">Business Policy</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm text-gray-400 mb-1">Category</label>
+                                <select id="kbCategory"
+                                    class="w-full px-3 py-2 bg-white/10 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-yellow-500">
+                                    <option value="General">General</option>
+                                    <option value="Services">Services</option>
+                                    <option value="Pricing">Pricing</option>
+                                    <option value="Hours & Availability">Hours & Availability</option>
+                                    <option value="Process & Timeline">Process & Timeline</option>
+                                    <option value="Insurance & Payment">Insurance & Payment</option>
+                                    <option value="Promotions">Promotions</option>
+                                    <option value="Policies">Policies</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div id="kbQuestionField" class="mb-3">
+                            <label class="block text-sm text-gray-400 mb-1">Question (what might a visitor ask?)</label>
+                            <input type="text" id="kbQuestion" placeholder='e.g., "Do you accept insurance?"'
+                                class="w-full px-3 py-2 bg-white/10 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-yellow-500">
+                        </div>
+                        <div id="kbTitleField" class="hidden mb-3">
+                            <label class="block text-sm text-gray-400 mb-1">Title</label>
+                            <input type="text" id="kbTitle" placeholder="e.g., Teeth Whitening, Cancellation Policy"
+                                class="w-full px-3 py-2 bg-white/10 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-yellow-500">
+                        </div>
+                        <div class="mb-3">
+                            <label class="block text-sm text-gray-400 mb-1">Answer / Content</label>
+                            <textarea id="kbAnswer" rows="3"
+                                placeholder="The chatbot will use this information to answer visitors..."
+                                class="w-full px-3 py-2 bg-white/10 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-yellow-500"></textarea>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <button onclick="saveKnowledgeEntry()"
+                                class="px-4 py-2 bg-yellow-600 hover:bg-yellow-700 rounded-lg text-white text-sm font-medium transition">
+                                <i class="fas fa-save mr-1"></i>Save Entry
+                            </button>
+                            <button onclick="hideKnowledgeForm()"
+                                class="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg text-white text-sm transition">
+                                Cancel
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Knowledge Entries List -->
+                    <div id="knowledgeList" class="space-y-2">
+                        <p class="text-gray-500 text-sm text-center py-4">No knowledge entries yet. Add Q&As, service details, and policies to train your chatbot.</p>
+                    </div>
+
+                    <!-- Entry Count -->
+                    <div id="knowledgeStats" class="hidden mt-4 pt-4 border-t border-white/10 flex items-center justify-between">
+                        <span class="text-sm text-gray-400"><span id="kbActiveCount">0</span> active entries</span>
+                        <span class="text-xs text-gray-600">Changes take effect immediately on new conversations</span>
+                    </div>
+                </div>
+
+            </div>
             <div id="chatModal" class="hidden fixed inset-0 bg-black/95 z-50 overflow-y-auto"
                 onclick="if(event.target === this) closeChatModal()">
                 <div class="max-w-4xl mx-auto py-8 px-4">
@@ -15502,6 +15585,7 @@
                     loadChatbotAnalytics();
                     loadEmbedCode();
                     loadRecentConversations();
+                    loadKnowledgeEntries();
                 }
             } catch (error) {
                 console.error('Failed to load chatbot config:', error);
@@ -15672,6 +15756,189 @@
             } catch (error) {
                 alert('Failed to save chatbot settings');
                 console.error(error);
+            }
+        }
+
+        // ==========================================
+        // Knowledge Base / Train Chatbot
+        // ==========================================
+        
+        let knowledgeEntries = [];
+
+        async function loadKnowledgeEntries() {
+            if (!currentClient) return;
+            try {
+                const response = await fetch(`${API_URL}/api/chatbot/knowledge/${currentClient.id}`, {
+                    headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
+                });
+                if (response.ok) {
+                    const data = await response.json();
+                    knowledgeEntries = data.entries || [];
+                    renderKnowledgeList();
+                }
+            } catch (error) {
+                console.error('Failed to load knowledge entries:', error);
+            }
+        }
+
+        function renderKnowledgeList() {
+            const container = document.getElementById('knowledgeList');
+            const stats = document.getElementById('knowledgeStats');
+            
+            if (!knowledgeEntries.length) {
+                container.innerHTML = '<p class="text-gray-500 text-sm text-center py-4">No knowledge entries yet. Add Q&As, service details, and policies to train your chatbot.</p>';
+                stats.classList.add('hidden');
+                return;
+            }
+            
+            const activeCount = knowledgeEntries.filter(e => e.is_active).length;
+            document.getElementById('kbActiveCount').textContent = activeCount;
+            stats.classList.remove('hidden');
+            
+            const typeIcons = { qa: 'fa-question-circle text-blue-400', info: 'fa-info-circle text-cyan-400', service: 'fa-concierge-bell text-green-400', policy: 'fa-shield-alt text-orange-400' };
+            const typeLabels = { qa: 'Q&A', info: 'Info', service: 'Service', policy: 'Policy' };
+            
+            container.innerHTML = knowledgeEntries.map(entry => `
+                <div class="p-3 bg-white/5 rounded-lg border border-white/10 ${!entry.is_active ? 'opacity-50' : ''}">
+                    <div class="flex items-start justify-between gap-3">
+                        <div class="flex-1 min-w-0">
+                            <div class="flex items-center gap-2 mb-1">
+                                <i class="fas ${typeIcons[entry.entry_type] || 'fa-file text-gray-400'} text-xs"></i>
+                                <span class="text-xs font-medium text-gray-400">${typeLabels[entry.entry_type] || entry.entry_type} · ${entry.category}</span>
+                                ${!entry.is_active ? '<span class="text-xs text-red-400">(disabled)</span>' : ''}
+                            </div>
+                            <p class="text-sm text-white font-medium truncate">${entry.question || entry.title || 'Untitled'}</p>
+                            <p class="text-xs text-gray-400 mt-1 line-clamp-2">${(entry.answer || '').substring(0, 150)}${entry.answer?.length > 150 ? '...' : ''}</p>
+                        </div>
+                        <div class="flex items-center gap-1 shrink-0">
+                            <button onclick="editKnowledgeEntry('${entry.id}')" class="p-1.5 hover:bg-white/10 rounded transition" title="Edit">
+                                <i class="fas fa-pen text-gray-400 text-xs"></i>
+                            </button>
+                            <button onclick="toggleKnowledgeEntry('${entry.id}', ${!entry.is_active})" class="p-1.5 hover:bg-white/10 rounded transition" title="${entry.is_active ? 'Disable' : 'Enable'}">
+                                <i class="fas ${entry.is_active ? 'fa-toggle-on text-green-400' : 'fa-toggle-off text-gray-500'} text-sm"></i>
+                            </button>
+                            <button onclick="deleteKnowledgeEntry('${entry.id}')" class="p-1.5 hover:bg-red-500/20 rounded transition" title="Delete">
+                                <i class="fas fa-trash text-red-400/60 text-xs"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function showAddKnowledgeForm() {
+            document.getElementById('kbEditId').value = '';
+            document.getElementById('kbType').value = 'qa';
+            document.getElementById('kbCategory').value = 'General';
+            document.getElementById('kbQuestion').value = '';
+            document.getElementById('kbTitle').value = '';
+            document.getElementById('kbAnswer').value = '';
+            toggleKbFields();
+            document.getElementById('knowledgeForm').classList.remove('hidden');
+        }
+
+        function hideKnowledgeForm() {
+            document.getElementById('knowledgeForm').classList.add('hidden');
+        }
+
+        function toggleKbFields() {
+            const type = document.getElementById('kbType').value;
+            const questionField = document.getElementById('kbQuestionField');
+            const titleField = document.getElementById('kbTitleField');
+            if (type === 'qa') {
+                questionField.classList.remove('hidden');
+                titleField.classList.add('hidden');
+            } else {
+                questionField.classList.add('hidden');
+                titleField.classList.remove('hidden');
+            }
+        }
+
+        function editKnowledgeEntry(entryId) {
+            const entry = knowledgeEntries.find(e => e.id === entryId);
+            if (!entry) return;
+            
+            document.getElementById('kbEditId').value = entry.id;
+            document.getElementById('kbType').value = entry.entry_type || 'qa';
+            document.getElementById('kbCategory').value = entry.category || 'General';
+            document.getElementById('kbQuestion').value = entry.question || '';
+            document.getElementById('kbTitle').value = entry.title || '';
+            document.getElementById('kbAnswer').value = entry.answer || '';
+            toggleKbFields();
+            document.getElementById('knowledgeForm').classList.remove('hidden');
+            document.getElementById('knowledgeForm').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        async function saveKnowledgeEntry() {
+            if (!currentClient) return;
+            
+            const editId = document.getElementById('kbEditId').value;
+            const entryType = document.getElementById('kbType').value;
+            const payload = {
+                entry_type: entryType,
+                category: document.getElementById('kbCategory').value,
+                question: document.getElementById('kbQuestion').value,
+                title: document.getElementById('kbTitle').value,
+                answer: document.getElementById('kbAnswer').value
+            };
+            
+            if (!payload.answer.trim()) {
+                showToast('Answer/content is required', 'warning');
+                return;
+            }
+            
+            try {
+                const url = editId 
+                    ? `${API_URL}/api/chatbot/knowledge/${currentClient.id}/${editId}`
+                    : `${API_URL}/api/chatbot/knowledge/${currentClient.id}`;
+                const method = editId ? 'PUT' : 'POST';
+                
+                const response = await fetch(url, {
+                    method,
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${AUTH_TOKEN}` },
+                    body: JSON.stringify(payload)
+                });
+                
+                if (response.ok) {
+                    showToast(editId ? 'Entry updated!' : 'Entry added!', 'success');
+                    hideKnowledgeForm();
+                    loadKnowledgeEntries();
+                } else {
+                    const err = await response.json();
+                    showToast(err.error || 'Failed to save', 'error');
+                }
+            } catch (error) {
+                console.error('Error saving knowledge entry:', error);
+                showToast('Failed to save entry', 'error');
+            }
+        }
+
+        async function toggleKnowledgeEntry(entryId, newActive) {
+            if (!currentClient) return;
+            try {
+                await fetch(`${API_URL}/api/chatbot/knowledge/${currentClient.id}/${entryId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${AUTH_TOKEN}` },
+                    body: JSON.stringify({ is_active: newActive })
+                });
+                loadKnowledgeEntries();
+            } catch (error) {
+                console.error('Error toggling entry:', error);
+            }
+        }
+
+        async function deleteKnowledgeEntry(entryId) {
+            if (!confirm('Delete this knowledge entry?')) return;
+            if (!currentClient) return;
+            try {
+                await fetch(`${API_URL}/api/chatbot/knowledge/${currentClient.id}/${entryId}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
+                });
+                showToast('Entry deleted', 'success');
+                loadKnowledgeEntries();
+            } catch (error) {
+                console.error('Error deleting entry:', error);
             }
         }
 

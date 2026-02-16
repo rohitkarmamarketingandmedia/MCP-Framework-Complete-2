@@ -10,7 +10,7 @@ import logging
 from app.database import db
 from app.models.db_models import (
     DBChatbotConfig, DBChatConversation, DBChatMessage, 
-    DBChatbotFAQ, DBClient, DBLead
+    DBChatbotFAQ, DBChatbotKnowledge, DBClient, DBLead
 )
 from app.routes.auth import token_required, optional_token
 from app.utils import safe_int
@@ -109,6 +109,147 @@ def get_embed_code(current_user, client_id):
         'chatbot_id': config.id,
         'embed_code': embed_code
     })
+
+
+# ==========================================
+# Knowledge Base / Chatbot Training
+# ==========================================
+
+@chatbot_bp.route('/knowledge/<client_id>', methods=['GET'])
+@token_required
+def get_knowledge_entries(current_user, client_id):
+    """Get all knowledge base entries for a client's chatbot"""
+    if not current_user.has_access_to_client(client_id):
+        return jsonify({'error': 'Access denied'}), 403
+    
+    entries = DBChatbotKnowledge.query.filter_by(
+        client_id=client_id
+    ).order_by(DBChatbotKnowledge.priority.desc(), DBChatbotKnowledge.created_at.desc()).all()
+    
+    return jsonify({
+        'entries': [e.to_dict() for e in entries],
+        'total': len(entries),
+        'active': sum(1 for e in entries if e.is_active)
+    })
+
+
+@chatbot_bp.route('/knowledge/<client_id>', methods=['POST'])
+@token_required
+def add_knowledge_entry(current_user, client_id):
+    """Add a new knowledge base entry"""
+    if not current_user.has_access_to_client(client_id):
+        return jsonify({'error': 'Access denied'}), 403
+    
+    data = request.get_json(silent=True) or {}
+    
+    entry_type = data.get('entry_type', 'qa')
+    answer = data.get('answer', '').strip()
+    
+    if not answer:
+        return jsonify({'error': 'Answer/content is required'}), 400
+    
+    entry = DBChatbotKnowledge(
+        client_id=client_id,
+        entry_type=entry_type,
+        question=data.get('question', '').strip() or None,
+        answer=answer,
+        title=data.get('title', '').strip() or None,
+        category=data.get('category', 'General'),
+        priority=int(data.get('priority', 0))
+    )
+    
+    db.session.add(entry)
+    db.session.commit()
+    
+    logger.info(f"Added knowledge entry {entry.id} for client {client_id}: type={entry_type}")
+    
+    return jsonify({
+        'message': 'Knowledge entry added',
+        'entry': entry.to_dict()
+    }), 201
+
+
+@chatbot_bp.route('/knowledge/<client_id>/<entry_id>', methods=['PUT'])
+@token_required
+def update_knowledge_entry(current_user, client_id, entry_id):
+    """Update a knowledge base entry"""
+    if not current_user.has_access_to_client(client_id):
+        return jsonify({'error': 'Access denied'}), 403
+    
+    entry = DBChatbotKnowledge.query.filter_by(id=entry_id, client_id=client_id).first()
+    if not entry:
+        return jsonify({'error': 'Entry not found'}), 404
+    
+    data = request.get_json(silent=True) or {}
+    
+    allowed_fields = ['entry_type', 'question', 'answer', 'title', 'category', 'priority', 'is_active']
+    for field in allowed_fields:
+        if field in data:
+            setattr(entry, field, data[field])
+    
+    entry.updated_at = datetime.utcnow()
+    db.session.commit()
+    
+    return jsonify({
+        'message': 'Knowledge entry updated',
+        'entry': entry.to_dict()
+    })
+
+
+@chatbot_bp.route('/knowledge/<client_id>/<entry_id>', methods=['DELETE'])
+@token_required
+def delete_knowledge_entry(current_user, client_id, entry_id):
+    """Delete a knowledge base entry"""
+    if not current_user.has_access_to_client(client_id):
+        return jsonify({'error': 'Access denied'}), 403
+    
+    entry = DBChatbotKnowledge.query.filter_by(id=entry_id, client_id=client_id).first()
+    if not entry:
+        return jsonify({'error': 'Entry not found'}), 404
+    
+    db.session.delete(entry)
+    db.session.commit()
+    
+    return jsonify({'message': 'Knowledge entry deleted'})
+
+
+@chatbot_bp.route('/knowledge/<client_id>/bulk', methods=['POST'])
+@token_required
+def bulk_add_knowledge(current_user, client_id):
+    """Bulk add knowledge entries (e.g., paste in FAQ list)"""
+    if not current_user.has_access_to_client(client_id):
+        return jsonify({'error': 'Access denied'}), 403
+    
+    data = request.get_json(silent=True) or {}
+    entries_data = data.get('entries', [])
+    
+    if not entries_data:
+        return jsonify({'error': 'No entries provided'}), 400
+    
+    added = []
+    for item in entries_data:
+        answer = (item.get('answer') or '').strip()
+        if not answer:
+            continue
+        
+        entry = DBChatbotKnowledge(
+            client_id=client_id,
+            entry_type=item.get('entry_type', 'qa'),
+            question=(item.get('question') or '').strip() or None,
+            answer=answer,
+            title=(item.get('title') or '').strip() or None,
+            category=item.get('category', 'General'),
+            priority=int(item.get('priority', 0))
+        )
+        db.session.add(entry)
+        added.append(entry)
+    
+    db.session.commit()
+    
+    return jsonify({
+        'message': f'{len(added)} knowledge entries added',
+        'entries': [e.to_dict() for e in added]
+    }), 201
 
 
 # ==========================================
@@ -251,8 +392,19 @@ def send_message(chatbot_id):
         else:
             client_data = client.to_dict()
         
-        # Build system prompt
-        system_prompt = chatbot_service.build_system_prompt(client_data, config.to_dict())
+        # Fetch knowledge base entries for this client
+        knowledge_entries = []
+        try:
+            kb_records = DBChatbotKnowledge.query.filter_by(
+                client_id=config.client_id,
+                is_active=True
+            ).order_by(DBChatbotKnowledge.priority.desc()).all()
+            knowledge_entries = [kb.to_dict() for kb in kb_records]
+        except Exception as e:
+            logger.warning(f"Could not load knowledge base: {e}")
+        
+        # Build system prompt with knowledge base
+        system_prompt = chatbot_service.build_system_prompt(client_data, config.to_dict(), knowledge_entries)
         
         # Get conversation history
         history = []

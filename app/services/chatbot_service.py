@@ -19,13 +19,19 @@ class ChatbotService:
         self.openai_api_key = os.getenv('OPENAI_API_KEY')
         self.model = os.getenv('CHATBOT_MODEL', 'gpt-4o-mini')
     
-    def build_system_prompt(self, client_data: Dict, chatbot_config: Dict) -> str:
+    def build_system_prompt(self, client_data: Dict, chatbot_config: Dict, knowledge_entries: list = None) -> str:
         """
-        Build a comprehensive system prompt based on client data
+        Build a comprehensive system prompt based on client data and knowledge base
         """
         # Use override if provided
         if chatbot_config.get('system_prompt_override'):
-            return chatbot_config['system_prompt_override']
+            base_prompt = chatbot_config['system_prompt_override']
+            # Still append knowledge base even with override
+            if knowledge_entries:
+                kb_text = self._format_knowledge_base(knowledge_entries)
+                if kb_text:
+                    base_prompt += f"\n\n{kb_text}"
+            return base_prompt
         
         business_name = client_data.get('business_name', 'the business')
         industry = client_data.get('industry', 'service')
@@ -96,6 +102,7 @@ CONTACT INFORMATION:
 
 {f'WHAT MAKES US SPECIAL:{chr(10)}{usps_text}' if usps_text else ''}
 {faqs_text}
+{self._format_knowledge_base(knowledge_entries) if knowledge_entries else ''}
 
 YOUR ROLE:
 1. Warmly greet visitors and help answer their questions about our services
@@ -118,6 +125,48 @@ GUIDELINES:
 Remember: Your goal is to be helpful, capture leads, and create a positive impression of {business_name}."""
 
         return prompt
+    
+    def _format_knowledge_base(self, entries: list) -> str:
+        """Format knowledge base entries for injection into system prompt"""
+        if not entries:
+            return ''
+        
+        sections = {}
+        for entry in entries:
+            if not entry.get('is_active', True):
+                continue
+            cat = entry.get('category', 'General')
+            if cat not in sections:
+                sections[cat] = []
+            sections[cat].append(entry)
+        
+        if not sections:
+            return ''
+        
+        text = "KNOWLEDGE BASE (Use this information to answer visitor questions accurately):\n"
+        
+        for category, items in sections.items():
+            text += f"\n--- {category} ---\n"
+            for item in items:
+                entry_type = item.get('entry_type', 'qa')
+                if entry_type == 'qa' and item.get('question'):
+                    text += f"Q: {item['question']}\nA: {item.get('answer', '')}\n\n"
+                elif entry_type == 'info':
+                    title = item.get('title', 'Info')
+                    text += f"{title}: {item.get('answer', '')}\n\n"
+                elif entry_type == 'service':
+                    title = item.get('title', 'Service')
+                    text += f"Service - {title}: {item.get('answer', '')}\n\n"
+                elif entry_type == 'policy':
+                    title = item.get('title', 'Policy')
+                    text += f"Policy - {title}: {item.get('answer', '')}\n\n"
+                else:
+                    if item.get('question'):
+                        text += f"Q: {item['question']}\nA: {item.get('answer', '')}\n\n"
+                    else:
+                        text += f"{item.get('title', '')}: {item.get('answer', '')}\n\n"
+        
+        return text.strip()
     
     def build_mcp_support_prompt(self) -> str:
         """
