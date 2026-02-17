@@ -357,6 +357,51 @@ class SEMRushService:
             'gaps': gaps
         }
     
+    def get_keyword_comparison(self, domain: str, competitors: List[str], limit: int = 200, database: str = None) -> Dict[str, Any]:
+        """
+        Get ALL keywords across domain and competitors - no restrictive filters.
+        Shows every keyword any of the domains rank for, with positions for all.
+        
+        Returns:
+            {
+                'domain': str,
+                'competitors': [...],
+                'keywords': [
+                    {'keyword': str, 'volume': int, 'your_position': int, 'competitor_positions': {...}}
+                ]
+            }
+        """
+        database = database or self.default_database
+        domain = self._clean_domain(domain)
+        competitors = [self._clean_domain(c) for c in competitors[:4]]
+        
+        domains = '|'.join([domain] + competitors)
+        
+        params = {
+            'type': 'domain_domains',
+            'key': self.api_key,
+            'domains': domains,
+            'database': database,
+            'export_columns': 'Ph,Nq,Cp,Co,Kd,P0,P1,P2,P3,P4',
+            'display_limit': limit,
+            'display_sort': 'nq_desc'
+            # No display_filter — get everything
+        }
+        
+        result = self._make_request(params)
+        
+        if result.get('error'):
+            return result
+        
+        keywords = self._parse_keyword_gap(result.get('data', ''), competitors)
+        
+        return {
+            'domain': domain,
+            'competitors': competitors,
+            'count': len(keywords),
+            'keywords': keywords
+        }
+    
     # ==========================================
     # BACKLINK ANALYSIS
     # ==========================================
@@ -507,7 +552,7 @@ class SEMRushService:
         return results
     
     def _parse_keyword_gap(self, data: str, competitors: List[str]) -> List[Dict]:
-        """Parse keyword gap CSV data"""
+        """Parse keyword gap CSV data from domain_domains endpoint"""
         results = []
         lines = data.strip().split('\n')
         
@@ -517,21 +562,23 @@ class SEMRushService:
         for line in lines[1:]:
             values = line.split(';')
             if len(values) >= 6:
+                your_pos_raw = int(values[5]) if len(values) > 5 and values[5].isdigit() else 0
                 gap = {
                     'keyword': values[0],
                     'volume': int(values[1]) if values[1].isdigit() else 0,
                     'cpc': float(values[2]) if values[2] else 0.0,
                     'competition': float(values[3]) if values[3] else 0.0,
                     'difficulty': int(values[4]) if values[4].isdigit() else 0,
-                    'your_position': int(values[5]) if len(values) > 5 and values[5].isdigit() else 0,
+                    'your_position': your_pos_raw if your_pos_raw > 0 else None,  # 0 = not ranking
                     'competitor_positions': {}
                 }
                 
-                # Add competitor positions
+                # Add competitor positions (0 = not ranking = None)
                 for i, comp in enumerate(competitors):
                     pos_idx = 6 + i
                     if len(values) > pos_idx:
-                        gap['competitor_positions'][comp] = int(values[pos_idx]) if values[pos_idx].isdigit() else 0
+                        pos = int(values[pos_idx]) if values[pos_idx].isdigit() else 0
+                        gap['competitor_positions'][comp] = pos if pos > 0 else None
                 
                 results.append(gap)
         
