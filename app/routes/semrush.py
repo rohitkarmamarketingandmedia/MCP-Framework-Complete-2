@@ -543,23 +543,80 @@ def client_keyword_gap(current_user, client_id):
     
     # Use domain_domains comparison for ALL shared keywords (no restrictive filter)
     try:
+        result = None
+        used_comparison = False
+        
         if competitor_domains:
             result = semrush_service.get_keyword_comparison(client_domain, competitor_domains, limit=200)
-        else:
-            # No competitors — just pull organic keywords for the domain
-            result = semrush_service.get_domain_organic_keywords(client_domain, limit=200)
+            
+            # If domain_domains returns error or empty, fall back to individual domain_organic calls
+            if result.get('error') or not result.get('keywords'):
+                import logging
+                logging.getLogger(__name__).info(f"domain_domains returned nothing for {client_domain}, falling back to domain_organic")
+                result = None  # Will trigger fallback below
+            else:
+                used_comparison = True
         
-        if result.get('error'):
-            # Log but don't fail — fall back to simulated
-            import logging
-            logging.getLogger(__name__).warning(f"SEMrush keyword gap error for {client_domain}: {result.get('error')}")
-            return jsonify({
-                'client_id': client_id,
-                'gaps': [],
-                'competitors': competitor_domains,
-                'source': 'error',
-                'error': result.get('error')
-            })
+        if result is None:
+            # Fallback: get organic keywords for each domain individually and merge
+            client_result = semrush_service.get_domain_organic_keywords(client_domain, limit=200)
+            
+            if client_result.get('error'):
+                return jsonify({
+                    'client_id': client_id,
+                    'gaps': [],
+                    'competitors': competitor_domains,
+                    'source': 'error',
+                    'error': client_result.get('error')
+                })
+            
+            # Build keyword map for client
+            client_kw_map = {}
+            for kw in client_result.get('keywords', []):
+                client_kw_map[kw['keyword']] = kw
+            
+            # Get competitor keywords
+            comp_kw_maps = []
+            for comp_domain in competitor_domains[:2]:
+                comp_result = semrush_service.get_domain_organic_keywords(comp_domain, limit=200)
+                comp_map = {}
+                for kw in comp_result.get('keywords', []):
+                    comp_map[kw['keyword']] = kw
+                comp_kw_maps.append(comp_map)
+            
+            # Merge all keywords
+            all_keywords = set(client_kw_map.keys())
+            for comp_map in comp_kw_maps:
+                all_keywords.update(comp_map.keys())
+            
+            # Build result in same format as comparison
+            merged_keywords = []
+            for kw_text in all_keywords:
+                client_data = client_kw_map.get(kw_text, {})
+                your_pos = client_data.get('position')
+                volume = client_data.get('volume', 0)
+                
+                comp_positions = {}
+                for i, comp_map in enumerate(comp_kw_maps):
+                    comp_data = comp_map.get(kw_text, {})
+                    pos = comp_data.get('position')
+                    if not volume and comp_data.get('volume'):
+                        volume = comp_data['volume']
+                    if competitor_domains and i < len(competitor_domains):
+                        comp_positions[competitor_domains[i]] = pos
+                
+                merged_keywords.append({
+                    'keyword': kw_text,
+                    'volume': volume,
+                    'your_position': your_pos,
+                    'competitor_positions': comp_positions
+                })
+            
+            result = {
+                'keywords': merged_keywords,
+                'count': len(merged_keywords)
+            }
+            used_comparison = False
     except Exception as e:
         import logging, traceback
         logging.getLogger(__name__).error(f"Keyword gap exception for {client_id}: {e}\n{traceback.format_exc()}")
@@ -574,48 +631,36 @@ def client_keyword_gap(current_user, client_id):
     # Transform to frontend format
     transformed_gaps = []
     
-    if competitor_domains and result.get('keywords'):
-        # From domain_domains comparison
-        for kw in result.get('keywords', []):
-            your_pos = kw.get('your_position')
-            comp_positions = kw.get('competitor_positions', {})
-            comp_list = list(comp_positions.values())
-            comp1 = comp_list[0] if len(comp_list) > 0 else None
-            comp2 = comp_list[1] if len(comp_list) > 1 else None
-            
-            # Calculate priority
-            y = your_pos or 999
-            c1 = comp1 or 999
-            if not your_pos and (comp1 or comp2):
-                priority = 'HIGH'  # They rank, you don't
-            elif your_pos and your_pos > 20 and c1 <= 10:
-                priority = 'HIGH'
-            elif your_pos and your_pos > 10 and c1 <= 5:
-                priority = 'HIGH'
-            elif your_pos and comp1 and your_pos > comp1 + 10:
-                priority = 'MEDIUM'
-            else:
-                priority = 'LOW'
-            
-            transformed_gaps.append({
-                'keyword': kw.get('keyword', ''),
-                'you': your_pos,
-                'comp1': comp1,
-                'comp2': comp2,
-                'volume': kw.get('volume', 0),
-                'priority': priority
-            })
-    else:
-        # From domain_organic (no competitors)
-        for kw in result.get('keywords', []):
-            transformed_gaps.append({
-                'keyword': kw.get('keyword', ''),
-                'you': kw.get('position'),
-                'comp1': None,
-                'comp2': None,
-                'volume': kw.get('volume', 0),
-                'priority': 'LOW'
-            })
+    for kw in result.get('keywords', []):
+        your_pos = kw.get('your_position')
+        comp_positions = kw.get('competitor_positions', {})
+        comp_list = list(comp_positions.values())
+        comp1 = comp_list[0] if len(comp_list) > 0 else None
+        comp2 = comp_list[1] if len(comp_list) > 1 else None
+        volume = kw.get('volume', 0)
+        
+        # Calculate priority
+        y = your_pos or 999
+        c1 = comp1 or 999
+        if not your_pos and (comp1 or comp2):
+            priority = 'HIGH'  # They rank, you don't
+        elif your_pos and your_pos > 20 and c1 <= 10:
+            priority = 'HIGH'
+        elif your_pos and your_pos > 10 and c1 <= 5:
+            priority = 'HIGH'
+        elif your_pos and comp1 and your_pos > comp1 + 10:
+            priority = 'MEDIUM'
+        else:
+            priority = 'LOW'
+        
+        transformed_gaps.append({
+            'keyword': kw.get('keyword', ''),
+            'you': your_pos,
+            'comp1': comp1,
+            'comp2': comp2,
+            'volume': volume,
+            'priority': priority
+        })
     
     # Sort: HIGH priority first, then by volume
     priority_order = {'HIGH': 0, 'MEDIUM': 1, 'LOW': 2}
