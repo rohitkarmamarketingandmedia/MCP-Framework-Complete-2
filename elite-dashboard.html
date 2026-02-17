@@ -451,9 +451,14 @@
                 <div id="panel-keywordGap" class="hidden glass-card rounded-2xl p-6">
                     <div class="flex items-center justify-between mb-6">
                         <h3 class="text-lg font-bold text-white"><i class="fas fa-th-list mr-2 text-purple-400"></i>Keyword Gap Analysis</h3>
-                        <button onclick="analyzeKeywordGap()" class="px-4 py-2 bg-purple-500/20 text-purple-400 rounded-lg text-sm hover:bg-purple-500/30 transition">
-                            <i class="fas fa-search mr-1"></i>Analyze
-                        </button>
+                        <div class="flex items-center gap-2">
+                            <button onclick="syncKeywordsFromSemrush()" class="px-4 py-2 bg-green-500/20 text-green-400 rounded-lg text-sm hover:bg-green-500/30 transition" id="syncKwBtn" title="Pull all keywords your domain ranks for from SEMrush">
+                                <i class="fas fa-sync-alt mr-1"></i>Sync from SEMrush
+                            </button>
+                            <button onclick="analyzeKeywordGap()" class="px-4 py-2 bg-purple-500/20 text-purple-400 rounded-lg text-sm hover:bg-purple-500/30 transition">
+                                <i class="fas fa-search mr-1"></i>Analyze
+                            </button>
+                        </div>
                     </div>
                     <div class="overflow-x-auto">
                         <table class="w-full text-sm" id="keywordGapTableContainer">
@@ -1800,6 +1805,7 @@
             
             const table = document.getElementById('keywordGapTable');
             table.innerHTML = '<tr><td colspan="7" class="text-center py-4"><div class="spinner mx-auto"></div><p class="text-gray-400 text-sm mt-2">Analyzing keywords...</p></td></tr>';
+            window._gapUserSorted = false;
             
             try {
                 const res = await fetch(`${API_URL}/api/semrush/keyword-gap/${currentClient.id}`, {
@@ -1811,7 +1817,7 @@
                     data = await res.json();
                     
                     // Show data source indicator
-                    const sourceText = data.source === 'semrush' ? 'SEMrush Data' : 
+                    const sourceText = data.source === 'semrush' ? `SEMrush Data (${data.total_keywords || data.gaps?.length || 0} keywords found)` : 
                                       data.source === 'gsc' ? 'Google Search Console Data' : 
                                       data.source === 'simulated' ? 'Sample Data (Configure SEMrush for real data)' : 'Demo Data';
                     const sourceClass = data.source === 'semrush' ? 'text-green-400' : 
@@ -1935,11 +1941,13 @@
                 });
             }
             
-            // Sort by priority
-            gaps.sort((a, b) => {
-                const order = { HIGH: 0, MEDIUM: 1, LOW: 2 };
-                return (order[a.priority] || 2) - (order[b.priority] || 2);
-            });
+            // Sort by priority only on initial render (not when user is sorting columns)
+            if (!window._gapUserSorted) {
+                gaps.sort((a, b) => {
+                    const order = { HIGH: 0, MEDIUM: 1, LOW: 2 };
+                    return (order[a.priority] || 2) - (order[b.priority] || 2);
+                });
+            }
             
             table.innerHTML = gaps.map(gap => {
                 const posClass = (pos) => {
@@ -1989,6 +1997,8 @@
         
         function sortGapTable(column) {
             if (!window.currentGapData) return;
+            
+            window._gapUserSorted = true;
             
             // Toggle direction if same column
             if (gapSortColumn === column) {
@@ -2042,6 +2052,45 @@
             
             window.currentGapData = gaps;
             renderKeywordGapTable(gaps);
+        }
+        
+        async function syncKeywordsFromSemrush() {
+            if (!currentClient) {
+                alert('Please select a client first');
+                return;
+            }
+            
+            const btn = document.getElementById('syncKwBtn');
+            const origHtml = btn.innerHTML;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i>Syncing...';
+            btn.disabled = true;
+            
+            try {
+                const res = await fetch(`${API_URL}/api/semrush/sync-keywords/${currentClient.id}`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
+                });
+                
+                const data = await res.json();
+                
+                if (data.error) {
+                    alert('Sync failed: ' + data.error);
+                } else {
+                    alert(`✓ Synced ${data.synced} new keywords from SEMrush!\n\nTotal from SEMrush: ${data.total_from_semrush}\nPrimary keywords: ${data.primary_count}\nSecondary keywords: ${data.secondary_count}`);
+                    
+                    // Reload client data to get updated keywords
+                    await loadClient(currentClient.id);
+                    
+                    // Auto-run gap analysis with new keywords
+                    analyzeKeywordGap();
+                }
+            } catch (e) {
+                console.error('Sync failed:', e);
+                alert('Failed to sync keywords. Check console for details.');
+            } finally {
+                btn.innerHTML = origHtml;
+                btn.disabled = false;
+            }
         }
         
         async function createContentFor(keyword, btn) {

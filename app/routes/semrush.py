@@ -530,91 +530,162 @@ def client_keyword_gap(current_user, client_id):
             'source': 'simulated'
         })
     
-    # Use real SEMRush data
+    # Use real SEMRush data - pull ALL organic keywords for the domain
     client_domain = client.website_url.replace('https://', '').replace('http://', '').split('/')[0] if client.website_url else ''
     competitor_domains = [c.domain for c in competitors]
     
-    if not client_domain or not competitor_domains:
+    if not client_domain:
         return jsonify({
-            'error': 'Client domain or competitors not configured',
+            'error': 'Client domain not configured',
             'gaps': []
         }), 400
     
-    result = semrush_service.get_keyword_gap(client_domain, competitor_domains, 50)  # Get more, then filter
+    # Step 1: Get ALL organic keywords for the client domain (up to 200)
+    client_keywords_result = semrush_service.get_domain_organic_keywords(client_domain, limit=200)
+    
+    if client_keywords_result.get('error'):
+        return jsonify(client_keywords_result), 500
+    
+    client_kw_map = {}
+    for kw in client_keywords_result.get('keywords', []):
+        client_kw_map[kw['keyword']] = kw
+    
+    # Step 2: Get organic keywords for each competitor
+    comp_kw_maps = []
+    for comp_domain in competitor_domains[:2]:
+        comp_result = semrush_service.get_domain_organic_keywords(comp_domain, limit=200)
+        comp_map = {}
+        for kw in comp_result.get('keywords', []):
+            comp_map[kw['keyword']] = kw
+        comp_kw_maps.append(comp_map)
+    
+    # Step 3: Merge into unified keyword set
+    all_keywords = set(client_kw_map.keys())
+    for comp_map in comp_kw_maps:
+        all_keywords.update(comp_map.keys())
+    
+    # Step 4: Build gap table
+    transformed_gaps = []
+    for kw in all_keywords:
+        client_data = client_kw_map.get(kw, {})
+        your_pos = client_data.get('position')
+        volume = client_data.get('volume', 0)
+        
+        comp1_pos = comp_kw_maps[0].get(kw, {}).get('position') if len(comp_kw_maps) > 0 else None
+        comp2_pos = comp_kw_maps[1].get(kw, {}).get('position') if len(comp_kw_maps) > 1 else None
+        
+        # Get volume from whichever source has it
+        if not volume and comp1_pos:
+            volume = comp_kw_maps[0].get(kw, {}).get('volume', 0)
+        if not volume and comp2_pos and len(comp_kw_maps) > 1:
+            volume = comp_kw_maps[1].get(kw, {}).get('volume', 0)
+        
+        # Calculate priority
+        y = your_pos or 999
+        c = comp1_pos or 999
+        if y > 20 and c <= 10:
+            priority = 'HIGH'
+        elif y > 10 and c <= 5:
+            priority = 'HIGH'
+        elif not your_pos and (comp1_pos or comp2_pos):
+            priority = 'HIGH'  # Competitor ranks, you don't
+        elif your_pos and comp1_pos and your_pos > comp1_pos + 10:
+            priority = 'MEDIUM'
+        else:
+            priority = 'LOW'
+        
+        transformed_gaps.append({
+            'keyword': kw,
+            'you': your_pos,
+            'comp1': comp1_pos,
+            'comp2': comp2_pos,
+            'volume': volume,
+            'priority': priority
+        })
+    
+    # Sort by volume desc by default
+    transformed_gaps.sort(key=lambda x: x.get('volume', 0) or 0, reverse=True)
+    
+    return jsonify({
+        'client_id': client_id,
+        'gaps': transformed_gaps[:100],  # Top 100 by volume
+        'competitors': competitor_domains,
+        'source': 'semrush',
+        'total_keywords': len(all_keywords),
+        'your_keywords': len(client_kw_map),
+        'filtered_by_industry': False
+    })
+
+
+@semrush_bp.route('/sync-keywords/<client_id>', methods=['POST'])
+@token_required
+def sync_keywords_from_semrush(current_user, client_id):
+    """
+    Pull ALL organic keywords from SEMrush and update client's keyword list
+    
+    POST /api/semrush/sync-keywords/{client_id}
+    """
+    from app.models.db_models import DBClient
+    
+    if not current_user.has_access_to_client(client_id):
+        return jsonify({'error': 'Access denied'}), 403
+    
+    client = DBClient.query.get(client_id)
+    if not client:
+        return jsonify({'error': 'Client not found'}), 404
+    
+    if not semrush_service.is_configured():
+        return jsonify({'error': 'SEMrush API not configured'}), 400
+    
+    client_domain = client.website_url.replace('https://', '').replace('http://', '').split('/')[0] if client.website_url else ''
+    if not client_domain:
+        return jsonify({'error': 'Client domain not configured'}), 400
+    
+    # Pull up to 200 organic keywords sorted by volume
+    result = semrush_service.get_domain_organic_keywords(client_domain, limit=200)
     
     if result.get('error'):
         return jsonify(result), 500
     
-    # Filter keywords by industry relevance
-    gaps = result.get('gap_keywords', []) or result.get('gaps', [])
-    industry = (client.industry or '').lower()
+    semrush_keywords = [kw['keyword'] for kw in result.get('keywords', []) if kw.get('position', 999) <= 100]
     
-    # Transform SEMRush data format to frontend format
-    # SEMRush returns: your_position, competitor_positions
-    # Frontend expects: you, comp1, comp2
-    transformed_gaps = []
-    for gap in gaps:
-        transformed = {
-            'keyword': gap.get('keyword', ''),
-            'volume': gap.get('volume', 0),
-            'you': gap.get('your_position') or gap.get('you'),  # Support both formats
-            'priority': gap.get('priority', 'MEDIUM')
-        }
-        
-        # Map competitor positions
-        comp_positions = gap.get('competitor_positions', {})
-        if comp_positions:
-            comp_list = list(comp_positions.values())
-            transformed['comp1'] = comp_list[0] if len(comp_list) > 0 else None
-            transformed['comp2'] = comp_list[1] if len(comp_list) > 1 else None
-        else:
-            transformed['comp1'] = gap.get('comp1')
-            transformed['comp2'] = gap.get('comp2')
-        
-        # Calculate priority based on position gap
-        your_pos = transformed.get('you') or 100
-        comp1_pos = transformed.get('comp1') or 100
-        if your_pos > 20 and comp1_pos <= 10:
-            transformed['priority'] = 'HIGH'
-        elif your_pos > 10 and comp1_pos <= 5:
-            transformed['priority'] = 'HIGH'
-        elif your_pos > comp1_pos + 10:
-            transformed['priority'] = 'MEDIUM'
-        else:
-            transformed['priority'] = 'LOW'
-            
-        transformed_gaps.append(transformed)
+    if not semrush_keywords:
+        return jsonify({'error': 'No keywords found for this domain', 'synced': 0}), 200
     
-    gaps = transformed_gaps
+    # Merge with existing keywords (don't remove manually added ones)
+    existing_primary = set(client.get_primary_keywords())
+    existing_secondary = set(client.get_secondary_keywords())
+    all_existing = existing_primary | existing_secondary
     
-    # Industry keyword filters - keep only relevant keywords
-    industry_filters = {
-        'dental': ['dental', 'dentist', 'teeth', 'tooth', 'orthodon', 'braces', 'implant', 'crown', 'filling', 'whitening', 'gum', 'oral', 'smile', 'cavity', 'root canal', 'extraction', 'cleaning', 'hygiene', 'periodon', 'enamel', 'veneer', 'denture'],
-        'dentist': ['dental', 'dentist', 'teeth', 'tooth', 'orthodon', 'braces', 'implant', 'crown', 'filling', 'whitening', 'gum', 'oral', 'smile', 'cavity', 'root canal', 'extraction', 'cleaning', 'hygiene', 'periodon', 'enamel', 'veneer', 'denture'],
-        'hvac': ['hvac', 'ac ', 'air condition', 'heating', 'cooling', 'furnace', 'heat pump', 'thermostat', 'duct', 'refrigerant', 'compressor', 'ventilation', 'climate', 'temperature'],
-        'plumbing': ['plumb', 'drain', 'pipe', 'water heater', 'faucet', 'toilet', 'sewer', 'leak', 'clog', 'sink', 'shower', 'bathroom', 'kitchen', 'disposal'],
-        'legal': ['lawyer', 'attorney', 'legal', 'law firm', 'injury', 'accident', 'divorce', 'criminal', 'defense', 'estate', 'bankruptcy', 'litigation', 'case', 'court'],
-        'roofing': ['roof', 'shingle', 'gutter', 'leak', 'repair', 'replace', 'storm damage', 'metal roof', 'tile'],
-        'electrical': ['electric', 'wiring', 'outlet', 'panel', 'circuit', 'lighting', 'generator', 'voltage'],
-    }
+    # New keywords from SEMrush that aren't already tracked
+    new_keywords = [kw for kw in semrush_keywords if kw not in all_existing]
     
-    # Get filter terms for this industry
-    filter_terms = industry_filters.get(industry, [])
+    # Top 20 by volume go to primary, rest to secondary
+    top_semrush = semrush_keywords[:20]
+    rest_semrush = semrush_keywords[20:]
     
-    if filter_terms:
-        # Filter to only keep industry-relevant keywords
-        filtered_gaps = []
-        for gap in gaps:
-            keyword = (gap.get('keyword') or '').lower()
-            # Check if keyword contains any industry-relevant term
-            if any(term in keyword for term in filter_terms):
-                filtered_gaps.append(gap)
-        gaps = filtered_gaps if filtered_gaps else gaps[:15]  # Fallback to first 15 if no matches
+    # Merge: keep existing primary + add top SEMrush keywords not already there
+    updated_primary = list(existing_primary)
+    for kw in top_semrush:
+        if kw not in existing_primary and kw not in existing_secondary:
+            updated_primary.append(kw)
+    
+    updated_secondary = list(existing_secondary)
+    for kw in rest_semrush:
+        if kw not in existing_primary and kw not in existing_secondary:
+            updated_secondary.append(kw)
+    
+    # Save
+    client.primary_keywords = ', '.join(updated_primary[:50])  # Cap at 50 primary
+    client.secondary_keywords = ', '.join(updated_secondary[:100])  # Cap at 100 secondary
+    
+    db.session.commit()
     
     return jsonify({
-        'client_id': client_id,
-        'gaps': gaps[:30],  # Limit to 30 results
-        'competitors': competitor_domains,
-        'source': 'semrush',
-        'filtered_by_industry': bool(filter_terms)
+        'synced': len(new_keywords),
+        'total_from_semrush': len(semrush_keywords),
+        'primary_count': len(updated_primary),
+        'secondary_count': len(updated_secondary),
+        'new_keywords': new_keywords[:20],  # Preview of what was added
+        'source': 'semrush'
     })
