@@ -1207,6 +1207,70 @@ def get_content(current_user, content_id):
     return jsonify(content.to_dict())
 
 
+@content_bp.route('/manual-create', methods=['POST'])
+@token_required
+def manual_create_blog(current_user):
+    """
+    Manually create a blog post (not AI-generated)
+    
+    POST /api/content/manual-create
+    Body: { client_id, title, body, primary_keyword, tags, meta_title, meta_description, featured_image_url, status }
+    """
+    if not current_user.can_generate_content:
+        return jsonify({'error': 'Permission denied'}), 403
+    
+    data = request.get_json(silent=True) or {}
+    
+    client_id = data.get('client_id')
+    title = data.get('title', '').strip()
+    body = data.get('body', '').strip()
+    
+    if not client_id:
+        return jsonify({'error': 'client_id is required'}), 400
+    if not title:
+        return jsonify({'error': 'title is required'}), 400
+    if not body:
+        return jsonify({'error': 'body is required'}), 400
+    
+    if not current_user.has_access_to_client(client_id):
+        return jsonify({'error': 'Access denied'}), 403
+    
+    from app.models.db_models import DBBlogPost
+    import json
+    
+    # Create the blog post
+    blog_post = DBBlogPost(client_id=client_id, title=title)
+    blog_post.body = body
+    blog_post.word_count = len(body.split())
+    blog_post.primary_keyword = data.get('primary_keyword', '')
+    blog_post.meta_title = data.get('meta_title', title)[:500]
+    blog_post.meta_description = data.get('meta_description', '')[:500]
+    blog_post.featured_image_url = data.get('featured_image_url')
+    blog_post.status = data.get('status', 'draft')
+    
+    # Handle tags
+    tags = data.get('tags', [])
+    if isinstance(tags, list):
+        blog_post.tags = json.dumps(tags)
+    elif isinstance(tags, str):
+        blog_post.tags = tags
+    
+    # Generate slug from title
+    import re
+    slug = re.sub(r'[^a-z0-9]+', '-', title.lower()).strip('-')
+    blog_post.slug = slug
+    
+    # Set excerpt from first ~160 chars of body text (strip HTML)
+    import re as re2
+    plain_text = re2.sub(r'<[^>]+>', '', body)
+    blog_post.excerpt = plain_text[:160].strip()
+    
+    # Save
+    data_service.save_blog_post(blog_post)
+    
+    return jsonify(blog_post.to_dict()), 201
+
+
 @content_bp.route('/<content_id>', methods=['PUT'])
 @token_required
 def update_content(current_user, content_id):
