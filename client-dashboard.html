@@ -3834,114 +3834,6 @@
 
         </div>
     </div>
-    <!-- Create Blog Post Modal -->
-    <div id="createBlogModal" class="hidden fixed inset-0 bg-black/90 z-50 overflow-y-auto"
-        onclick="if(event.target === this) closeCreateBlogModal()">
-        <div class="max-w-4xl mx-auto py-8 px-4">
-            <div class="glass-light rounded-2xl overflow-hidden fade-in" onclick="event.stopPropagation()">
-                <div class="bg-gradient-to-r from-green-600 to-emerald-600 p-6">
-                    <div class="flex items-center justify-between">
-                        <div>
-                            <h1 class="text-2xl font-bold text-white"><i class="fas fa-plus-circle mr-2"></i>Create Blog Post</h1>
-                            <p class="text-white/70 text-sm mt-1">Write and publish a blog post manually</p>
-                        </div>
-                        <button onclick="closeCreateBlogModal()" class="p-2 hover:bg-white/20 rounded-lg transition">
-                            <i class="fas fa-times text-white text-xl"></i>
-                        </button>
-                    </div>
-                </div>
-                <div class="p-6 space-y-5">
-                    <!-- Title -->
-                    <div>
-                        <label class="block text-sm font-medium text-gray-300 mb-2">Post Title <span class="text-red-400">*</span></label>
-                        <input type="text" id="createBlogTitle" placeholder="Enter your blog post title..."
-                            class="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-green-500 text-lg">
-                    </div>
-                    
-                    <!-- Keyword & Tags Row -->
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                            <label class="block text-sm font-medium text-gray-300 mb-2">Primary Keyword</label>
-                            <input type="text" id="createBlogKeyword" placeholder="e.g., emergency electrician"
-                                class="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-green-500">
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-300 mb-2">Tags <span class="text-gray-500 text-xs">(comma separated)</span></label>
-                            <input type="text" id="createBlogTags" placeholder="e.g., tips, how-to, guide"
-                                class="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-green-500">
-                        </div>
-                    </div>
-
-                    <!-- Meta Title & Description -->
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                            <label class="block text-sm font-medium text-gray-300 mb-2">Meta Title <span class="text-gray-500 text-xs">(SEO)</span></label>
-                            <input type="text" id="createBlogMetaTitle" placeholder="SEO title (auto-filled from title)"
-                                class="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-green-500">
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-300 mb-2">Meta Description <span class="text-gray-500 text-xs">(SEO)</span></label>
-                            <input type="text" id="createBlogMetaDesc" placeholder="Brief description for search engines"
-                                class="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-green-500">
-                        </div>
-                    </div>
-
-                    <!-- Featured Image URL -->
-                    <div>
-                        <label class="block text-sm font-medium text-gray-300 mb-2">Featured Image URL <span class="text-gray-500 text-xs">(optional)</span></label>
-                        <input type="url" id="createBlogImageUrl" placeholder="https://example.com/image.jpg"
-                            class="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-green-500">
-                    </div>
-
-                    <!-- Body Content -->
-                    <div>
-                        <label class="block text-sm font-medium text-gray-300 mb-2">Post Content <span class="text-red-400">*</span></label>
-                        <p class="text-xs text-gray-500 mb-2">Supports HTML formatting. Use headings (h2, h3), paragraphs, lists, bold, links, etc.</p>
-                        <textarea id="createBlogBody" rows="16" placeholder="Write your blog post content here...
-
-You can use HTML tags like:
-<h2>Section Heading</h2>
-<p>Paragraph text with <strong>bold</strong> and <a href='#'>links</a>.</p>
-<ul><li>List item</li></ul>"
-                            class="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-green-500 font-mono text-sm leading-relaxed"></textarea>
-                    </div>
-
-                    <!-- Save Status Row -->
-                    <div class="flex items-center gap-3">
-                        <label class="text-sm font-medium text-gray-300">Save as:</label>
-                        <select id="createBlogStatus"
-                            class="px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:border-green-500">
-                            <option value="draft">Draft</option>
-                            <option value="approved">Approved</option>
-                            <option value="published">Published</option>
-                        </select>
-                    </div>
-
-                    <!-- Action Buttons -->
-                    <div class="flex flex-wrap items-center justify-between gap-3 pt-4 border-t border-white/10">
-                        <button onclick="closeCreateBlogModal()" class="px-5 py-2.5 bg-white/10 hover:bg-white/20 text-gray-300 rounded-lg text-sm transition">
-                            Cancel
-                        </button>
-                        <div class="flex items-center gap-2">
-                            <button onclick="saveManualBlog('draft')" id="createBlogSaveBtn"
-                                class="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition">
-                                <i class="fas fa-save mr-1"></i>Save Draft
-                            </button>
-                            <button onclick="saveManualBlog('approved')"
-                                class="px-5 py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium transition">
-                                <i class="fas fa-check mr-1"></i>Save & Approve
-                            </button>
-                            <button onclick="saveAndPublishBlog()"
-                                class="px-5 py-2.5 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white rounded-lg text-sm font-medium transition">
-                                <i class="fab fa-wordpress mr-1"></i>Save & Publish
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
     <!-- Blog View/Edit Modal -->
     <div id="blogModal" class="hidden fixed inset-0 bg-black/90 z-50 overflow-y-auto"
         onclick="if(event.target === this) closeBlogModal()">
@@ -10033,66 +9925,34 @@ You can use HTML tags like:
         function closeBlogModal() {
             document.getElementById('blogModal').classList.add('hidden');
             document.body.style.overflow = '';
+            
+            // If we were creating a new blog and user closes without saving, delete the empty post
+            if (window._isNewBlogPost && currentBlog && currentBlog.id) {
+                // Only delete if body is still empty (user didn't save)
+                const editorContent = document.getElementById('modalBodyEdit')?.innerHTML?.trim() || '';
+                const plainText = editorContent.replace(/<[^>]+>/g, '').trim();
+                if (!plainText) {
+                    // Silently delete the empty placeholder post
+                    fetch(`${API_URL}/api/content/${currentBlog.id}`, {
+                        method: 'DELETE',
+                        headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
+                    }).then(() => loadBlogs()).catch(() => {});
+                }
+            }
+            window._isNewBlogPost = false;
         }
 
         // ==========================================
         // MANUAL BLOG POST CREATION
         // ==========================================
 
-        function openCreateBlogModal() {
+        async function openCreateBlogModal() {
             if (!currentClient) {
                 alert('Please select a client first');
                 return;
             }
-            // Clear form
-            document.getElementById('createBlogTitle').value = '';
-            document.getElementById('createBlogKeyword').value = '';
-            document.getElementById('createBlogTags').value = '';
-            document.getElementById('createBlogMetaTitle').value = '';
-            document.getElementById('createBlogMetaDesc').value = '';
-            document.getElementById('createBlogImageUrl').value = '';
-            document.getElementById('createBlogBody').value = '';
-            document.getElementById('createBlogStatus').value = 'draft';
-            
-            document.getElementById('createBlogModal').classList.remove('hidden');
-            document.body.style.overflow = 'hidden';
-            
-            // Auto-focus title
-            setTimeout(() => document.getElementById('createBlogTitle').focus(), 200);
-        }
 
-        function closeCreateBlogModal() {
-            document.getElementById('createBlogModal').classList.add('hidden');
-            document.body.style.overflow = '';
-        }
-
-        async function saveManualBlog(status) {
-            const title = document.getElementById('createBlogTitle').value.trim();
-            const body = document.getElementById('createBlogBody').value.trim();
-            
-            if (!title) {
-                alert('Please enter a title');
-                document.getElementById('createBlogTitle').focus();
-                return;
-            }
-            if (!body) {
-                alert('Please enter post content');
-                document.getElementById('createBlogBody').focus();
-                return;
-            }
-
-            const keyword = document.getElementById('createBlogKeyword').value.trim();
-            const tagsRaw = document.getElementById('createBlogTags').value.trim();
-            const tags = tagsRaw ? tagsRaw.split(',').map(t => t.trim()).filter(Boolean) : [];
-            const metaTitle = document.getElementById('createBlogMetaTitle').value.trim() || title;
-            const metaDesc = document.getElementById('createBlogMetaDesc').value.trim();
-            const imageUrl = document.getElementById('createBlogImageUrl').value.trim();
-
-            const saveBtn = document.getElementById('createBlogSaveBtn');
-            const origHtml = saveBtn.innerHTML;
-            saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i>Saving...';
-            saveBtn.disabled = true;
-
+            // Create a blank blog post via API, then open it in the existing blog modal in edit mode
             try {
                 const res = await fetch(`${API_URL}/api/content/manual-create`, {
                     method: 'POST',
@@ -10102,68 +9962,61 @@ You can use HTML tags like:
                     },
                     body: JSON.stringify({
                         client_id: currentClient.id,
-                        title,
-                        body,
-                        primary_keyword: keyword,
-                        tags,
-                        meta_title: metaTitle,
-                        meta_description: metaDesc,
-                        featured_image_url: imageUrl || null,
-                        status: status || 'draft'
+                        title: 'Untitled Post',
+                        body: '<p></p>',
+                        status: 'draft'
                     })
                 });
 
                 const data = await res.json();
-                if (res.ok) {
-                    closeCreateBlogModal();
-                    await loadBlogs();
-                    showToast(`Blog post "${title}" saved as ${status}!`, 'success');
-                    return data;
-                } else {
-                    alert(data.error || 'Failed to save blog post');
-                    return null;
+                if (!res.ok) {
+                    alert(data.error || 'Failed to create blog post');
+                    return;
                 }
-            } catch (e) {
-                console.error('Save blog failed:', e);
-                alert('Failed to save blog post. Check console for details.');
-                return null;
-            } finally {
-                saveBtn.innerHTML = origHtml;
-                saveBtn.disabled = false;
-            }
-        }
 
-        async function saveAndPublishBlog() {
-            // First save as approved
-            const result = await saveManualBlog('approved');
-            if (!result || !result.id) return;
+                // Add to local blog list
+                allBlogs.unshift(data);
+                renderBlogs();
 
-            // Check if WordPress is configured
-            if (!currentClient.blog_url) {
-                alert('Blog saved as Approved! To publish to WordPress, configure your blog URL in Settings.');
-                return;
-            }
+                // Mark this as a new post creation flow
+                window._isNewBlogPost = true;
 
-            // Now publish to WordPress
-            try {
-                showToast('Publishing to WordPress...', 'info');
-                const res = await fetch(`${API_URL}/api/content/${result.id}/publish-wordpress`, {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${AUTH_TOKEN}`,
-                        'Content-Type': 'application/json'
+                // Open in the standard blog modal
+                openBlogModal(data.id);
+
+                // Immediately enter edit mode with blank fields
+                setTimeout(() => {
+                    enterEditMode();
+
+                    // Clear the title field for fresh input
+                    const titleEdit = document.getElementById('modalTitleEdit');
+                    if (titleEdit) {
+                        titleEdit.value = '';
+                        titleEdit.placeholder = 'Enter your blog post title...';
+                        titleEdit.focus();
                     }
-                });
-                const data = await res.json();
-                if (res.ok) {
-                    showToast(`Published to WordPress! ${data.url || ''}`, 'success');
-                    await loadBlogs();
-                } else {
-                    alert(`Saved but WordPress publish failed: ${data.error || 'Unknown error'}\n\nThe post is saved as Approved — you can try publishing later.`);
-                }
+
+                    // Clear the editor body
+                    const bodyEdit = document.getElementById('modalBodyEdit');
+                    if (bodyEdit) {
+                        bodyEdit.innerHTML = '';
+                    }
+                    const bodySource = document.getElementById('modalBodySource');
+                    if (bodySource) {
+                        bodySource.value = '';
+                    }
+
+                    // Clear meta fields
+                    const metaTitle = document.getElementById('modalMetaTitleEdit');
+                    if (metaTitle) metaTitle.value = '';
+                    const metaDesc = document.getElementById('modalMetaDescEdit');
+                    if (metaDesc) metaDesc.value = '';
+
+                    updateEditWordCount();
+                }, 150);
             } catch (e) {
-                console.error('WordPress publish failed:', e);
-                alert('Post saved but WordPress publish failed. You can try publishing from the blog editor.');
+                console.error('Create blog failed:', e);
+                alert('Failed to create blog post. Check console for details.');
             }
         }
 
@@ -11526,6 +11379,9 @@ You can use HTML tags like:
 
                 // Refresh blog list
                 renderBlogs();
+
+                // Clear new blog flag so close doesn't delete it
+                window._isNewBlogPost = false;
 
                 showToast('Blog saved successfully!', 'success');
 
