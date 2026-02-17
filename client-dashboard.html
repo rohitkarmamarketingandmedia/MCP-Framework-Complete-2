@@ -3901,12 +3901,12 @@
                             </button>
                         </div>
                         <div class="flex flex-wrap gap-1 mt-2">
-                            <button onclick="document.getElementById('blogAiRefinePrompt').value='Improve the introduction to be more engaging'" class="px-2 py-0.5 bg-white/10 hover:bg-white/20 text-white/70 rounded text-xs transition">Better Intro</button>
-                            <button onclick="document.getElementById('blogAiRefinePrompt').value='Add more relevant keywords naturally'" class="px-2 py-0.5 bg-white/10 hover:bg-white/20 text-white/70 rounded text-xs transition">Add Keywords</button>
-                            <button onclick="document.getElementById('blogAiRefinePrompt').value='Make the content more concise'" class="px-2 py-0.5 bg-white/10 hover:bg-white/20 text-white/70 rounded text-xs transition">Shorten</button>
-                            <button onclick="document.getElementById('blogAiRefinePrompt').value='Expand with more details and examples'" class="px-2 py-0.5 bg-white/10 hover:bg-white/20 text-white/70 rounded text-xs transition">Expand</button>
-                            <button onclick="document.getElementById('blogAiRefinePrompt').value='Improve the conclusion with a stronger call-to-action'" class="px-2 py-0.5 bg-white/10 hover:bg-white/20 text-white/70 rounded text-xs transition">Better CTA</button>
-                            <button onclick="document.getElementById('blogAiRefinePrompt').value='Fix any grammar and improve readability'" class="px-2 py-0.5 bg-white/10 hover:bg-white/20 text-white/70 rounded text-xs transition">Fix Grammar</button>
+                            <button onclick="document.getElementById('blogAiRefinePrompt').value='Rewrite the introduction to hook the reader with a specific scenario or surprising fact. Make them want to keep reading.'" class="px-2 py-0.5 bg-white/10 hover:bg-white/20 text-white/70 rounded text-xs transition">Better Intro</button>
+                            <button onclick="document.getElementById('blogAiRefinePrompt').value='Add the target keyword and related terms more naturally throughout. Find places where keyword variations fit organically.'" class="px-2 py-0.5 bg-white/10 hover:bg-white/20 text-white/70 rounded text-xs transition">Add Keywords</button>
+                            <button onclick="document.getElementById('blogAiRefinePrompt').value='Cut all filler, marketing fluff, and generic sentences. Keep only genuinely useful information. Reduce word count by 30%.'" class="px-2 py-0.5 bg-white/10 hover:bg-white/20 text-white/70 rounded text-xs transition">Cut Fluff</button>
+                            <button onclick="document.getElementById('blogAiRefinePrompt').value='Add more specific details: real price ranges, exact timelines, concrete examples, and local references. Replace any vague claims with specifics.'" class="px-2 py-0.5 bg-white/10 hover:bg-white/20 text-white/70 rounded text-xs transition">Add Specifics</button>
+                            <button onclick="document.getElementById('blogAiRefinePrompt').value='Rewrite the conclusion and call-to-action to feel consultative and helpful, not salesy. Give the reader a clear next step.'" class="px-2 py-0.5 bg-white/10 hover:bg-white/20 text-white/70 rounded text-xs transition">Better CTA</button>
+                            <button onclick="document.getElementById('blogAiRefinePrompt').value='Make the tone more conversational and human. Add rhetorical questions, use you/your more, break up long paragraphs, and remove any AI-sounding phrases.'" class="px-2 py-0.5 bg-white/10 hover:bg-white/20 text-white/70 rounded text-xs transition">More Human</button>
                         </div>
                     </div>
                 </div>
@@ -11437,7 +11437,7 @@
                         current_body: currentContent,
                         current_meta_title: currentBlog.meta_title || '',
                         current_meta_description: currentBlog.meta_description || '',
-                        keyword: currentBlog.keyword || '',
+                        keyword: currentBlog.primary_keyword || '',
                         refinement_prompt: prompt,
                         client_id: currentClient.id
                     })

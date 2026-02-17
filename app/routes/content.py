@@ -2274,7 +2274,7 @@ Please review and update the content accordingly.
 @token_required
 def refine_content_with_ai(current_user):
     """
-    Refine blog content using AI
+    Refine blog content using AI — makes real, substantive changes
     
     POST /api/content/refine
     {
@@ -2312,40 +2312,52 @@ def refine_content_with_ai(current_user):
         current_meta_description = data.get('current_meta_description', '')
         keyword = data.get('keyword', '')
         
-        # Build the refinement prompt
-        refine_prompt = f"""You are an expert content editor refining blog content.
+        # Send the full body — don't truncate
+        body_for_prompt = current_body[:12000]  # ~3000 words max for context
+        
+        refine_prompt = f"""You are an expert blog editor making REAL, SUBSTANTIVE changes to this article.
 
-CURRENT CONTENT:
-- Title: {current_title}
-- Target Keyword: {keyword}
-- Meta Title: {current_meta_title}
-- Meta Description: {current_meta_description}
+THE USER WANTS: {prompt}
 
-BODY CONTENT:
-{current_body[:5000]}
+This is NOT a light edit. You must actually transform the content based on the request above.
+Read the entire article, understand it, then rewrite the parts that need changing.
 
-BUSINESS CONTEXT:
-- Business: {client.business_name}
-- Industry: {client.industry}
-- Location: {client.geo}
+CURRENT ARTICLE:
+Title: {current_title}
+Keyword: {keyword}
+Business: {client.business_name} ({client.industry}) in {client.geo}
 
-REFINEMENT REQUEST: {prompt}
+FULL BODY:
+{body_for_prompt}
 
-Return the refined content as JSON with these exact keys:
-- title (the blog title)
-- body (the full HTML body content - preserve any HTML formatting)
-- meta_title (max 70 chars, SEO optimized)
-- meta_description (max 160 chars, SEO optimized)
+CURRENT META:
+Meta Title: {current_meta_title}
+Meta Description: {current_meta_description}
 
-Apply the requested changes while:
-1. Keeping the same general structure
-2. Preserving HTML formatting
-3. Maintaining keyword relevance
-4. Keeping a natural, engaging tone
+INSTRUCTIONS FOR REFINEMENT:
+1. Actually make the changes the user requested — don't just tweak a few words
+2. If they say "improve intro" — rewrite the entire introduction with a compelling hook
+3. If they say "add keywords" — find natural places to weave "{keyword}" and related terms
+4. If they say "make shorter" — cut the fluff ruthlessly, keep only the valuable parts  
+5. If they say "expand" — add genuinely new information, examples, or details
+6. If they say "more engaging" — add questions, scenarios, specific examples, conversational tone
+7. If they say "fix grammar" — fix every error and improve sentence flow
+8. If they say "better CTA" — rewrite the calls-to-action to be compelling but not pushy
+9. Preserve ALL HTML formatting tags (h2, h3, p, a, ul, li, strong, em, div, etc.)
+10. Preserve all internal links (<a href="...">) exactly as they are
+11. Preserve CTA div blocks (class="cta-box") — you can edit the text inside them
+12. Keep the overall word count similar unless the user asks to expand or shorten
+13. Update the meta_title and meta_description to match the refined content
 
-Return ONLY valid JSON, no markdown code blocks."""
+Return the COMPLETE refined article as JSON with these exact keys:
+- "title": the blog title (update if the refinement warrants it)
+- "body": the FULL HTML body content — return the COMPLETE article, not a summary
+- "meta_title": max 70 chars, SEO optimized
+- "meta_description": max 160 chars, SEO optimized
 
-        result = ai_service.generate_raw(refine_prompt, max_tokens=4000)
+Return ONLY valid JSON. No markdown code blocks. No commentary."""
+
+        result = ai_service.generate_raw(refine_prompt, max_tokens=8000)
         
         # Parse JSON response
         if isinstance(result, str):

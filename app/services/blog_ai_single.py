@@ -983,17 +983,24 @@ OUTPUT DISCIPLINE
 * JSON must always be valid when requested
 
 DEFAULT VOICE (LOCKED)
-* Expert
-* Local
-* Calm
-* Precise
-* Human
-* Professional
+* Knowledgeable neighbor, not a brochure
+* Conversational but authoritative
+* Specific and practical
+* Honest about trade-offs and costs
+* Uses "you/your" naturally
 
 Write as if:
+* You're the most experienced person in {req.city if hasattr(req, 'city') else 'the area'} for this topic
 * Google may quote you verbatim
-* A regulator could read it
-* A peer professional would respect it
+* A homeowner is reading this to make a real decision
+* You'd rather lose a sale than give bad advice
+
+ANTI-GENERIC RULES (CRITICAL):
+* NEVER write a "benefits / process / pricing / why choose us" formula blog
+* NEVER use phrases like "In today's fast-paced world", "When it comes to", "Look no further", "second to none"
+* NEVER write a "Why Choose [Company]" section — earn trust through expertise instead
+* EVERY paragraph must contain specific, useful information — not filler
+* If a sentence could apply to any company in any city, DELETE IT and write something specific
 
 OUTPUT: Return ONLY valid JSON. No markdown code blocks."""
 
@@ -1131,56 +1138,50 @@ LOCAL SEO GUARDRAILS:
 - Do NOT reference nearby cities, counties, or regions
 - Local references must be accurate and relevant
 
-===== REQUIRED STRUCTURE (EXACT ORDER) =====
+===== CONTENT APPROACH (CRITICAL — READ CAREFULLY) =====
 
-**CRITICAL: H2 HEADING RULES**
+**ANTI-GENERIC MANDATE**: DO NOT write a cookie-cutter "benefits/process/pricing/why choose us" article.
+Instead, write like a knowledgeable LOCAL EXPERT who genuinely wants to help the reader.
+
+Think about what a real person searching "{keyword}" in {req.city} actually needs to know.
+What specific, useful, non-obvious information would earn their trust?
+
+WRITING PRINCIPLES:
+1. LEAD WITH INSIGHT, NOT MARKETING — Open with something the reader doesn't already know. A local trend, a common mistake, a cost-saving tip, a seasonal factor specific to {req.city}.
+2. BE SPECIFIC — Use real numbers, real timelines, real scenarios. "Most {req.city} homeowners pay $X-$Y" beats "affordable pricing." "The process takes 2-4 hours" beats "quick service."
+3. TELL STORIES — Reference real situations: "When a {req.city} homeowner discovers X, the first instinct is Y. Here's what actually matters..."
+4. VARY YOUR STRUCTURE — Don't follow the same boring template. Depending on the topic, you might organize around:
+   - Common mistakes people make (and how to avoid them)
+   - A step-by-step decision guide for the reader
+   - Comparison of options (DIY vs. professional, material A vs. B)
+   - Seasonal/timing considerations specific to {req.city}
+   - What to look for, what to ask, red flags to watch for
+   - Real cost breakdowns with explanations
+5. WRITE CONVERSATIONALLY — Use "you/your" naturally. Ask rhetorical questions. Break up walls of text. Make it feel like advice from a trusted neighbor, not a brochure.
+6. EARN THE CTA — Don't pitch {req.company_name} until you've given genuine value. The reader should think "these people know what they're talking about" before any mention of hiring you.
+
+REQUIRED ELEMENTS (weave naturally — don't use these as section headers):
+- Primary keyword in first 100 words and naturally throughout
+- At least 4-6 H2 sections with SHORT, descriptive headings (5-8 words)
+- H3 sub-sections where it helps readability
+- At least 2-3 internal links woven into relevant paragraphs
+- ONE mention of {req.company_name} capabilities (not a whole section about "why choose us")
+- ONE mid-article CTA (subtle, consultative): {mid_cta}
+- ONE end-of-article CTA (clear, action-oriented): {bottom_cta}
+- Local references to {req.city}, {req.state} where genuinely relevant (not forced)
+
+H2 HEADING RULES:
 - H2 headings should be SHORT and DESCRIPTIVE (5-10 words max)
-- DO NOT use the full keyword in H2 headings
-- DO NOT add city name to H2 headings if keyword already contains city
-- Good H2: "Key Benefits", "Our Process", "Pricing Guide"
-- Bad H2: "Benefits of Soak Up Summer With Our Top Custom Lake Home Ideas In Brainerd"
-
-1. INTRODUCTION (≈250 words)
-   - Introduce the service and primary keyword
-   - Explain why people in {req.city}, {req.state} are searching now
-   - Reference environmental triggers (weather, season, economy)
-   - Primary keyword in first sentence
-
-2. BENEFITS (≈300 words total)
-   - EXACTLY 3 benefits
-   - ≈100 words each
-   - Outcome-focused, specific results
-   - H2: "Key Benefits" or "Benefits of [2-3 word topic]"
-   
-3. OUR PROCESS (≈200 words)
-   - Explain how {req.company_name} delivers the service
-   - H2: "Our Process" or "How It Works"
-   - Insert internal links contextually
-
-4. PRICING AND COST FACTORS (≈200 words)
-   - H2: "Pricing Guide" or "Cost Factors"
-   - Explain pricing drivers specific to {req.city}, {req.state}
-   - Include actual price ranges when possible
-   - Emphasize transparency
-   - **INSERT MID-ARTICLE CTA HERE** (after Cost section):
-   {mid_cta}
-
-5. WHY CHOOSE {req.company_name} (≈200 words)
-   - H2: "Why Choose {req.company_name}"
-   - Align with business positioning
-   - Emphasize trust, experience, credibility
-   - Include internal links naturally
+- Make headings USEFUL — they should tell the reader what they'll learn
+- Good: "What Affects the Cost", "When To Call a Professional", "Signs You Need Repair"
+- Bad: "Benefits of Service Name in City Name" (too long, too keyword-stuffed)
+{f'- DO NOT add "{req.city}" to headings — the keyword already contains the city name!' if keyword_has_city else f'- Include "{req.city}" in 2-3 headings where natural'}
 
 6. FREQUENTLY ASKED QUESTIONS
-   - Do NOT put in body - put in faq_items array only
+   - Do NOT put in body — put in faq_items array only
    - EXACTLY {faq_count} FAQs
-   - Questions must reflect real user intent
-
-7. GET STARTED TODAY (≈150 words)
-   - H2: "Get Started Today" or "Contact Us"
-   - Reinforce urgency and relevance
-   - **INSERT BOTTOM CTA HERE** (at very end, after conclusion):
-   {bottom_cta}
+   - Questions must be REAL questions people would type into Google
+   - Answers must be specific and genuinely helpful (60-80 words each)
 
 ===== META REQUIREMENTS =====
 Meta Title: 50-60 characters. MUST be unique and compelling — NOT just "Keyword | Company Name".
@@ -1197,11 +1198,11 @@ Meta Description: 150-160 characters. MUST be unique per blog — NOT a generic 
 Return ONLY valid JSON:
 
 {{
-    "title": "[Compelling blog post title — descriptive and engaging, 40-70 chars]",
+    "title": "[Compelling blog post title — specific and engaging, NOT generic, 40-70 chars]",
     "meta_title": "[Unique, compelling 50-60 char title with keyword — NOT just Keyword | Company]",
     "meta_description": "[Unique 150-160 char description with specific benefit, keyword, and CTA — NOT a generic template]",
     "h1": "{keyword.title()}",
-    "body": "<p>Introduction with keyword in first sentence...</p><h2>Key Benefits</h2><p>Benefit content...</p><h2>Our Process</h2><p>Process content...</p>[MID CTA]<h2>Pricing and Cost Factors</h2><p>Pricing content...</p><h2>Why {req.city} Residents Choose {req.company_name}</h2><p>Why choose content...</p><h2>Get Started Today</h2><p>Conclusion...</p>[BOTTOM CTA]",
+    "body": "<p>Engaging opening that hooks the reader with an insight or scenario...</p><h2>Short Descriptive Heading</h2><p>Genuinely helpful content...</p>...[MID CTA after 3rd or 4th section]...<h2>Final Section</h2><p>Wrap-up...</p>[BOTTOM CTA]",
     "faq_items": [
 {faq_example_items}
     ],
@@ -1211,23 +1212,23 @@ Return ONLY valid JSON:
 ===== FINAL VALIDATION CHECKLIST =====
 Before responding, verify:
 ☐ Word count ≥ {req.target_words}
-☐ Primary keyword "{keyword}" used naturally throughout
-☐ Minimum 3 internal links embedded contextually
-☐ One mid-article CTA present (after Process section)
-☐ One bottom CTA present (at end)
+☐ Content is GENUINELY USEFUL — not filler or marketing fluff
+☐ Article has a unique angle/structure — NOT the same benefits/process/pricing template
+☐ Specific numbers, timelines, and examples are included
+☐ Primary keyword "{keyword}" used naturally (not stuffed)
+☐ At least 2-3 internal links embedded contextually
+☐ One mid-article CTA (subtle, after 3rd-4th section)
+☐ One bottom CTA (at end)
 ☐ Only {req.city}, {req.state} referenced (no other cities)
-{f'☐ DO NOT add city "{req.city}" to headings - keyword already contains it!' if keyword_has_city else f'☐ City name in at least 3 H2/H3 headings'}
+{f'☐ DO NOT add city "{req.city}" to headings — keyword already contains it!' if keyword_has_city else f'☐ City name in 2-3 H2/H3 headings where natural'}
 ☐ JSON is valid and complete
-☐ No placeholders remain
 ☐ EXACTLY {faq_count} FAQs in faq_items array
-☐ Meta title is unique and compelling (NOT just "Keyword | Company Name")
-☐ Meta description is unique with a specific benefit (NOT a generic template)
+☐ Reads like expert advice, NOT like a marketing brochure
 
 IMPORTANT:
 - Write {req.target_words}+ words of REAL, helpful content
-- NO placeholder text
-- Include actual price ranges, timeframes, and specifics
-- Sound like a local expert, not a marketer
+- NO placeholder text or generic filler
+- Sound like a local expert giving honest advice, not a salesperson
 - Return ONLY JSON, no markdown blocks
 
 OUTPUT JSON:"""
