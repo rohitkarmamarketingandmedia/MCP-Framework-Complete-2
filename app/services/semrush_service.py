@@ -4,7 +4,10 @@ Competitor research, keyword data, and domain analytics
 """
 import os
 import requests
+import logging
 from typing import Dict, List, Any, Optional
+
+logger = logging.getLogger(__name__)
 
 
 class SEMRushService:
@@ -240,14 +243,6 @@ class SEMRushService:
     def get_domain_organic_keywords(self, domain: str, limit: int = 50, database: str = None) -> Dict[str, Any]:
         """
         Get keywords a domain ranks for organically
-        
-        Returns:
-            {
-                'domain': str,
-                'keywords': [
-                    {'keyword': str, 'position': int, 'volume': int, 'url': str, ...}
-                ]
-            }
         """
         database = database or self.default_database
         domain = self._clean_domain(domain)
@@ -267,7 +262,19 @@ class SEMRushService:
         if result.get('error'):
             return result
         
-        keywords = self._parse_domain_keywords(result.get('data', ''))
+        # Debug log raw data
+        raw = result.get('data', '')
+        lines = raw.strip().split('\n')
+        logger.info(f"domain_organic for {domain}: {len(lines)} lines")
+        if len(lines) >= 2:
+            logger.info(f"  Header: {lines[0]}")
+            logger.info(f"  First row: {lines[1]}")
+        
+        keywords = self._parse_domain_keywords(raw)
+        
+        logger.info(f"  Parsed {len(keywords)} keywords")
+        if keywords:
+            logger.info(f"  First parsed: {keywords[0]}")
         
         return {
             'domain': domain,
@@ -329,15 +336,18 @@ class SEMRushService:
         domain = self._clean_domain(domain)
         competitors = [self._clean_domain(c) for c in competitors[:4]]  # Max 4 competitors
         
-        # Build domains string: target|competitor1|competitor2
-        domains = '|'.join([domain] + competitors)
+        # Build domains string with SEMrush format
+        # For gap analysis: keywords where competitors rank but you don't rank well
+        # +|or|competitor1.com|+|or|competitor2.com|-|or|yourdomain.com
+        all_domains = [domain] + competitors
+        domains_str = '*|or|' + '|+|or|'.join(all_domains)
         
         params = {
             'type': 'domain_domains',
             'key': self.api_key,
-            'domains': domains,
+            'domains': domains_str,
             'database': database,
-            'export_columns': 'Ph,Nq,Cp,Co,Kd,P0,P1,P2,P3,P4',
+            'export_columns': 'Ph,Nq,Cp,Co,Kd,' + ','.join([f'P{i}' for i in range(len(all_domains))]),
             'display_limit': limit,
             'display_sort': 'nq_desc',
             'display_filter': '+|P0|Lt|11'  # Target domain not in top 10
@@ -362,38 +372,53 @@ class SEMRushService:
         Get ALL keywords across domain and competitors - no restrictive filters.
         Shows every keyword any of the domains rank for, with positions for all.
         
-        Returns:
-            {
-                'domain': str,
-                'competitors': [...],
-                'keywords': [
-                    {'keyword': str, 'volume': int, 'your_position': int, 'competitor_positions': {...}}
-                ]
-            }
+        SEMrush domain_domains format:
+        *|or|domain1.com|+|or|domain2.com|+|or|domain3.com
+        * = start with all keywords
+        +|or| = add organic keywords from this domain
+        -|or| = exclude organic keywords from this domain
         """
         database = database or self.default_database
         domain = self._clean_domain(domain)
         competitors = [self._clean_domain(c) for c in competitors[:4]]
         
-        domains = '|'.join([domain] + competitors)
+        # Build domains string with proper SEMrush format
+        # *|or|yourdomain.com|+|or|competitor1.com|+|or|competitor2.com
+        # This gets ALL keywords where ANY of the domains rank
+        all_domains = [domain] + competitors
+        domains_str = '*|or|' + '|+|or|'.join(all_domains)
+        
+        logger.info(f"domain_domains request: domains={domains_str}")
         
         params = {
             'type': 'domain_domains',
             'key': self.api_key,
-            'domains': domains,
+            'domains': domains_str,
             'database': database,
-            'export_columns': 'Ph,Nq,Cp,Co,Kd,P0,P1,P2,P3,P4',
+            'export_columns': 'Ph,Nq,Cp,Co,Kd,' + ','.join([f'P{i}' for i in range(len(all_domains))]),
             'display_limit': limit,
             'display_sort': 'nq_desc'
-            # No display_filter — get everything
         }
         
         result = self._make_request(params)
         
         if result.get('error'):
+            logger.warning(f"domain_domains error: {result.get('error')}")
             return result
         
+        # Log raw response
+        raw = result.get('data', '')
+        lines = raw.strip().split('\n')
+        logger.info(f"domain_domains response: {len(lines)} lines")
+        if len(lines) >= 2:
+            logger.info(f"  Header: {lines[0]}")
+            logger.info(f"  First row: {lines[1]}")
+        
         keywords = self._parse_keyword_gap(result.get('data', ''), competitors)
+        
+        logger.info(f"  Parsed {len(keywords)} keywords")
+        if keywords:
+            logger.info(f"  First parsed: {keywords[0]}")
         
         return {
             'domain': domain,

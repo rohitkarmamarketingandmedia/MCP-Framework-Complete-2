@@ -547,6 +547,8 @@ def client_keyword_gap(current_user, client_id):
         used_comparison = False
         
         if competitor_domains:
+            import logging
+            logging.getLogger(__name__).info(f"Trying domain_domains for {client_domain} vs {competitor_domains}")
             result = semrush_service.get_keyword_comparison(client_domain, competitor_domains, limit=200)
             
             # If domain_domains returns error or empty, fall back to individual domain_organic calls
@@ -617,6 +619,18 @@ def client_keyword_gap(current_user, client_id):
                 'count': len(merged_keywords)
             }
             used_comparison = False
+            
+            # Debug: log sample data
+            import logging
+            _log = logging.getLogger(__name__)
+            _log.info(f"Keyword gap fallback for {client_domain}: {len(merged_keywords)} merged keywords")
+            if merged_keywords:
+                sample = merged_keywords[0]
+                _log.info(f"  Sample keyword: {sample}")
+                _log.info(f"  Client keywords found: {len(client_kw_map)}")
+                if client_kw_map:
+                    first_client = list(client_kw_map.values())[0]
+                    _log.info(f"  First client kw data: {first_client}")
     except Exception as e:
         import logging, traceback
         logging.getLogger(__name__).error(f"Keyword gap exception for {client_id}: {e}\n{traceback.format_exc()}")
@@ -665,6 +679,17 @@ def client_keyword_gap(current_user, client_id):
     # Sort: HIGH priority first, then by volume
     priority_order = {'HIGH': 0, 'MEDIUM': 1, 'LOW': 2}
     transformed_gaps.sort(key=lambda x: (priority_order.get(x['priority'], 2), -(x.get('volume', 0) or 0)))
+    
+    # Debug log
+    import logging
+    _log = logging.getLogger(__name__)
+    _log.info(f"Keyword gap result: {len(transformed_gaps)} gaps for {client_id}")
+    if transformed_gaps:
+        _log.info(f"  First gap: {transformed_gaps[0]}")
+        with_pos = [g for g in transformed_gaps if g.get('you')]
+        _log.info(f"  Gaps with 'you' position: {len(with_pos)}")
+        with_vol = [g for g in transformed_gaps if g.get('volume')]
+        _log.info(f"  Gaps with volume: {len(with_vol)}")
     
     return jsonify({
         'client_id': client_id,
