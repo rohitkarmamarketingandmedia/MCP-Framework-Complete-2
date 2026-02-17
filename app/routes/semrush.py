@@ -5,6 +5,7 @@ Competitor research, keyword data, and domain analytics API
 from flask import Blueprint, request, jsonify
 from app.routes.auth import token_required
 from app.services.semrush_service import SEMRushService
+from app.database import db
 import os
 import requests
 
@@ -541,14 +542,34 @@ def client_keyword_gap(current_user, client_id):
         }), 400
     
     # Use domain_domains comparison for ALL shared keywords (no restrictive filter)
-    if competitor_domains:
-        result = semrush_service.get_keyword_comparison(client_domain, competitor_domains, limit=200)
-    else:
-        # No competitors — just pull organic keywords for the domain
-        result = semrush_service.get_domain_organic_keywords(client_domain, limit=200)
-    
-    if result.get('error'):
-        return jsonify(result), 500
+    try:
+        if competitor_domains:
+            result = semrush_service.get_keyword_comparison(client_domain, competitor_domains, limit=200)
+        else:
+            # No competitors — just pull organic keywords for the domain
+            result = semrush_service.get_domain_organic_keywords(client_domain, limit=200)
+        
+        if result.get('error'):
+            # Log but don't fail — fall back to simulated
+            import logging
+            logging.getLogger(__name__).warning(f"SEMrush keyword gap error for {client_domain}: {result.get('error')}")
+            return jsonify({
+                'client_id': client_id,
+                'gaps': [],
+                'competitors': competitor_domains,
+                'source': 'error',
+                'error': result.get('error')
+            })
+    except Exception as e:
+        import logging, traceback
+        logging.getLogger(__name__).error(f"Keyword gap exception for {client_id}: {e}\n{traceback.format_exc()}")
+        return jsonify({
+            'client_id': client_id,
+            'gaps': [],
+            'competitors': competitor_domains if competitor_domains else [],
+            'source': 'error',
+            'error': str(e)
+        }), 500
     
     # Transform to frontend format
     transformed_gaps = []
