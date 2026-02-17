@@ -519,6 +519,7 @@ class SEMRushService:
             return results
         
         for line in lines[1:]:  # Skip header
+            line = line.strip()  # Remove \r
             values = line.split(';')
             if len(values) >= 5:
                 results.append({
@@ -540,6 +541,7 @@ class SEMRushService:
             return results
         
         for line in lines[1:]:
+            line = line.strip()  # Remove \r
             values = line.split(';')
             if len(values) >= 7:
                 results.append({
@@ -563,6 +565,7 @@ class SEMRushService:
             return results
         
         for line in lines[1:]:
+            line = line.strip()  # Remove \r
             values = line.split(';')
             if len(values) >= 6:
                 results.append({
@@ -585,15 +588,26 @@ class SEMRushService:
             return results
         
         for line in lines[1:]:
+            line = line.strip()  # Remove \r and whitespace
             values = line.split(';')
             if len(values) >= 6:
-                your_pos_raw = int(values[5]) if len(values) > 5 and values[5].isdigit() else 0
+                # Helper to parse SEMrush integer values (may come as "57.00" or "0")
+                def parse_int(val):
+                    val = val.strip()
+                    if not val:
+                        return 0
+                    try:
+                        return int(float(val))
+                    except (ValueError, TypeError):
+                        return 0
+                
+                your_pos_raw = parse_int(values[5]) if len(values) > 5 else 0
                 gap = {
-                    'keyword': values[0],
-                    'volume': int(values[1]) if values[1].isdigit() else 0,
-                    'cpc': float(values[2]) if values[2] else 0.0,
-                    'competition': float(values[3]) if values[3] else 0.0,
-                    'difficulty': int(values[4]) if values[4].isdigit() else 0,
+                    'keyword': values[0].strip(),
+                    'volume': parse_int(values[1]),
+                    'cpc': float(values[2].strip()) if values[2].strip() else 0.0,
+                    'competition': float(values[3].strip()) if values[3].strip() else 0.0,
+                    'difficulty': parse_int(values[4]),
                     'your_position': your_pos_raw if your_pos_raw > 0 else None,  # 0 = not ranking
                     'competitor_positions': {}
                 }
@@ -602,7 +616,7 @@ class SEMRushService:
                 for i, comp in enumerate(competitors):
                     pos_idx = 6 + i
                     if len(values) > pos_idx:
-                        pos = int(values[pos_idx]) if values[pos_idx].isdigit() else 0
+                        pos = parse_int(values[pos_idx])
                         gap['competitor_positions'][comp] = pos if pos > 0 else None
                 
                 results.append(gap)
