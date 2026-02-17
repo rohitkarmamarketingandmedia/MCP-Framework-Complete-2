@@ -549,7 +549,7 @@ def client_keyword_gap(current_user, client_id):
         if competitor_domains:
             import logging
             logging.getLogger(__name__).info(f"Trying domain_domains for {client_domain} vs {competitor_domains}")
-            result = semrush_service.get_keyword_comparison(client_domain, competitor_domains, limit=200)
+            result = semrush_service.get_keyword_comparison(client_domain, competitor_domains, limit=500)
             
             # If domain_domains returns error or empty, fall back to individual domain_organic calls
             if result.get('error') or not result.get('keywords'):
@@ -676,9 +676,16 @@ def client_keyword_gap(current_user, client_id):
             'priority': priority
         })
     
-    # Sort: HIGH priority first, then by volume
-    priority_order = {'HIGH': 0, 'MEDIUM': 1, 'LOW': 2}
-    transformed_gaps.sort(key=lambda x: (priority_order.get(x['priority'], 2), -(x.get('volume', 0) or 0)))
+    # Sort: Keywords where you rank first (shows your positions), then high-priority gaps
+    # This matches SEMrush's default view which shows all rankings
+    def gap_sort_key(x):
+        has_you = 1 if x.get('you') else 2  # Keywords where you rank come first
+        priority_order = {'HIGH': 0, 'MEDIUM': 1, 'LOW': 2}
+        pri = priority_order.get(x.get('priority', 'LOW'), 2)
+        vol = -(x.get('volume', 0) or 0)
+        return (has_you, pri, vol)
+    
+    transformed_gaps.sort(key=gap_sort_key)
     
     # Debug log
     import logging
@@ -693,7 +700,7 @@ def client_keyword_gap(current_user, client_id):
     
     return jsonify({
         'client_id': client_id,
-        'gaps': transformed_gaps[:150],  # Top 150
+        'gaps': transformed_gaps[:200],  # Top 200
         'competitors': competitor_domains,
         'source': 'semrush',
         'total_keywords': result.get('count', len(transformed_gaps)),
