@@ -1495,10 +1495,10 @@ REMEMBER: Body must have {word_count}+ words AND at least 3 internal <a href> li
             temperature=agent.temperature
         )
     
-    def generate_raw(self, prompt: str, max_tokens: int = 2000) -> str:
+    def generate_raw(self, prompt: str, max_tokens: int = 2000, model: str = None) -> str:
         """Generate raw text response (for simple prompts)"""
         self._rate_limit_delay()
-        result = self._call_openai(prompt, max_tokens)
+        result = self._call_openai(prompt, max_tokens, model=model)
         return result.get('content', '')
     
     def generate_raw_with_agent(

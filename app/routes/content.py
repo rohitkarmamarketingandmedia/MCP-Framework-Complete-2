@@ -2312,8 +2312,13 @@ def refine_content_with_ai(current_user):
         current_meta_description = data.get('current_meta_description', '')
         keyword = data.get('keyword', '')
         
-        # Send the full body — don't truncate
-        body_for_prompt = current_body[:12000]  # ~3000 words max for context
+        # Send body — smart truncation to stay within model limits
+        body_length = len(current_body)
+        if body_length > 10000:
+            # For very long posts, send intro + middle + end to preserve context
+            body_for_prompt = current_body[:4000] + "\n\n[... middle section ...]\n\n" + current_body[-4000:]
+        else:
+            body_for_prompt = current_body
         
         refine_prompt = f"""You are an expert blog editor making REAL, SUBSTANTIVE changes to this article.
 
@@ -2357,13 +2362,29 @@ Return the COMPLETE refined article as JSON with these exact keys:
 
 Return ONLY valid JSON. No markdown code blocks. No commentary."""
 
-        result = ai_service.generate_raw(refine_prompt, max_tokens=8000)
+        result = ai_service.generate_raw(refine_prompt, max_tokens=8000, model='gpt-4o-mini')
+        
+        # Check for empty response
+        if not result or not result.strip():
+            logger.error("AI refine returned empty response")
+            return jsonify({'error': 'AI returned empty response. The content may be too long — try selecting a shorter section or a simpler refinement.'}), 500
         
         # Parse JSON response
         if isinstance(result, str):
             result = result.replace('```json', '').replace('```', '').strip()
+            
+            # Try to find JSON object if there's extra text
+            if not result.startswith('{'):
+                json_start = result.find('{')
+                if json_start != -1:
+                    result = result[json_start:]
+            
             import json
-            result = json.loads(result)
+            try:
+                result = json.loads(result)
+            except json.JSONDecodeError as je:
+                logger.error(f"AI refine JSON parse error: {je}, response preview: {result[:200]}")
+                return jsonify({'error': f'AI returned invalid format. Please try again or try a different refinement instruction.'}), 500
         
         return jsonify({
             'success': True,
