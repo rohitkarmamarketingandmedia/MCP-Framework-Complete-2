@@ -6891,7 +6891,7 @@
                                     </thead>
                                     <tbody>
                                         ${pages.length > 0 ? pages.slice(0, 10).map(p => {
-                                            const pagePath = p.page.replace(/https?:\\/\\/[^/]+/, '');
+                                            const pagePath = p.page.replace(new RegExp('https?://[^/]+'), '');
                                             return '<tr class="border-b border-white/5"><td class="py-2 text-white text-xs truncate max-w-[200px]" title="' + p.page + '">' + (pagePath || '/') + '</td><td class="py-2 text-center text-blue-400 text-xs">' + p.clicks + '</td><td class="py-2 text-center text-gray-400 text-xs">' + p.position + '</td></tr>';
                                         }).join('') : '<tr><td colspan="3" class="text-center py-4 text-gray-500 text-xs">No page data</td></tr>'}
                                     </tbody>
