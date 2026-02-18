@@ -303,6 +303,7 @@ def update_integrations(current_user, client_id):
     # Other integrations
     if 'gbp_location_id' in data:
         integrations['gbp_location_id'] = data['gbp_location_id']
+        client.gbp_location_id = data['gbp_location_id'] or None  # Also save to direct field
     if 'ga4_property_id' in data:
         integrations['ga4_property_id'] = data['ga4_property_id']
         client.ga4_property_id = data['ga4_property_id'] or None  # Also save to direct field
