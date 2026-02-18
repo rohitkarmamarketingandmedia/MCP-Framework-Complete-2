@@ -6707,7 +6707,7 @@
                 if (pages.length === 0) {
                     pagesEl.innerHTML = `
                         <p class="text-gray-500 text-sm mb-2">Service pages help the AI add internal links to your blog posts.</p>
-                        <button onclick="openEditClientModal()" class="text-sm text-green-400 hover:text-green-300"><i class="fas fa-plus mr-1"></i>Add in Client Settings</button>`;
+                        <button onclick="showEditClient()" class="text-sm text-green-400 hover:text-green-300"><i class="fas fa-plus mr-1"></i>Add in Client Settings</button>`;
                 } else {
                     pagesEl.innerHTML = pages.slice(0, 5).map(page => `
                         <div class="flex items-center justify-between p-2 glass rounded-lg">
@@ -6725,7 +6725,7 @@
                 if (usps.length === 0) {
                     uspsEl.innerHTML = `
                         <p class="text-gray-500 text-sm mb-2">USPs help the AI highlight what makes your business unique in blog posts.</p>
-                        <button onclick="openEditClientModal()" class="text-sm text-yellow-400 hover:text-yellow-300"><i class="fas fa-plus mr-1"></i>Add in Client Settings</button>`;
+                        <button onclick="showEditClient()" class="text-sm text-yellow-400 hover:text-yellow-300"><i class="fas fa-plus mr-1"></i>Add in Client Settings</button>`;
                 } else {
                     uspsEl.innerHTML = usps.map(usp => `
                         <div class="p-2 glass rounded-lg">
