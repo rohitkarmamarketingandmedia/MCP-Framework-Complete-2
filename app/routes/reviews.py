@@ -456,3 +456,206 @@ def get_review_url(current_user):
         'platform': platform,
         'url': url
     })
+
+
+@reviews_bp.route('/sync', methods=['POST'])
+@token_required
+def sync_reviews(current_user):
+    """
+    Sync reviews from Google Places API
+    
+    POST /api/reviews/sync
+    { "client_id": "xxx" }
+    
+    Requires GOOGLE_PLACES_API_KEY environment variable.
+    Uses the client's gbp_location_id (g.page URL or Place ID) to fetch reviews.
+    """
+    import os
+    import requests as http_requests
+    import re
+    import logging
+    
+    logger = logging.getLogger(__name__)
+    
+    data = request.get_json(silent=True) or {}
+    client_id = data.get('client_id')
+    
+    if not client_id:
+        return jsonify({'error': 'client_id is required'}), 400
+    
+    if not current_user.has_access_to_client(client_id):
+        return jsonify({'error': 'Access denied'}), 403
+    
+    client = DBClient.query.get(client_id)
+    if not client:
+        return jsonify({'error': 'Client not found'}), 404
+    
+    gbp_id = client.gbp_location_id
+    if not gbp_id:
+        return jsonify({'error': 'No Google Business Profile configured. Go to Settings → Integrations to add your Google review link.'}), 400
+    
+    api_key = os.environ.get('GOOGLE_PLACES_API_KEY')
+    if not api_key:
+        return jsonify({'error': 'Google Places API key not configured. Add GOOGLE_PLACES_API_KEY to your server environment variables.'}), 400
+    
+    try:
+        # Extract Place ID from various URL formats
+        place_id = None
+        
+        if gbp_id.startswith('ChIJ'):
+            # Already a Place ID
+            place_id = gbp_id
+        elif 'g.page' in gbp_id or 'google.com' in gbp_id or 'goo.gl' in gbp_id:
+            # It's a URL — try to resolve and find Place ID
+            # First try the Find Place API with the URL
+            find_url = 'https://maps.googleapis.com/maps/api/place/findplacefromtext/json'
+            
+            # Extract the business identifier from g.page URL
+            # Format: https://g.page/r/CVgS-oEHqylPEBM/review
+            gpage_match = re.search(r'g\.page/r/([^/]+)', gbp_id)
+            if gpage_match:
+                # Use the business name from g.page to search
+                business_search = client.business_name or gpage_match.group(1)
+            else:
+                business_search = client.business_name
+            
+            # Search for the business
+            geo = client.geo or ''
+            search_query = f"{business_search} {geo}"
+            
+            find_resp = http_requests.get(find_url, params={
+                'input': search_query,
+                'inputtype': 'textquery',
+                'fields': 'place_id,name',
+                'key': api_key
+            }, timeout=10)
+            
+            find_data = find_resp.json()
+            
+            if find_data.get('candidates'):
+                place_id = find_data['candidates'][0].get('place_id')
+                logger.info(f"Resolved Place ID: {place_id} for '{search_query}'")
+            else:
+                logger.warning(f"No Place ID found for '{search_query}'")
+                return jsonify({'error': f'Could not find your business on Google Maps. Try searching for "{client.business_name}" and update your review link.'}), 404
+        else:
+            # Assume it's a Place ID or location ID
+            place_id = gbp_id
+        
+        if not place_id:
+            return jsonify({'error': 'Could not determine Place ID from your Google Business link.'}), 400
+        
+        # Fetch Place Details with reviews
+        details_url = 'https://maps.googleapis.com/maps/api/place/details/json'
+        details_resp = http_requests.get(details_url, params={
+            'place_id': place_id,
+            'fields': 'reviews,rating,user_ratings_total,name',
+            'key': api_key
+        }, timeout=10)
+        
+        details_data = details_resp.json()
+        
+        if details_data.get('status') != 'OK':
+            error_msg = details_data.get('error_message', details_data.get('status', 'Unknown error'))
+            return jsonify({'error': f'Google API error: {error_msg}'}), 400
+        
+        result = details_data.get('result', {})
+        google_reviews = result.get('reviews', [])
+        
+        if not google_reviews:
+            return jsonify({
+                'message': 'No reviews found on Google for this business.',
+                'synced': 0,
+                'total_rating': result.get('rating'),
+                'total_reviews': result.get('user_ratings_total', 0)
+            })
+        
+        # Import reviews into database
+        import uuid
+        synced_count = 0
+        skipped_count = 0
+        
+        for gr in google_reviews:
+            author = gr.get('author_name', 'Anonymous')
+            rating = gr.get('rating', 5)
+            text = gr.get('text', '')
+            time_val = gr.get('time', 0)
+            
+            # Check for duplicates by reviewer name + rating + approximate date
+            from sqlalchemy import and_
+            existing = DBReview.query.filter(
+                and_(
+                    DBReview.client_id == client_id,
+                    DBReview.platform == 'google',
+                    DBReview.reviewer_name == author,
+                    DBReview.rating == rating
+                )
+            ).first()
+            
+            if existing:
+                # Update text if changed
+                if text and existing.review_text != text:
+                    existing.review_text = text
+                    db.session.commit()
+                skipped_count += 1
+                continue
+            
+            # Create new review
+            review_date = datetime.utcfromtimestamp(time_val) if time_val else datetime.utcnow()
+            
+            review = DBReview(
+                id=str(uuid.uuid4())[:8],
+                client_id=client_id,
+                platform='google',
+                platform_review_id=gr.get('author_url', ''),
+                reviewer_name=author,
+                reviewer_avatar=gr.get('profile_photo_url'),
+                rating=rating,
+                review_text=text,
+                review_date=review_date,
+                status='pending',
+                sentiment='positive' if rating >= 4 else ('negative' if rating <= 2 else 'neutral')
+            )
+            
+            db.session.add(review)
+            synced_count += 1
+        
+        db.session.commit()
+        
+        # Auto-generate responses for new reviews
+        auto_responded = 0
+        if synced_count > 0:
+            new_reviews = DBReview.query.filter(
+                DBReview.client_id == client_id,
+                DBReview.status == 'pending',
+                DBReview.suggested_response.is_(None)
+            ).limit(10).all()
+            
+            for rev in new_reviews:
+                try:
+                    review_service.generate_response(rev.id)
+                    auto_responded += 1
+                except Exception as e:
+                    logger.warning(f"Auto-response failed for review {rev.id}: {e}")
+        
+        return jsonify({
+            'success': True,
+            'synced': synced_count,
+            'skipped': skipped_count,
+            'auto_responded': auto_responded,
+            'total_rating': result.get('rating'),
+            'total_reviews': result.get('user_ratings_total', 0),
+            'message': f'Synced {synced_count} new reviews ({skipped_count} already existed)'
+        })
+        
+    except http_requests.exceptions.Timeout:
+        return jsonify({'error': 'Google API request timed out. Please try again.'}), 504
+    except Exception as e:
+        logger.error(f"Review sync error: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': f'Sync failed: {str(e)}'}), 500
+
+
+import logging
+logger = logging.getLogger(__name__)

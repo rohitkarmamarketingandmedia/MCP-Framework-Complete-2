@@ -398,8 +398,9 @@ class DBClient(db.Model):
             # Social connections (status only, no tokens)
             'social_connections': {
                 'gbp': {
-                    'connected': bool(self.gbp_location_id and self.gbp_access_token),
-                    'location_id': self.gbp_location_id
+                    'connected': bool(self.gbp_location_id),
+                    'location_id': self.gbp_location_id,
+                    'has_oauth': bool(self.gbp_location_id and self.gbp_access_token)
                 },
                 'facebook': {
                     'connected': bool(self.facebook_page_id and self.facebook_access_token),
