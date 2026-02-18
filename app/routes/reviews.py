@@ -501,49 +501,88 @@ def sync_reviews(current_user):
     try:
         # Extract Place ID from various URL formats
         place_id = None
+        debug_info = {'gbp_id': gbp_id, 'steps': []}
         
         if gbp_id.startswith('ChIJ'):
             # Already a Place ID
             place_id = gbp_id
+            debug_info['steps'].append('Used as direct Place ID')
         elif 'g.page' in gbp_id or 'google.com' in gbp_id or 'goo.gl' in gbp_id:
-            # It's a URL — try to resolve and find Place ID
-            # First try the Find Place API with the URL
-            find_url = 'https://maps.googleapis.com/maps/api/place/findplacefromtext/json'
+            # It's a URL — first try to resolve g.page redirect to get Place ID
+            debug_info['steps'].append('Detected URL format')
             
-            # Extract the business identifier from g.page URL
-            # Format: https://g.page/r/CVgS-oEHqylPEBM/review
-            gpage_match = re.search(r'g\.page/r/([^/]+)', gbp_id)
-            if gpage_match:
-                # Use the business name from g.page to search
-                business_search = client.business_name or gpage_match.group(1)
-            else:
-                business_search = client.business_name
+            # Step 1: Try to follow the g.page redirect to get the actual Google Maps URL
+            try:
+                redirect_resp = http_requests.head(gbp_id.replace('/review', ''), allow_redirects=True, timeout=10)
+                final_url = redirect_resp.url
+                debug_info['resolved_url'] = final_url
+                debug_info['steps'].append(f'Resolved URL: {final_url}')
+                
+                # Try to extract Place ID or CID from the resolved URL
+                # Google Maps URLs often contain: place_id= or !1s (place ID) or data= with CID
+                pid_match = re.search(r'place_id[=:]([A-Za-z0-9_-]+)', final_url)
+                cid_match = re.search(r'[?&]cid=(\d+)', final_url)
+                ftid_match = re.search(r'ftid=(0x[0-9a-f]+:0x[0-9a-f]+)', final_url)
+                
+                if pid_match:
+                    place_id = pid_match.group(1)
+                    debug_info['steps'].append(f'Extracted Place ID from URL: {place_id}')
+                elif cid_match:
+                    debug_info['cid'] = cid_match.group(1)
+                    debug_info['steps'].append(f'Found CID: {cid_match.group(1)}, will search by name')
+                elif ftid_match:
+                    debug_info['ftid'] = ftid_match.group(1)
+                    debug_info['steps'].append(f'Found FTID: {ftid_match.group(1)}, will search by name')
+            except Exception as e:
+                debug_info['steps'].append(f'URL redirect failed: {str(e)}')
             
-            # Search for the business
-            geo = client.geo or ''
-            search_query = f"{business_search} {geo}"
-            
-            find_resp = http_requests.get(find_url, params={
-                'input': search_query,
-                'inputtype': 'textquery',
-                'fields': 'place_id,name',
-                'key': api_key
-            }, timeout=10)
-            
-            find_data = find_resp.json()
-            
-            if find_data.get('candidates'):
-                place_id = find_data['candidates'][0].get('place_id')
-                logger.info(f"Resolved Place ID: {place_id} for '{search_query}'")
-            else:
-                logger.warning(f"No Place ID found for '{search_query}'")
-                return jsonify({'error': f'Could not find your business on Google Maps. Try searching for "{client.business_name}" and update your review link.'}), 404
+            # Step 2: If no Place ID yet, search by business name
+            if not place_id:
+                find_url = 'https://maps.googleapis.com/maps/api/place/findplacefromtext/json'
+                
+                geo = client.geo or ''
+                search_query = f"{client.business_name} {geo}"
+                debug_info['search_query'] = search_query
+                debug_info['steps'].append(f'Searching Google Places for: {search_query}')
+                
+                find_resp = http_requests.get(find_url, params={
+                    'input': search_query,
+                    'inputtype': 'textquery',
+                    'fields': 'place_id,name,formatted_address',
+                    'key': api_key
+                }, timeout=10)
+                
+                find_data = find_resp.json()
+                debug_info['find_response_status'] = find_data.get('status')
+                debug_info['find_candidates_count'] = len(find_data.get('candidates', []))
+                
+                if find_data.get('candidates'):
+                    place_id = find_data['candidates'][0].get('place_id')
+                    found_name = find_data['candidates'][0].get('name', '')
+                    debug_info['steps'].append(f'Found: {found_name} → Place ID: {place_id}')
+                    logger.info(f"Resolved Place ID: {place_id} for '{search_query}'")
+                else:
+                    logger.warning(f"No Place ID found for '{search_query}', API status: {find_data.get('status')}")
+                    debug_info['steps'].append(f'No results found. API status: {find_data.get("status")}')
+                    if find_data.get('error_message'):
+                        debug_info['api_error'] = find_data['error_message']
+                    return jsonify({
+                        'error': f'Could not find "{client.business_name}" on Google Maps. Make sure your business name and location are correct.',
+                        'debug': debug_info
+                    }), 404
         else:
             # Assume it's a Place ID or location ID
             place_id = gbp_id
+            debug_info['steps'].append('Used as-is (assumed Place ID)')
         
         if not place_id:
-            return jsonify({'error': 'Could not determine Place ID from your Google Business link.'}), 400
+            return jsonify({
+                'error': 'Could not determine Place ID from your Google Business link.',
+                'debug': debug_info
+            }), 400
+        
+        debug_info['place_id'] = place_id
+        debug_info['steps'].append(f'Using Place ID: {place_id}')
         
         # Fetch Place Details with reviews
         details_url = 'https://maps.googleapis.com/maps/api/place/details/json'
@@ -554,10 +593,12 @@ def sync_reviews(current_user):
         }, timeout=10)
         
         details_data = details_resp.json()
+        debug_info['details_status'] = details_data.get('status')
         
         if details_data.get('status') != 'OK':
             error_msg = details_data.get('error_message', details_data.get('status', 'Unknown error'))
-            return jsonify({'error': f'Google API error: {error_msg}'}), 400
+            debug_info['steps'].append(f'Place Details API error: {error_msg}')
+            return jsonify({'error': f'Google API error: {error_msg}', 'debug': debug_info}), 400
         
         result = details_data.get('result', {})
         google_reviews = result.get('reviews', [])
@@ -645,7 +686,8 @@ def sync_reviews(current_user):
             'auto_responded': auto_responded,
             'total_rating': result.get('rating'),
             'total_reviews': result.get('user_ratings_total', 0),
-            'message': f'Synced {synced_count} new reviews ({skipped_count} already existed)'
+            'message': f'Synced {synced_count} new reviews ({skipped_count} already existed)',
+            'debug': debug_info
         })
         
     except http_requests.exceptions.Timeout:

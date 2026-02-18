@@ -6918,7 +6918,8 @@
         async function syncGoogleReviews() {
             if (!currentClient) return;
 
-            const btn = document.getElementById('syncReviewsBtn');
+            const btn = document.getElementById('syncReviewsBtn') || document.getElementById('reviewsRefreshBtn');
+            const origHtml = btn ? btn.innerHTML : '';
             if (btn) {
                 btn.disabled = true;
                 btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Fetching reviews...';
@@ -6936,23 +6937,46 @@
 
                 const data = await response.json();
 
-                if (response.ok) {
+                if (response.ok && data.success) {
                     showToast(data.message || `Synced ${data.synced || 0} reviews!`, 'success');
-                    // Reload reviews to display them
                     await loadReviews();
                 } else {
-                    showToast(data.error || 'Failed to sync reviews', 'error');
-                    if (btn) {
-                        btn.disabled = false;
-                        btn.innerHTML = '<i class="fab fa-google mr-2"></i>Fetch Google Reviews';
+                    // Show error in the reviews list area so it's visible
+                    const container = document.getElementById('reviewsList');
+                    const errorMsg = data.error || 'Unknown error';
+                    const debugSteps = data.debug?.steps?.join(' → ') || '';
+                    
+                    if (container) {
+                        container.innerHTML = `
+                            <div class="p-4 bg-red-500/10 border border-red-500/30 rounded-xl">
+                                <h4 class="text-red-400 font-medium mb-2"><i class="fas fa-exclamation-triangle mr-2"></i>Review Sync Failed</h4>
+                                <p class="text-gray-300 text-sm mb-3">${errorMsg}</p>
+                                ${debugSteps ? `
+                                    <details class="text-xs text-gray-500">
+                                        <summary class="cursor-pointer text-gray-400 hover:text-gray-300">Debug Details</summary>
+                                        <pre class="mt-2 p-2 bg-black/30 rounded text-xs overflow-x-auto">${debugSteps}\n\nPlace ID: ${data.debug?.place_id || 'not resolved'}\nSearch query: ${data.debug?.search_query || 'N/A'}\nAPI status: ${data.debug?.find_response_status || data.debug?.details_status || 'N/A'}</pre>
+                                    </details>
+                                ` : ''}
+                                <div class="mt-3 flex gap-2">
+                                    <button onclick="syncGoogleReviews()" class="px-3 py-1.5 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg text-xs transition">
+                                        <i class="fas fa-redo mr-1"></i>Try Again
+                                    </button>
+                                    <button onclick="connectSocial('gbp')" class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs transition">
+                                        <i class="fas fa-cog mr-1"></i>Update GBP Link
+                                    </button>
+                                </div>
+                            </div>
+                        `;
                     }
+                    showToast(errorMsg, 'error');
                 }
             } catch (e) {
                 console.error('Review sync failed:', e);
                 showToast('Failed to sync reviews: ' + e.message, 'error');
+            } finally {
                 if (btn) {
                     btn.disabled = false;
-                    btn.innerHTML = '<i class="fab fa-google mr-2"></i>Fetch Google Reviews';
+                    btn.innerHTML = origHtml;
                 }
             }
         }
