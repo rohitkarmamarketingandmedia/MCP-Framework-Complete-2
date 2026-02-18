@@ -9,6 +9,7 @@ from app.routes.auth import token_required, admin_required
 from app.services.analytics_service import AnalyticsService, ComparativeAnalytics
 from app.services.seo_service import SEOService
 from app.services.db_service import DataService
+from app.models.db_models import DBClient
 from datetime import datetime, timedelta
 
 logger = logging.getLogger(__name__)
@@ -206,13 +207,12 @@ def get_traffic(current_user, client_id):
             if not gsc_site_url:
                 website_url = getattr(client, 'website_url', None)
                 if website_url:
-                    # Ensure proper format for Search Console
-                    # Can be: https://www.example.com/ or sc-domain:example.com
                     if not website_url.startswith('http'):
                         website_url = 'https://' + website_url
-                    if not website_url.endswith('/'):
-                        website_url = website_url + '/'
-                    gsc_site_url = website_url
+                    # Extract root domain (strip path like /blog/)
+                    from urllib.parse import urlparse
+                    parsed = urlparse(website_url)
+                    gsc_site_url = f"{parsed.scheme}://{parsed.netloc}/"
             
             if gsc_site_url:
                 logger.info(f"Fetching GSC search terms for: {gsc_site_url}")
@@ -697,9 +697,10 @@ def get_gsc_data(current_user, client_id):
             if website_url:
                 if not website_url.startswith('http'):
                     website_url = 'https://' + website_url
-                if not website_url.endswith('/'):
-                    website_url = website_url + '/'
-                gsc_site_url = website_url
+                # Extract root domain (strip path like /blog/)
+                from urllib.parse import urlparse
+                parsed = urlparse(website_url)
+                gsc_site_url = f"{parsed.scheme}://{parsed.netloc}/"
         
         if not gsc_site_url:
             return jsonify({
