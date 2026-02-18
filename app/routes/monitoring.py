@@ -2216,3 +2216,99 @@ def get_freshness_alerts(current_user):
         'total': len(alerts),
         'days_checked': days
     })
+
+
+@monitoring_bp.route('/top-keywords', methods=['GET'])
+@token_required
+def get_top_keywords(current_user):
+    """
+    Get top-ranked keywords from SEMrush domain data (not just tracked keywords)
+    Returns best-performing keywords sorted by position
+    
+    GET /api/monitoring/top-keywords?client_id=xxx&limit=10
+    """
+    client_id = request.args.get('client_id')
+    
+    if not client_id:
+        return jsonify({'error': 'client_id required'}), 400
+    
+    if not current_user.has_access_to_client(client_id):
+        return jsonify({'error': 'Access denied'}), 403
+    
+    client = DBClient.query.get(client_id)
+    if not client:
+        return jsonify({'error': 'Client not found'}), 404
+    
+    limit = min(int(request.args.get('limit', 10)), 50)
+    
+    try:
+        domain = rank_tracking_service._clean_domain(client.website_url or client.business_name)
+        database = rank_tracking_service.default_database
+        
+        # Check cache first
+        cache_key = f"{domain}:{database}"
+        cached = rank_tracking_service._get_cached(cache_key)
+        
+        if cached:
+            # Use cached SEMrush data — extract all domain keywords
+            # The cache stores the processed result which only has tracked keywords
+            # We need the raw domain data, so check if it's available
+            pass
+        
+        # Fetch domain organic keywords from SEMrush
+        import requests as http_requests
+        api_key = rank_tracking_service.api_key
+        
+        if not api_key:
+            return jsonify({'error': 'SEMrush API key not configured'}), 400
+        
+        params = {
+            'type': 'domain_organic',
+            'key': api_key,
+            'display_limit': 100,
+            'display_sort': 'po_asc',  # Sort by position ascending (best first)
+            'export_columns': 'Ph,Po,Pp,Nq,Cp,Ur',
+            'domain': domain,
+            'database': database
+        }
+        
+        response = http_requests.get(rank_tracking_service.base_url, params=params, timeout=30)
+        
+        if response.status_code != 200:
+            return jsonify({'error': 'SEMrush API error', 'detail': response.text[:200]}), 500
+        
+        keywords = []
+        lines = response.text.strip().split('\n')
+        
+        if len(lines) > 1:
+            for line in lines[1:]:
+                parts = line.split(';')
+                if len(parts) >= 5:
+                    pos = int(parts[1]) if parts[1] else None
+                    prev_pos = int(parts[2]) if parts[2] else None
+                    
+                    if pos and pos > 0:
+                        change = (prev_pos - pos) if prev_pos else 0
+                        keywords.append({
+                            'keyword': parts[0].strip('"'),
+                            'position': pos,
+                            'previous_position': prev_pos,
+                            'change': change,
+                            'search_volume': int(parts[3]) if parts[3] else 0,
+                            'cpc': float(parts[4]) if parts[4] else 0.0,
+                            'url': parts[5].strip('"') if len(parts) > 5 and parts[5] else None
+                        })
+        
+        # Already sorted by position from API, take top N
+        top_keywords = keywords[:limit]
+        
+        return jsonify({
+            'domain': domain,
+            'keywords': top_keywords,
+            'total_ranked': len(keywords)
+        })
+        
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500

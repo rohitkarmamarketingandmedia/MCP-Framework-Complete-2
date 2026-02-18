@@ -6747,61 +6747,67 @@
 
             const hasCompetitors = currentClient.competitors && currentClient.competitors.length > 0;
 
-            // Update header based on whether competitors are configured
+            // Update header and title based on whether competitors are configured
             const headerEl = tableEl.closest('table')?.querySelector('thead tr');
-            if (headerEl && !hasCompetitors) {
-                headerEl.innerHTML = `
-                    <th class="text-left py-3">Keyword</th>
-                    <th class="text-center py-3">Position</th>
-                    <th class="text-center py-3">Search Volume</th>
-                    <th class="text-center py-3">Change</th>
-                `;
-            }
-
-            // Update section title
             const sectionTitle = tableEl.closest('.glass')?.querySelector('h3');
-            if (sectionTitle && !hasCompetitors) {
-                sectionTitle.innerHTML = '<i class="fas fa-chart-line mr-2 text-cyan-400"></i>Top Keyword Rankings';
+            
+            if (!hasCompetitors) {
+                if (headerEl) {
+                    headerEl.innerHTML = `
+                        <th class="text-left py-3">Keyword</th>
+                        <th class="text-center py-3">Position</th>
+                        <th class="text-center py-3">Volume</th>
+                        <th class="text-center py-3">Change</th>
+                    `;
+                }
+                if (sectionTitle) {
+                    sectionTitle.innerHTML = '<i class="fas fa-chart-line mr-2 text-cyan-400"></i>Top Keyword Rankings';
+                }
             }
 
             try {
-                const response = await fetch(`${API_URL}/api/monitoring/rankings?client_id=${currentClient.id}`, {
-                    headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
-                });
+                let keywords = [];
 
-                if (response.ok) {
-                    const data = await response.json();
-                    const keywords = data.keywords || [];
+                if (hasCompetitors) {
+                    // Use tracked keywords endpoint for competitor comparison
+                    const response = await fetch(`${API_URL}/api/monitoring/rankings?client_id=${currentClient.id}`, {
+                        headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
+                    });
+                    if (response.ok) {
+                        const data = await response.json();
+                        keywords = data.keywords || [];
+                    }
 
                     if (keywords.length === 0) {
-                        tableEl.innerHTML = '<tr><td colspan="4" class="text-center py-6 text-gray-500">No ranking data yet. Check Rankings tab.</td></tr>';
+                        tableEl.innerHTML = '<tr><td colspan="4" class="text-center py-6 text-gray-500">No ranking data yet.</td></tr>';
                         return;
                     }
 
-                    if (hasCompetitors) {
-                        // Show competitor comparison
-                        tableEl.innerHTML = keywords.slice(0, 10).map(kw => `
-                            <tr class="border-b border-white/5">
-                                <td class="py-3 text-white">${kw.keyword}</td>
-                                <td class="py-3 text-center ${kw.position <= 10 ? 'text-green-400' : 'text-gray-400'}">#${kw.position || '--'}</td>
-                                <td class="py-3 text-center text-orange-400">#${kw.competitor_position || '--'}</td>
-                                <td class="py-3 text-center ${kw.gap > 0 ? 'text-red-400' : 'text-green-400'}">${kw.gap > 0 ? '+' : ''}${kw.gap || 0}</td>
-                            </tr>
-                        `).join('');
-                    } else {
-                        // Show top rankings sorted by position (best first), only ranked keywords
-                        const rankedKeywords = keywords
-                            .filter(kw => kw.position && kw.position > 0 && kw.position <= 100)
-                            .sort((a, b) => a.position - b.position)
-                            .slice(0, 10);
+                    tableEl.innerHTML = keywords.slice(0, 10).map(kw => `
+                        <tr class="border-b border-white/5">
+                            <td class="py-3 text-white">${kw.keyword}</td>
+                            <td class="py-3 text-center ${kw.position && kw.position <= 10 ? 'text-green-400' : 'text-gray-400'}">#${kw.position || '--'}</td>
+                            <td class="py-3 text-center text-orange-400">#${kw.competitor_position || '--'}</td>
+                            <td class="py-3 text-center ${kw.gap > 0 ? 'text-red-400' : 'text-green-400'}">${kw.gap > 0 ? '+' : ''}${kw.gap || 0}</td>
+                        </tr>
+                    `).join('');
+                } else {
+                    // Use top-keywords endpoint for best ranked keywords across entire domain
+                    const response = await fetch(`${API_URL}/api/monitoring/top-keywords?client_id=${currentClient.id}&limit=10`, {
+                        headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
+                    });
 
-                        if (rankedKeywords.length === 0) {
-                            tableEl.innerHTML = '<tr><td colspan="4" class="text-center py-6 text-gray-500">No ranked keywords found.</td></tr>';
+                    if (response.ok) {
+                        const data = await response.json();
+                        keywords = data.keywords || [];
+
+                        if (keywords.length === 0) {
+                            tableEl.innerHTML = '<tr><td colspan="4" class="text-center py-6 text-gray-500">No ranked keywords found on SEMrush.</td></tr>';
                             return;
                         }
 
-                        tableEl.innerHTML = rankedKeywords.map(kw => {
-                            const change = kw.previous_position ? kw.previous_position - kw.position : 0;
+                        tableEl.innerHTML = keywords.map(kw => {
+                            const change = kw.change || 0;
                             const changeColor = change > 0 ? 'text-green-400' : change < 0 ? 'text-red-400' : 'text-gray-500';
                             const changeIcon = change > 0 ? '▲' : change < 0 ? '▼' : '–';
                             const posColor = kw.position <= 3 ? 'text-yellow-400 font-bold' : kw.position <= 10 ? 'text-green-400' : kw.position <= 20 ? 'text-blue-400' : 'text-gray-400';
@@ -6815,12 +6821,13 @@
                                 </tr>
                             `;
                         }).join('');
+                    } else {
+                        tableEl.innerHTML = '<tr><td colspan="4" class="text-center py-6 text-gray-500">Rankings not available.</td></tr>';
                     }
-                } else {
-                    tableEl.innerHTML = '<tr><td colspan="4" class="text-center py-6 text-gray-500">Rankings not available. Add SEMrush API key.</td></tr>';
                 }
             } catch (error) {
-                tableEl.innerHTML = '<tr><td colspan="4" class="text-center py-6 text-gray-500">Could not load insights.</td></tr>';
+                console.error('Competitor insights error:', error);
+                tableEl.innerHTML = '<tr><td colspan="4" class="text-center py-6 text-gray-500">Could not load rankings.</td></tr>';
             }
         }
 
