@@ -3496,12 +3496,18 @@
                             <i class="fas fa-magic mr-2 text-purple-400"></i>Quick Actions
                         </h3>
                     </div>
-                    <div class="grid md:grid-cols-3 gap-4">
+                    <div class="grid md:grid-cols-4 gap-4">
                         <button onclick="generateAllReviewResponses()"
                             class="p-4 bg-white/5 hover:bg-white/10 rounded-xl text-left transition border border-white/10">
                             <i class="fas fa-robot text-purple-400 text-xl mb-2"></i>
                             <h4 class="text-white font-medium">Auto-Generate Responses</h4>
                             <p class="text-sm text-gray-400">AI generates replies for all pending reviews</p>
+                        </button>
+                        <button onclick="openAddReviewModal()"
+                            class="p-4 bg-white/5 hover:bg-white/10 rounded-xl text-left transition border border-white/10">
+                            <i class="fas fa-plus-circle text-green-400 text-xl mb-2"></i>
+                            <h4 class="text-white font-medium">Add Review</h4>
+                            <p class="text-sm text-gray-400">Manually add a review from any platform</p>
                         </button>
                         <button onclick="sendReviewRequests()"
                             class="p-4 bg-white/5 hover:bg-white/10 rounded-xl text-left transition border border-white/10">
@@ -3509,7 +3515,7 @@
                             <h4 class="text-white font-medium">Request Reviews</h4>
                             <p class="text-sm text-gray-400">Send review requests to recent customers</p>
                         </button>
-                        <button onclick="showTab('settings')"
+                        <button onclick="connectSocial('gbp')"
                             class="p-4 bg-white/5 hover:bg-white/10 rounded-xl text-left transition border border-white/10">
                             <i class="fab fa-google text-red-400 text-xl mb-2"></i>
                             <h4 class="text-white font-medium">Connect GBP</h4>
@@ -3531,10 +3537,16 @@
                                 <p class="text-sm text-gray-400">Monitor and respond to reviews</p>
                             </div>
                         </div>
-                        <button onclick="syncGoogleReviews()"
-                            class="px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg text-sm font-medium transition" id="reviewsRefreshBtn">
-                            <i class="fas fa-sync-alt mr-2"></i>Sync Reviews
-                        </button>
+                        <div class="flex gap-2">
+                            <button onclick="openAddReviewModal()"
+                                class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium transition">
+                                <i class="fas fa-plus mr-2"></i>Add Review
+                            </button>
+                            <button onclick="syncGoogleReviews()"
+                                class="px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg text-sm font-medium transition" id="reviewsRefreshBtn">
+                                <i class="fas fa-sync-alt mr-2"></i>Sync Google
+                            </button>
+                        </div>
                     </div>
                     <div id="reviewsList" class="space-y-4">
                         <div class="text-center py-12 text-gray-500">
@@ -6915,6 +6927,138 @@
         // REVIEWS MANAGEMENT
         // ==========================================
 
+        function openAddReviewModal() {
+            const overlay = document.createElement('div');
+            overlay.id = 'add-review-overlay';
+            overlay.className = 'fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50';
+            overlay.onclick = function(e) { if (e.target === overlay) overlay.remove(); };
+
+            overlay.innerHTML = `
+                <div class="bg-gray-900 rounded-2xl p-6 max-w-md w-full mx-4 border border-white/10" onclick="event.stopPropagation()">
+                    <div class="flex items-center justify-between mb-5">
+                        <h3 class="text-lg font-bold text-white"><i class="fas fa-plus-circle text-green-400 mr-2"></i>Add Review</h3>
+                        <button onclick="document.getElementById('add-review-overlay').remove()" class="text-gray-400 hover:text-white">
+                            <i class="fas fa-times text-lg"></i>
+                        </button>
+                    </div>
+
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm text-gray-400 mb-1">Reviewer Name <span class="text-red-400">*</span></label>
+                            <input type="text" id="addReviewName" placeholder="John Smith"
+                                class="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-green-500">
+                        </div>
+
+                        <div>
+                            <label class="block text-sm text-gray-400 mb-1">Rating <span class="text-red-400">*</span></label>
+                            <div class="flex gap-2" id="addReviewStars">
+                                ${[1,2,3,4,5].map(n => `
+                                    <button type="button" onclick="setAddReviewRating(${n})" class="text-2xl text-gray-600 hover:text-yellow-400 transition" data-star="${n}">
+                                        <i class="fas fa-star"></i>
+                                    </button>
+                                `).join('')}
+                            </div>
+                            <input type="hidden" id="addReviewRating" value="5">
+                        </div>
+
+                        <div>
+                            <label class="block text-sm text-gray-400 mb-1">Review Text</label>
+                            <textarea id="addReviewText" rows="4" placeholder="What did the customer say..."
+                                class="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-green-500 resize-none"></textarea>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-sm text-gray-400 mb-1">Platform</label>
+                                <select id="addReviewPlatform"
+                                    class="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-green-500">
+                                    <option value="google">Google</option>
+                                    <option value="yelp">Yelp</option>
+                                    <option value="facebook">Facebook</option>
+                                    <option value="other">Other</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm text-gray-400 mb-1">Date</label>
+                                <input type="date" id="addReviewDate" 
+                                    class="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-green-500">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="flex gap-2 mt-5">
+                        <button onclick="document.getElementById('add-review-overlay').remove()" class="flex-1 py-2.5 bg-white/10 hover:bg-white/20 text-gray-300 rounded-lg text-sm transition">
+                            Cancel
+                        </button>
+                        <button onclick="saveManualReview()" class="flex-1 py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium transition">
+                            <i class="fas fa-check mr-1"></i>Add Review
+                        </button>
+                    </div>
+                </div>
+            `;
+
+            document.body.appendChild(overlay);
+            // Set default date to today
+            document.getElementById('addReviewDate').value = new Date().toISOString().split('T')[0];
+            // Set default rating to 5 stars
+            setAddReviewRating(5);
+            setTimeout(() => document.getElementById('addReviewName').focus(), 200);
+        }
+
+        function setAddReviewRating(rating) {
+            document.getElementById('addReviewRating').value = rating;
+            const stars = document.querySelectorAll('#addReviewStars button');
+            stars.forEach(btn => {
+                const starVal = parseInt(btn.dataset.star);
+                btn.className = starVal <= rating
+                    ? 'text-2xl text-yellow-400 transition'
+                    : 'text-2xl text-gray-600 hover:text-yellow-400 transition';
+            });
+        }
+
+        async function saveManualReview() {
+            const name = document.getElementById('addReviewName')?.value.trim();
+            const rating = parseInt(document.getElementById('addReviewRating')?.value || '5');
+            const text = document.getElementById('addReviewText')?.value.trim();
+            const platform = document.getElementById('addReviewPlatform')?.value || 'google';
+            const date = document.getElementById('addReviewDate')?.value;
+
+            if (!name) {
+                alert('Please enter a reviewer name');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_URL}/api/reviews`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${AUTH_TOKEN}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        client_id: currentClient.id,
+                        reviewer_name: name,
+                        rating: rating,
+                        review_text: text,
+                        platform: platform,
+                        review_date: date ? date + 'T12:00:00Z' : new Date().toISOString()
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    document.getElementById('add-review-overlay')?.remove();
+                    showToast(`Review from ${name} added!${data.auto_response_generated ? ' AI response generated.' : ''}`, 'success');
+                    await loadReviews();
+                } else {
+                    alert(data.error || 'Failed to add review');
+                }
+            } catch (e) {
+                alert('Error: ' + e.message);
+            }
+        }
+
         async function syncGoogleReviews() {
             if (!currentClient) return;
 
@@ -7171,10 +7315,96 @@
                 return;
             }
 
-            const count = prompt('How many review requests would you like to send?', '10');
-            if (!count) return;
+            const reviewUrl = currentClient.gbp_location_id || currentClient?.social_connections?.gbp?.location_id || '';
 
-            showToast('Sending review requests...', 'info');
+            const overlay = document.createElement('div');
+            overlay.id = 'review-request-overlay';
+            overlay.className = 'fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50';
+            overlay.onclick = function(e) { if (e.target === overlay) overlay.remove(); };
+
+            overlay.innerHTML = `
+                <div class="bg-gray-900 rounded-2xl p-6 max-w-md w-full mx-4 border border-white/10" onclick="event.stopPropagation()">
+                    <div class="flex items-center justify-between mb-5">
+                        <h3 class="text-lg font-bold text-white"><i class="fas fa-paper-plane text-blue-400 mr-2"></i>Request a Review</h3>
+                        <button onclick="document.getElementById('review-request-overlay').remove()" class="text-gray-400 hover:text-white">
+                            <i class="fas fa-times text-lg"></i>
+                        </button>
+                    </div>
+
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm text-gray-400 mb-1">Customer Name <span class="text-red-400">*</span></label>
+                            <input type="text" id="reqReviewName" placeholder="John Smith"
+                                class="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm text-gray-400 mb-1">Customer Email</label>
+                            <input type="email" id="reqReviewEmail" placeholder="john@example.com"
+                                class="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm text-gray-400 mb-1">Customer Phone</label>
+                            <input type="tel" id="reqReviewPhone" placeholder="+1 (941) 555-1234"
+                                class="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm text-gray-400 mb-1">Service Provided</label>
+                            <input type="text" id="reqReviewService" placeholder="e.g., Electrical Panel Upgrade"
+                                class="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm text-gray-400 mb-1">Send Via</label>
+                            <div class="flex gap-3">
+                                <label class="flex items-center gap-2 text-sm text-gray-300 cursor-pointer">
+                                    <input type="radio" name="reqReviewMethod" value="email" checked class="accent-blue-500"> Email
+                                </label>
+                                <label class="flex items-center gap-2 text-sm text-gray-300 cursor-pointer">
+                                    <input type="radio" name="reqReviewMethod" value="sms" class="accent-blue-500"> SMS
+                                </label>
+                                <label class="flex items-center gap-2 text-sm text-gray-300 cursor-pointer">
+                                    <input type="radio" name="reqReviewMethod" value="both" class="accent-blue-500"> Both
+                                </label>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-sm text-gray-400 mb-1">Review Link</label>
+                            <input type="text" id="reqReviewUrl" placeholder="https://g.page/r/your-business/review"
+                                class="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                value="${reviewUrl}">
+                            ${!reviewUrl ? '<p class="text-xs text-yellow-500 mt-1"><i class="fas fa-exclamation-triangle mr-1"></i>No review link set. Add one in Settings → Google Business Profile.</p>' : ''}
+                        </div>
+                    </div>
+
+                    <div class="flex gap-2 mt-5">
+                        <button onclick="document.getElementById('review-request-overlay').remove()" class="flex-1 py-2.5 bg-white/10 hover:bg-white/20 text-gray-300 rounded-lg text-sm transition">
+                            Cancel
+                        </button>
+                        <button onclick="submitReviewRequest()" class="flex-1 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition">
+                            <i class="fas fa-paper-plane mr-1"></i>Send Request
+                        </button>
+                    </div>
+                </div>
+            `;
+
+            document.body.appendChild(overlay);
+            setTimeout(() => document.getElementById('reqReviewName').focus(), 200);
+        }
+
+        async function submitReviewRequest() {
+            const name = document.getElementById('reqReviewName')?.value.trim();
+            const email = document.getElementById('reqReviewEmail')?.value.trim();
+            const phone = document.getElementById('reqReviewPhone')?.value.trim();
+            const service = document.getElementById('reqReviewService')?.value.trim();
+            const reviewUrl = document.getElementById('reqReviewUrl')?.value.trim();
+            const method = document.querySelector('input[name="reqReviewMethod"]:checked')?.value || 'email';
+
+            if (!name) { alert('Please enter the customer name'); return; }
+            if (!email && !phone) { alert('Please enter an email or phone number'); return; }
+            if (!reviewUrl) { alert('Please enter a review link'); return; }
+
+            const btn = event.target;
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i>Sending...';
 
             try {
                 const response = await fetch(`${API_URL}/api/reviews/request/send`, {
@@ -7185,19 +7415,32 @@
                     },
                     body: JSON.stringify({
                         client_id: currentClient.id,
-                        count: parseInt(count)
+                        customer_name: name,
+                        customer_email: email,
+                        customer_phone: phone,
+                        review_url: reviewUrl,
+                        service_provided: service,
+                        method: method
                     })
                 });
 
-                if (response.ok) {
-                    const data = await response.json();
-                    showToast(`Sent ${data.sent || 0} review requests!`, 'success');
+                const data = await response.json();
+
+                if (response.ok && data.success) {
+                    document.getElementById('review-request-overlay')?.remove();
+                    const sent = [];
+                    if (data.results?.email) sent.push('email');
+                    if (data.results?.sms) sent.push('SMS');
+                    showToast(`Review request sent to ${name} via ${sent.join(' & ') || method}!`, 'success');
                 } else {
-                    const data = await response.json();
-                    showToast(data.error || 'Failed to send requests', 'error');
+                    alert(data.error || 'Failed to send review request');
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fas fa-paper-plane mr-1"></i>Send Request';
                 }
-            } catch (error) {
-                showToast('Error sending review requests', 'error');
+            } catch (e) {
+                alert('Error: ' + e.message);
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-paper-plane mr-1"></i>Send Request';
             }
         }
 

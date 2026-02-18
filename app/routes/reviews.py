@@ -40,7 +40,7 @@ def get_reviews(current_user):
         status=request.args.get('status'),
         min_rating=safe_int(request.args.get('min_rating'), None, min_val=1, max_val=5) if request.args.get('min_rating') else None,
         max_rating=safe_int(request.args.get('max_rating'), None, min_val=1, max_val=5) if request.args.get('max_rating') else None,
-        days=safe_int(request.args.get('days'), 90, max_val=365),
+        days=safe_int(request.args.get('days'), 90, max_val=3650),
         limit=safe_int(request.args.get('limit'), 100, max_val=500)
     )
     
