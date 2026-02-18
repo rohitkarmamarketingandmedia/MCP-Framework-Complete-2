@@ -163,6 +163,8 @@ def update_client(current_user, client_id):
         client.wordpress_user = data['wordpress_user']
     if 'wordpress_app_password' in data:
         client.wordpress_app_password = data['wordpress_app_password']
+    if 'service_pages' in data:
+        client.set_service_pages(data['service_pages'])
     
     data_service.save_client(client)
     

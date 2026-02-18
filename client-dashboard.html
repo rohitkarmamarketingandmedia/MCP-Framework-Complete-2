@@ -4601,6 +4601,16 @@
                         </div>
 
                         <div class="mt-4">
+                            <label class="block text-sm text-gray-400 mb-1">
+                                <i class="fas fa-link mr-1 text-green-400"></i>Service Pages (one per line: Title | URL)
+                            </label>
+                            <textarea id="editServicePages" rows="4"
+                                class="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white focus:border-blue-500 text-sm"
+                                placeholder="Electrical Panel Upgrade | https://yoursite.com/panel-upgrade&#10;EV Charger Installation | https://yoursite.com/ev-charger&#10;Generator Installation | https://yoursite.com/generators"></textarea>
+                            <p class="text-xs text-gray-500 mt-1">AI uses these for internal linking in blog posts. Format: Page Title | URL</p>
+                        </div>
+
+                        <div class="mt-4">
                             <label class="block text-sm text-gray-400 mb-1">Unique Selling Points (comma
                                 separated)</label>
                             <textarea id="editUSPs" rows="2"
@@ -5290,6 +5300,14 @@
             document.getElementById('editUSPs').value = toCommaString(currentClient.unique_selling_points);
             document.getElementById('editCompetitors').value = toCommaString(currentClient.competitors);
 
+            // Service pages — convert from array of objects to "Title | URL" lines
+            const servicePages = currentClient.service_pages || [];
+            document.getElementById('editServicePages').value = servicePages.map(p => {
+                const title = p.title || p.keyword || '';
+                const url = p.url || '';
+                return url ? `${title} | ${url}` : title;
+            }).join('\n');
+
             // WordPress fields
             document.getElementById('editWordpressUrl').value = currentClient.wordpress_url || '';
             document.getElementById('editWordpressUser').value = currentClient.wordpress_user || '';
@@ -5372,6 +5390,12 @@
                 contact_url: document.getElementById('editContactUrl').value.trim(),
                 unique_selling_points: document.getElementById('editUSPs').value.split(',').map(u => u.trim()).filter(u => u),
                 competitors: document.getElementById('editCompetitors').value.split(',').map(c => c.trim()).filter(c => c),
+                // Service pages — parse "Title | URL" lines into objects
+                service_pages: document.getElementById('editServicePages').value.split('\n').map(line => {
+                    const parts = line.split('|').map(p => p.trim());
+                    if (!parts[0]) return null;
+                    return { title: parts[0], url: parts[1] || '', keyword: parts[0] };
+                }).filter(p => p),
                 // WordPress fields
                 wordpress_url: document.getElementById('editWordpressUrl').value.trim(),
                 wordpress_user: document.getElementById('editWordpressUser').value.trim(),
