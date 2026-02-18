@@ -666,3 +666,126 @@ Provide:
     except Exception as e:
         current_app.logger.error(f"AI competitor analysis failed: {e}")
         return jsonify({'error': 'An error occurred. Please try again.'}), 500
+
+
+@analytics_bp.route('/gsc/<client_id>', methods=['GET'])
+@token_required
+def get_gsc_data(current_user, client_id):
+    """
+    Get Google Search Console data for a client
+    
+    GET /api/analytics/gsc/<client_id>?days=30
+    
+    Returns: top queries, top pages, clicks/impressions over time
+    """
+    if not current_user.has_access_to_client(client_id):
+        return jsonify({'error': 'Access denied'}), 403
+    
+    client = DBClient.query.get(client_id)
+    if not client:
+        return jsonify({'error': 'Client not found'}), 404
+    
+    days = min(int(request.args.get('days', 30)), 90)
+    
+    try:
+        from app.services.analytics_service import search_console_service
+        
+        # Determine site URL
+        gsc_site_url = getattr(client, 'gsc_site_url', None)
+        if not gsc_site_url:
+            website_url = getattr(client, 'website_url', None)
+            if website_url:
+                if not website_url.startswith('http'):
+                    website_url = 'https://' + website_url
+                if not website_url.endswith('/'):
+                    website_url = website_url + '/'
+                gsc_site_url = website_url
+        
+        if not gsc_site_url:
+            return jsonify({
+                'configured': False,
+                'error': 'No website URL configured for this client'
+            })
+        
+        # Check if GSC service is configured
+        gsc_client = search_console_service._get_client()
+        if not gsc_client:
+            return jsonify({
+                'configured': False,
+                'error': 'Google Search Console not configured. Add GSC_CREDENTIALS_JSON environment variable with service account credentials.'
+            })
+        
+        end_date = datetime.utcnow()
+        start_date = end_date - timedelta(days=days)
+        
+        # Get top queries (50)
+        top_queries = search_console_service.get_search_terms(
+            site_url=gsc_site_url,
+            start_date=start_date,
+            end_date=end_date,
+            limit=50
+        )
+        
+        # Get top pages (20)
+        top_pages = search_console_service.get_top_pages(
+            site_url=gsc_site_url,
+            start_date=start_date,
+            end_date=end_date,
+            limit=20
+        )
+        
+        # Get daily click/impression data for chart
+        daily_data = []
+        try:
+            request_body = {
+                'startDate': start_date.strftime('%Y-%m-%d'),
+                'endDate': end_date.strftime('%Y-%m-%d'),
+                'dimensions': ['date'],
+                'rowLimit': 90
+            }
+            
+            response = gsc_client.searchanalytics().query(
+                siteUrl=gsc_site_url,
+                body=request_body
+            ).execute()
+            
+            for row in response.get('rows', []):
+                daily_data.append({
+                    'date': row['keys'][0],
+                    'clicks': int(row.get('clicks', 0)),
+                    'impressions': int(row.get('impressions', 0)),
+                    'ctr': round(row.get('ctr', 0) * 100, 2),
+                    'position': round(row.get('position', 0), 1)
+                })
+        except Exception as e:
+            logger.warning(f"GSC daily data error: {e}")
+        
+        # Calculate totals
+        total_clicks = sum(d['clicks'] for d in daily_data) if daily_data else sum(q.get('clicks', 0) for q in top_queries)
+        total_impressions = sum(d['impressions'] for d in daily_data) if daily_data else sum(q.get('impressions', 0) for q in top_queries)
+        avg_ctr = round((total_clicks / total_impressions * 100), 1) if total_impressions > 0 else 0
+        avg_position = round(sum(q.get('position', 0) for q in top_queries) / len(top_queries), 1) if top_queries else 0
+        
+        return jsonify({
+            'configured': True,
+            'site_url': gsc_site_url,
+            'days': days,
+            'summary': {
+                'total_clicks': total_clicks,
+                'total_impressions': total_impressions,
+                'avg_ctr': avg_ctr,
+                'avg_position': avg_position
+            },
+            'top_queries': top_queries,
+            'top_pages': top_pages,
+            'daily_data': daily_data
+        })
+        
+    except Exception as e:
+        logger.error(f"GSC data fetch error: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'configured': False,
+            'error': str(e)
+        })
