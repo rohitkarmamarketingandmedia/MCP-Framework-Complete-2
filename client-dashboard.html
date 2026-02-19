@@ -2332,6 +2332,38 @@
                                 <p class="text-xs text-gray-500">Links this client to your CallRail account</p>
                             </div>
 
+                            <!-- Wufoo Forms -->
+                            <div class="p-4 bg-white/5 rounded-xl border border-white/10">
+                                <div class="flex items-center gap-3 mb-3">
+                                    <div class="w-10 h-10 rounded-lg bg-orange-500/20 flex items-center justify-center">
+                                        <i class="fas fa-file-alt text-orange-400"></i>
+                                    </div>
+                                    <div>
+                                        <h4 class="font-medium text-white">Wufoo Forms</h4>
+                                        <p id="wufooStatusTop" class="text-xs text-gray-400">Not configured</p>
+                                    </div>
+                                </div>
+                                <input type="text" id="wufooSubdomainTop" placeholder="Wufoo Subdomain (e.g. yourcompany)"
+                                    class="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-sm mb-2 focus:outline-none focus:border-orange-500">
+                                <input type="text" id="wufooApiKeyTop" placeholder="Wufoo API Key"
+                                    class="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-sm mb-2 focus:outline-none focus:border-orange-500">
+                                <div class="flex gap-2 mb-2">
+                                    <button onclick="testWufooConnection()" class="px-3 py-1 bg-orange-500/20 text-orange-400 text-xs rounded hover:bg-orange-500/30 transition">
+                                        <i class="fas fa-plug mr-1"></i>Test & Load Forms
+                                    </button>
+                                    <button onclick="saveWufooConfig()" class="px-3 py-1 bg-green-500/20 text-green-400 text-xs rounded hover:bg-green-500/30 transition">
+                                        <i class="fas fa-save mr-1"></i>Save
+                                    </button>
+                                </div>
+                                <div id="wufooTestResult" class="mt-2 text-xs hidden"></div>
+                                <!-- Form picker - shown after test/load -->
+                                <div id="wufooFormPicker" class="hidden mt-3">
+                                    <label class="text-xs text-gray-400 block mb-2">Select forms for this client:</label>
+                                    <div id="wufooFormsList" class="space-y-1 max-h-48 overflow-y-auto"></div>
+                                </div>
+                                <p class="text-xs text-gray-500 mt-2">One account, pick which forms belong to this client</p>
+                            </div>
+
                             <!-- WordPress -->
                             <div class="p-4 bg-white/5 rounded-xl border border-white/10">
                                 <div class="flex items-center gap-3 mb-3">
@@ -3450,56 +3482,76 @@
 
             <!-- Leads Panel -->
             <div id="panel-leads" class="hidden fade-in">
-                <!-- Lead Stats -->
-                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                <!-- Lead Stats Row 1 -->
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
                     <div class="glass rounded-xl p-4 text-center cursor-pointer hover:ring-1 hover:ring-white/20 transition" onclick="filterLeads('all')">
-                        <p class="text-2xl font-bold text-white" id="leadsTotal">0</p>
+                        <p class="text-3xl font-bold text-white" id="leadsTotal">0</p>
                         <p class="text-sm text-gray-400">Total Leads</p>
                     </div>
-                    <div class="glass rounded-xl p-4 text-center cursor-pointer hover:ring-1 hover:ring-blue-500/30 transition" onclick="filterLeads('new')">
-                        <p class="text-2xl font-bold text-blue-400" id="leadsNew">0</p>
-                        <p class="text-sm text-gray-400">New</p>
+                    <div class="glass rounded-xl p-4 text-center cursor-pointer hover:ring-1 hover:ring-green-500/30 transition" onclick="filterLeads('call')">
+                        <p class="text-3xl font-bold text-green-400" id="leadsCalls">0</p>
+                        <p class="text-sm text-gray-400">Phone Calls</p>
                     </div>
-                    <div class="glass rounded-xl p-4 text-center cursor-pointer hover:ring-1 hover:ring-green-500/30 transition" onclick="filterLeads('won')">
-                        <p class="text-2xl font-bold text-green-400" id="leadsWon">0</p>
-                        <p class="text-sm text-gray-400">Won</p>
+                    <div class="glass rounded-xl p-4 text-center cursor-pointer hover:ring-1 hover:ring-blue-500/30 transition" onclick="filterLeads('form')">
+                        <p class="text-3xl font-bold text-blue-400" id="leadsForms">0</p>
+                        <p class="text-sm text-gray-400">Form Submissions</p>
                     </div>
-                    <div class="glass rounded-xl p-4 text-center cursor-pointer hover:ring-1 hover:ring-purple-500/30 transition" onclick="filterLeads('all')">
-                        <p class="text-2xl font-bold text-purple-400" id="leadsTotalValue">$0</p>
-                        <p class="text-sm text-gray-400">Total Value</p>
+                    <div class="glass rounded-xl p-4 text-center cursor-pointer hover:ring-1 hover:ring-purple-500/30 transition" onclick="filterLeads('chat')">
+                        <p class="text-3xl font-bold text-purple-400" id="leadsChat">0</p>
+                        <p class="text-sm text-gray-400">Chat Leads</p>
                     </div>
                 </div>
 
-                <!-- Leads List -->
-                <div class="glass rounded-2xl p-6">
-                    <div class="flex items-center justify-between mb-6">
-                        <div class="flex items-center gap-3">
-                            <div
-                                class="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-600 flex items-center justify-center">
-                                <i class="fas fa-user-plus text-white text-xl"></i>
-                            </div>
-                            <div>
-                                <h3 class="text-lg font-bold text-white">Lead Management</h3>
-                                <p class="text-sm text-gray-400">Track and manage your leads</p>
-                            </div>
-                        </div>
-                        <select id="leadStatusFilter" onchange="loadLeads()"
-                            class="px-3 py-2 glass rounded-lg text-white text-sm">
-                            <option value="">All Status</option>
-                            <option value="new">New</option>
-                            <option value="contacted">Contacted</option>
-                            <option value="qualified">Qualified</option>
-                            <option value="proposal">Proposal</option>
-                            <option value="won">Won</option>
-                            <option value="lost">Lost</option>
-                        </select>
+                <!-- Stats Row 2 -->
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                    <div class="glass rounded-xl p-4 text-center">
+                        <p class="text-3xl font-bold text-emerald-400" id="leadsGood">0</p>
+                        <p class="text-sm text-gray-400">Good Leads</p>
                     </div>
-                    <div id="leadsList" class="space-y-4">
-                        <div class="text-center py-12 text-gray-500">
-                            <i class="fas fa-user-plus text-4xl mb-4 opacity-50"></i>
-                            <p>No leads captured yet</p>
-                            <p class="text-sm mt-2">Leads from calls, forms, and chatbot will appear here</p>
+                    <div class="glass rounded-xl p-4 text-center">
+                        <p class="text-3xl font-bold text-cyan-400" id="leadsNew">0</p>
+                        <p class="text-sm text-gray-400">New (Uncontacted)</p>
+                    </div>
+                    <div class="glass rounded-xl p-4 text-center">
+                        <p class="text-3xl font-bold text-amber-400" id="leadsBooked">0</p>
+                        <p class="text-sm text-gray-400">Schedule Booked</p>
+                    </div>
+                    <div class="glass rounded-xl p-4 text-center">
+                        <p class="text-3xl font-bold text-green-400" id="leadsWon">0</p>
+                        <p class="text-sm text-gray-400">Won/Converted</p>
+                    </div>
+                </div>
+
+                <!-- Wufoo Sync + Filters -->
+                <div class="glass rounded-xl p-4 mb-6">
+                    <div class="flex flex-wrap items-center gap-3">
+                        <button onclick="syncWufooLeads()" id="wufooSyncBtn" class="px-4 py-2 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-lg text-sm font-medium hover:opacity-90 transition">
+                            <i class="fas fa-sync-alt mr-2"></i>Sync Wufoo Forms
+                        </button>
+                        <button onclick="loadLeads()" class="px-4 py-2 glass text-white rounded-lg text-sm font-medium hover:bg-white/10 transition">
+                            <i class="fas fa-sync-alt mr-2"></i>Refresh All
+                        </button>
+                        <div class="ml-auto flex items-center gap-2">
+                            <select id="leadSourceFilter" onchange="loadLeads()" class="bg-white/10 border border-white/20 rounded-lg text-white text-sm px-3 py-2 focus:outline-none">
+                                <option value="">All Sources</option>
+                                <option value="call">Phone Calls</option>
+                                <option value="form">Forms (Wufoo)</option>
+                                <option value="chat">Chatbot</option>
+                            </select>
+                            <select id="leadDaysFilter" onchange="loadLeads()" class="bg-white/10 border border-white/20 rounded-lg text-white text-sm px-3 py-2 focus:outline-none">
+                                <option value="7">Last 7 days</option>
+                                <option value="30" selected>Last 30 days</option>
+                                <option value="90">Last 90 days</option>
+                            </select>
                         </div>
+                    </div>
+                </div>
+
+                <!-- Unified Lead Feed (grouped by date) -->
+                <div id="leadsList" class="space-y-4">
+                    <div class="text-center py-12 text-gray-500">
+                        <i class="fas fa-user-plus text-4xl mb-4 opacity-50"></i>
+                        <p>Loading leads...</p>
                     </div>
                 </div>
             </div>
@@ -5717,6 +5769,7 @@
                 // Show Integrations section first (most important)
                 showSettingsSection('integrations');
                 loadNotificationPrefs();
+                loadWufooConfig();
                 loadNotificationHistory();
                 setTimeout(updateDigestPreview, 100);
             }
@@ -7174,101 +7227,387 @@
 
         async function loadLeads() {
             console.log('loadLeads called, currentClient:', currentClient);
-
-            if (!currentClient) {
-                console.log('No currentClient, returning');
-                return;
-            }
+            if (!currentClient) return;
 
             const container = document.getElementById('leadsList');
-            console.log('leadsList container:', container);
-            if (!container) {
-                console.log('No leadsList container, returning');
-                return;
-            }
+            if (!container) return;
 
-            const statusFilter = document.getElementById('leadStatusFilter')?.value || '';
+            const sourceFilter = document.getElementById('leadSourceFilter')?.value || '';
+            const days = parseInt(document.getElementById('leadDaysFilter')?.value || '30');
 
             container.innerHTML = '<div class="text-center py-8"><i class="fas fa-spinner fa-spin text-2xl text-purple-400"></i><p class="text-gray-400 mt-2">Loading leads...</p></div>';
 
+            let allLeads = [];
+
             try {
-                let url = `${API_URL}/api/leads/?client_id=${currentClient.id}`;
-                if (statusFilter) url += `&status=${statusFilter}`;
-
-                console.log('Fetching leads from:', url);
-
-                const response = await fetch(url, {
+                // Fetch DB leads (forms, chatbot, manual)
+                const leadsRes = await fetch(`${API_URL}/api/leads/?client_id=${currentClient.id}`, {
                     headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
                 });
-
-                console.log('Leads response status:', response.status);
-
-                if (response.ok) {
-                    const data = await response.json();
-                    const leads = data.leads || [];
-
-                    // Update stats
-                    const totalLeads = leads.length;
-                    const newLeads = leads.filter(l => l.status === 'new' || !l.status).length;
-                    const wonLeads = leads.filter(l => l.status === 'won').length;
-                    const totalValue = leads.reduce((sum, l) => sum + (parseFloat(l.value) || 0), 0);
-
-                    document.getElementById('leadsTotal').textContent = totalLeads;
-                    document.getElementById('leadsNew').textContent = newLeads;
-                    document.getElementById('leadsWon').textContent = wonLeads;
-                    document.getElementById('leadsTotalValue').textContent = '$' + totalValue.toLocaleString();
-
-                    if (leads.length === 0) {
-                        container.innerHTML = `
-                            <div class="text-center py-12 text-gray-500">
-                                <i class="fas fa-user-plus text-4xl mb-4 opacity-50"></i>
-                                <p>No leads ${statusFilter ? 'with status "' + statusFilter + '"' : 'captured yet'}</p>
-                                <p class="text-sm mt-2">Leads from calls, forms, and chatbot will appear here</p>
-                            </div>
-                        `;
-                        return;
-                    }
-
-                    container.innerHTML = leads.map(lead => `
-                        <div class="glass rounded-xl p-4 hover:bg-white/5 transition">
-                            <div class="flex items-start justify-between">
-                                <div class="flex items-center gap-3">
-                                    <div class="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-cyan-600 flex items-center justify-center text-white font-bold">
-                                        ${(lead.name || 'L')[0].toUpperCase()}
-                                    </div>
-                                    <div>
-                                        <h4 class="text-white font-medium">${lead.name || 'Unknown'}</h4>
-                                        <p class="text-sm text-gray-400">${lead.email || ''} ${lead.email && lead.phone ? '•' : ''} ${lead.phone || ''}</p>
-                                    </div>
-                                </div>
-                                <div class="text-right">
-                                    <select onchange="updateLeadStatus('${lead.id}', this.value)" class="px-2 py-1 rounded-full text-xs ${getLeadStatusColor(lead.status)} bg-transparent border-0 cursor-pointer">
-                                        <option value="new" ${lead.status === 'new' || !lead.status ? 'selected' : ''}>New</option>
-                                        <option value="contacted" ${lead.status === 'contacted' ? 'selected' : ''}>Contacted</option>
-                                        <option value="qualified" ${lead.status === 'qualified' ? 'selected' : ''}>Qualified</option>
-                                        <option value="proposal" ${lead.status === 'proposal' ? 'selected' : ''}>Proposal</option>
-                                        <option value="won" ${lead.status === 'won' ? 'selected' : ''}>Won</option>
-                                        <option value="lost" ${lead.status === 'lost' ? 'selected' : ''}>Lost</option>
-                                    </select>
-                                    <p class="text-xs text-gray-500 mt-1">${formatDate(lead.created_at)}</p>
-                                </div>
-                            </div>
-                            <div class="mt-3 flex items-center gap-4 text-sm">
-                                <span class="text-gray-400"><i class="fas fa-tag mr-1"></i>${lead.source || 'Unknown'}</span>
-                                ${lead.value ? `<span class="text-green-400"><i class="fas fa-dollar-sign mr-1"></i>${lead.value}</span>` : ''}
-                                ${lead.page_url ? `<a href="${lead.page_url}" target="_blank" class="text-purple-400 hover:text-purple-300"><i class="fas fa-external-link-alt mr-1"></i>Source Page</a>` : ''}
-                            </div>
-                            ${lead.notes ? `<p class="mt-2 text-sm text-gray-400 italic">"${lead.notes}"</p>` : ''}
-                        </div>
-                    `).join('');
-                } else {
-                    const errorText = await response.text();
-                    console.error('Leads API error:', response.status, errorText);
-                    container.innerHTML = `<div class="text-center py-8 text-red-400">Failed to load leads (${response.status})</div>`;
+                if (leadsRes.ok) {
+                    const leadsData = await leadsRes.json();
+                    (leadsData.leads || []).forEach(lead => {
+                        allLeads.push({
+                            id: lead.id,
+                            type: lead.source === 'form' ? 'form' : (lead.source === 'chat' ? 'chat' : lead.source || 'other'),
+                            name: lead.name || 'Unknown',
+                            phone: lead.phone || '',
+                            email: lead.email || '',
+                            date: lead.created_at,
+                            source: lead.source_detail || lead.source || 'Form',
+                            status: lead.status || 'new',
+                            service: lead.service_requested || '',
+                            message: lead.message || lead.notes || '',
+                            value: lead.value || lead.estimated_value || null,
+                            lead_quality: lead.lead_quality || (lead.status === 'won' ? 'good' : ''),
+                            booked: lead.status === 'qualified' || lead.status === 'won'
+                        });
+                    });
                 }
-            } catch (error) {
-                console.error('Failed to load leads:', error);
-                container.innerHTML = `<div class="text-center py-8 text-red-400">Error loading leads: ${error.message || 'Network error'}</div>`;
+            } catch(e) { console.error('Error loading DB leads:', e); }
+
+            try {
+                // Fetch CallRail calls
+                const callsRes = await fetch(`${API_URL}/api/intelligence/calls/${currentClient.id}?days=${days}`, {
+                    headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
+                });
+                if (callsRes.ok) {
+                    const callsData = await callsRes.json();
+                    if (!callsData.error) {
+                        (callsData.calls || []).forEach(call => {
+                            allLeads.push({
+                                id: call.id,
+                                type: 'call',
+                                name: call.caller_name || 'Unknown Caller',
+                                phone: call.caller_number || '',
+                                email: '',
+                                date: call.date,
+                                source: call.source || 'Website',
+                                duration: call.duration || 0,
+                                duration_formatted: call.duration_formatted || formatCallDuration(call.duration),
+                                answered: call.answered,
+                                voicemail: call.voicemail,
+                                first_call: call.first_call,
+                                recording_url: call.recording_url,
+                                has_transcript: call.has_transcript,
+                                transcript_preview: call.transcript_preview || '',
+                                lead_quality: call.lead_quality || (call.answered && call.duration > 120 ? 'good' : (call.answered ? 'ok' : 'missed')),
+                                booked: false
+                            });
+                        });
+                    }
+                }
+            } catch(e) { console.error('Error loading calls:', e); }
+
+            // Filter by source
+            if (sourceFilter) {
+                allLeads = allLeads.filter(l => l.type === sourceFilter);
+            }
+
+            // Filter by date range
+            const cutoff = new Date();
+            cutoff.setDate(cutoff.getDate() - days);
+            allLeads = allLeads.filter(l => {
+                if (!l.date) return true;
+                try { return new Date(l.date) >= cutoff; } catch(e) { return true; }
+            });
+
+            // Sort by date descending
+            allLeads.sort((a, b) => {
+                const da = a.date ? new Date(a.date) : new Date(0);
+                const db = b.date ? new Date(b.date) : new Date(0);
+                return db - da;
+            });
+
+            // Update stats
+            document.getElementById('leadsTotal').textContent = allLeads.length;
+            document.getElementById('leadsCalls').textContent = allLeads.filter(l => l.type === 'call').length;
+            document.getElementById('leadsForms').textContent = allLeads.filter(l => l.type === 'form').length;
+            document.getElementById('leadsChat').textContent = allLeads.filter(l => l.type === 'chat').length;
+            document.getElementById('leadsGood').textContent = allLeads.filter(l => l.lead_quality === 'good' || l.lead_quality === 'hot').length;
+            document.getElementById('leadsNew').textContent = allLeads.filter(l => l.status === 'new' || (!l.status && l.type !== 'call')).length;
+            document.getElementById('leadsBooked').textContent = allLeads.filter(l => l.booked).length;
+            document.getElementById('leadsWon').textContent = allLeads.filter(l => l.status === 'won').length;
+
+            if (allLeads.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-12 text-gray-500">
+                        <i class="fas fa-user-plus text-4xl mb-4 opacity-50"></i>
+                        <p>No leads found for this period</p>
+                        <p class="text-sm mt-2">Leads from CallRail calls, Wufoo forms, and chatbot appear here</p>
+                    </div>
+                `;
+                return;
+            }
+
+            // Group by date
+            const grouped = {};
+            allLeads.forEach(lead => {
+                let dateKey;
+                try {
+                    const dt = new Date(lead.date);
+                    dateKey = dt.toLocaleDateString('en-US', { weekday: 'long', month: '2-digit', day: '2-digit', year: 'numeric' });
+                } catch(e) {
+                    dateKey = 'Unknown Date';
+                }
+                if (!grouped[dateKey]) grouped[dateKey] = [];
+                grouped[dateKey].push(lead);
+            });
+
+            // Render grouped
+            let html = '';
+            for (const [dateLabel, leads] of Object.entries(grouped)) {
+                const callCount = leads.filter(l => l.type === 'call').length;
+                const formCount = leads.filter(l => l.type === 'form').length;
+                const chatCount = leads.filter(l => l.type === 'chat').length;
+                const parts = [];
+                if (callCount) parts.push(`${callCount} call${callCount > 1 ? 's' : ''}`);
+                if (formCount) parts.push(`${formCount} form${formCount > 1 ? 's' : ''}`);
+                if (chatCount) parts.push(`${chatCount} chat${chatCount > 1 ? 's' : ''}`);
+
+                html += `<div class="mb-2 text-sm text-gray-400 font-semibold pt-2">${dateLabel} — ${parts.join(', ') || leads.length + ' leads'}</div>`;
+
+                leads.forEach(lead => {
+                    if (lead.type === 'call') {
+                        html += renderCallLead(lead);
+                    } else {
+                        html += renderFormLead(lead);
+                    }
+                });
+            }
+            container.innerHTML = html;
+        }
+
+        function renderCallLead(lead) {
+            const qualityBadge = lead.lead_quality === 'good' || lead.lead_quality === 'hot'
+                ? '<span class="px-2 py-0.5 bg-green-500/20 text-green-400 text-xs rounded-full font-medium">Good lead</span>'
+                : lead.lead_quality === 'poor' || lead.lead_quality === 'missed'
+                ? '<span class="px-2 py-0.5 bg-red-500/20 text-red-400 text-xs rounded-full font-medium">Missed</span>'
+                : '';
+            const bookedBadge = lead.booked ? '<span class="px-2 py-0.5 bg-emerald-500/20 text-emerald-400 text-xs rounded-full font-medium">Schedule booked</span>' : '';
+            const timeStr = lead.date ? new Date(lead.date).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) : '';
+
+            return `
+                <div class="glass rounded-xl p-4 hover:bg-white/5 transition border-l-4 ${lead.answered ? 'border-green-500' : 'border-red-500'}">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-full ${lead.answered ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'} flex items-center justify-center">
+                                <i class="fas ${lead.voicemail ? 'fa-voicemail' : (lead.answered ? 'fa-phone' : 'fa-phone-slash')}"></i>
+                            </div>
+                            <div>
+                                <div class="text-white font-medium">${lead.name}</div>
+                                <div class="text-xs text-gray-400">${lead.phone}</div>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="text-xs text-gray-500">${lead.source}</span>
+                            ${bookedBadge}
+                            ${qualityBadge}
+                            ${lead.recording_url ? `<a href="${lead.recording_url}" target="_blank" class="text-blue-400 hover:text-blue-300"><i class="fas fa-play-circle"></i></a>` : ''}
+                            ${lead.has_transcript ? '<i class="fas fa-comment-dots text-blue-400/50" title="Has transcript"></i>' : ''}
+                        </div>
+                        <div class="text-right ml-3">
+                            <div class="text-sm text-gray-400">${timeStr}</div>
+                            <div class="text-sm ${lead.answered ? 'text-green-400' : 'text-red-400'}">${lead.duration_formatted || ''}</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderFormLead(lead) {
+            const sourceIcon = lead.type === 'chat' ? 'fa-robot' : 'fa-file-alt';
+            const sourceColor = lead.type === 'chat' ? 'bg-purple-500/20 text-purple-400' : 'bg-blue-500/20 text-blue-400';
+            const timeStr = lead.date ? new Date(lead.date).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) : '';
+
+            return `
+                <div class="glass rounded-xl p-4 hover:bg-white/5 transition border-l-4 border-blue-500">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-full ${sourceColor} flex items-center justify-center">
+                                <i class="fas ${sourceIcon}"></i>
+                            </div>
+                            <div>
+                                <div class="text-white font-medium">${lead.name}</div>
+                                <div class="text-xs text-gray-400">${lead.email || lead.phone || ''}</div>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-2 flex-1 ml-4">
+                            <span class="text-xs text-gray-500">${lead.source || 'Form'}</span>
+                            ${lead.service ? `<span class="px-2 py-0.5 bg-cyan-500/20 text-cyan-400 text-xs rounded-full">${lead.service}</span>` : ''}
+                            ${lead.lead_quality === 'good' ? '<span class="px-2 py-0.5 bg-green-500/20 text-green-400 text-xs rounded-full font-medium">Good lead</span>' : ''}
+                            <select onchange="updateLeadStatus('${lead.id}', this.value)" class="ml-auto bg-transparent border border-white/10 text-xs rounded px-2 py-1 text-gray-300" onclick="event.stopPropagation()">
+                                <option value="new" ${lead.status === 'new' || !lead.status ? 'selected' : ''}>New</option>
+                                <option value="contacted" ${lead.status === 'contacted' ? 'selected' : ''}>Contacted</option>
+                                <option value="qualified" ${lead.status === 'qualified' ? 'selected' : ''}>Qualified</option>
+                                <option value="won" ${lead.status === 'won' ? 'selected' : ''}>Won</option>
+                                <option value="lost" ${lead.status === 'lost' ? 'selected' : ''}>Lost</option>
+                            </select>
+                        </div>
+                        <div class="text-right ml-3">
+                            <div class="text-sm text-gray-400">${timeStr}</div>
+                        </div>
+                    </div>
+                    ${lead.message ? `<div class="mt-2 text-sm text-gray-400 pl-13 ml-13 italic">"${lead.message.length > 150 ? lead.message.substring(0, 150) + '...' : lead.message}"</div>` : ''}
+                </div>
+            `;
+        }
+
+        function filterLeads(source) {
+            const filter = document.getElementById('leadSourceFilter');
+            if (filter) {
+                filter.value = source === 'all' ? '' : source;
+            }
+            loadLeads();
+        }
+
+        async function syncWufooLeads() {
+            if (!currentClient) return;
+            const btn = document.getElementById('wufooSyncBtn');
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Syncing...';
+            }
+            try {
+                const res = await fetch(`${API_URL}/api/leads/wufoo/sync`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${AUTH_TOKEN}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ client_id: currentClient.id })
+                });
+                const data = await res.json();
+                if (data.synced > 0) {
+                    showToast(`Synced ${data.synced} new Wufoo entries!`, 'success');
+                    loadLeads();
+                } else if (data.errors && data.errors.length > 0) {
+                    showToast('Wufoo: ' + data.errors[0], 'warning');
+                } else {
+                    showToast('Wufoo sync complete — no new entries', 'info');
+                }
+            } catch(e) {
+                showToast('Wufoo sync error: ' + e.message, 'error');
+            } finally {
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fas fa-sync-alt mr-2"></i>Sync Wufoo Forms';
+                }
+            }
+        }
+
+        async function testWufooConnection() {
+            const subdomain = document.getElementById('wufooSubdomainTop')?.value?.trim();
+            const apiKey = document.getElementById('wufooApiKeyTop')?.value?.trim();
+            const resultEl = document.getElementById('wufooTestResult');
+            const pickerEl = document.getElementById('wufooFormPicker');
+            const formsListEl = document.getElementById('wufooFormsList');
+
+            if (!subdomain || !apiKey) {
+                if (resultEl) { resultEl.className = 'mt-2 text-xs text-red-400'; resultEl.textContent = 'Enter subdomain and API key first'; }
+                return;
+            }
+
+            if (resultEl) { resultEl.className = 'mt-2 text-xs text-gray-400'; resultEl.textContent = 'Testing connection...'; }
+
+            try {
+                const res = await fetch(`${API_URL}/api/leads/wufoo/test`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${AUTH_TOKEN}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ subdomain, api_key: apiKey })
+                });
+                const data = await res.json();
+                if (resultEl) {
+                    resultEl.className = `mt-2 text-xs ${data.success ? 'text-green-400' : 'text-red-400'}`;
+                    resultEl.textContent = data.message;
+                }
+
+                // Show form picker if successful
+                if (data.success && data.forms && data.forms.length > 0 && pickerEl && formsListEl) {
+                    // Get currently selected hashes
+                    const integrations = currentClient?.integrations || {};
+                    const wufoo = typeof integrations === 'string' ? {} : (integrations.wufoo || {});
+                    const selectedHashes = wufoo.form_hashes || [];
+
+                    pickerEl.classList.remove('hidden');
+                    formsListEl.innerHTML = data.forms.map(form => `
+                        <label class="flex items-center gap-2 p-2 bg-white/5 rounded hover:bg-white/10 cursor-pointer transition">
+                            <input type="checkbox" class="wufoo-form-checkbox accent-orange-500" value="${form.hash}" 
+                                ${selectedHashes.includes(form.hash) ? 'checked' : ''}>
+                            <div class="flex-1">
+                                <span class="text-sm text-white">${form.name}</span>
+                                <span class="text-xs text-gray-500 ml-2">${form.entry_count} entries</span>
+                            </div>
+                        </label>
+                    `).join('');
+                } else if (pickerEl) {
+                    pickerEl.classList.add('hidden');
+                }
+            } catch(e) {
+                if (resultEl) { resultEl.className = 'mt-2 text-xs text-red-400'; resultEl.textContent = 'Error: ' + e.message; }
+            }
+        }
+
+        async function saveWufooConfig() {
+            if (!currentClient) return;
+            const subdomain = document.getElementById('wufooSubdomainTop')?.value?.trim();
+            const apiKey = document.getElementById('wufooApiKeyTop')?.value?.trim();
+            
+            // Collect selected form hashes
+            const checkboxes = document.querySelectorAll('.wufoo-form-checkbox:checked');
+            const formHashes = Array.from(checkboxes).map(cb => cb.value);
+
+            try {
+                const res = await fetch(`${API_URL}/api/leads/wufoo/save`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${AUTH_TOKEN}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        client_id: currentClient.id,
+                        subdomain: subdomain,
+                        api_key: apiKey,
+                        form_hashes: formHashes
+                    })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    const formCount = formHashes.length;
+                    showToast(`Wufoo saved! ${formCount} form${formCount !== 1 ? 's' : ''} selected for this client`, 'success');
+                    document.getElementById('wufooStatusTop').textContent = subdomain ? `Connected: ${formCount} form${formCount !== 1 ? 's' : ''} linked` : 'Not configured';
+                } else {
+                    showToast('Save failed: ' + (data.error || ''), 'error');
+                }
+            } catch(e) {
+                showToast('Save error: ' + e.message, 'error');
+            }
+        }
+
+        function loadWufooConfig() {
+            if (!currentClient) return;
+            const integrations = currentClient.integrations || {};
+            const wufoo = typeof integrations === 'string' ? {} : (integrations.wufoo || {});
+            const subdomain = wufoo.subdomain || '';
+            const apiKey = wufoo.api_key || '';
+            const formHashes = wufoo.form_hashes || [];
+
+            const subEl = document.getElementById('wufooSubdomainTop');
+            const keyEl = document.getElementById('wufooApiKeyTop');
+            const statusEl = document.getElementById('wufooStatusTop');
+            const pickerEl = document.getElementById('wufooFormPicker');
+
+            if (subEl) subEl.value = subdomain;
+            if (keyEl) keyEl.value = apiKey;
+            if (statusEl) {
+                if (subdomain && formHashes.length > 0) {
+                    statusEl.textContent = `Connected: ${formHashes.length} form${formHashes.length !== 1 ? 's' : ''} linked`;
+                } else if (subdomain) {
+                    statusEl.textContent = `Connected: ${subdomain}.wufoo.com (no forms selected)`;
+                } else {
+                    statusEl.textContent = 'Not configured';
+                }
+            }
+            // Hide form picker until Test is clicked
+            if (pickerEl) pickerEl.classList.add('hidden');
+
+            // If we have config, auto-load forms
+            if (subdomain && apiKey) {
+                testWufooConnection();
             }
         }
 

@@ -436,3 +436,103 @@ def update_notification_settings(current_user):
         'notification_phone': client.lead_notification_phone,
         'enabled': client.lead_notification_enabled
     })
+
+
+# ==========================================
+# Wufoo Integration
+# ==========================================
+
+@leads_bp.route('/wufoo/test', methods=['POST'])
+@token_required
+def test_wufoo(current_user):
+    """Test Wufoo connection"""
+    data = request.get_json(silent=True) or {}
+    subdomain = data.get('subdomain', '').strip()
+    api_key = data.get('api_key', '').strip()
+    
+    if not subdomain or not api_key:
+        return jsonify({'success': False, 'message': 'Subdomain and API key required'}), 400
+    
+    from app.services.wufoo_service import get_wufoo_service
+    wufoo = get_wufoo_service()
+    result = wufoo.test_connection(subdomain, api_key)
+    return jsonify(result)
+
+
+@leads_bp.route('/wufoo/save', methods=['POST'])
+@token_required
+def save_wufoo_config(current_user):
+    """Save Wufoo configuration for a client"""
+    data = request.get_json(silent=True) or {}
+    client_id = data.get('client_id')
+    
+    if not client_id:
+        return jsonify({'error': 'client_id required'}), 400
+    
+    client = DBClient.query.get(client_id)
+    if not client:
+        return jsonify({'error': 'Client not found'}), 404
+    
+    integrations = client.get_integrations()
+    integrations['wufoo'] = {
+        'subdomain': data.get('subdomain', '').strip(),
+        'api_key': data.get('api_key', '').strip(),
+        'form_hashes': data.get('form_hashes', []),
+        'last_synced': integrations.get('wufoo', {}).get('last_synced')
+    }
+    
+    import json
+    client.integrations = json.dumps(integrations)
+    db.session.commit()
+    
+    return jsonify({'success': True, 'message': 'Wufoo config saved'})
+
+
+@leads_bp.route('/wufoo/sync', methods=['POST'])
+@token_required
+def sync_wufoo(current_user):
+    """Sync Wufoo form entries as leads"""
+    data = request.get_json(silent=True) or {}
+    client_id = data.get('client_id')
+    
+    if not client_id:
+        return jsonify({'error': 'client_id required'}), 400
+    
+    client = DBClient.query.get(client_id)
+    if not client:
+        return jsonify({'error': 'Client not found'}), 404
+    
+    from app.services.wufoo_service import get_wufoo_service
+    wufoo = get_wufoo_service()
+    result = wufoo.sync_entries_for_client(client)
+    
+    return jsonify(result)
+
+
+@leads_bp.route('/wufoo/forms', methods=['GET'])
+@token_required
+def get_wufoo_forms(current_user):
+    """Get available Wufoo forms for a client"""
+    client_id = request.args.get('client_id')
+    
+    if not client_id:
+        return jsonify({'error': 'client_id required'}), 400
+    
+    client = DBClient.query.get(client_id)
+    if not client:
+        return jsonify({'error': 'Client not found'}), 404
+    
+    integrations = client.get_integrations()
+    wufoo_config = integrations.get('wufoo', {})
+    
+    if not wufoo_config.get('subdomain') or not wufoo_config.get('api_key'):
+        return jsonify({'forms': [], 'error': 'Wufoo not configured'})
+    
+    from app.services.wufoo_service import get_wufoo_service
+    wufoo = get_wufoo_service()
+    forms = wufoo.get_forms(wufoo_config['subdomain'], wufoo_config['api_key'])
+    
+    return jsonify({
+        'forms': forms,
+        'selected_hashes': wufoo_config.get('form_hashes', [])
+    })
