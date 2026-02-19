@@ -1724,11 +1724,10 @@ def get_competitor_dashboard(current_user, client_id):
     client_rankings = {}
     client_domain = rank_tracking_service._clean_domain(client.website_url or client.business_name)
     
+    import requests as http_requests
+    api_key = rank_tracking_service.api_key
+    
     try:
-        # Use SEMrush to get ALL client domain keywords (cached)
-        import requests as http_requests
-        api_key = rank_tracking_service.api_key
-        
         if api_key:
             # Check cache first
             cache_key = f"{client_domain}:{rank_tracking_service.default_database}"
@@ -1820,17 +1819,22 @@ def get_competitor_dashboard(current_user, client_id):
                     'domain': comp_domain,
                     'database': rank_tracking_service.default_database
                 }
-                comp_resp = http_requests.get(rank_tracking_service.base_url, params=comp_params, timeout=20)
+                comp_resp = http_requests.get(rank_tracking_service.base_url, params=comp_params, timeout=10)
                 if comp_resp.status_code == 200:
                     comp_lines = comp_resp.text.strip().split('\n')
                     for line in comp_lines[1:]:
                         parts = line.split(';')
                         if len(parts) >= 2:
                             kw = parts[0].strip('"').lower()
-                            pos = int(parts[1]) if parts[1] else None
+                            try:
+                                pos = int(parts[1]) if parts[1] else None
+                            except ValueError:
+                                continue
                             if pos:
                                 comp_ranks[kw] = pos
                     logger.info(f"Competitor {comp_domain}: {len(comp_ranks)} ranked keywords")
+                else:
+                    logger.warning(f"SEMrush returned {comp_resp.status_code} for {comp_domain}")
         except Exception as e:
             logger.warning(f"Error fetching competitor {comp.domain} rankings: {e}")
         
