@@ -2066,7 +2066,7 @@
                     </div>
                     <div class="glass rounded-2xl p-4 text-center">
                         <div class="text-3xl font-bold text-amber-400" id="compKeywords">0</div>
-                        <div class="text-sm text-gray-400">Keywords Tracked</div>
+                        <div class="text-sm text-gray-400">Ranking Battles</div>
                     </div>
                 </div>
 
@@ -3597,8 +3597,8 @@
 
             <!-- Calls Panel -->
             <div id="panel-calls" class="hidden fade-in">
-                <!-- Call Stats Overview -->
-                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                <!-- Call Stats Overview - Row 1 -->
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
                     <div class="glass rounded-xl p-4 text-center">
                         <div class="text-3xl font-bold text-green-400" id="callsTotal">0</div>
                         <div class="text-sm text-gray-400">Total Calls</div>
@@ -3617,8 +3617,47 @@
                     </div>
                 </div>
 
-                <!-- Call Intelligence Insights -->
+                <!-- Call Stats Overview - Row 2 -->
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                    <div class="glass rounded-xl p-4 text-center">
+                        <div class="text-3xl font-bold text-red-400" id="callsMissed">0</div>
+                        <div class="text-sm text-gray-400">Missed Calls</div>
+                    </div>
+                    <div class="glass rounded-xl p-4 text-center">
+                        <div class="text-3xl font-bold text-cyan-400" id="callsFirstTime">0</div>
+                        <div class="text-sm text-gray-400">First-Time Callers</div>
+                    </div>
+                    <div class="glass rounded-xl p-4 text-center">
+                        <div class="text-3xl font-bold text-emerald-400" id="callsAnswerRate">0%</div>
+                        <div class="text-sm text-gray-400">Answer Rate</div>
+                    </div>
+                    <div class="glass rounded-xl p-4 text-center">
+                        <div class="text-3xl font-bold text-orange-400" id="callsVoicemails">0</div>
+                        <div class="text-sm text-gray-400">Voicemails</div>
+                    </div>
+                </div>
+
+                <!-- Action Buttons Bar -->
+                <div class="glass rounded-xl p-4 mb-6">
+                    <div class="flex flex-wrap gap-3">
+                        <button onclick="generateFAQFromCalls()" class="px-4 py-2 bg-gradient-to-r from-yellow-600 to-amber-600 text-white rounded-lg text-sm font-medium hover:opacity-90 transition">
+                            <i class="fas fa-question-circle mr-2"></i>Generate FAQ from Calls
+                        </button>
+                        <button onclick="generateBlogFromCalls()" class="px-4 py-2 bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-lg text-sm font-medium hover:opacity-90 transition">
+                            <i class="fas fa-pen mr-2"></i>Create Blog from Questions
+                        </button>
+                        <button onclick="updateChatbotFromCalls()" class="px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg text-sm font-medium hover:opacity-90 transition">
+                            <i class="fas fa-robot mr-2"></i>Update Chatbot Knowledge
+                        </button>
+                        <button onclick="refreshCallData()" class="px-4 py-2 glass text-white rounded-lg text-sm font-medium hover:bg-white/10 transition ml-auto">
+                            <i class="fas fa-sync-alt mr-2"></i>Refresh Data
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Call Intelligence Grid -->
                 <div class="grid md:grid-cols-2 gap-6 mb-6">
+                    <!-- Top Customer Questions -->
                     <div class="glass rounded-2xl p-6">
                         <h3 class="text-lg font-bold text-white mb-4">
                             <i class="fas fa-lightbulb mr-2 text-yellow-400"></i>Top Customer Questions
@@ -3627,6 +3666,8 @@
                             <p class="text-gray-500 text-sm">Analyzing call transcripts...</p>
                         </div>
                     </div>
+
+                    <!-- Common Keywords -->
                     <div class="glass rounded-2xl p-6">
                         <h3 class="text-lg font-bold text-white mb-4">
                             <i class="fas fa-tags mr-2 text-blue-400"></i>Common Keywords
@@ -3635,33 +3676,86 @@
                             <p class="text-gray-500 text-sm">Analyzing call transcripts...</p>
                         </div>
                     </div>
+
+                    <!-- Services Requested -->
+                    <div class="glass rounded-2xl p-6">
+                        <h3 class="text-lg font-bold text-white mb-4">
+                            <i class="fas fa-tools mr-2 text-green-400"></i>Services Requested
+                        </h3>
+                        <div id="callServices" class="space-y-2">
+                            <p class="text-gray-500 text-sm">Analyzing call transcripts...</p>
+                        </div>
+                    </div>
+
+                    <!-- Pain Points -->
+                    <div class="glass rounded-2xl p-6">
+                        <h3 class="text-lg font-bold text-white mb-4">
+                            <i class="fas fa-exclamation-triangle mr-2 text-red-400"></i>Customer Pain Points
+                        </h3>
+                        <div id="callPainPoints" class="space-y-2">
+                            <p class="text-gray-500 text-sm">Analyzing call transcripts...</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Call Patterns -->
+                <div class="grid md:grid-cols-2 gap-6 mb-6">
+                    <!-- Peak Hours -->
+                    <div class="glass rounded-2xl p-6">
+                        <h3 class="text-lg font-bold text-white mb-4">
+                            <i class="fas fa-clock mr-2 text-cyan-400"></i>Peak Call Hours
+                        </h3>
+                        <div id="callPeakHours" class="space-y-2">
+                            <p class="text-gray-500 text-sm">Loading patterns...</p>
+                        </div>
+                    </div>
+
+                    <!-- Missed Call Alert -->
+                    <div class="glass rounded-2xl p-6">
+                        <h3 class="text-lg font-bold text-white mb-4">
+                            <i class="fas fa-phone-slash mr-2 text-red-400"></i>Missed Calls to Follow Up
+                        </h3>
+                        <div id="missedCallsList" class="space-y-2 max-h-64 overflow-y-auto">
+                            <p class="text-gray-500 text-sm">Loading...</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Content Opportunities from Calls -->
+                <div class="glass rounded-2xl p-6 mb-6">
+                    <h3 class="text-lg font-bold text-white mb-4">
+                        <i class="fas fa-rocket mr-2 text-purple-400"></i>Content Opportunities from Calls
+                    </h3>
+                    <p class="text-sm text-gray-400 mb-4">AI-suggested content based on what customers are asking about</p>
+                    <div id="callContentOpps" class="grid md:grid-cols-3 gap-3">
+                        <p class="text-gray-500 text-sm">Analyzing call data...</p>
+                    </div>
                 </div>
 
                 <!-- Call List -->
                 <div class="glass rounded-2xl p-6">
                     <div class="flex items-center justify-between mb-6">
                         <div class="flex items-center gap-3">
-                            <div
-                                class="w-12 h-12 rounded-xl bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center">
+                            <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center">
                                 <i class="fas fa-phone text-white text-xl"></i>
                             </div>
                             <div>
-                                <h3 class="text-lg font-bold text-white">Call Intelligence</h3>
-                                <p class="text-sm text-gray-400">AI-analyzed call transcripts and insights</p>
+                                <h3 class="text-lg font-bold text-white">Recent Calls</h3>
+                                <p class="text-sm text-gray-400">Click a call to expand transcript</p>
                             </div>
                         </div>
-                        <button onclick="refreshCallData()"
-                            class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium transition">
-                            <i class="fas fa-sync-alt mr-2"></i>Refresh
-                        </button>
+                        <select id="callDaysFilter" onchange="loadCalls()" class="bg-white/10 border border-white/20 rounded-lg text-white text-sm px-3 py-2 focus:outline-none">
+                            <option value="30">Last 30 days</option>
+                            <option value="60">Last 60 days</option>
+                            <option value="90" selected>Last 90 days</option>
+                        </select>
                     </div>
-                    <div id="callsList" class="space-y-4">
+                    <div id="callsList" class="space-y-3">
                         <div class="text-center py-12 text-gray-500">
                             <i class="fas fa-phone text-4xl mb-4 opacity-50"></i>
                             <p>No calls analyzed yet</p>
-                            <p class="text-sm mt-2">Connect CallRail in Settings → Integrations to analyze calls</p>
-                            <button onclick="showTab('settings')"
-                                class="mt-4 px-4 py-2 bg-gradient-to-r from-green-600 to-emerald-600 rounded-lg text-white text-sm hover:opacity-90 transition">
+                            <p class="text-sm mt-2">Connect CallRail in Settings → Integrations</p>
+                            <button onclick="showTab('settings')" class="mt-4 px-4 py-2 bg-gradient-to-r from-green-600 to-emerald-600 rounded-lg text-white text-sm hover:opacity-90 transition">
                                 <i class="fas fa-cog mr-2"></i>Connect CallRail
                             </button>
                         </div>
@@ -7749,17 +7843,16 @@
             const container = document.getElementById('callsList');
             if (!container) return;
 
+            const days = document.getElementById('callDaysFilter')?.value || 90;
             container.innerHTML = '<div class="text-center py-8"><i class="fas fa-spinner fa-spin text-2xl text-green-400"></i><p class="text-gray-400 mt-2">Loading calls...</p></div>';
 
             try {
-                // First try the direct calls endpoint - get 90 days of calls
-                const response = await fetch(`${API_URL}/api/intelligence/calls/${currentClient.id}?days=90`, {
+                const response = await fetch(`${API_URL}/api/intelligence/calls/${currentClient.id}?days=${days}`, {
                     headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
                 });
 
                 const data = await response.json();
 
-                // Check for configuration errors
                 if (data.error) {
                     container.innerHTML = `
                         <div class="text-center py-12 text-gray-500">
@@ -7776,121 +7869,223 @@
 
                 const calls = data.calls || [];
 
-                // Update stats
+                // ---- STATS ----
                 const totalCalls = calls.length;
                 const answeredCalls = calls.filter(c => c.answered).length;
+                const missedCalls = calls.filter(c => !c.answered).length;
+                const voicemails = calls.filter(c => c.voicemail).length;
+                const firstTimers = calls.filter(c => c.first_call).length;
                 const totalDuration = calls.reduce((sum, c) => sum + (c.duration || 0), 0);
                 const avgDuration = totalCalls > 0 ? Math.round(totalDuration / totalCalls) : 0;
-                // Count leads: first time callers, or calls marked as lead, or long calls (potential leads)
                 const leadsGenerated = calls.filter(c => c.lead_created || c.first_call || (c.answered && c.duration > 120)).length;
+                const answerRate = totalCalls > 0 ? Math.round(answeredCalls / totalCalls * 100) : 0;
 
                 document.getElementById('callsTotal').textContent = totalCalls;
                 document.getElementById('callsAnswered').textContent = answeredCalls;
                 document.getElementById('callsAvgDuration').textContent = formatCallDuration(avgDuration);
                 document.getElementById('callsLeads').textContent = leadsGenerated;
+                document.getElementById('callsMissed').textContent = missedCalls;
+                document.getElementById('callsFirstTime').textContent = firstTimers;
+                document.getElementById('callsAnswerRate').textContent = answerRate + '%';
+                document.getElementById('callsVoicemails').textContent = voicemails;
 
-                // Check if any calls have transcripts
+                // ---- PEAK HOURS ----
+                const peakEl = document.getElementById('callPeakHours');
+                if (peakEl && calls.length > 0) {
+                    const hourCounts = {};
+                    const dayCounts = {};
+                    calls.forEach(call => {
+                        if (call.date) {
+                            try {
+                                const dt = new Date(call.date);
+                                const h = dt.getHours();
+                                const dayName = dt.toLocaleDateString('en-US', { weekday: 'long' });
+                                hourCounts[h] = (hourCounts[h] || 0) + 1;
+                                dayCounts[dayName] = (dayCounts[dayName] || 0) + 1;
+                            } catch(e) {}
+                        }
+                    });
+
+                    const topHours = Object.entries(hourCounts).sort((a,b) => b[1]-a[1]).slice(0,5);
+                    const topDays = Object.entries(dayCounts).sort((a,b) => b[1]-a[1]).slice(0,3);
+                    const maxHourCount = topHours.length > 0 ? topHours[0][1] : 1;
+
+                    peakEl.innerHTML = `
+                        <div class="space-y-2 mb-4">
+                            ${topHours.map(([h, count]) => {
+                                const hour = parseInt(h);
+                                const ampm = hour >= 12 ? 'PM' : 'AM';
+                                const displayH = hour % 12 || 12;
+                                const pct = Math.round(count / maxHourCount * 100);
+                                return `<div class="flex items-center gap-3">
+                                    <span class="text-xs text-gray-400 w-16">${displayH}:00 ${ampm}</span>
+                                    <div class="flex-1 bg-white/5 rounded-full h-4 overflow-hidden">
+                                        <div class="h-full bg-gradient-to-r from-cyan-500 to-blue-500 rounded-full" style="width:${pct}%"></div>
+                                    </div>
+                                    <span class="text-xs text-white font-bold w-8 text-right">${count}</span>
+                                </div>`;
+                            }).join('')}
+                        </div>
+                        <div class="flex flex-wrap gap-2">
+                            ${topDays.map(([day, count]) => `<span class="px-2 py-1 bg-cyan-500/20 text-cyan-400 text-xs rounded-full">${day}: ${count} calls</span>`).join('')}
+                        </div>
+                    `;
+                }
+
+                // ---- MISSED CALLS TO FOLLOW UP ----
+                const missedEl = document.getElementById('missedCallsList');
+                if (missedEl) {
+                    const missedCallsList = calls.filter(c => !c.answered).slice(0, 10);
+                    if (missedCallsList.length > 0) {
+                        missedEl.innerHTML = missedCallsList.map(call => `
+                            <div class="flex items-center justify-between p-2 bg-red-500/10 rounded-lg border border-red-500/20">
+                                <div>
+                                    <div class="text-sm text-white font-medium">${call.caller_name || 'Unknown'}</div>
+                                    <div class="text-xs text-gray-400">${call.caller_number || ''} • ${formatDate(call.date)}</div>
+                                </div>
+                                ${call.caller_number ? `<a href="tel:${call.caller_number}" class="px-3 py-1 bg-green-600 hover:bg-green-700 text-white text-xs rounded-lg transition"><i class="fas fa-phone mr-1"></i>Call Back</a>` : ''}
+                            </div>
+                        `).join('');
+                    } else {
+                        missedEl.innerHTML = '<p class="text-green-400 text-sm"><i class="fas fa-check-circle mr-2"></i>No missed calls — great job!</p>';
+                    }
+                }
+
+                // ---- AI ANALYSIS (questions, keywords, services, pain points, content opps) ----
                 const callsWithTranscripts = calls.filter(c => c.has_transcript || c.transcript);
-                
+
                 if (callsWithTranscripts.length > 0) {
-                    // We have transcripts - fetch AI analysis
                     try {
-                        const analysisRes = await fetch(`${API_URL}/api/intelligence/report/${currentClient.id}?days=30`, {
+                        const analysisRes = await fetch(`${API_URL}/api/intelligence/report/${currentClient.id}?days=${days}`, {
                             headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
                         });
                         if (analysisRes.ok) {
                             const analysis = await analysisRes.json();
                             const insights = analysis.combined_insights || {};
-                            
-                            // Show questions
+
+                            // Questions
                             const questions = insights.top_questions || [];
-                            if (questions.length > 0) {
-                                document.getElementById('topQuestions').innerHTML = questions.slice(0, 5).map(q => {
-                                    const text = typeof q === 'string' ? q : (q.question || q.text || '');
-                                    return `<div class="p-2 bg-white/5 rounded text-sm text-gray-300"><i class="fas fa-question-circle mr-2 text-yellow-400"></i>${text}</div>`;
-                                }).join('');
-                            } else {
-                                document.getElementById('topQuestions').innerHTML = '<p class="text-gray-500 text-sm">No questions detected in transcripts</p>';
-                            }
-                            
-                            // Show keywords
+                            document.getElementById('topQuestions').innerHTML = questions.length > 0 ?
+                                questions.slice(0, 8).map(q => {
+                                    const text = typeof q === 'string' ? q : (q.question || '');
+                                    return `<div class="p-2 bg-white/5 rounded text-sm text-gray-300 flex items-start gap-2">
+                                        <i class="fas fa-question-circle text-yellow-400 mt-0.5 flex-shrink-0"></i>
+                                        <span>${text}</span>
+                                    </div>`;
+                                }).join('') : '<p class="text-gray-500 text-sm">No questions detected</p>';
+
+                            // Keywords
                             const keywords = insights.top_keywords || [];
-                            if (keywords.length > 0) {
-                                document.getElementById('callKeywords').innerHTML = keywords.slice(0, 8).map(k => {
-                                    const text = typeof k === 'string' ? k : (k.keyword || k.name || '');
-                                    return `<span class="px-2 py-1 bg-blue-500/20 text-blue-400 text-xs rounded-full">${text}</span>`;
-                                }).join('');
-                            } else {
-                                document.getElementById('callKeywords').innerHTML = '<p class="text-gray-500 text-sm">No keywords detected</p>';
-                            }
+                            document.getElementById('callKeywords').innerHTML = keywords.length > 0 ?
+                                keywords.slice(0, 12).map(k => {
+                                    const text = typeof k === 'string' ? k : (k.keyword || '');
+                                    const count = typeof k === 'object' ? (k.count || '') : '';
+                                    return `<span class="px-2 py-1 bg-blue-500/20 text-blue-400 text-xs rounded-full">${text}${count ? ' (' + count + ')' : ''}</span>`;
+                                }).join('') : '<p class="text-gray-500 text-sm">No keywords detected</p>';
+
+                            // Services
+                            const services = insights.top_services || [];
+                            document.getElementById('callServices').innerHTML = services.length > 0 ?
+                                services.slice(0, 8).map(s => {
+                                    const name = typeof s === 'string' ? s : (s.service || '');
+                                    const count = typeof s === 'object' ? (s.count || 1) : 1;
+                                    return `<div class="flex items-center justify-between p-2 bg-white/5 rounded">
+                                        <span class="text-sm text-gray-300"><i class="fas fa-wrench mr-2 text-green-400"></i>${name}</span>
+                                        <span class="text-xs text-gray-500">${count}x requested</span>
+                                    </div>`;
+                                }).join('') : '<p class="text-gray-500 text-sm">No specific services detected in calls</p>';
+
+                            // Pain Points
+                            const painPoints = insights.top_pain_points || [];
+                            document.getElementById('callPainPoints').innerHTML = painPoints.length > 0 ?
+                                painPoints.slice(0, 6).map(p => {
+                                    const text = typeof p === 'string' ? p : (p.pain_point || '');
+                                    return `<div class="p-2 bg-red-500/10 rounded text-sm text-gray-300 border-l-2 border-red-500">
+                                        <i class="fas fa-fire mr-2 text-red-400"></i>${text}
+                                    </div>`;
+                                }).join('') : '<p class="text-gray-500 text-sm">No pain points detected yet</p>';
+
+                            // Content Opportunities
+                            const opps = analysis.content_opportunities || [];
+                            document.getElementById('callContentOpps').innerHTML = opps.length > 0 ?
+                                opps.slice(0, 6).map(opp => `
+                                    <div class="bg-white/5 rounded-lg p-3 border border-white/10 hover:border-purple-500/30 transition">
+                                        <div class="text-sm text-white font-medium mb-1">${opp.title || opp.topic || ''}</div>
+                                        <div class="text-xs text-gray-500 mb-2">${opp.type || 'blog'} • ${opp.reason || 'Based on customer calls'}</div>
+                                        <button onclick="generateFromGap('${encodeURIComponent(opp.title || opp.topic || '')}')" class="w-full px-2 py-1 bg-purple-500/20 text-purple-400 rounded text-xs hover:bg-purple-500/30 transition">
+                                            <i class="fas fa-plus mr-1"></i>Create Content
+                                        </button>
+                                    </div>
+                                `).join('') : '<p class="text-gray-500 text-sm col-span-3">Generate content opportunities by clicking "Generate FAQ from Calls" above</p>';
                         }
                     } catch (e) {
                         console.error('Failed to load analysis:', e);
                     }
                 } else {
-                    // No transcripts - show call insights from metadata
+                    // No transcripts - show metadata insights
                     const peakHours = getCallPeakHours(calls);
-                    const firstTimeCallers = calls.filter(c => c.first_call).length;
-                    
                     document.getElementById('topQuestions').innerHTML = `
-                        <div class="space-y-2">
-                            <div class="p-2 bg-amber-500/10 rounded text-sm text-amber-300">
-                                <i class="fas fa-info-circle mr-2"></i>Enable CallRail Conversation Intelligence for AI-analyzed questions
-                            </div>
-                            <div class="p-2 bg-white/5 rounded text-sm text-gray-400">
-                                <i class="fas fa-chart-line mr-2 text-green-400"></i>${answeredCalls}/${totalCalls} calls answered (${Math.round(answeredCalls/totalCalls*100) || 0}% answer rate)
-                            </div>
-                            <div class="p-2 bg-white/5 rounded text-sm text-gray-400">
-                                <i class="fas fa-user-plus mr-2 text-blue-400"></i>${firstTimeCallers} first-time callers
-                            </div>
+                        <div class="p-3 bg-amber-500/10 rounded text-sm text-amber-300 mb-2">
+                            <i class="fas fa-info-circle mr-2"></i>Enable CallRail Conversation Intelligence for AI-analyzed questions from transcripts
+                        </div>
+                        <div class="p-2 bg-white/5 rounded text-sm text-gray-400">
+                            <i class="fas fa-chart-line mr-2 text-green-400"></i>${answeredCalls}/${totalCalls} calls answered (${answerRate}% answer rate)
                         </div>
                     `;
-                    
-                    document.getElementById('callKeywords').innerHTML = `
-                        <div class="flex flex-wrap gap-2">
-                            ${peakHours.map(h => `<span class="px-2 py-1 bg-purple-500/20 text-purple-400 text-xs rounded-full">Peak: ${h}</span>`).join('')}
-                            <span class="px-2 py-1 bg-green-500/20 text-green-400 text-xs rounded-full">Avg: ${formatCallDuration(avgDuration)}</span>
-                            ${leadsGenerated > 0 ? `<span class="px-2 py-1 bg-yellow-500/20 text-yellow-400 text-xs rounded-full">${leadsGenerated} potential leads</span>` : ''}
-                        </div>
-                    `;
+                    document.getElementById('callKeywords').innerHTML = `<p class="text-gray-500 text-sm">Requires call transcripts</p>`;
+                    document.getElementById('callServices').innerHTML = `<p class="text-gray-500 text-sm">Requires call transcripts</p>`;
+                    document.getElementById('callPainPoints').innerHTML = `<p class="text-gray-500 text-sm">Requires call transcripts</p>`;
+                    document.getElementById('callContentOpps').innerHTML = `<p class="text-gray-500 text-sm col-span-3">Requires call transcripts for AI content suggestions</p>`;
                 }
 
+                // ---- CALL LIST ----
                 if (calls.length === 0) {
                     container.innerHTML = `
                         <div class="text-center py-12 text-gray-500">
                             <i class="fas fa-phone text-4xl mb-4 opacity-50"></i>
                             <p>No calls recorded yet</p>
-                            <p class="text-sm mt-2">Calls will appear here once they come through CallRail</p>
                         </div>
                     `;
                     return;
                 }
 
-                container.innerHTML = calls.map(call => `
-                    <div class="glass rounded-xl p-4 hover:bg-white/5 transition">
-                        <div class="flex items-start justify-between">
-                            <div class="flex items-center gap-3">
-                                <div class="w-10 h-10 rounded-full bg-gradient-to-br ${call.answered ? 'from-green-500 to-emerald-600' : 'from-red-500 to-rose-600'} flex items-center justify-center text-white">
-                                    <i class="fas fa-phone${call.voicemail ? '-slash' : ''}"></i>
+                container.innerHTML = calls.map((call, idx) => {
+                    const leadBadge = call.lead_quality === 'hot' ? '<span class="px-2 py-0.5 bg-red-500/20 text-red-400 text-xs rounded-full">🔥 Hot Lead</span>' :
+                        call.lead_quality === 'warm' ? '<span class="px-2 py-0.5 bg-orange-500/20 text-orange-400 text-xs rounded-full">Warm Lead</span>' :
+                        call.first_call ? '<span class="px-2 py-0.5 bg-yellow-500/20 text-yellow-400 text-xs rounded-full">New Caller</span>' : '';
+
+                    return `
+                        <div class="glass rounded-xl p-4 hover:bg-white/5 transition cursor-pointer" onclick="toggleCallTranscript(${idx})">
+                            <div class="flex items-start justify-between">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-10 h-10 rounded-full bg-gradient-to-br ${call.answered ? 'from-green-500 to-emerald-600' : 'from-red-500 to-rose-600'} flex items-center justify-center text-white text-sm">
+                                        <i class="fas fa-phone${call.voicemail ? '-slash' : ''}"></i>
+                                    </div>
+                                    <div>
+                                        <h4 class="font-semibold text-white">${call.caller_name || 'Unknown Caller'}</h4>
+                                        <p class="text-xs text-gray-400">${call.caller_number || 'No number'}</p>
+                                    </div>
+                                    <div class="flex gap-1 ml-2">
+                                        ${leadBadge}
+                                        ${call.has_transcript ? '<span class="px-2 py-0.5 bg-blue-500/20 text-blue-400 text-xs rounded-full">Transcript</span>' : ''}
+                                    </div>
                                 </div>
-                                <div>
-                                    <h4 class="font-semibold text-white">${call.caller_name || 'Unknown Caller'}</h4>
-                                    <p class="text-sm text-gray-400">${call.caller_number || 'No number'}</p>
+                                <div class="text-right">
+                                    <p class="text-sm text-gray-400">${formatDate(call.date)}</p>
+                                    <p class="text-sm ${call.answered ? 'text-green-400' : 'text-red-400'}">${call.duration_formatted || formatCallDuration(call.duration)}</p>
                                 </div>
                             </div>
-                            <div class="text-right">
-                                <p class="text-sm text-gray-400">${formatDate(call.date)}</p>
-                                <p class="text-sm ${call.answered ? 'text-green-400' : 'text-red-400'}">${call.duration_formatted || formatCallDuration(call.duration)}</p>
+                            ${call.has_transcript ? `
+                                <div id="callTranscript${idx}" class="hidden mt-3 p-3 bg-black/20 rounded-lg text-sm text-gray-300 max-h-48 overflow-y-auto whitespace-pre-wrap">${call.transcript || call.transcript_preview || 'No transcript text'}</div>
+                            ` : ''}
+                            <div class="flex gap-3 mt-2">
+                                ${call.recording_url ? `<a href="${call.recording_url}" target="_blank" class="text-xs text-blue-400 hover:underline" onclick="event.stopPropagation()"><i class="fas fa-play mr-1"></i>Recording</a>` : ''}
+                                <span class="text-xs text-gray-500">${call.source || 'Direct'}</span>
+                                ${call.tracking_number ? `<span class="text-xs text-gray-600">Tracking: ${call.tracking_number}</span>` : ''}
                             </div>
                         </div>
-                        ${call.first_call ? '<span class="inline-block mt-2 px-2 py-1 bg-yellow-500/20 text-yellow-400 text-xs rounded">First Time Caller</span>' : ''}
-                        ${call.has_transcript ? `<p class="mt-2 text-sm text-gray-400 line-clamp-2">${call.transcript_preview || ''}</p>` : ''}
-                        <div class="flex gap-2 mt-3">
-                            ${call.recording_url ? `<a href="${call.recording_url}" target="_blank" class="text-xs text-blue-400 hover:underline"><i class="fas fa-play mr-1"></i>Recording</a>` : ''}
-                            <span class="text-xs text-gray-500">${call.source || 'Direct'}</span>
-                        </div>
-                    </div>
-                `).join('');
+                    `;
+                }).join('');
 
             } catch (error) {
                 console.error('Failed to load calls:', error);
@@ -7900,6 +8095,92 @@
                         <p>Error loading calls: ${error.message}</p>
                     </div>
                 `;
+            }
+        }
+
+        function toggleCallTranscript(idx) {
+            const el = document.getElementById('callTranscript' + idx);
+            if (el) el.classList.toggle('hidden');
+        }
+
+        async function generateFAQFromCalls() {
+            if (!currentClient) return;
+            showToast('Generating FAQ from call data...', 'info');
+            try {
+                const res = await fetch(`${API_URL}/api/intelligence/report/${currentClient.id}?days=90`, {
+                    headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
+                });
+                if (res.ok) {
+                    const report = await res.json();
+                    const questions = (report.combined_insights?.top_questions || []).slice(0, 10).map(q => typeof q === 'string' ? q : q.question || '').filter(q => q);
+                    if (questions.length === 0) {
+                        showToast('No questions found in call data', 'warning');
+                        return;
+                    }
+                    const faqTopic = 'FAQ: ' + questions.slice(0, 3).join(', ');
+                    showTab('generate');
+                    setTimeout(() => {
+                        const topicEl = document.getElementById('blogTopic');
+                        if (topicEl) topicEl.value = faqTopic;
+                        showToast('FAQ topic pre-filled — click Generate to create', 'success');
+                    }, 300);
+                }
+            } catch(e) {
+                showToast('Error: ' + e.message, 'error');
+            }
+        }
+
+        async function generateBlogFromCalls() {
+            if (!currentClient) return;
+            showToast('Finding blog topics from calls...', 'info');
+            try {
+                const res = await fetch(`${API_URL}/api/intelligence/report/${currentClient.id}?days=90`, {
+                    headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
+                });
+                if (res.ok) {
+                    const report = await res.json();
+                    const opps = report.content_opportunities || [];
+                    const questions = (report.combined_insights?.top_questions || []).slice(0, 3).map(q => typeof q === 'string' ? q : q.question || '').filter(q => q);
+                    const topic = opps.length > 0 ? (opps[0].title || opps[0].topic) : (questions.length > 0 ? questions[0] : '');
+                    if (!topic) {
+                        showToast('No blog topics found from calls', 'warning');
+                        return;
+                    }
+                    showTab('generate');
+                    setTimeout(() => {
+                        const topicEl = document.getElementById('blogTopic');
+                        if (topicEl) topicEl.value = topic;
+                        showToast('Blog topic pre-filled from call insights', 'success');
+                    }, 300);
+                }
+            } catch(e) {
+                showToast('Error: ' + e.message, 'error');
+            }
+        }
+
+        async function updateChatbotFromCalls() {
+            if (!currentClient) return;
+            showToast('Updating chatbot knowledge base from calls...', 'info');
+            try {
+                const res = await fetch(`${API_URL}/api/intelligence/report/${currentClient.id}?days=90`, {
+                    headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
+                });
+                if (res.ok) {
+                    const report = await res.json();
+                    const questions = (report.combined_insights?.top_questions || []).slice(0, 15).map(q => typeof q === 'string' ? q : q.question || '').filter(q => q);
+                    if (questions.length === 0) {
+                        showToast('No questions found to add to chatbot', 'warning');
+                        return;
+                    }
+                    // Format as FAQ entries for chatbot knowledge base
+                    const faqText = questions.map(q => `Q: ${q}`).join('\n');
+                    showTab('chatbot');
+                    setTimeout(() => {
+                        showToast(`Found ${questions.length} questions from calls — add answers in the Knowledge Base section`, 'success');
+                    }, 300);
+                }
+            } catch(e) {
+                showToast('Error: ' + e.message, 'error');
             }
         }
 
@@ -15178,7 +15459,7 @@
             // Update stats
             document.getElementById('compCount').textContent = summary.total_competitors || 0;
             document.getElementById('compGaps').textContent = summary.content_gaps_found || 0;
-            document.getElementById('compKeywords').textContent = summary.client_keywords_tracked || 0;
+            document.getElementById('compKeywords').textContent = summary.total_battles || ranking_battles.length || 0;
 
             // Calculate win rate from battles
             const wins = ranking_battles.filter(b => b.winning).length;
