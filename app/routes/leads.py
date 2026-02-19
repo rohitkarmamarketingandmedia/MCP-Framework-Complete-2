@@ -111,10 +111,14 @@ def get_leads(current_user):
     logger.info("Querying leads...")
     
     try:
-        # Direct simple query
+        # Full query with all fields needed for the leads display
         from sqlalchemy import text
         result = db.session.execute(
-            text("SELECT id, name, email, phone, source, status, created_at FROM leads WHERE client_id = :cid ORDER BY created_at DESC LIMIT 50"),
+            text("""SELECT id, name, email, phone, source, status, created_at, 
+                    message, source_detail, service_requested, 
+                    notes, estimated_value, landing_page
+                    FROM leads WHERE client_id = :cid 
+                    ORDER BY created_at DESC LIMIT 200"""),
             {'cid': client_id}
         )
         
@@ -127,7 +131,13 @@ def get_leads(current_user):
                 'phone': row[3],
                 'source': row[4],
                 'status': row[5],
-                'created_at': row[6].isoformat() if row[6] else None
+                'created_at': row[6].isoformat() if row[6] else None,
+                'message': row[7],
+                'source_detail': row[8],
+                'service_requested': row[9],
+                'notes': row[10],
+                'estimated_value': row[11],
+                'landing_page': row[12]
             })
         
         logger.info(f"Found {len(leads)} leads")
