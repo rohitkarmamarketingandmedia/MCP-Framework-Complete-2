@@ -21,8 +21,8 @@ class CompetitorMonitoringService:
     
     def __init__(self):
         self.user_agent = 'Mozilla/5.0 (compatible; MCPBot/1.0; +https://karmamarketing.com)'
-        self.timeout = 10  # Reduced from 30 to avoid worker timeout
-        self.max_pages_per_crawl = 10  # Reduced from 50 to be faster
+        self.timeout = 10
+        self.max_pages_per_crawl = 300  # Allow full site discovery
     
     def crawl_sitemap(self, domain: str) -> List[Dict]:
         """

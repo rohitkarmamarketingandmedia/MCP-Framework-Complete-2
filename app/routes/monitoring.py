@@ -436,53 +436,55 @@ def crawl_competitor(current_user, competitor_id):
             competitor.last_crawl_at
         )
         
-        # Save new pages - limit to 5 to avoid worker timeout
+        # Save new pages - save all discovered pages but only extract content for first 5
         saved_pages = []
-        pages_processed = 0
-        max_pages_to_process = 5
+        pages_with_content = 0
+        max_content_extract = 5  # Only do expensive content fetch for 5 pages
         
         for page_data in new_pages:
-            if pages_processed >= max_pages_to_process:
-                break
-                
-            pages_processed += 1
+            page_url = page_data['url']
             
-            # Extract content
-            content = competitor_monitoring_service.extract_page_content(page_data['url'])
-            
-            if content.get('error'):
+            # Check if already exists
+            existing = DBCompetitorPage.query.filter_by(
+                competitor_id=competitor_id, url=page_url
+            ).first()
+            if existing:
                 continue
             
-            # Check if it's a content page worth tracking
-            if content.get('word_count', 0) < 300:
-                continue
+            # For first few pages, do full content extraction
+            if pages_with_content < max_content_extract:
+                content = competitor_monitoring_service.extract_page_content(page_url)
+                if content.get('error'):
+                    # Still save the URL even if extraction fails
+                    title = page_data.get('title', '')
+                    word_count = 0
+                else:
+                    title = content.get('title', '')
+                    word_count = content.get('word_count', 0)
+                    if word_count > 0:
+                        pages_with_content += 1
+            else:
+                # For remaining pages, just save URL with title from sitemap
+                title = page_data.get('title', '')
+                word_count = 0
+                content = {}
             
-            # Save to database
+            # Determine page type from URL
+            url_lower = page_url.lower()
+            
             page = DBCompetitorPage(
                 competitor_id=competitor_id,
                 client_id=competitor.client_id,
-                url=page_data['url'],
-                title=content.get('title', ''),
+                url=page_url,
+                title=title or page_url.split('/')[-1].replace('-', ' ').replace('_', ' ').title(),
                 content_hash=content.get('content_hash', ''),
-                word_count=content.get('word_count', 0),
+                word_count=word_count,
                 h1=content.get('h1', ''),
                 meta_description=content.get('meta_description', '')
             )
             
             db.session.add(page)
             saved_pages.append(page)
-            
-            # Create alert
-            alert = DBAlert(
-                client_id=competitor.client_id,
-                alert_type='new_competitor_content',
-                title=f'New content from {competitor.name}',
-                message=f'"{content.get("title", "Untitled")}" ({content.get("word_count", 0)} words)',
-                related_competitor_id=competitor_id,
-                related_page_id=page.id,
-                priority='high'
-            )
-            db.session.add(alert)
         
         # Update competitor stats
         competitor.last_crawl_at = datetime.utcnow()
@@ -1870,8 +1872,41 @@ def get_competitor_dashboard(current_user, client_id):
                         'competitor': comp.domain,
                         'title': page.title,
                         'url': page.url,
-                        'topic_suggestion': page.title
+                        'topic_suggestion': page.title,
+                        'type': 'content'
                     })
+        
+        # SEMrush Keyword Gap — keywords competitor ranks for in top 20 that client doesn't rank for
+        client_kw_set = set(client_rankings.keys())
+        for kw, pos in comp_ranks.items():
+            if pos <= 20 and kw not in client_kw_set:
+                # Only include keywords with reasonable search volume potential
+                # Filter out brand names and very long-tail
+                if len(kw.split()) <= 5 and comp.domain.replace('.com','').replace('.net','').replace('www.','') not in kw:
+                    content_gaps.append({
+                        'competitor': comp.domain,
+                        'title': kw.title(),
+                        'url': '',
+                        'topic_suggestion': kw,
+                        'type': 'keyword',
+                        'competitor_position': pos
+                    })
+    
+    # Deduplicate and sort content gaps — keyword gaps first (more actionable), then by competitor position
+    seen_gaps = set()
+    unique_gaps = []
+    for gap in content_gaps:
+        key = gap.get('topic_suggestion', '').lower()
+        if key not in seen_gaps:
+            seen_gaps.add(key)
+            unique_gaps.append(gap)
+    
+    # Sort: keyword gaps first (with position), then content gaps
+    unique_gaps.sort(key=lambda x: (
+        0 if x.get('type') == 'keyword' else 1,
+        x.get('competitor_position', 100)
+    ))
+    content_gaps = unique_gaps
     
     # Calculate overall stats
     total_client_ranked = len([k for k, v in client_rankings.items() if v['position'] and v['position'] <= 100])
@@ -2089,67 +2124,157 @@ def crawl_all_competitors(current_user):
 
 
 def _crawl_single_competitor(competitor):
-    """Helper to crawl a single competitor"""
-    import requests
+    """Helper to crawl a single competitor - uses sitemap + blog page discovery"""
+    import requests as http_requests
     from bs4 import BeautifulSoup
     from urllib.parse import urljoin, urlparse
     
     new_pages = 0
     crawled_urls = set()
+    domain = competitor.domain
+    base_url = f"https://{domain}"
+    if not domain.startswith('www.'):
+        base_url_www = f"https://www.{domain}"
+    else:
+        base_url_www = base_url
     
-    base_url = f"https://{competitor.domain}"
+    headers = {'User-Agent': 'Mozilla/5.0 (compatible; MCPBot/1.0)'}
+    
+    # Get existing pages to avoid duplicates
+    existing_urls = set()
+    existing_pages = DBCompetitorPage.query.filter_by(competitor_id=competitor.id).all()
+    for p in existing_pages:
+        existing_urls.add(p.url)
+    
+    def save_page(url, title=''):
+        nonlocal new_pages
+        if url in existing_urls or url in crawled_urls:
+            return
+        crawled_urls.add(url)
+        
+        # Skip non-content URLs
+        url_lower = url.lower()
+        if any(x in url_lower for x in ['#', 'javascript:', 'mailto:', '.pdf', '.jpg', '.png', '.css', '.js', '/wp-admin', '/wp-json', '/feed', '/tag/', '/category/', '/author/', '/page/']):
+            return
+        
+        if not title:
+            title = url.split('/')[-1].replace('-', ' ').replace('_', ' ').strip().title() or url
+        
+        page = DBCompetitorPage(
+            competitor_id=competitor.id,
+            client_id=competitor.client_id,
+            url=url,
+            title=title[:300],
+            discovered_at=datetime.utcnow()
+        )
+        db.session.add(page)
+        new_pages += 1
     
     try:
-        # Get homepage
-        resp = requests.get(base_url, timeout=10, headers={'User-Agent': 'MCP-Bot/1.0'})
-        if resp.status_code != 200:
-            return {'new_pages': 0, 'error': f'HTTP {resp.status_code}'}
+        # Step 1: Try sitemap first (most comprehensive)
+        sitemap_urls = [
+            f'{base_url}/sitemap.xml',
+            f'{base_url_www}/sitemap.xml',
+            f'{base_url}/wp-sitemap.xml',
+            f'{base_url}/sitemap_index.xml',
+        ]
         
-        soup = BeautifulSoup(resp.text, 'html.parser')
-        
-        # Find all links
-        for link in soup.find_all('a', href=True):
-            href = link.get('href', '')
-            full_url = urljoin(base_url, href)
-            parsed = urlparse(full_url)
-            
-            # Only same domain
-            if competitor.domain not in parsed.netloc:
-                continue
-            
-            # Skip common non-content
-            if any(x in full_url.lower() for x in ['#', 'javascript:', 'mailto:', '.pdf', '.jpg', '.png']):
-                continue
-            
-            if full_url not in crawled_urls:
-                crawled_urls.add(full_url)
-                
-                # Check if we already have this page
-                existing = DBCompetitorPage.query.filter_by(
-                    competitor_id=competitor.id,
-                    url=full_url
-                ).first()
-                
-                if not existing:
-                    # Try to get page title
-                    title = link.get_text(strip=True)[:200] if link.get_text(strip=True) else parsed.path
+        sitemap_found = False
+        for sitemap_url in sitemap_urls:
+            try:
+                resp = http_requests.get(sitemap_url, timeout=10, headers=headers)
+                if resp.status_code == 200 and '<url' in resp.text.lower():
+                    sitemap_found = True
+                    soup = BeautifulSoup(resp.text, 'xml')
                     
-                    page = DBCompetitorPage(
-                        competitor_id=competitor.id,
-                        url=full_url,
-                        title=title,
-                        discovered_at=datetime.utcnow()
-                    )
-                    db.session.add(page)
-                    new_pages += 1
+                    # Handle sitemap index
+                    sitemap_tags = soup.find_all('sitemap')
+                    if sitemap_tags:
+                        for sm in sitemap_tags[:10]:
+                            loc = sm.find('loc')
+                            if loc:
+                                try:
+                                    child_resp = http_requests.get(loc.text, timeout=10, headers=headers)
+                                    if child_resp.status_code == 200:
+                                        child_soup = BeautifulSoup(child_resp.text, 'xml')
+                                        for url_tag in child_soup.find_all('url'):
+                                            loc_tag = url_tag.find('loc')
+                                            if loc_tag and domain in loc_tag.text:
+                                                save_page(loc_tag.text)
+                                except:
+                                    continue
+                    else:
+                        # Regular sitemap
+                        for url_tag in soup.find_all('url'):
+                            loc = url_tag.find('loc')
+                            if loc and domain in loc.text:
+                                save_page(loc.text)
+                    
+                    break  # Found a working sitemap
+            except:
+                continue
         
-        # Update competitor last_crawled
-        competitor.last_crawled = datetime.utcnow()
+        # Step 2: Crawl homepage for links
+        try:
+            resp = http_requests.get(base_url, timeout=10, headers=headers, allow_redirects=True)
+            if resp.status_code == 200:
+                soup = BeautifulSoup(resp.text, 'html.parser')
+                for link in soup.find_all('a', href=True):
+                    href = link.get('href', '')
+                    full_url = urljoin(resp.url, href)
+                    parsed = urlparse(full_url)
+                    if domain in parsed.netloc:
+                        title = link.get_text(strip=True)[:200]
+                        save_page(full_url, title)
+        except:
+            pass
+        
+        # Step 3: Crawl /blog/ page for blog post links
+        blog_urls = [f'{base_url}/blog/', f'{base_url}/blog', f'{base_url_www}/blog/', f'{base_url_www}/blog']
+        for blog_url in blog_urls:
+            try:
+                resp = http_requests.get(blog_url, timeout=10, headers=headers, allow_redirects=True)
+                if resp.status_code == 200:
+                    soup = BeautifulSoup(resp.text, 'html.parser')
+                    for link in soup.find_all('a', href=True):
+                        href = link.get('href', '')
+                        full_url = urljoin(resp.url, href)
+                        parsed = urlparse(full_url)
+                        if domain in parsed.netloc and '/blog' in full_url.lower():
+                            title = link.get_text(strip=True)[:200]
+                            save_page(full_url, title)
+                    
+                    # Check for pagination - crawl pages 2-5
+                    for page_num in range(2, 6):
+                        try:
+                            page_url = f'{blog_url}page/{page_num}/'
+                            resp2 = http_requests.get(page_url, timeout=10, headers=headers, allow_redirects=True)
+                            if resp2.status_code == 200:
+                                soup2 = BeautifulSoup(resp2.text, 'html.parser')
+                                for link in soup2.find_all('a', href=True):
+                                    href = link.get('href', '')
+                                    full_url = urljoin(resp2.url, href)
+                                    if domain in full_url and '/blog' in full_url.lower():
+                                        title = link.get_text(strip=True)[:200]
+                                        save_page(full_url, title)
+                            else:
+                                break  # No more pages
+                        except:
+                            break
+                    break  # Found blog page
+            except:
+                continue
+        
+        # Update competitor
+        competitor.last_crawl_at = datetime.utcnow()
         competitor.next_crawl_at = datetime.utcnow() + timedelta(days=1)
+        competitor.known_pages_count = len(existing_urls) + new_pages
         
         db.session.commit()
+        logger.info(f"Crawled {competitor.domain}: {new_pages} new pages found (total URLs checked: {len(crawled_urls)})")
         
     except Exception as e:
+        logger.error(f"Crawl error for {competitor.domain}: {e}")
         return {'new_pages': 0, 'error': str(e)}
     
     return {'new_pages': new_pages}
