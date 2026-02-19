@@ -2332,8 +2332,8 @@
                                 <p class="text-xs text-gray-500">Links this client to your CallRail account</p>
                             </div>
 
-                            <!-- Wufoo Forms -->
-                            <div class="p-4 bg-white/5 rounded-xl border border-white/10">
+                            <!-- Wufoo Forms (Admin/Manager only) -->
+                            <div class="p-4 bg-white/5 rounded-xl border border-white/10" data-nav-role="admin,manager">
                                 <div class="flex items-center gap-3 mb-3">
                                     <div class="w-10 h-10 rounded-lg bg-orange-500/20 flex items-center justify-center">
                                         <i class="fas fa-file-alt text-orange-400"></i>
@@ -3528,7 +3528,7 @@
                 <!-- Wufoo Sync + Filters -->
                 <div class="glass rounded-xl p-4 mb-6">
                     <div class="flex flex-wrap items-center gap-3">
-                        <button onclick="syncWufooLeads()" id="wufooSyncBtn" class="px-4 py-2 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-lg text-sm font-medium hover:opacity-90 transition">
+                        <button onclick="syncWufooLeads()" id="wufooSyncBtn" data-nav-role="admin,manager" class="px-4 py-2 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-lg text-sm font-medium hover:opacity-90 transition">
                             <i class="fas fa-sync-alt mr-2"></i>Sync Wufoo Forms
                         </button>
                         <button onclick="loadLeads()" class="px-4 py-2 glass text-white rounded-lg text-sm font-medium hover:bg-white/10 transition">
@@ -7250,9 +7250,14 @@
                 if (leadsRes.ok) {
                     const leadsData = await leadsRes.json();
                     (leadsData.leads || []).forEach(lead => {
+                        const src = (lead.source || '').toLowerCase();
+                        const leadType = src === 'form' ? 'form' 
+                            : (src === 'chat' || src === 'chatbot') ? 'chat' 
+                            : (src === 'call') ? 'call' 
+                            : 'other';
                         allLeads.push({
                             id: lead.id,
-                            type: lead.source === 'form' ? 'form' : (lead.source === 'chat' ? 'chat' : lead.source || 'other'),
+                            type: leadType,
                             name: lead.name || 'Unknown',
                             phone: lead.phone || '',
                             email: lead.email || '',

@@ -49,7 +49,7 @@ class WufooService:
         seen_hashes = set()
         page_start = 0
         page_size = 100
-        max_pages = 20  # 20 pages x 100 = 2000 forms max
+        max_pages = 20
         page_num = 0
         
         for page_num in range(max_pages):
@@ -68,10 +68,12 @@ class WufooService:
                     if not forms:
                         break
                     
+                    new_on_this_page = 0
                     for f in forms:
                         form_hash = f.get('Hash', '')
                         if form_hash and form_hash not in seen_hashes:
                             seen_hashes.add(form_hash)
+                            new_on_this_page += 1
                             all_forms.append({
                                 'hash': form_hash,
                                 'name': f.get('Name', ''),
@@ -82,7 +84,10 @@ class WufooService:
                                 'updated': f.get('DateUpdated', '')
                             })
                     
-                    if len(forms) < page_size:
+                    logger.info(f"Wufoo: page {page_num + 1}: {new_on_this_page} new unique forms")
+                    
+                    # Stop if no new forms (API returning duplicates) or last page
+                    if new_on_this_page == 0 or len(forms) < page_size:
                         break
                     
                     page_start += page_size

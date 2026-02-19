@@ -449,13 +449,23 @@ def update_notification_settings(current_user):
 
 
 # ==========================================
-# Wufoo Integration
+# Wufoo Integration (Admin/Manager only)
 # ==========================================
+
+def _require_admin_or_manager(current_user):
+    """Check if user is admin or manager"""
+    role = getattr(current_user, 'role', 'client')
+    if role not in ('admin', 'manager'):
+        return False
+    return True
 
 @leads_bp.route('/wufoo/test', methods=['POST'])
 @token_required
 def test_wufoo(current_user):
-    """Test Wufoo connection"""
+    """Test Wufoo connection - admin/manager only"""
+    if not _require_admin_or_manager(current_user):
+        return jsonify({'success': False, 'message': 'Admin access required'}), 403
+    
     data = request.get_json(silent=True) or {}
     subdomain = data.get('subdomain', '').strip()
     api_key = data.get('api_key', '').strip()
@@ -472,7 +482,9 @@ def test_wufoo(current_user):
 @leads_bp.route('/wufoo/save', methods=['POST'])
 @token_required
 def save_wufoo_config(current_user):
-    """Save Wufoo configuration for a client"""
+    """Save Wufoo configuration for a client - admin/manager only"""
+    if not _require_admin_or_manager(current_user):
+        return jsonify({'error': 'Admin access required'}), 403
     data = request.get_json(silent=True) or {}
     client_id = data.get('client_id')
     
@@ -501,7 +513,10 @@ def save_wufoo_config(current_user):
 @leads_bp.route('/wufoo/sync', methods=['POST'])
 @token_required
 def sync_wufoo(current_user):
-    """Sync Wufoo form entries as leads"""
+    """Sync Wufoo form entries as leads - admin/manager only"""
+    if not _require_admin_or_manager(current_user):
+        return jsonify({'error': 'Admin access required'}), 403
+    
     data = request.get_json(silent=True) or {}
     client_id = data.get('client_id')
     
@@ -522,7 +537,10 @@ def sync_wufoo(current_user):
 @leads_bp.route('/wufoo/forms', methods=['GET'])
 @token_required
 def get_wufoo_forms(current_user):
-    """Get available Wufoo forms for a client"""
+    """Get available Wufoo forms for a client - admin/manager only"""
+    if not _require_admin_or_manager(current_user):
+        return jsonify({'error': 'Admin access required', 'forms': []}), 403
+    
     import logging
     logger = logging.getLogger(__name__)
     
