@@ -513,6 +513,9 @@ def sync_wufoo(current_user):
 @token_required
 def get_wufoo_forms(current_user):
     """Get available Wufoo forms for a client"""
+    import logging
+    logger = logging.getLogger(__name__)
+    
     client_id = request.args.get('client_id')
     
     if not client_id:
@@ -525,14 +528,22 @@ def get_wufoo_forms(current_user):
     integrations = client.get_integrations()
     wufoo_config = integrations.get('wufoo', {})
     
-    if not wufoo_config.get('subdomain') or not wufoo_config.get('api_key'):
-        return jsonify({'forms': [], 'error': 'Wufoo not configured'})
+    subdomain = wufoo_config.get('subdomain')
+    api_key = wufoo_config.get('api_key')
+    
+    if not subdomain or not api_key:
+        return jsonify({'forms': [], 'error': 'Wufoo not configured - enter subdomain and API key first'})
+    
+    logger.info(f"Loading Wufoo forms for {client.business_name}, subdomain: {subdomain}")
     
     from app.services.wufoo_service import get_wufoo_service
     wufoo = get_wufoo_service()
-    forms = wufoo.get_forms(wufoo_config['subdomain'], wufoo_config['api_key'])
+    forms = wufoo.get_forms(subdomain, api_key)
+    
+    logger.info(f"Wufoo returned {len(forms)} forms")
     
     return jsonify({
         'forms': forms,
+        'total': len(forms),
         'selected_hashes': wufoo_config.get('form_hashes', [])
     })

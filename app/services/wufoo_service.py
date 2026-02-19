@@ -48,16 +48,21 @@ class WufooService:
         all_forms = []
         page_start = 0
         page_size = 100
+        max_pages = 10  # Safety limit: 10 pages x 100 = 1000 forms max
         
-        try:
-            while True:
+        for page_num in range(max_pages):
+            try:
                 url = f"{self._get_base_url(subdomain)}/forms.json"
                 params = {'pageSize': page_size, 'pageStart': page_start}
-                resp = requests.get(url, headers=self._get_auth_header(api_key), params=params, timeout=self.timeout)
+                logger.info(f"Wufoo: fetching forms page {page_num + 1} (start={page_start})...")
+                
+                resp = requests.get(url, headers=self._get_auth_header(api_key), params=params, timeout=30)
+                logger.info(f"Wufoo: page {page_num + 1} response: {resp.status_code}")
                 
                 if resp.status_code == 200:
                     data = resp.json()
                     forms = data.get('Forms', [])
+                    logger.info(f"Wufoo: page {page_num + 1} returned {len(forms)} forms")
                     
                     if not forms:
                         break
@@ -77,14 +82,23 @@ class WufooService:
                         break  # Last page
                     
                     page_start += page_size
+                elif resp.status_code == 401 or resp.status_code == 403:
+                    logger.error(f"Wufoo: auth failed {resp.status_code}")
+                    break
                 else:
                     logger.error(f"Wufoo API error {resp.status_code}: {resp.text[:200]}")
                     break
                     
-        except Exception as e:
-            logger.error(f"Wufoo get_forms error: {e}")
+            except requests.exceptions.Timeout:
+                logger.error(f"Wufoo: timeout on page {page_num + 1}")
+                break
+            except Exception as e:
+                logger.error(f"Wufoo get_forms error on page {page_num + 1}: {e}")
+                import traceback
+                traceback.print_exc()
+                break
         
-        logger.info(f"Wufoo: fetched {len(all_forms)} total forms")
+        logger.info(f"Wufoo: fetched {len(all_forms)} total forms across {page_num + 1} pages")
         return all_forms
     
     def get_form_fields(self, subdomain: str, api_key: str, form_hash: str) -> List[Dict]:
@@ -305,21 +319,38 @@ class WufooService:
         return result
     
     def test_connection(self, subdomain: str, api_key: str) -> Dict:
-        """Test Wufoo connection and return available forms"""
+        """Quick test - only fetches first page to verify credentials"""
         try:
-            forms = self.get_forms(subdomain, api_key)
-            if forms:
+            url = f"{self._get_base_url(subdomain)}/forms.json"
+            params = {'pageSize': 10, 'pageStart': 0}
+            resp = requests.get(url, headers=self._get_auth_header(api_key), params=params, timeout=10)
+            
+            if resp.status_code == 200:
+                data = resp.json()
+                forms = data.get('Forms', [])
                 return {
                     'success': True,
-                    'forms': forms,
-                    'message': f'Connected! Found {len(forms)} form(s)'
+                    'message': f'Connected! Credentials valid.',
+                    'forms': []  # Don't return forms here - use get_all_forms endpoint
+                }
+            elif resp.status_code == 401 or resp.status_code == 403:
+                return {
+                    'success': False,
+                    'forms': [],
+                    'message': 'Invalid API key or subdomain'
                 }
             else:
                 return {
                     'success': False,
                     'forms': [],
-                    'message': 'Connected but no forms found, or invalid credentials'
+                    'message': f'Wufoo returned HTTP {resp.status_code}'
                 }
+        except Exception as e:
+            return {
+                'success': False,
+                'forms': [],
+                'message': f'Connection failed: {str(e)}'
+            }
         except Exception as e:
             return {
                 'success': False,

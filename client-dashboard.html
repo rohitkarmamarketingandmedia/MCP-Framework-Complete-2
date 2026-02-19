@@ -7510,10 +7510,11 @@
                 return;
             }
 
-            if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i>Loading forms...'; }
-            if (resultEl) { resultEl.className = 'text-xs text-gray-400'; resultEl.textContent = 'Connecting & loading all forms...'; }
+            if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i>Testing...'; }
+            if (resultEl) { resultEl.className = 'text-xs text-gray-400'; resultEl.textContent = 'Testing connection...'; }
 
             try {
+                // Step 1: Quick test (only verifies credentials)
                 const res = await fetch(`${API_URL}/api/leads/wufoo/test`, {
                     method: 'POST',
                     headers: { 'Authorization': `Bearer ${AUTH_TOKEN}`, 'Content-Type': 'application/json' },
@@ -7521,21 +7522,86 @@
                 });
                 const data = await res.json();
                 
-                if (data.success && data.forms) {
-                    wufooAllForms = data.forms;
-                    if (resultEl) {
-                        resultEl.className = 'text-xs text-green-400';
-                        resultEl.textContent = `Connected! Found ${data.forms.length} forms`;
-                    }
-                    renderWufooFormPicker();
+                if (data.success) {
+                    if (resultEl) { resultEl.className = 'text-xs text-green-400'; resultEl.textContent = 'Connected! Loading forms...'; }
+                    
+                    // Step 2: Save credentials first so /wufoo/forms endpoint can use them
+                    await fetch(`${API_URL}/api/leads/wufoo/save`, {
+                        method: 'POST',
+                        headers: { 'Authorization': `Bearer ${AUTH_TOKEN}`, 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            client_id: currentClient.id,
+                            subdomain: subdomain,
+                            api_key: apiKey,
+                            form_hashes: getWufooSelectedHashes()
+                        })
+                    });
+                    
+                    // Update local
+                    let integrations = currentClient.integrations || {};
+                    if (typeof integrations === 'string') { try { integrations = JSON.parse(integrations); } catch(e) { integrations = {}; } }
+                    if (!integrations.wufoo) integrations.wufoo = {};
+                    integrations.wufoo.subdomain = subdomain;
+                    integrations.wufoo.api_key = apiKey;
+                    currentClient.integrations = integrations;
+                    
+                    // Step 3: Load all forms (separate call, can take longer)
+                    if (btn) btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i>Loading forms...';
+                    await loadWufooForms();
                 } else {
-                    if (resultEl) {
-                        resultEl.className = 'text-xs text-red-400';
-                        resultEl.textContent = data.message || 'Connection failed';
-                    }
+                    if (resultEl) { resultEl.className = 'text-xs text-red-400'; resultEl.textContent = data.message || 'Connection failed'; }
                 }
             } catch(e) {
                 if (resultEl) { resultEl.className = 'text-xs text-red-400'; resultEl.textContent = 'Error: ' + e.message; }
+            } finally {
+                if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-plug mr-1"></i>Test & Load Forms'; }
+            }
+        }
+
+        async function loadWufooForms() {
+            if (!currentClient) return;
+            const resultEl = document.getElementById('wufooTestResult');
+            const btn = document.getElementById('wufooTestBtn');
+
+            if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i>Loading forms...'; }
+
+            try {
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 60000); // 60s client timeout
+
+                const res = await fetch(`${API_URL}/api/leads/wufoo/forms?client_id=${currentClient.id}`, {
+                    headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` },
+                    signal: controller.signal
+                });
+                clearTimeout(timeoutId);
+
+                const data = await res.json();
+                
+                if (data.forms && data.forms.length > 0) {
+                    wufooAllForms = data.forms;
+                    
+                    // Update local integrations with server-returned selected_hashes
+                    if (data.selected_hashes) {
+                        let integrations = currentClient.integrations || {};
+                        if (typeof integrations === 'string') { try { integrations = JSON.parse(integrations); } catch(e) { integrations = {}; } }
+                        if (!integrations.wufoo) integrations.wufoo = {};
+                        integrations.wufoo.form_hashes = data.selected_hashes;
+                        currentClient.integrations = integrations;
+                    }
+                    
+                    if (resultEl) { resultEl.className = 'text-xs text-green-400'; resultEl.textContent = `Found ${data.total || data.forms.length} forms`; }
+                    renderWufooFormPicker();
+                } else if (data.error) {
+                    if (resultEl) { resultEl.className = 'text-xs text-red-400'; resultEl.textContent = data.error; }
+                } else {
+                    if (resultEl) { resultEl.className = 'text-xs text-gray-400'; resultEl.textContent = 'No forms found'; }
+                }
+            } catch(e) {
+                if (e.name === 'AbortError') {
+                    if (resultEl) { resultEl.className = 'text-xs text-red-400'; resultEl.textContent = 'Timeout loading forms — try again or check Render logs'; }
+                } else {
+                    if (resultEl) { resultEl.className = 'text-xs text-red-400'; resultEl.textContent = 'Error: ' + e.message; }
+                }
             } finally {
                 if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-plug mr-1"></i>Test & Load Forms'; }
             }
@@ -7647,7 +7713,7 @@
 
             // Auto-load forms if configured
             if (subdomain && apiKey) {
-                await testWufooConnection();
+                await loadWufooForms();
             }
         }
 

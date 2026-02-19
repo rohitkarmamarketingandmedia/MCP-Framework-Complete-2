@@ -417,7 +417,9 @@ class DBClient(db.Model):
                     'org_id': self.linkedin_org_id,
                     'connected_at': self.linkedin_connected_at.isoformat() if self.linkedin_connected_at else None
                 }
-            }
+            },
+            # Integrations (Wufoo, etc)
+            'integrations': self.get_integrations()
         }
 
 
