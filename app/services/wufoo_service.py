@@ -44,11 +44,13 @@ class WufooService:
         return self.base_url_template.format(subdomain=subdomain)
     
     def get_forms(self, subdomain: str, api_key: str) -> List[Dict]:
-        """Get all forms for the account (handles pagination)"""
+        """Get all forms for the account (handles pagination + dedup)"""
         all_forms = []
+        seen_hashes = set()
         page_start = 0
         page_size = 100
-        max_pages = 10  # Safety limit: 10 pages x 100 = 1000 forms max
+        max_pages = 20  # 20 pages x 100 = 2000 forms max
+        page_num = 0
         
         for page_num in range(max_pages):
             try:
@@ -57,7 +59,6 @@ class WufooService:
                 logger.info(f"Wufoo: fetching forms page {page_num + 1} (start={page_start})...")
                 
                 resp = requests.get(url, headers=self._get_auth_header(api_key), params=params, timeout=30)
-                logger.info(f"Wufoo: page {page_num + 1} response: {resp.status_code}")
                 
                 if resp.status_code == 200:
                     data = resp.json()
@@ -68,18 +69,21 @@ class WufooService:
                         break
                     
                     for f in forms:
-                        all_forms.append({
-                            'hash': f.get('Hash', ''),
-                            'name': f.get('Name', ''),
-                            'description': f.get('Description', ''),
-                            'entry_count': int(f.get('EntryCount', 0) or 0),
-                            'url': f.get('Url', ''),
-                            'created': f.get('DateCreated', ''),
-                            'updated': f.get('DateUpdated', '')
-                        })
+                        form_hash = f.get('Hash', '')
+                        if form_hash and form_hash not in seen_hashes:
+                            seen_hashes.add(form_hash)
+                            all_forms.append({
+                                'hash': form_hash,
+                                'name': f.get('Name', ''),
+                                'description': f.get('Description', ''),
+                                'entry_count': int(f.get('EntryCount', 0) or 0),
+                                'url': f.get('Url', ''),
+                                'created': f.get('DateCreated', ''),
+                                'updated': f.get('DateUpdated', '')
+                            })
                     
                     if len(forms) < page_size:
-                        break  # Last page
+                        break
                     
                     page_start += page_size
                 elif resp.status_code == 401 or resp.status_code == 403:
@@ -94,8 +98,6 @@ class WufooService:
                 break
             except Exception as e:
                 logger.error(f"Wufoo get_forms error on page {page_num + 1}: {e}")
-                import traceback
-                traceback.print_exc()
                 break
         
         logger.info(f"Wufoo: fetched {len(all_forms)} total forms across {page_num + 1} pages")

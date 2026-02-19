@@ -7583,7 +7583,7 @@
 
             try {
                 const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 60000); // 60s client timeout
+                const timeoutId = setTimeout(() => controller.abort(), 90000);
 
                 const res = await fetch(`${API_URL}/api/leads/wufoo/forms?client_id=${currentClient.id}`, {
                     headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` },
@@ -7596,16 +7596,23 @@
                 if (data.forms && data.forms.length > 0) {
                     wufooAllForms = data.forms;
                     
-                    // Update local integrations with server-returned selected_hashes
-                    if (data.selected_hashes) {
-                        let integrations = currentClient.integrations || {};
-                        if (typeof integrations === 'string') { try { integrations = JSON.parse(integrations); } catch(e) { integrations = {}; } }
-                        if (!integrations.wufoo) integrations.wufoo = {};
-                        integrations.wufoo.form_hashes = data.selected_hashes;
-                        currentClient.integrations = integrations;
+                    // ALWAYS use server-returned selected_hashes (authoritative per-client)
+                    const serverHashes = data.selected_hashes || [];
+                    let integrations = currentClient.integrations || {};
+                    if (typeof integrations === 'string') { try { integrations = JSON.parse(integrations); } catch(e) { integrations = {}; } }
+                    if (!integrations.wufoo) integrations.wufoo = {};
+                    integrations.wufoo.form_hashes = serverHashes;
+                    currentClient.integrations = integrations;
+
+                    // Update status
+                    const statusEl = document.getElementById('wufooStatusTop');
+                    if (statusEl) {
+                        statusEl.textContent = serverHashes.length > 0 
+                            ? `Connected: ${serverHashes.length} form${serverHashes.length !== 1 ? 's' : ''} linked` 
+                            : `Connected (no forms selected for this client)`;
                     }
                     
-                    if (resultEl) { resultEl.className = 'text-xs text-green-400'; resultEl.textContent = `Found ${data.total || data.forms.length} forms`; }
+                    if (resultEl) { resultEl.className = 'text-xs text-green-400'; resultEl.textContent = `Found ${data.total || data.forms.length} unique forms`; }
                     renderWufooFormPicker();
                 } else if (data.error) {
                     if (resultEl) { resultEl.className = 'text-xs text-red-400'; resultEl.textContent = data.error; }
@@ -7614,7 +7621,7 @@
                 }
             } catch(e) {
                 if (e.name === 'AbortError') {
-                    if (resultEl) { resultEl.className = 'text-xs text-red-400'; resultEl.textContent = 'Timeout loading forms — try again or check Render logs'; }
+                    if (resultEl) { resultEl.className = 'text-xs text-red-400'; resultEl.textContent = 'Timeout loading forms — try again'; }
                 } else {
                     if (resultEl) { resultEl.className = 'text-xs text-red-400'; resultEl.textContent = 'Error: ' + e.message; }
                 }
