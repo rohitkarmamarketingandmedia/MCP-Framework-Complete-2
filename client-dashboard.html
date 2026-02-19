@@ -7220,14 +7220,6 @@
         // LEADS MANAGEMENT
         // ==========================================
 
-        function filterLeads(status) {
-            const filter = document.getElementById('leadStatusFilter');
-            if (filter) {
-                filter.value = status === 'all' ? '' : status;
-            }
-            loadLeads();
-        }
-
         async function loadLeads() {
             console.log('loadLeads called, currentClient:', currentClient);
             if (!currentClient) return;
@@ -7249,12 +7241,14 @@
                 });
                 if (leadsRes.ok) {
                     const leadsData = await leadsRes.json();
+                    console.log('DB leads raw sources:', leadsData.leads?.map(l => l.source));
                     (leadsData.leads || []).forEach(lead => {
                         const src = (lead.source || '').toLowerCase();
                         const leadType = src === 'form' ? 'form' 
                             : (src === 'chat' || src === 'chatbot') ? 'chat' 
                             : (src === 'call') ? 'call' 
                             : 'other';
+                        console.log(`Lead "${lead.name}" source="${lead.source}" → type="${leadType}"`);
                         allLeads.push({
                             id: lead.id,
                             type: leadType,

@@ -140,7 +140,12 @@ def get_leads(current_user):
                 'landing_page': row[12]
             })
         
-        logger.info(f"Found {len(leads)} leads")
+        # Debug: log source values
+        source_counts = {}
+        for l in leads:
+            src = l.get('source', 'None')
+            source_counts[src] = source_counts.get(src, 0) + 1
+        logger.info(f"Found {len(leads)} leads, sources: {source_counts}")
         return jsonify({'leads': leads, 'total': len(leads)})
         
     except Exception as e:

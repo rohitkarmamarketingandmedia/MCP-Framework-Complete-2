@@ -44,68 +44,91 @@ class WufooService:
         return self.base_url_template.format(subdomain=subdomain)
     
     def get_forms(self, subdomain: str, api_key: str) -> List[Dict]:
-        """Get all forms for the account (handles pagination + dedup)"""
+        """Get all forms for the account including sub-user forms"""
         all_forms = []
         seen_hashes = set()
-        page_start = 0
-        page_size = 100
-        max_pages = 20
-        page_num = 0
         
-        for page_num in range(max_pages):
+        # Method 1: Try fetching with large pageSize (Wufoo may cap at 100)
+        for page_start in range(0, 2000, 100):
             try:
                 url = f"{self._get_base_url(subdomain)}/forms.json"
-                params = {'pageSize': page_size, 'pageStart': page_start}
-                logger.info(f"Wufoo: fetching forms page {page_num + 1} (start={page_start})...")
+                params = {'pageSize': 100, 'pageStart': page_start}
+                logger.info(f"Wufoo: fetching forms (start={page_start})...")
                 
                 resp = requests.get(url, headers=self._get_auth_header(api_key), params=params, timeout=30)
                 
-                if resp.status_code == 200:
-                    data = resp.json()
-                    forms = data.get('Forms', [])
-                    logger.info(f"Wufoo: page {page_num + 1} returned {len(forms)} forms")
-                    
-                    if not forms:
-                        break
-                    
-                    new_on_this_page = 0
-                    for f in forms:
-                        form_hash = f.get('Hash', '')
-                        if form_hash and form_hash not in seen_hashes:
-                            seen_hashes.add(form_hash)
-                            new_on_this_page += 1
-                            all_forms.append({
-                                'hash': form_hash,
-                                'name': f.get('Name', ''),
-                                'description': f.get('Description', ''),
-                                'entry_count': int(f.get('EntryCount', 0) or 0),
-                                'url': f.get('Url', ''),
-                                'created': f.get('DateCreated', ''),
-                                'updated': f.get('DateUpdated', '')
-                            })
-                    
-                    logger.info(f"Wufoo: page {page_num + 1}: {new_on_this_page} new unique forms")
-                    
-                    # Stop if no new forms (API returning duplicates) or last page
-                    if new_on_this_page == 0 or len(forms) < page_size:
-                        break
-                    
-                    page_start += page_size
-                elif resp.status_code == 401 or resp.status_code == 403:
-                    logger.error(f"Wufoo: auth failed {resp.status_code}")
+                if resp.status_code != 200:
+                    logger.error(f"Wufoo forms error: {resp.status_code}")
                     break
-                else:
-                    logger.error(f"Wufoo API error {resp.status_code}: {resp.text[:200]}")
+                
+                forms = resp.json().get('Forms', [])
+                if not forms:
+                    break
+                
+                new_count = 0
+                for f in forms:
+                    fh = f.get('Hash', '')
+                    if fh and fh not in seen_hashes:
+                        seen_hashes.add(fh)
+                        new_count += 1
+                        all_forms.append({
+                            'hash': fh,
+                            'name': f.get('Name', ''),
+                            'description': f.get('Description', ''),
+                            'entry_count': int(f.get('EntryCount', 0) or 0),
+                            'url': f.get('Url', ''),
+                            'created': f.get('DateCreated', ''),
+                            'updated': f.get('DateUpdated', '')
+                        })
+                
+                logger.info(f"Wufoo: got {len(forms)} forms, {new_count} new (total unique: {len(all_forms)})")
+                
+                # If got fewer than 100 or all were duplicates, we're done
+                if len(forms) < 100 or new_count == 0:
                     break
                     
-            except requests.exceptions.Timeout:
-                logger.error(f"Wufoo: timeout on page {page_num + 1}")
-                break
             except Exception as e:
-                logger.error(f"Wufoo get_forms error on page {page_num + 1}: {e}")
+                logger.error(f"Wufoo get_forms error: {e}")
                 break
         
-        logger.info(f"Wufoo: fetched {len(all_forms)} total forms across {page_num + 1} pages")
+        # Method 2: If we only got ~100, try fetching via sub-users
+        if len(all_forms) <= 100:
+            logger.info("Wufoo: only got <=100 forms, trying sub-user forms...")
+            try:
+                users_url = f"{self._get_base_url(subdomain)}/users.json"
+                resp = requests.get(users_url, headers=self._get_auth_header(api_key), timeout=15)
+                if resp.status_code == 200:
+                    users = resp.json().get('Users', [])
+                    logger.info(f"Wufoo: found {len(users)} users, checking their forms...")
+                    
+                    for user in users:
+                        user_hash = user.get('Hash', '')
+                        if not user_hash:
+                            continue
+                        try:
+                            user_forms_url = f"{self._get_base_url(subdomain)}/users/{user_hash}/forms.json"
+                            uf_resp = requests.get(user_forms_url, headers=self._get_auth_header(api_key), timeout=15)
+                            if uf_resp.status_code == 200:
+                                user_forms = uf_resp.json().get('Forms', [])
+                                for f in user_forms:
+                                    fh = f.get('Hash', '')
+                                    if fh and fh not in seen_hashes:
+                                        seen_hashes.add(fh)
+                                        all_forms.append({
+                                            'hash': fh,
+                                            'name': f.get('Name', ''),
+                                            'description': f.get('Description', ''),
+                                            'entry_count': int(f.get('EntryCount', 0) or 0),
+                                            'url': f.get('Url', ''),
+                                            'created': f.get('DateCreated', ''),
+                                            'updated': f.get('DateUpdated', '')
+                                        })
+                        except Exception as ue:
+                            logger.warning(f"Wufoo: error getting forms for user {user_hash}: {ue}")
+            except Exception as e:
+                logger.warning(f"Wufoo: could not fetch sub-user forms: {e}")
+        
+        logger.info(f"Wufoo: total unique forms: {len(all_forms)}")
         return all_forms
     
     def get_form_fields(self, subdomain: str, api_key: str, form_hash: str) -> List[Dict]:
