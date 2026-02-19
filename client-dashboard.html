@@ -2348,20 +2348,23 @@
                                 <input type="text" id="wufooApiKeyTop" placeholder="Wufoo API Key"
                                     class="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-sm mb-2 focus:outline-none focus:border-orange-500">
                                 <div class="flex gap-2 mb-2">
-                                    <button onclick="testWufooConnection()" class="px-3 py-1 bg-orange-500/20 text-orange-400 text-xs rounded hover:bg-orange-500/30 transition">
+                                    <button onclick="testWufooConnection()" id="wufooTestBtn" class="px-3 py-1 bg-orange-500/20 text-orange-400 text-xs rounded hover:bg-orange-500/30 transition">
                                         <i class="fas fa-plug mr-1"></i>Test & Load Forms
                                     </button>
                                     <button onclick="saveWufooConfig()" class="px-3 py-1 bg-green-500/20 text-green-400 text-xs rounded hover:bg-green-500/30 transition">
                                         <i class="fas fa-save mr-1"></i>Save
                                     </button>
                                 </div>
-                                <div id="wufooTestResult" class="mt-2 text-xs hidden"></div>
-                                <!-- Form picker - shown after test/load -->
+                                <div id="wufooTestResult" class="text-xs hidden"></div>
+                                <!-- Form picker -->
                                 <div id="wufooFormPicker" class="hidden mt-3">
-                                    <label class="text-xs text-gray-400 block mb-2">Select forms for this client:</label>
-                                    <div id="wufooFormsList" class="space-y-1 max-h-48 overflow-y-auto"></div>
+                                    <label class="text-xs text-gray-400 block mb-1">Select forms for this client:</label>
+                                    <input type="text" id="wufooFormSearch" placeholder="Search forms..." oninput="filterWufooForms()"
+                                        class="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-sm mb-2 focus:outline-none focus:border-orange-500">
+                                    <div class="text-xs text-gray-500 mb-1" id="wufooFormCount"></div>
+                                    <div id="wufooFormsList" class="space-y-1 max-h-64 overflow-y-auto"></div>
                                 </div>
-                                <p class="text-xs text-gray-500 mt-2">One account, pick which forms belong to this client</p>
+                                <p class="text-xs text-gray-500 mt-2">One account → pick which forms belong to this client</p>
                             </div>
 
                             <!-- WordPress -->
@@ -7493,19 +7496,22 @@
             }
         }
 
+        // Wufoo form data cache
+        let wufooAllForms = [];
+
         async function testWufooConnection() {
             const subdomain = document.getElementById('wufooSubdomainTop')?.value?.trim();
             const apiKey = document.getElementById('wufooApiKeyTop')?.value?.trim();
             const resultEl = document.getElementById('wufooTestResult');
-            const pickerEl = document.getElementById('wufooFormPicker');
-            const formsListEl = document.getElementById('wufooFormsList');
+            const btn = document.getElementById('wufooTestBtn');
 
             if (!subdomain || !apiKey) {
-                if (resultEl) { resultEl.className = 'mt-2 text-xs text-red-400'; resultEl.textContent = 'Enter subdomain and API key first'; }
+                if (resultEl) { resultEl.className = 'text-xs text-red-400'; resultEl.textContent = 'Enter subdomain and API key first'; }
                 return;
             }
 
-            if (resultEl) { resultEl.className = 'mt-2 text-xs text-gray-400'; resultEl.textContent = 'Testing connection...'; }
+            if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i>Loading forms...'; }
+            if (resultEl) { resultEl.className = 'text-xs text-gray-400'; resultEl.textContent = 'Connecting & loading all forms...'; }
 
             try {
                 const res = await fetch(`${API_URL}/api/leads/wufoo/test`, {
@@ -7514,43 +7520,85 @@
                     body: JSON.stringify({ subdomain, api_key: apiKey })
                 });
                 const data = await res.json();
-                if (resultEl) {
-                    resultEl.className = `mt-2 text-xs ${data.success ? 'text-green-400' : 'text-red-400'}`;
-                    resultEl.textContent = data.message;
-                }
-
-                // Show form picker if successful
-                if (data.success && data.forms && data.forms.length > 0 && pickerEl && formsListEl) {
-                    // Get currently selected hashes
-                    const integrations = currentClient?.integrations || {};
-                    const wufoo = typeof integrations === 'string' ? {} : (integrations.wufoo || {});
-                    const selectedHashes = wufoo.form_hashes || [];
-
-                    pickerEl.classList.remove('hidden');
-                    formsListEl.innerHTML = data.forms.map(form => `
-                        <label class="flex items-center gap-2 p-2 bg-white/5 rounded hover:bg-white/10 cursor-pointer transition">
-                            <input type="checkbox" class="wufoo-form-checkbox accent-orange-500" value="${form.hash}" 
-                                ${selectedHashes.includes(form.hash) ? 'checked' : ''}>
-                            <div class="flex-1">
-                                <span class="text-sm text-white">${form.name}</span>
-                                <span class="text-xs text-gray-500 ml-2">${form.entry_count} entries</span>
-                            </div>
-                        </label>
-                    `).join('');
-                } else if (pickerEl) {
-                    pickerEl.classList.add('hidden');
+                
+                if (data.success && data.forms) {
+                    wufooAllForms = data.forms;
+                    if (resultEl) {
+                        resultEl.className = 'text-xs text-green-400';
+                        resultEl.textContent = `Connected! Found ${data.forms.length} forms`;
+                    }
+                    renderWufooFormPicker();
+                } else {
+                    if (resultEl) {
+                        resultEl.className = 'text-xs text-red-400';
+                        resultEl.textContent = data.message || 'Connection failed';
+                    }
                 }
             } catch(e) {
-                if (resultEl) { resultEl.className = 'mt-2 text-xs text-red-400'; resultEl.textContent = 'Error: ' + e.message; }
+                if (resultEl) { resultEl.className = 'text-xs text-red-400'; resultEl.textContent = 'Error: ' + e.message; }
+            } finally {
+                if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-plug mr-1"></i>Test & Load Forms'; }
             }
+        }
+
+        function renderWufooFormPicker() {
+            const pickerEl = document.getElementById('wufooFormPicker');
+            const formsListEl = document.getElementById('wufooFormsList');
+            const countEl = document.getElementById('wufooFormCount');
+            if (!pickerEl || !formsListEl) return;
+
+            const selectedHashes = getWufooSelectedHashes();
+            const searchTerm = (document.getElementById('wufooFormSearch')?.value || '').toLowerCase();
+
+            let filtered = wufooAllForms;
+            if (searchTerm) {
+                filtered = wufooAllForms.filter(f => 
+                    f.name.toLowerCase().includes(searchTerm) || 
+                    (f.description || '').toLowerCase().includes(searchTerm) ||
+                    f.hash.toLowerCase().includes(searchTerm)
+                );
+            }
+
+            // Sort: selected first, then by entry count desc
+            filtered.sort((a, b) => {
+                const aS = selectedHashes.includes(a.hash) ? 0 : 1;
+                const bS = selectedHashes.includes(b.hash) ? 0 : 1;
+                if (aS !== bS) return aS - bS;
+                return (b.entry_count || 0) - (a.entry_count || 0);
+            });
+
+            pickerEl.classList.remove('hidden');
+            if (countEl) countEl.textContent = `Showing ${filtered.length} of ${wufooAllForms.length} forms (${selectedHashes.length} selected)`;
+
+            formsListEl.innerHTML = filtered.map(form => `
+                <label class="flex items-center gap-2 p-2 bg-white/5 rounded hover:bg-white/10 cursor-pointer transition ${selectedHashes.includes(form.hash) ? 'ring-1 ring-orange-500/50 bg-orange-500/10' : ''}">
+                    <input type="checkbox" class="wufoo-form-checkbox accent-orange-500" value="${form.hash}" 
+                        ${selectedHashes.includes(form.hash) ? 'checked' : ''}>
+                    <div class="flex-1 min-w-0">
+                        <span class="text-sm text-white block truncate">${form.name}</span>
+                        ${form.description ? '<span class="text-xs text-gray-500 block truncate">' + form.description + '</span>' : ''}
+                    </div>
+                    <span class="text-xs ${form.entry_count > 0 ? 'text-green-400' : 'text-gray-600'} flex-shrink-0">${form.entry_count} entries</span>
+                </label>
+            `).join('');
+        }
+
+        function filterWufooForms() {
+            renderWufooFormPicker();
+        }
+
+        function getWufooSelectedHashes() {
+            try {
+                let integrations = currentClient?.integrations || {};
+                if (typeof integrations === 'string') integrations = JSON.parse(integrations);
+                return (integrations?.wufoo?.form_hashes) || [];
+            } catch(e) { return []; }
         }
 
         async function saveWufooConfig() {
             if (!currentClient) return;
             const subdomain = document.getElementById('wufooSubdomainTop')?.value?.trim();
             const apiKey = document.getElementById('wufooApiKeyTop')?.value?.trim();
-            
-            // Collect selected form hashes
             const checkboxes = document.querySelectorAll('.wufoo-form-checkbox:checked');
             const formHashes = Array.from(checkboxes).map(cb => cb.value);
 
@@ -7558,56 +7606,48 @@
                 const res = await fetch(`${API_URL}/api/leads/wufoo/save`, {
                     method: 'POST',
                     headers: { 'Authorization': `Bearer ${AUTH_TOKEN}`, 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        client_id: currentClient.id,
-                        subdomain: subdomain,
-                        api_key: apiKey,
-                        form_hashes: formHashes
-                    })
+                    body: JSON.stringify({ client_id: currentClient.id, subdomain, api_key: apiKey, form_hashes: formHashes })
                 });
                 const data = await res.json();
                 if (data.success) {
-                    const formCount = formHashes.length;
-                    showToast(`Wufoo saved! ${formCount} form${formCount !== 1 ? 's' : ''} selected for this client`, 'success');
-                    document.getElementById('wufooStatusTop').textContent = subdomain ? `Connected: ${formCount} form${formCount !== 1 ? 's' : ''} linked` : 'Not configured';
+                    // Update local client data so config persists across tab switches
+                    let integrations = currentClient.integrations || {};
+                    if (typeof integrations === 'string') { try { integrations = JSON.parse(integrations); } catch(e) { integrations = {}; } }
+                    integrations.wufoo = { subdomain, api_key: apiKey, form_hashes: formHashes };
+                    currentClient.integrations = integrations;
+
+                    showToast(`Wufoo saved! ${formHashes.length} form${formHashes.length !== 1 ? 's' : ''} selected`, 'success');
+                    document.getElementById('wufooStatusTop').textContent = `Connected: ${formHashes.length} form${formHashes.length !== 1 ? 's' : ''} linked`;
+                    renderWufooFormPicker();
                 } else {
                     showToast('Save failed: ' + (data.error || ''), 'error');
                 }
-            } catch(e) {
-                showToast('Save error: ' + e.message, 'error');
-            }
+            } catch(e) { showToast('Save error: ' + e.message, 'error'); }
         }
 
-        function loadWufooConfig() {
+        async function loadWufooConfig() {
             if (!currentClient) return;
-            const integrations = currentClient.integrations || {};
-            const wufoo = typeof integrations === 'string' ? {} : (integrations.wufoo || {});
+            let integrations = currentClient.integrations || {};
+            if (typeof integrations === 'string') { try { integrations = JSON.parse(integrations); } catch(e) { integrations = {}; } }
+            const wufoo = integrations.wufoo || {};
             const subdomain = wufoo.subdomain || '';
             const apiKey = wufoo.api_key || '';
             const formHashes = wufoo.form_hashes || [];
 
-            const subEl = document.getElementById('wufooSubdomainTop');
-            const keyEl = document.getElementById('wufooApiKeyTop');
+            if (document.getElementById('wufooSubdomainTop')) document.getElementById('wufooSubdomainTop').value = subdomain;
+            if (document.getElementById('wufooApiKeyTop')) document.getElementById('wufooApiKeyTop').value = apiKey;
             const statusEl = document.getElementById('wufooStatusTop');
-            const pickerEl = document.getElementById('wufooFormPicker');
-
-            if (subEl) subEl.value = subdomain;
-            if (keyEl) keyEl.value = apiKey;
             if (statusEl) {
-                if (subdomain && formHashes.length > 0) {
-                    statusEl.textContent = `Connected: ${formHashes.length} form${formHashes.length !== 1 ? 's' : ''} linked`;
-                } else if (subdomain) {
-                    statusEl.textContent = `Connected: ${subdomain}.wufoo.com (no forms selected)`;
-                } else {
-                    statusEl.textContent = 'Not configured';
-                }
+                if (subdomain && formHashes.length > 0) statusEl.textContent = `Connected: ${formHashes.length} form${formHashes.length !== 1 ? 's' : ''} linked`;
+                else if (subdomain) statusEl.textContent = `Connected: ${subdomain}.wufoo.com (no forms selected)`;
+                else statusEl.textContent = 'Not configured';
             }
-            // Hide form picker until Test is clicked
+            const pickerEl = document.getElementById('wufooFormPicker');
             if (pickerEl) pickerEl.classList.add('hidden');
 
-            // If we have config, auto-load forms
+            // Auto-load forms if configured
             if (subdomain && apiKey) {
-                testWufooConnection();
+                await testWufooConnection();
             }
         }
 

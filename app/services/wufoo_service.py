@@ -44,29 +44,48 @@ class WufooService:
         return self.base_url_template.format(subdomain=subdomain)
     
     def get_forms(self, subdomain: str, api_key: str) -> List[Dict]:
-        """Get all forms for the account"""
+        """Get all forms for the account (handles pagination)"""
+        all_forms = []
+        page_start = 0
+        page_size = 100
+        
         try:
-            url = f"{self._get_base_url(subdomain)}/forms.json"
-            resp = requests.get(url, headers=self._get_auth_header(api_key), timeout=self.timeout)
-            
-            if resp.status_code == 200:
-                data = resp.json()
-                forms = data.get('Forms', [])
-                return [{
-                    'hash': f.get('Hash', ''),
-                    'name': f.get('Name', ''),
-                    'description': f.get('Description', ''),
-                    'entry_count': f.get('EntryCount', 0),
-                    'url': f.get('Url', ''),
-                    'created': f.get('DateCreated', ''),
-                    'updated': f.get('DateUpdated', '')
-                } for f in forms]
-            else:
-                logger.error(f"Wufoo API error {resp.status_code}: {resp.text[:200]}")
-                return []
+            while True:
+                url = f"{self._get_base_url(subdomain)}/forms.json"
+                params = {'pageSize': page_size, 'pageStart': page_start}
+                resp = requests.get(url, headers=self._get_auth_header(api_key), params=params, timeout=self.timeout)
+                
+                if resp.status_code == 200:
+                    data = resp.json()
+                    forms = data.get('Forms', [])
+                    
+                    if not forms:
+                        break
+                    
+                    for f in forms:
+                        all_forms.append({
+                            'hash': f.get('Hash', ''),
+                            'name': f.get('Name', ''),
+                            'description': f.get('Description', ''),
+                            'entry_count': int(f.get('EntryCount', 0) or 0),
+                            'url': f.get('Url', ''),
+                            'created': f.get('DateCreated', ''),
+                            'updated': f.get('DateUpdated', '')
+                        })
+                    
+                    if len(forms) < page_size:
+                        break  # Last page
+                    
+                    page_start += page_size
+                else:
+                    logger.error(f"Wufoo API error {resp.status_code}: {resp.text[:200]}")
+                    break
+                    
         except Exception as e:
             logger.error(f"Wufoo get_forms error: {e}")
-            return []
+        
+        logger.info(f"Wufoo: fetched {len(all_forms)} total forms")
+        return all_forms
     
     def get_form_fields(self, subdomain: str, api_key: str, form_hash: str) -> List[Dict]:
         """Get field definitions for a form"""
