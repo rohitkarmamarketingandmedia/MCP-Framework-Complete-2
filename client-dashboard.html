@@ -793,6 +793,11 @@
                     <i class="fas fa-trophy sm:mr-2"></i><span class="hidden sm:inline">Rankings</span><span
                         class="sm:hidden">Rank</span>
                 </button>
+                <button onclick="showTab('gsc')" id="tab-gsc"
+                    class="px-3 sm:px-6 py-2 rounded-lg text-xs sm:text-sm font-medium text-gray-400 hover:text-white transition whitespace-nowrap glass">
+                    <i class="fab fa-google sm:mr-2"></i><span class="hidden sm:inline">Search Console</span><span
+                        class="sm:hidden">GSC</span>
+                </button>
                 <button onclick="showTab('competitors')" id="tab-competitors"
                     class="px-3 sm:px-6 py-2 rounded-lg text-xs sm:text-sm font-medium text-gray-400 hover:text-white transition whitespace-nowrap glass">
                     <i class="fas fa-users sm:mr-2"></i><span class="hidden sm:inline">Competitors</span><span
@@ -1646,18 +1651,26 @@
                         </table>
                     </div>
                 </div>
+            </div>
 
-                <!-- Google Search Console Section -->
-                <div class="glass rounded-xl p-6 mt-6">
+            <!-- Google Search Console Panel -->
+            <div id="panel-gsc" class="hidden fade-in">
+                <div class="glass rounded-xl p-6">
                     <div class="flex items-center justify-between mb-4">
-                        <h3 class="text-lg font-semibold text-white">
-                            <i class="fab fa-google mr-2 text-blue-400"></i>Google Search Console
-                        </h3>
+                        <div class="flex items-center gap-3">
+                            <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center">
+                                <i class="fab fa-google text-white text-xl"></i>
+                            </div>
+                            <div>
+                                <h3 class="text-lg font-bold text-white">Google Search Console</h3>
+                                <p class="text-sm text-gray-400">Real search performance data from Google</p>
+                            </div>
+                        </div>
                         <div class="flex items-center gap-2">
-                            <select id="gscDaysFilter" onchange="loadGSCData()" class="bg-white/10 border border-white/20 rounded-lg text-white text-xs px-2 py-1 focus:outline-none">
-                                <option value="7">7 days</option>
-                                <option value="30" selected>30 days</option>
-                                <option value="90">90 days</option>
+                            <select id="gscDaysFilter" onchange="loadGSCData()" class="bg-white/10 border border-white/20 rounded-lg text-white text-sm px-3 py-2 focus:outline-none">
+                                <option value="7">Last 7 days</option>
+                                <option value="30" selected>Last 30 days</option>
+                                <option value="90">Last 90 days</option>
                             </select>
                         </div>
                     </div>
@@ -1670,7 +1683,8 @@
                     </div>
                 </div>
             </div>
-            <div id="panel-calendar" class="hidden fade-in">
+
+            <!-- Calendar Panel -->
                 <div class="glass rounded-2xl p-6 mb-6">
                     <div class="flex items-center justify-between mb-6">
                         <div class="flex items-center gap-3">
@@ -5538,7 +5552,7 @@
         // TABS
         // ==========================================
         function showTab(tab) {
-            const allTabs = ['overview', 'generate', 'blogs', 'social', 'seo', 'calendar', 'reports', 'rankings', 'competitors', 'settings', 'chatbot', 'leads', 'reviews', 'calls', 'pages', 'accessibility'];
+            const allTabs = ['overview', 'generate', 'blogs', 'social', 'seo', 'gsc', 'calendar', 'reports', 'rankings', 'competitors', 'settings', 'chatbot', 'leads', 'reviews', 'calls', 'pages', 'accessibility'];
 
             allTabs.forEach(t => {
                 const panel = document.getElementById(`panel-${t}`);
@@ -5596,6 +5610,11 @@
             // Load competitor dashboard when competitors tab is shown
             if (tab === 'competitors') {
                 refreshCompetitorDashboard();
+            }
+
+            // Load Google Search Console data when GSC tab is shown
+            if (tab === 'gsc') {
+                loadGSCData();
             }
 
             // Load notification settings when settings tab is shown
@@ -6783,9 +6802,6 @@
 
             // Load competitor insights
             loadCompetitorInsights();
-
-            // Load Google Search Console data
-            loadGSCData();
         }
 
         async function loadGSCData() {
@@ -15183,13 +15199,14 @@
                             </div>
                         </div>
                         <div class="text-right">
-                            <div class="text-sm font-bold text-white">${comp.total_pages}</div>
-                            <div class="text-xs text-gray-500">pages</div>
+                            <div class="text-sm font-bold text-white">${comp.total_keywords || 0}</div>
+                            <div class="text-xs text-gray-500">keywords</div>
                         </div>
                     </div>
                     <div class="mt-3 flex items-center gap-2 text-xs">
                         <span class="px-2 py-1 bg-green-500/20 text-green-400 rounded">${comp.blog_posts} blogs</span>
                         <span class="px-2 py-1 bg-blue-500/20 text-blue-400 rounded">${comp.service_pages} services</span>
+                        <span class="px-2 py-1 bg-purple-500/20 text-purple-400 rounded">${(comp.keyword_overlap || []).length} shared kws</span>
                     </div>
                 </div>
             `).join('') : '<p class="text-gray-500 text-sm">No competitors tracked. Add them in intake.</p>';
@@ -15199,23 +15216,23 @@
             // Render ranking battles
             const battlesHtml = ranking_battles.length ? ranking_battles.slice(0, 10).map(battle => `
                 <div class="flex items-center justify-between p-3 rounded-lg ${battle.winning ? 'bg-green-500/10 border border-green-500/20' : 'bg-red-500/10 border border-red-500/20'}">
-                    <div class="flex-1">
-                        <div class="font-medium text-white text-sm">${battle.keyword}</div>
-                        <div class="text-xs text-gray-500">vs ${battle.competitor}</div>
+                    <div class="flex-1 min-w-0">
+                        <div class="font-medium text-white text-sm truncate">${battle.keyword}</div>
+                        <div class="text-xs text-gray-500">vs ${battle.competitor}${battle.search_volume ? ' • ' + battle.search_volume + ' mo/searches' : ''}</div>
                     </div>
-                    <div class="flex items-center gap-4 text-sm">
+                    <div class="flex items-center gap-3 text-sm ml-2">
                         <div class="text-center">
                             <div class="font-bold ${battle.winning ? 'text-green-400' : 'text-gray-400'}">#${battle.client_position}</div>
                             <div class="text-xs text-gray-500">You</div>
                         </div>
-                        <i class="fas ${battle.winning ? 'fa-check-circle text-green-400' : 'fa-times-circle text-red-400'}"></i>
+                        <i class="fas ${battle.winning ? 'fa-trophy text-green-400' : 'fa-arrow-down text-red-400'}"></i>
                         <div class="text-center">
                             <div class="font-bold ${!battle.winning ? 'text-red-400' : 'text-gray-400'}">#${battle.competitor_position}</div>
                             <div class="text-xs text-gray-500">Them</div>
                         </div>
                     </div>
                 </div>
-            `).join('') : '<p class="text-gray-500 text-sm">No ranking battles found. Check rankings first.</p>';
+            `).join('') : '<p class="text-gray-500 text-sm">No shared keywords found between you and competitors. Refresh to pull SEMrush data.</p>';
 
             document.getElementById('rankingBattles').innerHTML = battlesHtml;
 

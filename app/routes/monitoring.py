@@ -1718,23 +1718,80 @@ def get_competitor_dashboard(current_user, client_id):
     except Exception:
         pass
     
-    # Get client's latest rankings (limited)
+    # Get client's SEMrush domain rankings (all keywords client ranks for)
     client_rankings = {}
+    client_domain = rank_tracking_service._clean_domain(client.website_url or client.business_name)
+    
     try:
-        latest_ranks = DBRankHistory.query.filter_by(client_id=client_id).order_by(
-            DBRankHistory.checked_at.desc()
-        ).limit(50).all()
+        # Use SEMrush to get ALL client domain keywords (cached)
+        import requests as http_requests
+        api_key = rank_tracking_service.api_key
         
-        for rank in latest_ranks:
-            keyword = getattr(rank, 'keyword', None)
-            if keyword and keyword not in client_rankings:
-                client_rankings[keyword] = {
-                    'position': getattr(rank, 'position', None),
-                    'url': getattr(rank, 'ranking_url', None) or getattr(rank, 'url', None) or '',
-                    'change': getattr(rank, 'change', 0)
+        if api_key:
+            # Check cache first
+            cache_key = f"{client_domain}:{rank_tracking_service.default_database}"
+            cached = rank_tracking_service._get_cached(cache_key)
+            
+            if cached:
+                # Build from cached data
+                for kw_data in cached.get('keywords', []):
+                    kw = kw_data['keyword'].lower()
+                    if kw_data.get('position'):
+                        client_rankings[kw] = {
+                            'position': kw_data['position'],
+                            'url': kw_data.get('url', ''),
+                            'change': kw_data.get('change', 0),
+                            'search_volume': kw_data.get('search_volume', 0)
+                        }
+            
+            if not client_rankings:
+                # Fetch fresh from SEMrush
+                params = {
+                    'type': 'domain_organic',
+                    'key': api_key,
+                    'display_limit': 200,
+                    'export_columns': 'Ph,Po,Pp,Ur,Nq',
+                    'domain': client_domain,
+                    'database': rank_tracking_service.default_database
                 }
-    except Exception:
-        pass  # Continue with empty rankings
+                resp = http_requests.get(rank_tracking_service.base_url, params=params, timeout=30)
+                if resp.status_code == 200:
+                    lines = resp.text.strip().split('\n')
+                    for line in lines[1:]:
+                        parts = line.split(';')
+                        if len(parts) >= 5:
+                            kw = parts[0].strip('"').lower()
+                            pos = int(parts[1]) if parts[1] else None
+                            if pos:
+                                client_rankings[kw] = {
+                                    'position': pos,
+                                    'url': parts[3].strip('"') if parts[3] else '',
+                                    'change': (int(parts[2]) - pos) if parts[2] else 0,
+                                    'search_volume': int(parts[4]) if parts[4] else 0
+                                }
+    except Exception as e:
+        logger.warning(f"Error fetching client SEMrush data: {e}")
+    
+    # Fallback to DB rank history if SEMrush didn't work
+    if not client_rankings:
+        try:
+            latest_ranks = DBRankHistory.query.filter_by(client_id=client_id).order_by(
+                DBRankHistory.checked_at.desc()
+            ).limit(50).all()
+            
+            for rank in latest_ranks:
+                keyword = getattr(rank, 'keyword', None)
+                if keyword and keyword.lower() not in client_rankings:
+                    client_rankings[keyword.lower()] = {
+                        'position': getattr(rank, 'position', None),
+                        'url': getattr(rank, 'ranking_url', None) or getattr(rank, 'url', None) or '',
+                        'change': getattr(rank, 'change', 0),
+                        'search_volume': 0
+                    }
+        except Exception:
+            pass
+    
+    logger.info(f"Client {client_domain} has {len(client_rankings)} ranked keywords")
     
     # Build competitor comparison data
     competitor_data = []
@@ -1748,26 +1805,41 @@ def get_competitor_dashboard(current_user, client_id):
         except Exception:
             comp_pages = []
         
-        # Competitor rankings are tracked separately via crawling, not DBRankHistory
-        # DBRankHistory is for client keyword tracking only
+        # Fetch competitor rankings from SEMrush
         comp_ranks = {}
+        try:
+            if api_key:
+                comp_domain = rank_tracking_service._clean_domain(comp.domain)
+                comp_params = {
+                    'type': 'domain_organic',
+                    'key': api_key,
+                    'display_limit': 200,
+                    'export_columns': 'Ph,Po,Nq',
+                    'domain': comp_domain,
+                    'database': rank_tracking_service.default_database
+                }
+                comp_resp = http_requests.get(rank_tracking_service.base_url, params=comp_params, timeout=20)
+                if comp_resp.status_code == 200:
+                    comp_lines = comp_resp.text.strip().split('\n')
+                    for line in comp_lines[1:]:
+                        parts = line.split(';')
+                        if len(parts) >= 2:
+                            kw = parts[0].strip('"').lower()
+                            pos = int(parts[1]) if parts[1] else None
+                            if pos:
+                                comp_ranks[kw] = pos
+                    logger.info(f"Competitor {comp_domain}: {len(comp_ranks)} ranked keywords")
+        except Exception as e:
+            logger.warning(f"Error fetching competitor {comp.domain} rankings: {e}")
         
         # Count content by category
         blog_count = len([p for p in comp_pages if '/blog' in (p.url or '').lower()])
         service_count = len([p for p in comp_pages if any(x in (p.url or '').lower() for x in ['/service', '/about', '/contact'])])
         
-        # Analyze keywords from competitor titles
-        comp_keywords = set()
-        for page in comp_pages:
-            if page.title:
-                words = page.title.lower().split()
-                for word in words:
-                    if len(word) > 3 and word not in ['the', 'and', 'for', 'with', 'your', 'our']:
-                        comp_keywords.add(word)
-        
-        # Find keyword overlap
-        client_kw_set = set(kw.lower() for kw in client_keywords)
-        overlap = comp_keywords.intersection(client_kw_set)
+        # Find keyword overlap with client
+        client_kw_set = set(client_rankings.keys())
+        comp_kw_set = set(comp_ranks.keys())
+        overlap = client_kw_set.intersection(comp_kw_set)
         
         competitor_data.append({
             'id': comp.id,
@@ -1779,16 +1851,15 @@ def get_competitor_dashboard(current_user, client_id):
             'crawl_frequency': comp.crawl_frequency or 'daily',
             'last_crawled': comp.last_crawl_at.isoformat() if comp.last_crawl_at else None,
             'keyword_overlap': list(overlap)[:10],
+            'total_keywords': len(comp_ranks),
             'rankings': comp_ranks
         })
         
         # Find content gaps - topics competitors have that client doesn't
         for page in comp_pages:
             if page.title and '/blog' in (page.url or '').lower():
-                # Check if client has similar content
                 title_lower = page.title.lower()
                 has_similar = False
-                # This is a simplified check - in production, use more sophisticated matching
                 for kw in client_keywords:
                     if kw.lower() in title_lower:
                         has_similar = True
@@ -1821,11 +1892,16 @@ def get_competitor_dashboard(current_user, client_id):
                     'client_position': client_rank['position'],
                     'competitor': comp['domain'],
                     'competitor_position': comp_pos,
-                    'winning': client_rank['position'] < comp_pos
+                    'winning': client_rank['position'] < comp_pos,
+                    'search_volume': client_rank.get('search_volume', 0)
                 })
     
-    # Sort battles by importance (client winning but close, or losing)
-    ranking_battles.sort(key=lambda x: (not x['winning'], abs(x['client_position'] - x['competitor_position'])))
+    # Sort battles by search volume (most valuable keywords first)
+    ranking_battles.sort(key=lambda x: (-x.get('search_volume', 0), not x['winning']))
+    
+    # Strip large rankings dict from competitor data for response size
+    for comp in competitor_data:
+        comp['rankings'] = {}  # Don't send thousands of keywords to frontend
     
     return jsonify({
         'client_id': client_id,
@@ -1834,14 +1910,16 @@ def get_competitor_dashboard(current_user, client_id):
             'total_competitors': len(competitors),
             'client_keywords_tracked': len(client_keywords),
             'client_keywords_ranked': total_client_ranked,
+            'client_total_keywords': len(client_rankings),
             'top_10_keywords': top_10_count,
             'top_3_keywords': top_3_count,
-            'content_gaps_found': len(content_gaps)
+            'content_gaps_found': len(content_gaps),
+            'total_battles': len(ranking_battles)
         },
         'competitors': competitor_data,
-        'content_gaps': content_gaps[:20],  # Top 20 gaps
-        'ranking_battles': ranking_battles[:20],  # Top 20 battles
-        'client_rankings': client_rankings
+        'content_gaps': content_gaps[:20],
+        'ranking_battles': ranking_battles[:20],
+        'client_rankings': {}  # Don't send huge dict
     })
 
 
