@@ -45,15 +45,20 @@ def oauth_callback():
     
     GET /api/gbp/auth/callback?code=xxx&state=client_id
     """
+    import os
+    
     code = request.args.get('code')
     client_id = request.args.get('state')
     error = request.args.get('error')
     
+    app_url = os.getenv('APP_URL', 'https://mcp.karmamarketingandmedia.com')
+    dashboard_url = f"{app_url}/client#reviews"
+    
     if error:
-        return jsonify({'error': error}), 400
+        return redirect(f"{dashboard_url}?gbp_error={error}")
     
     if not code or not client_id:
-        return jsonify({'error': 'Missing code or state'}), 400
+        return redirect(f"{dashboard_url}?gbp_error=missing_code")
     
     # Get the redirect URI that was used
     redirect_uri = request.url.split('?')[0]
@@ -62,7 +67,7 @@ def oauth_callback():
     tokens = gbp_service.exchange_code(code, redirect_uri)
     
     if 'error' in tokens:
-        return jsonify(tokens), 400
+        return redirect(f"{dashboard_url}?gbp_error={tokens.get('error', 'token_exchange_failed')}")
     
     # Store refresh token in client record
     client = DBClient.query.get(client_id)
@@ -70,11 +75,7 @@ def oauth_callback():
         client.gbp_access_token = tokens.get('refresh_token')
         db.session.commit()
     
-    return jsonify({
-        'success': True,
-        'message': 'GBP connected successfully',
-        'client_id': client_id
-    })
+    return redirect(f"{dashboard_url}?gbp_connected=true")
 
 
 # ==========================================

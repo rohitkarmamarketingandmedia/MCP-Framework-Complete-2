@@ -17488,6 +17488,7 @@
 
             const currentValue = currentClient?.gbp_location_id || '';
             const isConnected = !!currentValue;
+            const hasOAuth = currentClient?.social_connections?.gbp?.has_oauth;
 
             overlay.innerHTML = `
                 <div class="bg-gray-900 rounded-2xl p-6 max-w-md w-full mx-4 border border-white/10" onclick="event.stopPropagation()">
@@ -17501,14 +17502,29 @@
                     ${isConnected ? `
                         <div class="p-3 bg-green-500/10 border border-green-500/30 rounded-lg mb-4 flex items-center gap-2">
                             <i class="fas fa-check-circle text-green-400"></i>
-                            <span class="text-green-400 text-sm font-medium">Connected</span>
-                            <span class="text-gray-500 text-xs ml-auto">${currentValue.substring(0, 40)}${currentValue.length > 40 ? '...' : ''}</span>
+                            <span class="text-green-400 text-sm font-medium">${hasOAuth ? 'Fully Connected (OAuth)' : 'Review Sync Connected'}</span>
                         </div>
                     ` : ''}
 
+                    <!-- OAuth Connect Button -->
+                    <div id="gbpOauthSection" class="mb-4 p-4 bg-blue-500/10 border border-blue-500/20 rounded-xl">
+                        <h4 class="text-white text-sm font-semibold mb-1"><i class="fas fa-link mr-1"></i>Full Connection (Recommended)</h4>
+                        <p class="text-xs text-gray-400 mb-3">Connect with Google OAuth to sync reviews AND post replies directly to Google.</p>
+                        <button onclick="startGBPOAuth()" class="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition flex items-center justify-center gap-2">
+                            <i class="fab fa-google"></i> Connect with Google
+                        </button>
+                    </div>
+
+                    <div class="flex items-center gap-3 mb-4">
+                        <div class="flex-1 border-t border-white/10"></div>
+                        <span class="text-xs text-gray-500">or</span>
+                        <div class="flex-1 border-t border-white/10"></div>
+                    </div>
+
+                    <!-- Simple Review Link -->
                     <div class="mb-4">
                         <label class="block text-sm font-medium text-gray-300 mb-2">Paste Your Google Review Link</label>
-                        <p class="text-xs text-gray-500 mb-3">This is the link you share with customers to get reviews.</p>
+                        <p class="text-xs text-gray-500 mb-3">Basic mode — syncs reviews but can't post replies to Google.</p>
                         <input type="text" id="gbpSetupInput" placeholder="https://g.page/r/your-business/review"
                             class="w-full px-3 py-2.5 bg-white/10 border border-white/20 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                             value="${currentValue}">
@@ -17528,8 +17544,8 @@
                         <button onclick="document.getElementById('gbp-setup-overlay').remove()" class="flex-1 py-2.5 bg-white/10 hover:bg-white/20 text-gray-300 rounded-lg text-sm transition">
                             Cancel
                         </button>
-                        <button onclick="saveGBPConnection()" class="flex-1 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition">
-                            <i class="fas fa-check mr-1"></i>${isConnected ? 'Update' : 'Connect'}
+                        <button onclick="saveGBPConnection()" class="flex-1 py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium transition">
+                            <i class="fas fa-check mr-1"></i>Save Review Link
                         </button>
                     </div>
                 </div>
@@ -17540,6 +17556,33 @@
                 const input = document.getElementById('gbpSetupInput');
                 if (input && !isConnected) input.focus();
             }, 200);
+        }
+
+        async function startGBPOAuth() {
+            if (!currentClient) return;
+            
+            try {
+                const redirectUri = `${API_URL}/api/gbp/auth/callback`;
+                const response = await fetch(`${API_URL}/api/gbp/auth/url?client_id=${currentClient.id}&redirect_uri=${encodeURIComponent(redirectUri)}`, {
+                    headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.auth_url) {
+                        window.location.href = data.auth_url;
+                    }
+                } else {
+                    const err = await response.json();
+                    if (err.error && err.error.includes('not configured')) {
+                        showToast('OAuth not set up yet. Use the review link method for now, or ask your admin to configure GBP_CLIENT_ID and GBP_CLIENT_SECRET on Render.', 'warning');
+                    } else {
+                        showToast(err.error || 'Failed to start OAuth', 'error');
+                    }
+                }
+            } catch (e) {
+                showToast('Error starting GBP connection: ' + e.message, 'error');
+            }
         }
 
         async function saveGBPConnection() {
