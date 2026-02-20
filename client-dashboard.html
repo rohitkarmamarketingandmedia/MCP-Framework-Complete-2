@@ -2151,8 +2151,39 @@
                         <h3 class="text-lg font-bold text-white mb-4">
                             <i class="fas fa-swords mr-2 text-amber-400"></i>Ranking Battles
                         </h3>
-                        <div id="rankingBattles" class="space-y-3 max-h-80 overflow-y-auto">
+                        <div id="rankingBattles" class="space-y-3">
                             <p class="text-gray-500 text-sm">Check rankings to see battles</p>
+                        </div>
+
+                        <!-- Win/Loss Summary -->
+                        <div id="battleSummary" class="hidden mt-6 pt-5 border-t border-white/10">
+                            <div class="grid grid-cols-3 gap-3 mb-5">
+                                <div class="text-center p-3 rounded-xl bg-green-500/10 border border-green-500/20">
+                                    <div class="text-2xl font-bold text-green-400" id="battlesWinning">0</div>
+                                    <div class="text-xs text-green-400/70">You're Winning</div>
+                                </div>
+                                <div class="text-center p-3 rounded-xl bg-yellow-500/10 border border-yellow-500/20">
+                                    <div class="text-2xl font-bold text-yellow-400" id="battlesTied">0</div>
+                                    <div class="text-xs text-yellow-400/70">Close Race</div>
+                                </div>
+                                <div class="text-center p-3 rounded-xl bg-red-500/10 border border-red-500/20">
+                                    <div class="text-2xl font-bold text-red-400" id="battlesLosing">0</div>
+                                    <div class="text-xs text-red-400/70">They Lead</div>
+                                </div>
+                            </div>
+
+                            <!-- Quick Wins - keywords where you're close to beating them -->
+                            <div id="quickWinsSection" class="hidden">
+                                <h4 class="text-sm font-semibold text-amber-400 mb-2"><i class="fas fa-bolt mr-1"></i>Quick Win Opportunities</h4>
+                                <p class="text-xs text-gray-500 mb-2">Keywords where you're just behind — a small push could flip the ranking.</p>
+                                <div id="quickWinsList" class="space-y-2"></div>
+                            </div>
+
+                            <!-- Your Strongest Keywords -->
+                            <div id="strongestSection" class="hidden mt-4">
+                                <h4 class="text-sm font-semibold text-green-400 mb-2"><i class="fas fa-crown mr-1"></i>Your Strongest Positions</h4>
+                                <div id="strongestList" class="space-y-2"></div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -16039,8 +16070,8 @@
 
             document.getElementById('competitorCards').innerHTML = cardsHtml;
 
-            // Render ranking battles
-            const battlesHtml = ranking_battles.length ? ranking_battles.slice(0, 10).map(battle => `
+            // Render ranking battles - show all, not just 10
+            const battlesHtml = ranking_battles.length ? ranking_battles.map(battle => `
                 <div class="flex items-center justify-between p-3 rounded-lg ${battle.winning ? 'bg-green-500/10 border border-green-500/20' : 'bg-red-500/10 border border-red-500/20'}">
                     <div class="flex-1 min-w-0">
                         <div class="font-medium text-white text-sm truncate">${battle.keyword}</div>
@@ -16061,6 +16092,63 @@
             `).join('') : '<p class="text-gray-500 text-sm">No shared keywords found between you and competitors. Refresh to pull SEMrush data.</p>';
 
             document.getElementById('rankingBattles').innerHTML = battlesHtml;
+
+            // Populate battle summary
+            if (ranking_battles.length > 0) {
+                const winning = ranking_battles.filter(b => b.winning);
+                const losing = ranking_battles.filter(b => !b.winning);
+                const closeRace = ranking_battles.filter(b => Math.abs(b.client_position - b.competitor_position) <= 5);
+                
+                document.getElementById('battlesWinning').textContent = winning.length;
+                document.getElementById('battlesTied').textContent = closeRace.length;
+                document.getElementById('battlesLosing').textContent = losing.length;
+                document.getElementById('battleSummary').classList.remove('hidden');
+
+                // Quick wins: you're losing but within 10 positions
+                const quickWins = losing
+                    .filter(b => (b.client_position - b.competitor_position) <= 10 && (b.client_position - b.competitor_position) > 0)
+                    .sort((a, b) => (a.client_position - a.competitor_position) - (b.client_position - b.competitor_position));
+
+                if (quickWins.length > 0) {
+                    document.getElementById('quickWinsSection').classList.remove('hidden');
+                    document.getElementById('quickWinsList').innerHTML = quickWins.slice(0, 5).map(b => `
+                        <div class="flex items-center justify-between p-2 rounded-lg bg-amber-500/5 border border-amber-500/15">
+                            <div class="min-w-0">
+                                <span class="text-sm text-white">${b.keyword}</span>
+                                <span class="text-xs text-gray-500 ml-2">vs ${b.competitor}</span>
+                            </div>
+                            <div class="flex items-center gap-2 ml-2 text-xs flex-shrink-0">
+                                <span class="text-amber-400 font-bold">You #${b.client_position}</span>
+                                <span class="text-gray-600">→</span>
+                                <span class="text-gray-400">Them #${b.competitor_position}</span>
+                                <span class="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400 font-bold">${b.client_position - b.competitor_position} behind</span>
+                            </div>
+                        </div>
+                    `).join('');
+                }
+
+                // Strongest positions: where you're winning by the most
+                const strongest = winning
+                    .sort((a, b) => (b.competitor_position - b.client_position) - (a.competitor_position - a.client_position));
+
+                if (strongest.length > 0) {
+                    document.getElementById('strongestSection').classList.remove('hidden');
+                    document.getElementById('strongestList').innerHTML = strongest.slice(0, 5).map(b => `
+                        <div class="flex items-center justify-between p-2 rounded-lg bg-green-500/5 border border-green-500/15">
+                            <div class="min-w-0">
+                                <span class="text-sm text-white">${b.keyword}</span>
+                                ${b.search_volume ? `<span class="text-xs text-gray-500 ml-1">(${b.search_volume}/mo)</span>` : ''}
+                            </div>
+                            <div class="flex items-center gap-2 ml-2 text-xs flex-shrink-0">
+                                <span class="text-green-400 font-bold">You #${b.client_position}</span>
+                                <span class="text-gray-600">vs</span>
+                                <span class="text-gray-400">Them #${b.competitor_position}</span>
+                                <span class="px-1.5 py-0.5 rounded bg-green-500/20 text-green-400 font-bold">+${b.competitor_position - b.client_position} ahead</span>
+                            </div>
+                        </div>
+                    `).join('');
+                }
+            }
 
             // Render content gaps with Beat This option
             const gapsHtml = content_gaps.length ? content_gaps.slice(0, 9).map(gap => `
