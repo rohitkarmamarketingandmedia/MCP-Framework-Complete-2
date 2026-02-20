@@ -200,7 +200,6 @@ class GBPService:
                 headers=self._get_headers(access_token),
                 params={'readMask': 'name,title,storefrontAddress,websiteUri'}
             )
-            )
             
             if response.status_code == 200:
                 return response.json()
