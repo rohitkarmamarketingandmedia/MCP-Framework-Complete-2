@@ -1210,8 +1210,14 @@ def get_chatbot_analytics(current_user, client_id):
         DBChatConversation.started_at.desc()
     ).limit(10).all()
     
+    # Count actual meaningful conversations (message_count > 1, matching modal filter)
+    actual_conversation_count = DBChatConversation.query.filter(
+        DBChatConversation.client_id == client_id,
+        DBChatConversation.message_count > 1
+    ).count()
+    
     return jsonify({
-        'total_conversations': config.total_conversations,
+        'total_conversations': actual_conversation_count,
         'total_leads': config.total_leads_captured,
         'avg_rating': round(float(avg_rating), 1) if avg_rating else None,
         'conversations_by_status': dict(status_counts),
