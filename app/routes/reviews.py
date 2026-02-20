@@ -100,10 +100,19 @@ def add_review(current_user):
     review_id = result.get('review', {}).get('id')
     if review_id:
         try:
-            response_result = review_service.generate_response(review_id)
-            if response_result.get('suggested_response'):
-                result['suggested_response'] = response_result['suggested_response']
-                result['auto_response_generated'] = True
+            from app.models.db_models import DBReview
+            rev = DBReview.query.get(review_id)
+            if rev:
+                ai_service = None
+                try:
+                    from app.services.ai_service import ai_service as ai_svc
+                    ai_service = ai_svc
+                except:
+                    pass
+                response_text = review_service.generate_response(rev, client, ai_service)
+                if response_text:
+                    result['suggested_response'] = response_text
+                    result['auto_response_generated'] = True
         except Exception as e:
             logger.warning(f"Auto-response generation failed for review {review_id}: {e}")
             result['auto_response_generated'] = False
@@ -711,7 +720,13 @@ def sync_reviews(current_user):
             
             for rev in new_reviews:
                 try:
-                    review_service.generate_response(rev.id)
+                    ai_svc = None
+                    try:
+                        from app.services.ai_service import ai_service as _ai
+                        ai_svc = _ai
+                    except:
+                        pass
+                    review_service.generate_response(rev, client, ai_svc)
                     auto_responded += 1
                 except Exception as e:
                     logger.warning(f"Auto-response failed for review {rev.id}: {e}")
