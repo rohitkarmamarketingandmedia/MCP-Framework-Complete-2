@@ -494,6 +494,45 @@ def crawl_competitor(current_user, competitor_id):
         
         db.session.commit()
         
+        # Send alert email if new pages found and alerts enabled
+        if len(saved_pages) > 0:
+            try:
+                from app.services.email_service import email_service
+                # Get client for this competitor
+                comp_client = DBClient.query.get(competitor.client_id)
+                if comp_client:
+                    # Check if alerts are enabled (stored in client settings or default to True)
+                    integrations = comp_client.get_integrations()
+                    alerts_enabled = integrations.get('competitor_alerts', True)
+                    
+                    if alerts_enabled:
+                        # Send to client email and any admin users
+                        recipients = set()
+                        if comp_client.email:
+                            recipients.add(comp_client.email)
+                        
+                        # Also notify admin users who have access
+                        from app.models.db_models import DBUser
+                        admins = DBUser.query.filter(DBUser.role.in_(['admin', 'manager']), DBUser.is_active == True).all()
+                        for admin in admins:
+                            if admin.email and admin.has_access_to_client(comp_client.id):
+                                recipients.add(admin.email)
+                        
+                        page_titles = [p.title or p.url for p in saved_pages[:5]]
+                        for recipient in recipients:
+                            try:
+                                email_service.send_competitor_alert(
+                                    to=recipient,
+                                    client_name=comp_client.business_name,
+                                    competitor_name=competitor.name or competitor.domain,
+                                    new_pages=len(saved_pages)
+                                )
+                                logger.info(f"Sent competitor alert to {recipient}: {competitor.name} has {len(saved_pages)} new pages")
+                            except Exception as email_err:
+                                logger.warning(f"Failed to send competitor alert to {recipient}: {email_err}")
+            except Exception as alert_err:
+                logger.warning(f"Could not send competitor alerts: {alert_err}")
+        
         return jsonify({
             'competitor': competitor.to_dict(),
             'new_pages_found': len(saved_pages),

@@ -189,6 +189,36 @@ def run_competitor_crawl(app):
                     client_name = client.business_name if client else competitor.client_id
                     logger.info(f"Found {new_pages} new pages for {competitor.name} (client: {client_name})")
                     
+                    # Send alert emails
+                    try:
+                        from app.services.email_service import email_service
+                        from app.models.db_models import DBUser
+                        
+                        if client:
+                            recipients = set()
+                            if client.email:
+                                recipients.add(client.email)
+                            
+                            # Notify admin/manager users with access
+                            admins = DBUser.query.filter(DBUser.role.in_(['admin', 'manager']), DBUser.is_active == True).all()
+                            for admin in admins:
+                                if admin.email and admin.has_access_to_client(client.id):
+                                    recipients.add(admin.email)
+                            
+                            for recipient in recipients:
+                                try:
+                                    email_service.send_competitor_alert(
+                                        to=recipient,
+                                        client_name=client_name,
+                                        competitor_name=competitor.name or competitor.domain,
+                                        new_pages=new_pages
+                                    )
+                                    logger.info(f"Sent crawl alert to {recipient}")
+                                except Exception as email_err:
+                                    logger.warning(f"Failed to send crawl alert to {recipient}: {email_err}")
+                    except Exception as alert_err:
+                        logger.warning(f"Could not send crawl alerts: {alert_err}")
+                    
                     # Auto-generate counter content for new pages
                     _auto_generate_counter_content(competitor.client_id, competitor.id, result.get('new_page_ids', []))
                 
