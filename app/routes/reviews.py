@@ -227,6 +227,39 @@ def generate_response(current_user, review_id):
     })
 
 
+@reviews_bp.route('/<review_id>/reply', methods=['POST'])
+@token_required
+def post_review_reply(current_user, review_id):
+    """
+    Save a reply to a review (moves suggested_response to response_text)
+    
+    POST /api/reviews/<review_id>/reply
+    {"response_text": "Thank you for your review..."}
+    """
+    review = DBReview.query.get(review_id)
+    if not review:
+        return jsonify({'error': 'Review not found'}), 404
+    
+    if not current_user.has_access_to_client(review.client_id):
+        return jsonify({'error': 'Access denied'}), 403
+    
+    data = request.get_json(silent=True) or {}
+    response_text = data.get('response_text', '').strip()
+    
+    if not response_text:
+        return jsonify({'error': 'response_text is required'}), 400
+    
+    review.response_text = response_text
+    
+    db.session.commit()
+    
+    return jsonify({
+        'success': True,
+        'review_id': review_id,
+        'response_text': response_text
+    })
+
+
 @reviews_bp.route('/generate-all-responses', methods=['POST'])
 @token_required
 def generate_all_responses(current_user):
