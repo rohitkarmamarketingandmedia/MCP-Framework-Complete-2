@@ -2052,7 +2052,24 @@ OUTPUT JSON:"""
             if '|' not in meta_title and req.company_name:
                 meta_title = f"{meta_title} | {req.company_name}"
             if len(meta_title) > 60:
-                meta_title = meta_title[:57].rsplit(' ', 1)[0] + "..."
+                # Try to truncate intelligently:
+                # 1. If has pipe, try keeping left side + shortened company name
+                if '|' in meta_title:
+                    left, right = meta_title.split('|', 1)
+                    left = left.strip()
+                    right = right.strip()
+                    # Try full left + company abbreviation
+                    if len(left) <= 56:
+                        # Just use the left side + company
+                        if len(f"{left} | {right}") > 60:
+                            # Drop the company name, just use the left part
+                            meta_title = left
+                        # else it fits
+                    else:
+                        # Left side itself is too long, truncate at word boundary
+                        meta_title = left[:57].rsplit(' ', 1)[0]
+                elif len(meta_title) > 60:
+                    meta_title = meta_title[:57].rsplit(' ', 1)[0] + "..."
             result["meta_title"] = meta_title
             logger.info(f"Kept AI meta_title: '{meta_title}' ({len(meta_title)} chars)")
         else:
