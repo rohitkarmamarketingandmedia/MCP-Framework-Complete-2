@@ -4079,24 +4079,27 @@
                             <!-- Score Overview -->
                             <div id="a11yScoreCard" class="hidden mb-6">
                                 <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-                                    <div class="bg-white/5 rounded-xl p-4 text-center">
+                                    <div class="bg-white/5 rounded-xl p-4 text-center cursor-pointer hover:ring-1 hover:ring-white/20 transition" onclick="filterA11y('all')" title="Show all">
                                         <div id="a11yScoreValue" class="text-4xl font-black text-white">—</div>
                                         <div class="text-xs text-gray-400 mt-1">Overall Score</div>
                                     </div>
-                                    <div class="bg-white/5 rounded-xl p-4 text-center">
+                                    <div class="bg-white/5 rounded-xl p-4 text-center cursor-pointer hover:ring-1 hover:ring-green-500/40 transition" onclick="filterA11y('passed')" title="Show passed only">
                                         <div id="a11yPassedCount" class="text-2xl font-bold text-green-400">0</div>
                                         <div class="text-xs text-gray-400 mt-1">Passed</div>
                                     </div>
-                                    <div class="bg-white/5 rounded-xl p-4 text-center">
+                                    <div class="bg-white/5 rounded-xl p-4 text-center cursor-pointer hover:ring-1 hover:ring-red-500/40 transition" onclick="filterA11y('failed')" title="Show failed only">
                                         <div id="a11yFailedCount" class="text-2xl font-bold text-red-400">0</div>
                                         <div class="text-xs text-gray-400 mt-1">Failed</div>
                                     </div>
-                                    <div class="bg-white/5 rounded-xl p-4 text-center">
+                                    <div class="bg-white/5 rounded-xl p-4 text-center cursor-pointer hover:ring-1 hover:ring-gray-500/40 transition" onclick="filterA11y('na')" title="Show N/A only">
                                         <div id="a11yNACount" class="text-2xl font-bold text-gray-400">0</div>
                                         <div class="text-xs text-gray-400 mt-1">N/A</div>
                                     </div>
                                 </div>
-                                <div id="a11yScanDate" class="text-xs text-gray-500 mt-2 text-right"></div>
+                                <div class="flex items-center justify-between mt-2">
+                                    <div id="a11yFilterLabel" class="text-xs text-cyan-400 hidden"><i class="fas fa-filter mr-1"></i><span></span> <button onclick="filterA11y('all')" class="ml-1 text-gray-500 hover:text-white">✕</button></div>
+                                    <div id="a11yScanDate" class="text-xs text-gray-500 ml-auto"></div>
+                                </div>
                             </div>
                             
                             <!-- Detailed Results -->
@@ -7442,6 +7445,7 @@
                 : '';
             const bookedBadge = lead.booked ? '<span class="px-2 py-0.5 bg-emerald-500/20 text-emerald-400 text-xs rounded-full font-medium">Schedule booked</span>' : '';
             const timeStr = lead.date ? new Date(lead.date).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) : '';
+            const uid = 'lead_' + (lead.id || Math.random().toString(36).slice(2, 8));
 
             return `
                 <div class="glass rounded-xl p-4 hover:bg-white/5 transition border-l-4 ${lead.answered ? 'border-green-500' : 'border-red-500'}">
@@ -7459,14 +7463,24 @@
                             <span class="text-xs text-gray-500">${lead.source}</span>
                             ${bookedBadge}
                             ${qualityBadge}
-                            ${lead.recording_url ? `<a href="${lead.recording_url}" target="_blank" class="text-blue-400 hover:text-blue-300"><i class="fas fa-play-circle"></i></a>` : ''}
-                            ${lead.has_transcript ? '<i class="fas fa-comment-dots text-blue-400/50" title="Has transcript"></i>' : ''}
+                            ${lead.recording_url ? `<button onclick="toggleAudioPlayer('${uid}_audio', '${lead.recording_url}')" class="text-blue-400 hover:text-blue-300" title="Play recording"><i class="fas fa-play-circle"></i></button>` : ''}
+                            ${lead.has_transcript ? `<button onclick="toggleLeadTranscript('${uid}_transcript')" class="text-blue-400/50 hover:text-blue-400" title="View transcript"><i class="fas fa-comment-dots"></i></button>` : ''}
                         </div>
                         <div class="text-right ml-3">
                             <div class="text-sm text-gray-400">${timeStr}</div>
                             <div class="text-sm ${lead.answered ? 'text-green-400' : 'text-red-400'}">${lead.duration_formatted || ''}</div>
                         </div>
                     </div>
+                    ${lead.recording_url ? `<div id="${uid}_audio" class="hidden mt-2"><audio controls class="w-full h-8" style="max-height:32px"><source src="${lead.recording_url}" type="audio/mpeg"></audio></div>` : ''}
+                    ${lead.has_transcript ? `
+                        <div id="${uid}_transcript" class="hidden mt-2 p-3 bg-black/20 rounded-lg">
+                            <div class="flex justify-between items-center mb-2">
+                                <span class="text-xs text-gray-500 font-medium">Transcript</span>
+                                <button onclick="copyTranscript('${uid}_transcript_text')" class="text-xs text-purple-400 hover:text-purple-300"><i class="fas fa-copy mr-1"></i>Copy</button>
+                            </div>
+                            <div id="${uid}_transcript_text" class="text-sm text-gray-300 max-h-40 overflow-y-auto whitespace-pre-wrap">${lead.transcript_preview || 'Transcript available'}</div>
+                        </div>
+                    ` : ''}
                 </div>
             `;
         }
@@ -8711,11 +8725,13 @@
                             ${call.has_transcript ? `
                                 <div id="callTranscript${idx}" class="hidden mt-3 p-3 bg-black/20 rounded-lg text-sm text-gray-300 max-h-48 overflow-y-auto whitespace-pre-wrap">${call.transcript || call.transcript_preview || 'No transcript text'}</div>
                             ` : ''}
-                            <div class="flex gap-3 mt-2">
-                                ${call.recording_url ? `<a href="${call.recording_url}" target="_blank" class="text-xs text-blue-400 hover:underline" onclick="event.stopPropagation()"><i class="fas fa-play mr-1"></i>Recording</a>` : ''}
+                            <div class="flex items-center gap-3 mt-2 flex-wrap">
+                                ${call.recording_url ? `<button onclick="event.stopPropagation(); toggleAudioPlayer('callAudio${idx}', '${call.recording_url}')" class="text-xs text-blue-400 hover:text-blue-300 transition"><i class="fas fa-play mr-1"></i>Recording</button>` : ''}
+                                ${call.has_transcript ? `<button onclick="event.stopPropagation(); copyTranscript('callTranscript${idx}')" class="text-xs text-purple-400 hover:text-purple-300 transition"><i class="fas fa-copy mr-1"></i>Copy Transcript</button>` : ''}
                                 <span class="text-xs text-gray-500">${call.source || 'Direct'}</span>
                                 ${call.tracking_number ? `<span class="text-xs text-gray-600">Tracking: ${call.tracking_number}</span>` : ''}
                             </div>
+                            ${call.recording_url ? `<div id="callAudio${idx}" class="hidden mt-2"><audio controls class="w-full h-8" style="max-height:32px"><source src="${call.recording_url}" type="audio/mpeg">Your browser does not support audio.</audio></div>` : ''}
                         </div>
                     `;
                 }).join('');
@@ -8901,7 +8917,6 @@
             navigator.clipboard.writeText(phone).then(() => {
                 showToast(`Copied ${phone} to clipboard`, 'success');
             }).catch(() => {
-                // Fallback for older browsers
                 const el = document.createElement('textarea');
                 el.value = phone;
                 document.body.appendChild(el);
@@ -8910,6 +8925,41 @@
                 document.body.removeChild(el);
                 showToast(`Copied ${phone} to clipboard`, 'success');
             });
+        }
+
+        function toggleAudioPlayer(id, url) {
+            const el = document.getElementById(id);
+            if (!el) return;
+            el.classList.toggle('hidden');
+            // Auto-play when opening
+            if (!el.classList.contains('hidden')) {
+                const audio = el.querySelector('audio');
+                if (audio) {
+                    audio.play().catch(() => {});
+                }
+            }
+        }
+
+        function copyTranscript(elementId) {
+            const el = document.getElementById(elementId);
+            if (!el) return;
+            const text = el.innerText || el.textContent || '';
+            navigator.clipboard.writeText(text).then(() => {
+                showToast('Transcript copied to clipboard', 'success');
+            }).catch(() => {
+                const ta = document.createElement('textarea');
+                ta.value = text;
+                document.body.appendChild(ta);
+                ta.select();
+                document.execCommand('copy');
+                document.body.removeChild(ta);
+                showToast('Transcript copied to clipboard', 'success');
+            });
+        }
+
+        function toggleLeadTranscript(id) {
+            const el = document.getElementById(id);
+            if (el) el.classList.toggle('hidden');
         }
 
         function getCallPeakHours(calls) {
@@ -18282,6 +18332,9 @@
             } catch (e) { console.error(e); }
         }
 
+        // Store scan data for filtering
+        let _a11yChecks = [];
+
         function renderA11yReport(results) {
             if (!results) return;
             const summary = results.summary;
@@ -18297,12 +18350,21 @@
             document.getElementById('a11yNACount').textContent = summary.not_applicable;
             document.getElementById('a11yScanDate').textContent = results.scanned_at ? 'Scanned: ' + new Date(results.scanned_at).toLocaleString() : '';
             
-            // Detailed results
+            // Store checks for filtering
+            _a11yChecks = results.checks || [];
+            
+            // Render all by default
+            renderA11yChecks(_a11yChecks);
+            
+            // Clear filter label
+            document.getElementById('a11yFilterLabel').classList.add('hidden');
+        }
+
+        function renderA11yChecks(checks) {
             const container = document.getElementById('a11yResults');
-            const checks = results.checks || [];
             
             if (!checks.length) {
-                container.innerHTML = '<p class="text-gray-500 text-center py-4">No results available</p>';
+                container.innerHTML = '<p class="text-gray-500 text-center py-4">No results match this filter</p>';
                 return;
             }
             
@@ -18336,6 +18398,34 @@
                     </div>
                 `;
             }).join('');
+        }
+
+        function filterA11y(type) {
+            const label = document.getElementById('a11yFilterLabel');
+            
+            if (type === 'all') {
+                renderA11yChecks(_a11yChecks);
+                label.classList.add('hidden');
+                return;
+            }
+            
+            let filtered = [];
+            let labelText = '';
+            
+            if (type === 'passed') {
+                filtered = _a11yChecks.filter(c => c.relevant && c.score >= 100);
+                labelText = `Showing ${filtered.length} passed checks`;
+            } else if (type === 'failed') {
+                filtered = _a11yChecks.filter(c => c.relevant && c.score < 100);
+                labelText = `Showing ${filtered.length} failed checks`;
+            } else if (type === 'na') {
+                filtered = _a11yChecks.filter(c => !c.relevant);
+                labelText = `Showing ${filtered.length} N/A checks`;
+            }
+            
+            renderA11yChecks(filtered);
+            label.querySelector('span').textContent = labelText;
+            label.classList.remove('hidden');
         }
 
         // a11y color picker sync

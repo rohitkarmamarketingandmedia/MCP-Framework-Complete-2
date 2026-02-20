@@ -469,6 +469,22 @@ CRITICAL:
             result['meta_description'] = remove_duplicate_locations(result['meta_description'])
             result['meta_description'] = fix_apostrophe_case(result['meta_description'])
         
+        # Fix phone number placeholders across ALL text fields
+        if req and hasattr(req, 'phone') and req.phone:
+            import re
+            phone_placeholder_pattern = re.compile(r'\(\d{3}\)\s*\d{3}-[Xx]{4}|\d{3}-\d{3}-[Xx]{4}|\(\d{3}\)\s*[Xx]{3}-[Xx]{4}|\[phone\s*number\]|\[PHONE\]|\(XXX\)\s*XXX-XXXX', re.IGNORECASE)
+            for field in ['meta_description', 'meta_title', 'body', 'cta']:
+                if field in result and isinstance(result[field], str):
+                    original = result[field]
+                    result[field] = phone_placeholder_pattern.sub(req.phone, result[field])
+                    if result[field] != original:
+                        logger.info(f"Fixed phone placeholder in {field}")
+            # Also fix in FAQ answers
+            if 'faq_items' in result and isinstance(result['faq_items'], list):
+                for faq in result['faq_items']:
+                    if isinstance(faq, dict) and 'answer' in faq:
+                        faq['answer'] = phone_placeholder_pattern.sub(req.phone, faq['answer'])
+        
         # Apply to body content - fix H2/H3 headings aggressively
         if 'body' in result and isinstance(result['body'], str):
             body = result['body']
