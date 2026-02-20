@@ -444,6 +444,7 @@ def generate_blog_sync(current_user):
         include_faq = data.get('include_faq', True)
         faq_count = data.get('faq_count', 5)
         selected_city = data.get('city')  # Optional city override from service_cities
+        custom_faqs = data.get('custom_faqs')  # FAQ questions from call intelligence
         
         if not client_id or not keyword:
             return jsonify({'error': 'client_id and keyword required'}), 400
@@ -626,7 +627,8 @@ def generate_blog_sync(current_user):
             internal_links=internal_links,
             faq_count=faq_count,
             contact_url=contact_url,
-            blog_url=blog_url_base
+            blog_url=blog_url_base,
+            custom_faqs=custom_faqs
         )
         
         result = blog_gen.generate(blog_request)

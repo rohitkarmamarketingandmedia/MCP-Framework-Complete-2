@@ -36,6 +36,7 @@ class BlogRequest:
     faq_count: int = 5  # Number of FAQs to generate (3-7)
     contact_url: str = ""  # URL for contact page (used in CTAs)
     blog_url: str = ""  # URL for blog page
+    custom_faqs: Optional[List[str]] = None  # Custom FAQ questions from call intelligence
 
 
 class BlogAISingle:
@@ -1058,17 +1059,45 @@ OUTPUT: Return ONLY valid JSON. No markdown code blocks."""
 </div>'''
 
         # Build dynamic FAQ example items based on faq_count
-        faq_templates = [
-            f'{{"question": "What is the cost of [service] in {req.city}?", "answer": "60-80 word answer"}}',
-            f'{{"question": "How long does [service] take?", "answer": "60-80 word answer"}}',
-            f'{{"question": "Why should I hire {req.company_name}?", "answer": "60-80 word answer"}}',
-            '{"question": "[Question about process]", "answer": "60-80 word answer"}',
-            '{"question": "[Question about warranty/guarantee]", "answer": "60-80 word answer"}',
-            '{"question": "[Question about preparation]", "answer": "60-80 word answer"}',
-            '{"question": "[Question about timeline]", "answer": "60-80 word answer"}',
-        ]
+        custom_faqs = getattr(req, 'custom_faqs', None) or []
+        
+        if custom_faqs:
+            # Use actual questions from call intelligence
+            faq_templates = []
+            for q in custom_faqs[:faq_count]:
+                faq_templates.append(f'{{"question": "{q}", "answer": "60-80 word detailed answer based on your expertise"}}')
+            # Fill remaining with generic templates if needed
+            generic_templates = [
+                f'{{"question": "What is the cost of [service] in {req.city}?", "answer": "60-80 word answer"}}',
+                f'{{"question": "How long does [service] take?", "answer": "60-80 word answer"}}',
+                f'{{"question": "Why should I hire {req.company_name}?", "answer": "60-80 word answer"}}',
+            ]
+            while len(faq_templates) < faq_count:
+                if generic_templates:
+                    faq_templates.append(generic_templates.pop(0))
+                else:
+                    break
+        else:
+            faq_templates = [
+                f'{{"question": "What is the cost of [service] in {req.city}?", "answer": "60-80 word answer"}}',
+                f'{{"question": "How long does [service] take?", "answer": "60-80 word answer"}}',
+                f'{{"question": "Why should I hire {req.company_name}?", "answer": "60-80 word answer"}}',
+                '{"question": "[Question about process]", "answer": "60-80 word answer"}',
+                '{"question": "[Question about warranty/guarantee]", "answer": "60-80 word answer"}',
+                '{"question": "[Question about preparation]", "answer": "60-80 word answer"}',
+                '{"question": "[Question about timeline]", "answer": "60-80 word answer"}',
+            ]
         faq_items_list = faq_templates[:faq_count]
         faq_example_items = ',\n        '.join(f'        {item}' for item in faq_items_list)
+
+        # Build custom FAQ instruction for prompt
+        custom_faq_instruction = ''
+        if custom_faqs:
+            custom_faq_instruction = f"""
+CUSTOM FAQ QUESTIONS FROM REAL CUSTOMER CALLS (MANDATORY):
+The following questions were asked by REAL CUSTOMERS on phone calls. You MUST use these exact questions (or very close paraphrases) as your FAQ questions. Answer them as {req.company_name} would:
+{chr(10).join(f'- {q}' for q in custom_faqs[:faq_count])}
+"""
 
         return f"""CLAUDE MASTER PROMPT — AI-OPTIMIZED LOCAL SEO BLOG GENERATION (STRICT MODE)
 
@@ -1098,6 +1127,8 @@ INTERNAL LINKING RULES:
 {"The keyword '{keyword}' ALREADY CONTAINS the city '{req.city}'." if keyword_has_city else ""}
 {"DO NOT add '{req.city}' again in H1, H2, or H3 headings!" if keyword_has_city else ""}
 {"This would create duplicate city names like 'Service in City in City' which is BAD for SEO." if keyword_has_city else ""}
+
+{custom_faq_instruction}
 
 ===== MANDATORY PRE-WRITING RESEARCH =====
 Before generating, internally analyze:

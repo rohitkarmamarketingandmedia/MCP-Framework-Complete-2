@@ -8558,15 +8558,27 @@
                 if (missedEl) {
                     const missedCallsList = calls.filter(c => !c.answered).slice(0, 10);
                     if (missedCallsList.length > 0) {
-                        missedEl.innerHTML = missedCallsList.map(call => `
+                        missedEl.innerHTML = missedCallsList.map(call => {
+                            const phone = call.caller_number || '';
+                            const cleanPhone = phone.replace(/[^0-9+]/g, '');
+                            return `
                             <div class="flex items-center justify-between p-2 bg-red-500/10 rounded-lg border border-red-500/20">
                                 <div>
                                     <div class="text-sm text-white font-medium">${call.caller_name || 'Unknown'}</div>
-                                    <div class="text-xs text-gray-400">${call.caller_number || ''} • ${formatDate(call.date)}</div>
+                                    <div class="text-xs text-gray-400">${phone} • ${formatDate(call.date)}</div>
                                 </div>
-                                ${call.caller_number ? `<a href="tel:${call.caller_number}" class="px-3 py-1 bg-green-600 hover:bg-green-700 text-white text-xs rounded-lg transition"><i class="fas fa-phone mr-1"></i>Call Back</a>` : ''}
-                            </div>
-                        `).join('');
+                                ${phone ? `
+                                    <div class="flex items-center gap-1">
+                                        <button onclick="copyPhone('${cleanPhone}')" class="px-2 py-1 bg-gray-600 hover:bg-gray-500 text-white text-xs rounded-lg transition" title="Copy number">
+                                            <i class="fas fa-copy"></i>
+                                        </button>
+                                        <a href="tel:${cleanPhone}" class="px-3 py-1 bg-green-600 hover:bg-green-700 text-white text-xs rounded-lg transition" title="Call (opens phone app)">
+                                            <i class="fas fa-phone mr-1"></i>Call
+                                        </a>
+                                    </div>
+                                ` : ''}
+                            </div>`;
+                        }).join('');
                     } else {
                         missedEl.innerHTML = '<p class="text-green-400 text-sm"><i class="fas fa-check-circle mr-2"></i>No missed calls — great job!</p>';
                     }
@@ -8738,17 +8750,51 @@
                         showToast('No questions found in call data', 'warning');
                         return;
                     }
-                    const faqTopic = 'FAQ: ' + questions.slice(0, 3).join(', ');
+                    // Store questions globally so generateBlog() can use them
+                    window._callFaqQuestions = questions;
+                    
                     showTab('generate');
                     setTimeout(() => {
                         const topicEl = document.getElementById('blogTopic');
-                        if (topicEl) topicEl.value = faqTopic;
-                        showToast('FAQ topic pre-filled — click Generate to create', 'success');
+                        if (topicEl) topicEl.value = '';
+                        // Show a visual indicator that FAQs are loaded
+                        showCallFaqBanner(questions);
+                        showToast(`${questions.length} real customer questions loaded — select a keyword and click Generate`, 'success');
                     }, 300);
                 }
             } catch(e) {
                 showToast('Error: ' + e.message, 'error');
             }
+        }
+
+        function showCallFaqBanner(questions) {
+            // Remove existing banner
+            document.getElementById('callFaqBanner')?.remove();
+            
+            const generateSection = document.getElementById('btnGenerateBlog')?.closest('.glass');
+            if (!generateSection) return;
+            
+            const banner = document.createElement('div');
+            banner.id = 'callFaqBanner';
+            banner.className = 'mt-3 p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg';
+            banner.innerHTML = `
+                <div class="flex items-center justify-between mb-2">
+                    <p class="text-amber-400 text-sm font-medium"><i class="fas fa-phone-alt mr-1"></i>FAQ from Customer Calls (${questions.length} questions)</p>
+                    <button onclick="clearCallFaqs()" class="text-gray-500 hover:text-red-400 text-xs"><i class="fas fa-times mr-1"></i>Clear</button>
+                </div>
+                <div class="space-y-1 max-h-32 overflow-y-auto">
+                    ${questions.slice(0, 7).map(q => `<p class="text-xs text-gray-400">• ${q}</p>`).join('')}
+                    ${questions.length > 7 ? `<p class="text-xs text-gray-600">+ ${questions.length - 7} more</p>` : ''}
+                </div>
+                <p class="text-xs text-amber-500/70 mt-2">These questions will be used as the FAQ section in the generated blog post.</p>
+            `;
+            generateSection.appendChild(banner);
+        }
+
+        function clearCallFaqs() {
+            window._callFaqQuestions = null;
+            document.getElementById('callFaqBanner')?.remove();
+            showToast('Call FAQs cleared', 'info');
         }
 
         async function generateBlogFromCalls() {
@@ -8760,18 +8806,31 @@
                 });
                 if (res.ok) {
                     const report = await res.json();
+                    const questions = (report.combined_insights?.top_questions || []).slice(0, 10).map(q => typeof q === 'string' ? q : q.question || '').filter(q => q);
                     const opps = report.content_opportunities || [];
-                    const questions = (report.combined_insights?.top_questions || []).slice(0, 3).map(q => typeof q === 'string' ? q : q.question || '').filter(q => q);
-                    const topic = opps.length > 0 ? (opps[0].title || opps[0].topic) : (questions.length > 0 ? questions[0] : '');
-                    if (!topic) {
-                        showToast('No blog topics found from calls', 'warning');
-                        return;
+                    
+                    // Store questions for FAQ use
+                    window._callFaqQuestions = questions;
+                    
+                    // Build a blog topic from the questions
+                    const topQuestions = questions.slice(0, 3);
+                    let topic = '';
+                    if (opps.length > 0) {
+                        topic = opps[0].title || opps[0].topic || '';
                     }
+                    if (!topic && topQuestions.length > 0) {
+                        // Extract a keyword-like topic from questions
+                        topic = topQuestions[0].replace(/^(do you|can you|how do|what is|is there|do i|how much|when|where|why)\s+/i, '').replace(/\?$/, '');
+                    }
+                    
                     showTab('generate');
                     setTimeout(() => {
-                        const topicEl = document.getElementById('blogTopic');
-                        if (topicEl) topicEl.value = topic;
-                        showToast('Blog topic pre-filled from call insights', 'success');
+                        if (topic) {
+                            const customKeyword = document.getElementById('customBlogKeyword');
+                            if (customKeyword) customKeyword.value = topic;
+                        }
+                        showCallFaqBanner(questions);
+                        showToast(`Blog topic + ${questions.length} FAQ questions loaded from calls`, 'success');
                     }, 300);
                 }
             } catch(e) {
@@ -8781,7 +8840,7 @@
 
         async function updateChatbotFromCalls() {
             if (!currentClient) return;
-            showToast('Updating chatbot knowledge base from calls...', 'info');
+            showToast('Fetching questions from calls...', 'info');
             try {
                 const res = await fetch(`${API_URL}/api/intelligence/report/${currentClient.id}?days=90`, {
                     headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
@@ -8793,12 +8852,33 @@
                         showToast('No questions found to add to chatbot', 'warning');
                         return;
                     }
-                    // Format as FAQ entries for chatbot knowledge base
-                    const faqText = questions.map(q => `Q: ${q}`).join('\n');
+                    
+                    // Add each question as a knowledge base entry
+                    let added = 0;
+                    for (const q of questions.slice(0, 10)) {
+                        try {
+                            const addRes = await fetch(`${API_URL}/api/chatbot/knowledge/${currentClient.id}`, {
+                                method: 'POST',
+                                headers: {
+                                    'Authorization': `Bearer ${AUTH_TOKEN}`,
+                                    'Content-Type': 'application/json'
+                                },
+                                body: JSON.stringify({
+                                    entry_type: 'qa',
+                                    question: q,
+                                    answer: '[From customer calls — please add your answer]',
+                                    category: 'Customer Questions',
+                                    priority: 1
+                                })
+                            });
+                            if (addRes.ok) added++;
+                        } catch(e) {}
+                    }
+                    
                     showTab('chatbot');
                     setTimeout(() => {
-                        showToast(`Found ${questions.length} questions from calls — add answers in the Knowledge Base section`, 'success');
-                    }, 300);
+                        showToast(`${added} customer questions added to chatbot knowledge base! Please review and add answers.`, 'success');
+                    }, 500);
                 }
             } catch(e) {
                 showToast('Error: ' + e.message, 'error');
@@ -8815,6 +8895,21 @@
             const mins = Math.floor(seconds / 60);
             const secs = seconds % 60;
             return `${mins}:${secs.toString().padStart(2, '0')}`;
+        }
+
+        function copyPhone(phone) {
+            navigator.clipboard.writeText(phone).then(() => {
+                showToast(`Copied ${phone} to clipboard`, 'success');
+            }).catch(() => {
+                // Fallback for older browsers
+                const el = document.createElement('textarea');
+                el.value = phone;
+                document.body.appendChild(el);
+                el.select();
+                document.execCommand('copy');
+                document.body.removeChild(el);
+                showToast(`Copied ${phone} to clipboard`, 'success');
+            });
         }
 
         function getCallPeakHours(calls) {
@@ -13846,7 +13941,8 @@
                         word_count: wordCount,
                         include_faq: faqCount > 0,
                         faq_count: faqCount,
-                        city: selectedCity  // Pass selected city for H2/H3 headings
+                        city: selectedCity,
+                        custom_faqs: window._callFaqQuestions || null
                     })
                 });
 
@@ -13917,6 +14013,9 @@
                 // Refresh the blogs list
                 setTimeout(() => {
                     progress.classList.add('hidden');
+                    // Clear call FAQs after use
+                    window._callFaqQuestions = null;
+                    document.getElementById('callFaqBanner')?.remove();
                     loadClient(currentClient.id);
                     showTab('blogs');
                     showToast(`Blog post "${blogTitle}" generated successfully!`, 'success');
