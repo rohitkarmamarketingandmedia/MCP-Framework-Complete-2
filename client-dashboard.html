@@ -15262,13 +15262,17 @@
                         }
 
                         // Update top pages
+                        const siteUrl = currentClient?.website_url || '';
+                        const baseUrl = siteUrl.replace(/\/$/, '');
                         const topPagesHtml = data.top_pages?.length
-                            ? data.top_pages.slice(0, 5).map(p => `
-                                <div class="flex justify-between text-gray-300">
-                                    <span class="truncate flex-1">${p.page}</span>
-                                    <span class="text-gray-500 ml-2">${p.views}</span>
+                            ? data.top_pages.slice(0, 5).map(p => {
+                                const fullUrl = p.page.startsWith('http') ? p.page : (baseUrl + p.page);
+                                return `
+                                <div class="flex justify-between text-gray-300 py-1">
+                                    <a href="${fullUrl}" target="_blank" class="truncate flex-1 text-blue-400 hover:text-blue-300 text-sm">${p.page}</a>
+                                    <span class="text-gray-500 ml-2 text-sm">${p.views}</span>
                                 </div>
-                            `).join('')
+                            `}).join('')
                             : '<p class="text-gray-500">No page data</p>';
                         document.getElementById('ga4TopPages').innerHTML = topPagesHtml;
 

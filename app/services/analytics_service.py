@@ -149,73 +149,83 @@ class AnalyticsService:
             )
             
             # Request 1: Channel breakdown
-            channel_request = RunReportRequest(
-                property=f'properties/{property_id}',
-                date_ranges=[date_range],
-                dimensions=[
-                    Dimension(name='sessionDefaultChannelGrouping')
-                ],
-                metrics=[
-                    Metric(name='sessions'),
-                    Metric(name='totalUsers'),
-                    Metric(name='conversions')
-                ]
-            )
-            
-            channel_response = client.run_report(channel_request)
-            
             channels = []
-            for row in channel_response.rows:
-                channels.append({
-                    'channel': row.dimension_values[0].value,
-                    'sessions': int(row.metric_values[0].value),
-                    'users': int(row.metric_values[1].value),
-                    'conversions': int(row.metric_values[2].value)
-                })
+            try:
+                channel_request = RunReportRequest(
+                    property=f'properties/{property_id}',
+                    date_ranges=[date_range],
+                    dimensions=[
+                        Dimension(name='sessionDefaultChannelGrouping')
+                    ],
+                    metrics=[
+                        Metric(name='sessions'),
+                        Metric(name='totalUsers')
+                    ]
+                )
+                
+                channel_response = client.run_report(channel_request)
+                
+                for row in channel_response.rows:
+                    channels.append({
+                        'channel': row.dimension_values[0].value,
+                        'sessions': int(row.metric_values[0].value),
+                        'users': int(row.metric_values[1].value),
+                        'conversions': 0
+                    })
+            except Exception as e:
+                logger.warning(f"GA4 channel request failed: {e}")
             
             # Request 2: Overall metrics (pageviews, bounce rate)
-            metrics_request = RunReportRequest(
-                property=f'properties/{property_id}',
-                date_ranges=[date_range],
-                metrics=[
-                    Metric(name='screenPageViews'),
-                    Metric(name='bounceRate'),
-                    Metric(name='averageSessionDuration')
-                ]
-            )
-            
-            metrics_response = client.run_report(metrics_request)
-            
             pageviews = 0
             bounce_rate = 0
             avg_session_duration = 0
-            if metrics_response.rows:
-                row = metrics_response.rows[0]
-                pageviews = int(float(row.metric_values[0].value))
-                bounce_rate = round(float(row.metric_values[1].value) * 100, 1)
-                avg_session_duration = round(float(row.metric_values[2].value), 1)
+            try:
+                metrics_request = RunReportRequest(
+                    property=f'properties/{property_id}',
+                    date_ranges=[date_range],
+                    metrics=[
+                        Metric(name='screenPageViews'),
+                        Metric(name='bounceRate'),
+                        Metric(name='averageSessionDuration')
+                    ]
+                )
+                
+                metrics_response = client.run_report(metrics_request)
+                
+                if metrics_response.rows:
+                    row = metrics_response.rows[0]
+                    pageviews = int(float(row.metric_values[0].value))
+                    bounce_rate = round(float(row.metric_values[1].value) * 100, 1)
+                    avg_session_duration = round(float(row.metric_values[2].value), 1)
+                logger.info(f"GA4 metrics: pageviews={pageviews}, bounce_rate={bounce_rate}")
+            except Exception as e:
+                logger.warning(f"GA4 metrics request failed: {e}")
             
             # Request 3: Top pages
-            pages_request = RunReportRequest(
-                property=f'properties/{property_id}',
-                date_ranges=[date_range],
-                dimensions=[
-                    Dimension(name='pagePath')
-                ],
-                metrics=[
-                    Metric(name='screenPageViews')
-                ],
-                limit=10
-            )
-            
-            pages_response = client.run_report(pages_request)
-            
             top_pages = []
-            for row in pages_response.rows:
-                top_pages.append({
-                    'page': row.dimension_values[0].value,
-                    'views': int(row.metric_values[0].value)
-                })
+            try:
+                pages_request = RunReportRequest(
+                    property=f'properties/{property_id}',
+                    date_ranges=[date_range],
+                    dimensions=[
+                        Dimension(name='pagePath')
+                    ],
+                    metrics=[
+                        Metric(name='screenPageViews')
+                    ],
+                    limit=10
+                )
+                
+                pages_response = client.run_report(pages_request)
+                
+                for row in pages_response.rows:
+                    top_pages.append({
+                        'page': row.dimension_values[0].value,
+                        'views': int(row.metric_values[0].value)
+                    })
+                logger.info(f"GA4 top pages: {len(top_pages)} pages found")
+            except Exception as e:
+                logger.warning(f"GA4 top pages request failed: {e}")
             
             return {
                 'channels': channels,
