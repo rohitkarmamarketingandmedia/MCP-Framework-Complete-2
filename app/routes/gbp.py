@@ -502,3 +502,66 @@ def get_gbp_status(current_user):
         'account_id': client.gbp_account_id,
         'location_id': client.gbp_location_id
     })
+
+
+@gbp_bp.route('/test-connection', methods=['GET'])
+@token_required
+def test_gbp_connection(current_user):
+    """
+    Test GBP OAuth connection - fetches accounts and locations
+    GET /api/gbp/test-connection?client_id=xxx
+    """
+    client_id = request.args.get('client_id')
+    if not client_id:
+        return jsonify({'error': 'client_id required'}), 400
+    
+    client = DBClient.query.get(client_id)
+    if not client:
+        return jsonify({'error': 'Client not found'}), 404
+    
+    if not client.gbp_access_token:
+        return jsonify({'error': 'No GBP OAuth token. Connect with Google first.'}), 400
+    
+    # Refresh token
+    tokens = gbp_service.refresh_access_token(client.gbp_access_token)
+    if 'error' in tokens:
+        return jsonify({'error': f'Token refresh failed: {tokens["error"]}', 'step': 'refresh'}), 401
+    
+    access_token = tokens['access_token']
+    result = {'steps': {}}
+    
+    # Step 1: Get accounts
+    accounts_result = gbp_service.get_accounts(access_token)
+    result['steps']['accounts'] = {
+        'success': 'error' not in accounts_result,
+        'data': accounts_result
+    }
+    
+    if accounts_result.get('error'):
+        result['error'] = f"Accounts API failed: {str(accounts_result['error'])[:200]}"
+        return jsonify(result), 500
+    
+    # Step 2: Get locations for first account
+    accounts = accounts_result.get('accounts', [])
+    if accounts:
+        account_name = accounts[0].get('name')
+        locations_result = gbp_service.get_locations(access_token, account_name)
+        result['steps']['locations'] = {
+            'success': 'error' not in locations_result,
+            'account': account_name,
+            'data': locations_result
+        }
+        
+        # Step 3: Try to get reviews for first location
+        locations = locations_result.get('locations', [])
+        if locations:
+            location_name = locations[0].get('name')
+            reviews_result = gbp_service.get_reviews(access_token, location_name)
+            result['steps']['reviews'] = {
+                'success': 'error' not in reviews_result,
+                'location': location_name,
+                'count': len(reviews_result.get('reviews', []))
+            }
+    
+    result['success'] = True
+    return jsonify(result)

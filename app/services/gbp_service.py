@@ -26,8 +26,13 @@ class GBPService:
     def __init__(self):
         self.client_id = os.getenv('GBP_CLIENT_ID')
         self.client_secret = os.getenv('GBP_CLIENT_SECRET')
-        self.api_base = 'https://mybusiness.googleapis.com/v4'
-        self.api_base_v1 = 'https://mybusinessbusinessinformation.googleapis.com/v1'
+        # New v1 APIs (v4 mybusiness.googleapis.com is deprecated/removed)
+        self.account_api = 'https://mybusinessaccountmanagement.googleapis.com/v1'
+        self.business_info_api = 'https://mybusinessbusinessinformation.googleapis.com/v1'
+        self.reviews_api = 'https://mybusiness.googleapis.com/v4'  # Reviews still on v4 for reply
+        # Keep for backwards compat in code that references api_base
+        self.api_base = self.reviews_api
+        self.api_base_v1 = self.business_info_api
     
     def is_configured(self) -> bool:
         """Check if GBP API is configured"""
@@ -130,18 +135,22 @@ class GBPService:
     def get_accounts(self, access_token: str) -> Dict[str, Any]:
         """
         Get all GBP accounts the user has access to
+        Uses: mybusinessaccountmanagement.googleapis.com/v1/accounts
         """
         import requests
         
         try:
             response = requests.get(
-                f'{self.api_base}/accounts',
+                f'{self.account_api}/accounts',
                 headers=self._get_headers(access_token)
             )
+            
+            logger.info(f"GBP get_accounts: status={response.status_code}")
             
             if response.status_code == 200:
                 return response.json()
             else:
+                logger.error(f"GBP get_accounts error: {response.status_code} - {response.text[:300]}")
                 return {'error': response.text}
                 
         except Exception as e:
@@ -151,18 +160,27 @@ class GBPService:
     def get_locations(self, access_token: str, account_id: str) -> Dict[str, Any]:
         """
         Get all locations for an account
+        Uses: mybusinessbusinessinformation.googleapis.com/v1/accounts/{id}/locations
+        account_id: just the account name like 'accounts/123456'
         """
         import requests
         
         try:
+            # The account_id may or may not include 'accounts/' prefix
+            account_path = account_id if account_id.startswith('accounts/') else f'accounts/{account_id}'
+            
             response = requests.get(
-                f'{self.api_base}/accounts/{account_id}/locations',
-                headers=self._get_headers(access_token)
+                f'{self.business_info_api}/{account_path}/locations',
+                headers=self._get_headers(access_token),
+                params={'readMask': 'name,title,storefrontAddress'}
             )
+            
+            logger.info(f"GBP get_locations: status={response.status_code}")
             
             if response.status_code == 200:
                 return response.json()
             else:
+                logger.error(f"GBP get_locations error: {response.status_code} - {response.text[:300]}")
                 return {'error': response.text}
                 
         except Exception as e:
@@ -172,14 +190,16 @@ class GBPService:
     def get_location(self, access_token: str, location_name: str) -> Dict[str, Any]:
         """
         Get details for a specific location
-        location_name format: accounts/{account_id}/locations/{location_id}
+        location_name format: locations/{location_id}
         """
         import requests
         
         try:
             response = requests.get(
-                f'{self.api_base}/{location_name}',
-                headers=self._get_headers(access_token)
+                f'{self.business_info_api}/{location_name}',
+                headers=self._get_headers(access_token),
+                params={'readMask': 'name,title,storefrontAddress,websiteUri'}
+            )
             )
             
             if response.status_code == 200:
@@ -311,24 +331,30 @@ class GBPService:
     ) -> Dict[str, Any]:
         """
         Get reviews for a location
+        Tries Account Management API pattern first
+        location_name: e.g. 'accounts/123/locations/456' or 'locations/456'
         """
         import requests
         
         try:
+            # Try the v4 endpoint (still works for reviews for some accounts)
             response = requests.get(
-                f'{self.api_base}/{location_name}/reviews',
+                f'{self.reviews_api}/{location_name}/reviews',
                 headers=self._get_headers(access_token),
                 params={'pageSize': page_size}
             )
             
+            logger.info(f"GBP get_reviews: status={response.status_code} for {location_name}")
+            
             if response.status_code == 200:
                 return response.json()
             else:
-                return {'error': response.text}
+                logger.warning(f"GBP get_reviews v4 failed: {response.status_code} - {response.text[:200]}")
+                return {'error': response.text, 'reviews': []}
                 
         except Exception as e:
             logger.error(f"Get reviews error: {e}")
-            return {'error': str(e)}
+            return {'error': str(e), 'reviews': []}
     
     def reply_to_review(
         self, 
@@ -338,20 +364,25 @@ class GBPService:
     ) -> Dict[str, Any]:
         """
         Reply to a review
+        review_name: full path like 'accounts/123/locations/456/reviews/789'
         """
         import requests
         
         try:
+            url = f'{self.reviews_api}/{review_name}/reply'
+            logger.info(f"GBP reply_to_review: PUT {url}")
+            
             response = requests.put(
-                f'{self.api_base}/{review_name}/reply',
+                url,
                 headers=self._get_headers(access_token),
                 json={'comment': comment}
             )
             
             if response.status_code in [200, 201]:
-                logger.info(f"Replied to review {review_name}")
+                logger.info(f"Successfully replied to review {review_name}")
                 return {'success': True, 'reply': response.json()}
             else:
+                logger.error(f"GBP reply error: {response.status_code} - {response.text[:300]}")
                 return {'error': response.text}
                 
         except Exception as e:
