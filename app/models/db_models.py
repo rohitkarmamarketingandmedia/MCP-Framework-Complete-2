@@ -1072,6 +1072,7 @@ class DBReview(db.Model):
             'id': self.id,
             'client_id': self.client_id,
             'platform': self.platform,
+            'platform_review_id': self.platform_review_id,
             'reviewer_name': self.reviewer_name,
             'rating': self.rating,
             'review_text': self.review_text,

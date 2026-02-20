@@ -269,6 +269,121 @@ def post_review_reply(current_user, review_id):
     })
 
 
+@reviews_bp.route('/<review_id>/post-to-google', methods=['POST'])
+@token_required
+def post_reply_to_google(current_user, review_id):
+    """
+    Post a saved reply to Google via GBP API
+    
+    POST /api/reviews/<review_id>/post-to-google
+    {"response_text": "optional override, otherwise uses saved response_text"}
+    """
+    review = DBReview.query.get(review_id)
+    if not review:
+        return jsonify({'error': 'Review not found'}), 404
+    
+    if not current_user.has_access_to_client(review.client_id):
+        return jsonify({'error': 'Access denied'}), 403
+    
+    if review.platform != 'google':
+        return jsonify({'error': 'Can only post replies to Google reviews'}), 400
+    
+    # Get the reply text
+    data = request.get_json(silent=True) or {}
+    reply_text = data.get('response_text', '').strip() or review.response_text or review.suggested_response
+    
+    if not reply_text:
+        return jsonify({'error': 'No reply text available. Generate or write a reply first.'}), 400
+    
+    # Check if GBP OAuth is connected
+    client = DBClient.query.get(review.client_id)
+    if not client or not client.gbp_access_token:
+        return jsonify({
+            'error': 'Google Business Profile not connected with OAuth. Click "Connect with Google" in the GBP setup to enable posting replies.',
+            'needs_oauth': True
+        }), 400
+    
+    try:
+        from app.services.gbp_service import gbp_service
+        
+        # Get a fresh access token
+        tokens = gbp_service.refresh_access_token(client.gbp_access_token)
+        if 'error' in tokens:
+            return jsonify({'error': f'GBP token refresh failed: {tokens["error"]}', 'needs_reauth': True}), 401
+        
+        access_token = tokens.get('access_token')
+        
+        # We need the GBP review name - check if we have it
+        review_name = review.platform_review_id
+        
+        if not review_name or not review_name.startswith('accounts/'):
+            # Try to find the review via GBP API by matching reviewer name and date
+            # First get the account and location
+            accounts = gbp_service.get_accounts(access_token)
+            if accounts.get('error'):
+                return jsonify({'error': f'Could not fetch GBP accounts: {accounts["error"]}'}), 500
+            
+            review_name = None
+            for account in accounts.get('accounts', []):
+                account_name = account.get('name')
+                locations = gbp_service.get_locations(access_token, account_name)
+                
+                for location in locations.get('locations', []):
+                    location_name = location.get('name')
+                    # Fetch reviews for this location
+                    reviews_result = gbp_service.get_reviews(access_token, location_name)
+                    
+                    for gr in reviews_result.get('reviews', []):
+                        # Match by reviewer name and rating
+                        gr_name = gr.get('reviewer', {}).get('displayName', '')
+                        gr_rating = {'ONE': 1, 'TWO': 2, 'THREE': 3, 'FOUR': 4, 'FIVE': 5}.get(gr.get('starRating'), 0)
+                        
+                        if gr_name == review.reviewer_name and gr_rating == review.rating:
+                            review_name = gr.get('name')
+                            # Save for future use
+                            review.platform_review_id = review_name
+                            db.session.commit()
+                            break
+                    
+                    if review_name:
+                        break
+                if review_name:
+                    break
+            
+            if not review_name:
+                return jsonify({
+                    'error': 'Could not find this review on Google. The review may have been deleted or the GBP account may not match.'
+                }), 404
+        
+        # Post the reply
+        result = gbp_service.reply_to_review(access_token, review_name, reply_text)
+        
+        if result.get('success'):
+            # Update local record
+            review.response_text = reply_text
+            review.response_date = datetime.utcnow()
+            review.status = 'responded'
+            db.session.commit()
+            
+            logger.info(f"Posted reply to Google review {review_id} ({review_name})")
+            return jsonify({
+                'success': True,
+                'posted_to_google': True,
+                'review_id': review_id
+            })
+        else:
+            return jsonify({
+                'error': f'Google API error: {result.get("error", "Unknown error")}',
+                'posted_to_google': False
+            }), 500
+    
+    except Exception as e:
+        logger.error(f"Post to Google error for review {review_id}: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
+
 @reviews_bp.route('/generate-all-responses', methods=['POST'])
 @token_required
 def generate_all_responses(current_user):
