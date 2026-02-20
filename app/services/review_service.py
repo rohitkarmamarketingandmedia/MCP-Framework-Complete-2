@@ -220,8 +220,10 @@ class ReviewService:
     ) -> bool:
         """Send email requesting a review"""
         if not self.sendgrid_key:
-            logger.warning("SendGrid not configured")
+            logger.warning("SendGrid not configured - set SENDGRID_API_KEY env variable")
             return False
+        
+        logger.info(f"Sending review request email to {customer_email} from {self.from_email}")
         
         try:
             import sendgrid
@@ -263,13 +265,16 @@ If you had any issues with your service, please reply to this email or call us a
             response = sg.send(message)
             
             if response.status_code in [200, 202]:
-                logger.info(f"Review request email sent to {customer_email}")
+                logger.info(f"Review request email sent to {customer_email} (status: {response.status_code})")
                 return True
             
+            logger.error(f"SendGrid error: status={response.status_code}, body={response.body}")
             return False
             
         except Exception as e:
             logger.error(f"Review request email error: {e}")
+            import traceback
+            traceback.print_exc()
             return False
     
     def send_review_request_sms(

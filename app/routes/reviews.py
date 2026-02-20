@@ -233,13 +233,11 @@ def generate_all_responses(current_user):
     """
     Generate AI responses for all pending reviews
     
-    POST /api/reviews/generate-all-responses
-    {
-        "client_id": "xxx"
-    }
+    POST /api/reviews/generate-all-responses?client_id=xxx
+    or POST body: {"client_id": "xxx"}
     """
     data = request.get_json(silent=True) or {}
-    client_id = data.get('client_id')
+    client_id = request.args.get('client_id') or data.get('client_id')
     
     if not client_id:
         return jsonify({'error': 'client_id is required'}), 400
@@ -320,7 +318,13 @@ def send_review_request(current_user):
     
     return jsonify({
         'success': results['email'] or results['sms'],
-        'results': results
+        'results': results,
+        'diagnostics': {
+            'sendgrid_configured': bool(review_service.sendgrid_key),
+            'from_email': review_service.from_email,
+            'to_email': data.get('customer_email'),
+            'method': method
+        }
     })
 
 
