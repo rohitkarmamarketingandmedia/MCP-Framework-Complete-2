@@ -290,7 +290,8 @@ class WufooService:
     
     def sync_entries_for_client(self, client) -> Dict:
         """
-        Sync all Wufoo form entries for a client into DBLead records
+        Sync Wufoo form entries for a client into DBLead records.
+        ONLY syncs forms explicitly selected for this client (form_hashes).
         
         Returns: {synced: int, errors: [], forms_checked: int}
         """
@@ -309,10 +310,11 @@ class WufooService:
         form_hashes = wufoo_config.get('form_hashes', [])
         last_synced = wufoo_config.get('last_synced')
         
-        # If no specific forms, get all forms
+        # CRITICAL: Only sync explicitly selected forms for this client
+        # Never sync ALL forms — that causes cross-client data leakage
         if not form_hashes:
-            forms = self.get_forms(subdomain, api_key)
-            form_hashes = [f['hash'] for f in forms]
+            logger.warning(f"Wufoo sync for client {client.id}: No form_hashes selected — skipping to prevent cross-client data mixing")
+            return {'synced': 0, 'errors': ['No forms selected for this client. Please select specific forms in Settings → Integrations.'], 'forms_checked': 0}
         
         result = {'synced': 0, 'errors': [], 'forms_checked': 0}
         
@@ -323,20 +325,29 @@ class WufooService:
                 # Get fields for mapping
                 fields = self.get_form_fields(subdomain, api_key, form_hash)
                 
-                # Get form name
-                forms = self.get_forms(subdomain, api_key)
-                form_name = next((f['name'] for f in forms if f['hash'] == form_hash), form_hash)
+                # Get form name (use single-form endpoint to avoid fetching all forms each time)
+                form_name = form_hash
+                try:
+                    form_url = f"{self._get_base_url(subdomain)}/forms/{form_hash}.json"
+                    form_resp = requests.get(form_url, headers=self._get_auth_header(api_key), timeout=15)
+                    if form_resp.status_code == 200:
+                        form_data = form_resp.json().get('Forms', [{}])
+                        if form_data:
+                            form_name = form_data[0].get('Name', form_hash) if isinstance(form_data, list) else form_data.get('Name', form_hash)
+                except Exception:
+                    pass
                 
                 # Fetch entries since last sync
                 entries = self.get_entries(subdomain, api_key, form_hash, since=last_synced)
                 
                 for entry in entries:
                     entry_id = entry.get('EntryId', '')
+                    source_detail = f'wufoo:{form_hash}:{entry_id}'
                     
-                    # Check if already imported
+                    # Check if already imported FOR THIS CLIENT
                     existing = DBLead.query.filter_by(
                         client_id=client.id,
-                        source_detail=f'wufoo:{form_hash}:{entry_id}'
+                        source_detail=source_detail
                     ).first()
                     
                     if existing:
@@ -378,6 +389,43 @@ class WufooService:
             db.session.rollback()
         
         return result
+    
+    def cleanup_cross_client_leads(self, client) -> Dict:
+        """
+        Remove Wufoo leads that belong to forms NOT assigned to this client.
+        This fixes cross-client data contamination from the old sync-all-forms behavior.
+        """
+        from app.models.db_models import DBLead
+        from app.database import db
+        
+        integrations = client.get_integrations()
+        wufoo_config = integrations.get('wufoo', {})
+        form_hashes = set(wufoo_config.get('form_hashes', []))
+        
+        if not form_hashes:
+            return {'removed': 0, 'message': 'No forms assigned to this client'}
+        
+        # Find all wufoo leads for this client
+        wufoo_leads = DBLead.query.filter(
+            DBLead.client_id == client.id,
+            DBLead.source_detail.like('wufoo:%')
+        ).all()
+        
+        removed = 0
+        for lead in wufoo_leads:
+            # source_detail format: wufoo:{form_hash}:{entry_id}
+            parts = (lead.source_detail or '').split(':')
+            if len(parts) >= 2:
+                lead_form_hash = parts[1]
+                if lead_form_hash not in form_hashes:
+                    db.session.delete(lead)
+                    removed += 1
+        
+        if removed > 0:
+            db.session.commit()
+            logger.info(f"Wufoo cleanup for client {client.id}: removed {removed} leads from non-assigned forms")
+        
+        return {'removed': removed, 'total_wufoo_leads': len(wufoo_leads), 'assigned_forms': len(form_hashes)}
     
     def test_connection(self, subdomain: str, api_key: str) -> Dict:
         """Quick test - only fetches first page to verify credentials"""

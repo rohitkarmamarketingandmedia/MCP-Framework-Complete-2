@@ -534,7 +534,37 @@ def sync_wufoo(current_user):
     
     from app.services.wufoo_service import get_wufoo_service
     wufoo = get_wufoo_service()
+    
+    # First cleanup any cross-contaminated leads from old sync behavior
+    cleanup = wufoo.cleanup_cross_client_leads(client)
+    
+    # Then sync only assigned forms
     result = wufoo.sync_entries_for_client(client)
+    result['cleanup'] = cleanup
+    
+    return jsonify(result)
+
+
+@leads_bp.route('/wufoo/cleanup', methods=['POST'])
+@token_required
+def cleanup_wufoo(current_user):
+    """Remove Wufoo leads from non-assigned forms - fixes cross-client data"""
+    if not _require_admin_or_manager(current_user):
+        return jsonify({'error': 'Admin access required'}), 403
+    
+    data = request.get_json(silent=True) or {}
+    client_id = data.get('client_id')
+    
+    if not client_id:
+        return jsonify({'error': 'client_id required'}), 400
+    
+    client = DBClient.query.get(client_id)
+    if not client:
+        return jsonify({'error': 'Client not found'}), 404
+    
+    from app.services.wufoo_service import get_wufoo_service
+    wufoo = get_wufoo_service()
+    result = wufoo.cleanup_cross_client_leads(client)
     
     return jsonify(result)
 
