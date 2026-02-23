@@ -1843,70 +1843,70 @@ def get_competitor_dashboard(current_user, client_id):
     import requests as http_requests
     api_key = rank_tracking_service.api_key
     
+    # FIRST: Try to load from DB rank history (FREE — no API units)
     try:
-        if api_key:
-            # Check cache first
-            cache_key = f"{client_domain}:{rank_tracking_service.default_database}"
-            cached = rank_tracking_service._get_cached(cache_key)
-            
-            if cached:
-                # Build from cached data
-                for kw_data in cached.get('keywords', []):
-                    kw = kw_data['keyword'].lower()
-                    if kw_data.get('position'):
-                        client_rankings[kw] = {
-                            'position': kw_data['position'],
-                            'url': kw_data.get('url', ''),
-                            'change': kw_data.get('change', 0),
-                            'search_volume': kw_data.get('search_volume', 0)
-                        }
-            
-            if not client_rankings:
-                # Fetch fresh from SEMrush
-                params = {
-                    'type': 'domain_organic',
-                    'key': api_key,
-                    'display_limit': 200,
-                    'export_columns': 'Ph,Po,Pp,Ur,Nq',
-                    'domain': client_domain,
-                    'database': rank_tracking_service.default_database
+        from sqlalchemy import func
+        # Get the latest ranking for each keyword from DB
+        subq = db.session.query(
+            DBRankHistory.keyword,
+            func.max(DBRankHistory.checked_at).label('latest')
+        ).filter(
+            DBRankHistory.client_id == client_id
+        ).group_by(DBRankHistory.keyword).subquery()
+        
+        latest_ranks = db.session.query(DBRankHistory).join(
+            subq,
+            db.and_(
+                DBRankHistory.keyword == subq.c.keyword,
+                DBRankHistory.checked_at == subq.c.latest,
+                DBRankHistory.client_id == client_id
+            )
+        ).all()
+        
+        for rank in latest_ranks:
+            keyword = getattr(rank, 'keyword', None)
+            if keyword and getattr(rank, 'position', None):
+                client_rankings[keyword.lower()] = {
+                    'position': rank.position,
+                    'url': getattr(rank, 'url', None) or '',
+                    'change': getattr(rank, 'change', 0) or 0,
+                    'search_volume': getattr(rank, 'search_volume', 0) or 0
                 }
-                resp = http_requests.get(rank_tracking_service.base_url, params=params, timeout=30)
-                if resp.status_code == 200:
-                    lines = resp.text.strip().split('\n')
-                    for line in lines[1:]:
-                        parts = line.split(';')
-                        if len(parts) >= 5:
-                            kw = parts[0].strip('"').lower()
-                            pos = int(parts[1]) if parts[1] else None
-                            if pos:
-                                client_rankings[kw] = {
-                                    'position': pos,
-                                    'url': parts[3].strip('"') if parts[3] else '',
-                                    'change': (int(parts[2]) - pos) if parts[2] else 0,
-                                    'search_volume': int(parts[4]) if parts[4] else 0
-                                }
+        logger.info(f"Loaded {len(client_rankings)} client rankings from DB cache")
     except Exception as e:
-        logger.warning(f"Error fetching client SEMrush data: {e}")
+        logger.warning(f"Error loading cached rankings: {e}")
     
-    # Fallback to DB rank history if SEMrush didn't work
-    if not client_rankings:
+    # ONLY call SEMrush API if DB has nothing AND force_refresh param is set
+    force_refresh = request.args.get('refresh') == '1'
+    if not client_rankings and force_refresh and api_key:
         try:
-            latest_ranks = DBRankHistory.query.filter_by(client_id=client_id).order_by(
-                DBRankHistory.checked_at.desc()
-            ).limit(50).all()
-            
-            for rank in latest_ranks:
-                keyword = getattr(rank, 'keyword', None)
-                if keyword and keyword.lower() not in client_rankings:
-                    client_rankings[keyword.lower()] = {
-                        'position': getattr(rank, 'position', None),
-                        'url': getattr(rank, 'ranking_url', None) or getattr(rank, 'url', None) or '',
-                        'change': getattr(rank, 'change', 0),
-                        'search_volume': 0
-                    }
-        except Exception:
-            pass
+            params = {
+                'type': 'domain_organic',
+                'key': api_key,
+                'display_limit': 100,
+                'export_columns': 'Ph,Po,Pp,Ur,Nq',
+                'domain': client_domain,
+                'database': rank_tracking_service.default_database
+            }
+            resp = http_requests.get(rank_tracking_service.base_url, params=params, timeout=30)
+            if resp.status_code == 200 and not resp.text.startswith('ERROR'):
+                lines = resp.text.strip().split('\n')
+                for line in lines[1:]:
+                    parts = line.split(';')
+                    if len(parts) >= 5:
+                        kw = parts[0].strip('"').lower()
+                        pos = int(parts[1]) if parts[1] else None
+                        if pos:
+                            client_rankings[kw] = {
+                                'position': pos,
+                                'url': parts[3].strip('"') if parts[3] else '',
+                                'change': (int(parts[2]) - pos) if parts[2] else 0,
+                                'search_volume': int(parts[4]) if parts[4] else 0
+                            }
+            elif resp.text.startswith('ERROR'):
+                logger.warning(f"SEMrush API error for client: {resp.text[:100]}")
+        except Exception as e:
+            logger.warning(f"Error fetching client SEMrush data: {e}")
     
     logger.info(f"Client {client_domain} has {len(client_rankings)} ranked keywords")
     
@@ -1922,21 +1922,25 @@ def get_competitor_dashboard(current_user, client_id):
         except Exception:
             comp_pages = []
         
-        # Fetch competitor rankings from SEMrush
+        # Get competitor rankings — use DB cached data, NOT live SEMrush API
+        # This avoids burning 200+ API units per competitor per page load
         comp_ranks = {}
         try:
-            if api_key:
-                comp_domain = rank_tracking_service._clean_domain(comp.domain)
+            comp_domain = rank_tracking_service._clean_domain(comp.domain)
+            
+            # Try DB rank history for this competitor (stored from previous explicit checks)
+            # Competitors don't have their own rank history in DB, so use SEMrush ONLY on explicit refresh
+            if force_refresh and api_key:
                 comp_params = {
                     'type': 'domain_organic',
                     'key': api_key,
-                    'display_limit': 200,
+                    'display_limit': 50,
                     'export_columns': 'Ph,Po,Nq',
                     'domain': comp_domain,
                     'database': rank_tracking_service.default_database
                 }
                 comp_resp = http_requests.get(rank_tracking_service.base_url, params=comp_params, timeout=10)
-                if comp_resp.status_code == 200:
+                if comp_resp.status_code == 200 and not comp_resp.text.startswith('ERROR'):
                     comp_lines = comp_resp.text.strip().split('\n')
                     for line in comp_lines[1:]:
                         parts = line.split(';')
@@ -1948,9 +1952,9 @@ def get_competitor_dashboard(current_user, client_id):
                                 continue
                             if pos:
                                 comp_ranks[kw] = pos
-                    logger.info(f"Competitor {comp_domain}: {len(comp_ranks)} ranked keywords")
-                else:
-                    logger.warning(f"SEMrush returned {comp_resp.status_code} for {comp_domain}")
+                    logger.info(f"Competitor {comp_domain}: {len(comp_ranks)} ranked keywords (fresh)")
+                elif comp_resp.text.startswith('ERROR'):
+                    logger.warning(f"SEMrush error for competitor {comp_domain}: {comp_resp.text[:100]}")
         except Exception as e:
             logger.warning(f"Error fetching competitor {comp.domain} rankings: {e}")
         
@@ -2568,28 +2572,57 @@ def get_top_keywords(current_user):
         domain = rank_tracking_service._clean_domain(client.website_url or client.business_name)
         database = rank_tracking_service.default_database
         
-        # Check cache first
-        cache_key = f"{domain}:{database}"
-        cached = rank_tracking_service._get_cached(cache_key)
+        # FIRST: Try DB rank history (FREE — no API units)
+        from sqlalchemy import func
+        subq = db.session.query(
+            DBRankHistory.keyword,
+            func.max(DBRankHistory.checked_at).label('latest')
+        ).filter(
+            DBRankHistory.client_id == client_id
+        ).group_by(DBRankHistory.keyword).subquery()
         
-        if cached:
-            # Use cached SEMrush data — extract all domain keywords
-            # The cache stores the processed result which only has tracked keywords
-            # We need the raw domain data, so check if it's available
-            pass
+        latest_ranks = db.session.query(DBRankHistory).join(
+            subq,
+            db.and_(
+                DBRankHistory.keyword == subq.c.keyword,
+                DBRankHistory.checked_at == subq.c.latest,
+                DBRankHistory.client_id == client_id
+            )
+        ).all()
         
-        # Fetch domain organic keywords from SEMrush
+        if latest_ranks:
+            keywords = []
+            for r in latest_ranks:
+                if r.position and r.position <= 100:
+                    keywords.append({
+                        'keyword': r.keyword,
+                        'position': r.position,
+                        'previous_position': r.previous_position,
+                        'change': r.change or 0,
+                        'url': r.url or '',
+                        'search_volume': r.search_volume or 0,
+                        'cpc': r.cpc or 0.0
+                    })
+            keywords.sort(key=lambda x: x['position'])
+            return jsonify({
+                'keywords': keywords[:limit],
+                'total': len(keywords),
+                'cached': True,
+                'domain': domain
+            })
+        
+        # Only call SEMrush API if no DB data exists
         import requests as http_requests
         api_key = rank_tracking_service.api_key
         
         if not api_key:
-            return jsonify({'error': 'SEMrush API key not configured'}), 400
+            return jsonify({'keywords': [], 'error': 'No cached data and SEMrush API key not configured'}), 200
         
         params = {
             'type': 'domain_organic',
             'key': api_key,
-            'display_limit': 100,
-            'display_sort': 'po_asc',  # Sort by position ascending (best first)
+            'display_limit': limit,
+            'display_sort': 'po_asc',
             'export_columns': 'Ph,Po,Pp,Nq,Cp,Ur',
             'domain': domain,
             'database': database
@@ -2597,8 +2630,12 @@ def get_top_keywords(current_user):
         
         response = http_requests.get(rank_tracking_service.base_url, params=params, timeout=30)
         
+        if response.text.startswith('ERROR'):
+            logger.warning(f"SEMrush top-keywords error: {response.text[:100]}")
+            return jsonify({'keywords': [], 'error': response.text[:200]}), 200
+        
         if response.status_code != 200:
-            return jsonify({'error': 'SEMrush API error', 'detail': response.text[:200]}), 500
+            return jsonify({'keywords': [], 'error': f'SEMrush API error: {response.status_code}'}), 200
         
         keywords = []
         lines = response.text.strip().split('\n')
