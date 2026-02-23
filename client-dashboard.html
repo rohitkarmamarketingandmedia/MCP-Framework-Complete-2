@@ -18411,13 +18411,19 @@
                         body: formData
                     });
                     
-                    const data = await response.json();
+                    let data;
+                    try {
+                        data = await response.json();
+                    } catch (e) {
+                        throw new Error(`Server error (${response.status}). Check Render logs for details.`);
+                    }
+                    
                     if (response.ok) {
                         status.className = 'mb-4 p-3 rounded-lg text-sm bg-green-500/10 border border-green-500/30 text-green-400';
                         status.textContent = `✓ ${data.entries_added} entries imported successfully!`;
                         loadKnowledgeEntries();
                     } else {
-                        throw new Error(data.error || 'Import failed');
+                        throw new Error(data.error || `Import failed (${response.status})`);
                     }
                 } else {
                     // Standard Q&A: read with SheetJS client-side

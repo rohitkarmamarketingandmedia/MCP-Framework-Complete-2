@@ -370,7 +370,12 @@ def import_xlsx_knowledge(current_user, client_id):
     if not file.filename.endswith(('.xlsx', '.xls')):
         return jsonify({'error': 'Only .xlsx/.xls files are supported'}), 400
     
-    import openpyxl
+    try:
+        import openpyxl
+    except ImportError:
+        logger.error("openpyxl not installed — run: pip install openpyxl")
+        return jsonify({'error': 'Server missing openpyxl library. Contact admin to run: pip install openpyxl'}), 500
+    
     import tempfile
     import os
     
@@ -379,6 +384,8 @@ def import_xlsx_knowledge(current_user, client_id):
         tmp = tempfile.NamedTemporaryFile(delete=False, suffix='.xlsx')
         file.save(tmp.name)
         tmp.close()
+        
+        logger.info(f"Importing XLSX for client {client_id}: {file.filename} ({os.path.getsize(tmp.name)} bytes)")
         
         wb = openpyxl.load_workbook(tmp.name)
         entries_added = 0
