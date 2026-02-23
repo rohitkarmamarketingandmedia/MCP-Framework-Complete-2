@@ -7228,8 +7228,8 @@
             try {
                 let keywords = [];
 
-                // Always use the rankings endpoint which returns real SEMrush data
-                const response = await fetch(`${API_URL}/api/monitoring/rankings?client_id=${currentClient.id}`, {
+                // Use cached rankings from DB (doesn't call SEMrush API, saves units)
+                const response = await fetch(`${API_URL}/api/monitoring/rankings/latest?client_id=${currentClient.id}`, {
                     headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
                 });
                 if (response.ok) {
@@ -7237,7 +7237,7 @@
                     keywords = data.keywords || [];
                 }
 
-                // If no results from tracked keywords, try top-keywords (domain-wide)
+                // If no cached results, try top-keywords (domain-wide)
                 if (keywords.length === 0 || keywords.every(kw => !kw.position)) {
                     const topRes = await fetch(`${API_URL}/api/monitoring/top-keywords?client_id=${currentClient.id}&limit=10`, {
                         headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
@@ -7572,13 +7572,23 @@
                     body: JSON.stringify({ client_id: currentClient.id })
                 });
                 const data = await res.json();
+                
+                // Build result message
+                let messages = [];
+                if (data.cleanup?.removed > 0) {
+                    messages.push(`Cleaned up ${data.cleanup.removed} mismatched leads`);
+                }
                 if (data.synced > 0) {
-                    showToast(`Synced ${data.synced} new Wufoo entries!`, 'success');
+                    messages.push(`Synced ${data.synced} new entries`);
+                }
+                
+                if (data.synced > 0 || data.cleanup?.removed > 0) {
+                    showToast(messages.join('. ') + '!', 'success');
                     loadLeads();
                 } else if (data.errors && data.errors.length > 0) {
                     showToast('Wufoo: ' + data.errors[0], 'warning');
                 } else {
-                    showToast('Wufoo sync complete — no new entries', 'info');
+                    showToast(`Wufoo sync complete — no new entries (${data.forms_checked || 0} forms checked)`, 'info');
                 }
             } catch(e) {
                 showToast('Wufoo sync error: ' + e.message, 'error');
@@ -15847,13 +15857,30 @@
                 if (!demoNotice) {
                     const notice = document.createElement('div');
                     notice.id = 'rankingsDemoNotice';
-                    notice.className = 'mb-4 p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl';
-                    notice.innerHTML = `
-                        <p class="text-amber-400 text-sm">
-                            <i class="fas fa-flask mr-2"></i>
-                            <strong>Demo Mode:</strong> ${rankingsData.message || 'Add SEMRUSH_API_KEY to enable real ranking data'}
-                        </p>
-                    `;
+                    
+                    // Check if it's an API units error
+                    const errorMsg = rankingsData.error || rankingsData.message || '';
+                    const isUnitsError = errorMsg.includes('132') || errorMsg.toLowerCase().includes('balance');
+                    
+                    if (isUnitsError) {
+                        notice.className = 'mb-4 p-3 bg-red-500/10 border border-red-500/30 rounded-xl';
+                        notice.innerHTML = `
+                            <p class="text-red-400 text-sm">
+                                <i class="fas fa-exclamation-circle mr-2"></i>
+                                <strong>SEMrush API Units Exhausted</strong> — Your API unit balance has been used up. 
+                                Units reset monthly, or you can purchase more at <a href="https://www.semrush.com/accounts/subscription-info/api-units/" target="_blank" class="underline hover:text-red-300">semrush.com</a>.
+                                Rankings will show last cached data.
+                            </p>
+                        `;
+                    } else {
+                        notice.className = 'mb-4 p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl';
+                        notice.innerHTML = `
+                            <p class="text-amber-400 text-sm">
+                                <i class="fas fa-flask mr-2"></i>
+                                <strong>Demo Mode:</strong> ${rankingsData.message || 'Add SEMRUSH_API_KEY to enable real ranking data'}
+                            </p>
+                        `;
+                    }
                     document.getElementById('rankingsTable')?.parentElement?.insertBefore(notice, document.getElementById('rankingsTable'));
                 }
             } else if (demoNotice) {

@@ -230,7 +230,7 @@ class RankTrackingService:
             params = {
                 'type': 'domain_organic',
                 'key': api_key,
-                'display_limit': 500,
+                'display_limit': 100,
                 'export_columns': 'Ph,Po,Pp,Ur,Nq,Cp,Co,Fk,Kd',  # Added Fk (SERP Features) and Kd (Keyword Difficulty)
                 'domain': domain,
                 'database': database

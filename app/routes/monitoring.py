@@ -1164,6 +1164,83 @@ def get_rankings(current_user):
         return jsonify({'error': f'Server error: {str(e)}'}), 500
 
 
+@monitoring_bp.route('/rankings/latest', methods=['GET'])
+@token_required
+def get_latest_rankings(current_user):
+    """Get the most recent cached rankings from DB — does NOT call SEMrush API.
+    Used by SEO Overview to show rankings without burning API units."""
+    client_id = request.args.get('client_id')
+    
+    if not client_id:
+        return jsonify({'error': 'client_id required'}), 400
+    
+    if not current_user.has_access_to_client(client_id):
+        return jsonify({'error': 'Access denied'}), 403
+    
+    client = DBClient.query.get(client_id)
+    if not client:
+        return jsonify({'error': 'Client not found'}), 404
+    
+    try:
+        from sqlalchemy import func, text
+        
+        # Get the latest ranking for each keyword (most recent check)
+        subq = db.session.query(
+            DBRankHistory.keyword,
+            func.max(DBRankHistory.checked_at).label('latest')
+        ).filter(
+            DBRankHistory.client_id == client_id
+        ).group_by(DBRankHistory.keyword).subquery()
+        
+        latest_rankings = db.session.query(DBRankHistory).join(
+            subq,
+            db.and_(
+                DBRankHistory.keyword == subq.c.keyword,
+                DBRankHistory.checked_at == subq.c.latest,
+                DBRankHistory.client_id == client_id
+            )
+        ).all()
+        
+        if not latest_rankings:
+            return jsonify({
+                'keywords': [],
+                'cached': True,
+                'message': 'No cached rankings. Click "Check Now" to fetch from SEMrush.'
+            })
+        
+        keywords = []
+        for r in latest_rankings:
+            keywords.append({
+                'keyword': r.keyword,
+                'position': r.position,
+                'previous_position': r.previous_position,
+                'change': r.change or 0,
+                'url': r.url or '',
+                'search_volume': r.search_volume or 0,
+                'cpc': r.cpc or 0.0,
+                'checked_at': r.checked_at.isoformat() if r.checked_at else None
+            })
+        
+        # Calculate summary
+        ranked = [k for k in keywords if k['position'] and k['position'] <= 100]
+        
+        return jsonify({
+            'keywords': keywords,
+            'cached': True,
+            'checked_at': max(r.checked_at for r in latest_rankings).isoformat() if latest_rankings else None,
+            'summary': {
+                'total': len(keywords),
+                'in_top_3': sum(1 for k in keywords if k['position'] and k['position'] <= 3),
+                'in_top_10': sum(1 for k in keywords if k['position'] and k['position'] <= 10),
+                'in_top_20': sum(1 for k in keywords if k['position'] and k['position'] <= 20),
+                'not_ranking': sum(1 for k in keywords if not k['position'] or k['position'] > 100)
+            }
+        })
+    except Exception as e:
+        logger.error(f"Error getting latest rankings: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
 @monitoring_bp.route('/rankings/history', methods=['GET'])
 @token_required
 def get_ranking_history(current_user):
