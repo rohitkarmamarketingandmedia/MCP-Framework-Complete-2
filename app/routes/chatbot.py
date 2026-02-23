@@ -254,6 +254,281 @@ def bulk_add_knowledge(current_user, client_id):
     }), 201
 
 
+@chatbot_bp.route('/knowledge/<client_id>/import-fitment', methods=['POST'])
+@token_required
+def import_fitment_data(current_user, client_id):
+    """Import motorcycle fitment data from uploaded Excel file into knowledge base"""
+    if not current_user.has_access_to_client(client_id):
+        return jsonify({'error': 'Access denied'}), 403
+    
+    import openpyxl
+    import os
+    
+    # Look for the uploaded file
+    upload_dir = '/mnt/user-data/uploads'
+    fitment_file = None
+    for f in os.listdir(upload_dir):
+        if 'fitment' in f.lower() and f.endswith('.xlsx'):
+            fitment_file = os.path.join(upload_dir, f)
+            break
+    
+    if not fitment_file:
+        return jsonify({'error': 'No fitment Excel file found in uploads'}), 400
+    
+    try:
+        wb = openpyxl.load_workbook(fitment_file)
+        entries_added = 0
+        
+        for sheet_name in wb.sheetnames:
+            ws = wb[sheet_name]
+            current_make = current_type = current_model = None
+            has_model_code = ws.max_column >= 8
+            
+            for row in ws.iter_rows(min_row=4, max_row=ws.max_row, values_only=True):
+                if has_model_code:
+                    make, typ, model, submodel, model_code, years, front, rear = (list(row) + [None]*8)[:8]
+                else:
+                    make, typ, model, submodel, years, front, rear = (list(row) + [None]*7)[:7]
+                    model_code = None
+                
+                if make and str(make).strip():
+                    current_make = str(make).strip()
+                if typ and str(typ).strip():
+                    current_type = str(typ).strip()
+                if model and str(model).strip():
+                    current_model = str(model).strip()
+                
+                if not years or not front:
+                    continue
+                
+                years = str(years).strip()
+                front = str(front).strip() if front else ''
+                rear = str(rear).strip() if rear else ''
+                sub = str(submodel).strip() if submodel else ''
+                code = str(model_code).strip() if model_code else ''
+                
+                full_model = f"{current_make} {current_model}"
+                if sub:
+                    full_model += f" {sub}"
+                
+                question = f"What WildAss seat pad fits a {years} {full_model}?"
+                
+                answer_parts = [f"For the {years} {full_model}"]
+                if code:
+                    answer_parts[0] += f" ({code})"
+                answer_parts[0] += ":"
+                
+                if front and rear:
+                    answer_parts.append(f"Front seat: {front}")
+                    answer_parts.append(f"Rear seat: {rear}")
+                elif front:
+                    answer_parts.append(f"Recommended: {front}")
+                
+                answer_parts.append(f"Category: {current_type}")
+                answer_parts.append("All fitment applies to stock OEM seats only. Aftermarket or modified seats may require different sizing.")
+                
+                entry = DBChatbotKnowledge(
+                    client_id=client_id,
+                    entry_type='qa',
+                    question=question,
+                    answer="\n".join(answer_parts),
+                    category=f'Fitment - {current_make}',
+                    priority=1
+                )
+                db.session.add(entry)
+                entries_added += 1
+        
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': f'{entries_added} fitment entries imported into chatbot knowledge base',
+            'entries_added': entries_added,
+            'sheets_processed': len(wb.sheetnames)
+        }), 201
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': f'Import failed: {str(e)}'}), 500
+
+
+@chatbot_bp.route('/knowledge/<client_id>/import-xlsx', methods=['POST'])
+@token_required
+def import_xlsx_knowledge(current_user, client_id):
+    """Import knowledge from an uploaded Excel file.
+    Supports:
+    - Motorcycle fitment format (Make/Type/Model/Years/Front/Rear)
+    - Standard Q&A format (Question/Answer/Category columns)
+    """
+    if not current_user.has_access_to_client(client_id):
+        return jsonify({'error': 'Access denied'}), 403
+    
+    if 'file' not in request.files:
+        return jsonify({'error': 'No file uploaded'}), 400
+    
+    file = request.files['file']
+    if not file.filename.endswith(('.xlsx', '.xls')):
+        return jsonify({'error': 'Only .xlsx/.xls files are supported'}), 400
+    
+    import openpyxl
+    import tempfile
+    import os
+    
+    try:
+        # Save uploaded file temporarily
+        tmp = tempfile.NamedTemporaryFile(delete=False, suffix='.xlsx')
+        file.save(tmp.name)
+        tmp.close()
+        
+        wb = openpyxl.load_workbook(tmp.name)
+        entries_added = 0
+        
+        for sheet_name in wb.sheetnames:
+            ws = wb[sheet_name]
+            if ws.max_row < 3:
+                continue
+            
+            # Detect format from headers
+            headers = []
+            for row in ws.iter_rows(min_row=1, max_row=3, values_only=True):
+                cells = [str(c).lower().strip() if c else '' for c in row]
+                if any(h in cells for h in ['make', 'model', 'question', 'answer']):
+                    headers = cells
+                    break
+            
+            is_fitment = 'make' in headers and 'model' in headers
+            is_qa = 'question' in headers or 'answer' in headers
+            
+            if is_fitment:
+                entries_added += _import_fitment_sheet(ws, client_id)
+            elif is_qa:
+                entries_added += _import_qa_sheet(ws, client_id, headers)
+            else:
+                # Try fitment format (hierarchical with Make in first column)
+                first_col_vals = [str(r[0]).strip() if r[0] else '' for r in ws.iter_rows(min_row=4, max_row=min(10, ws.max_row), values_only=True)]
+                if any(v for v in first_col_vals):
+                    entries_added += _import_fitment_sheet(ws, client_id)
+        
+        db.session.commit()
+        
+        # Cleanup temp file
+        os.unlink(tmp.name)
+        
+        return jsonify({
+            'success': True,
+            'entries_added': entries_added,
+            'message': f'{entries_added} knowledge entries imported'
+        }), 201
+        
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"XLSX import error: {e}")
+        import traceback
+        logger.error(traceback.format_exc())
+        return jsonify({'error': f'Import failed: {str(e)}'}), 500
+
+
+def _import_fitment_sheet(ws, client_id):
+    """Parse a fitment-format sheet and add knowledge entries"""
+    current_make = current_type = current_model = None
+    has_model_code = ws.max_column >= 8
+    count = 0
+    
+    for row in ws.iter_rows(min_row=4, max_row=ws.max_row, values_only=True):
+        if has_model_code:
+            make, typ, model, submodel, model_code, years, front, rear = (list(row) + [None]*8)[:8]
+        else:
+            make, typ, model, submodel, years, front, rear = (list(row) + [None]*7)[:7]
+            model_code = None
+        
+        if make and str(make).strip():
+            current_make = str(make).strip()
+        if typ and str(typ).strip():
+            current_type = str(typ).strip()
+        if model and str(model).strip():
+            current_model = str(model).strip()
+        
+        if not years or not front:
+            continue
+        
+        years = str(years).strip()
+        front = str(front).strip() if front else ''
+        rear = str(rear).strip() if rear else ''
+        sub = str(submodel).strip() if submodel else ''
+        code = str(model_code).strip() if model_code else ''
+        
+        full_model = f"{current_make} {current_model}"
+        if sub:
+            full_model += f" {sub}"
+        
+        question = f"What WildAss seat pad fits a {years} {full_model}?"
+        
+        answer_parts = [f"For the {years} {full_model}"]
+        if code:
+            answer_parts[0] += f" ({code})"
+        answer_parts[0] += ":"
+        
+        if front and rear:
+            answer_parts.append(f"Front seat: {front}")
+            answer_parts.append(f"Rear seat: {rear}")
+        elif front:
+            answer_parts.append(f"Recommended: {front}")
+        
+        answer_parts.append(f"Category: {current_type}")
+        answer_parts.append("All fitment applies to stock OEM seats only. Aftermarket or modified seats may require different sizing.")
+        
+        entry = DBChatbotKnowledge(
+            client_id=client_id,
+            entry_type='qa',
+            question=question,
+            answer="\n".join(answer_parts),
+            category=f'Fitment - {current_make}',
+            priority=1
+        )
+        db.session.add(entry)
+        count += 1
+    
+    return count
+
+
+def _import_qa_sheet(ws, client_id, headers):
+    """Parse a standard Q&A format sheet"""
+    q_col = headers.index('question') if 'question' in headers else 0
+    a_col = headers.index('answer') if 'answer' in headers else 1
+    cat_col = headers.index('category') if 'category' in headers else None
+    count = 0
+    
+    # Find header row
+    header_row = 1
+    for i, row in enumerate(ws.iter_rows(min_row=1, max_row=3, values_only=True), 1):
+        cells = [str(c).lower().strip() if c else '' for c in row]
+        if 'question' in cells or 'answer' in cells:
+            header_row = i
+            break
+    
+    for row in ws.iter_rows(min_row=header_row + 1, max_row=ws.max_row, values_only=True):
+        cells = list(row)
+        question = str(cells[q_col]).strip() if q_col < len(cells) and cells[q_col] else ''
+        answer = str(cells[a_col]).strip() if a_col < len(cells) and cells[a_col] else ''
+        category = str(cells[cat_col]).strip() if cat_col and cat_col < len(cells) and cells[cat_col] else 'Imported'
+        
+        if not answer:
+            continue
+        
+        entry = DBChatbotKnowledge(
+            client_id=client_id,
+            entry_type='qa',
+            question=question or None,
+            answer=answer,
+            category=category,
+            priority=0
+        )
+        db.session.add(entry)
+        count += 1
+    
+    return count
+
+
 # ==========================================
 # Public Widget Endpoints (No Auth)
 # ==========================================
