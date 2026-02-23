@@ -228,6 +228,53 @@ class InteractionIntelligenceService:
         'confirm your',
         'is that correct',
         'did i get that right',
+        
+        # Casual/conversational questions (not service-related)
+        'who is this',
+        'who are you',
+        'who am i talking',
+        'who am i speaking',
+        'who\'s this',
+        'is there someone you could recommend',
+        'could you recommend',
+        'can you recommend someone',
+        'you could recommend',
+        'they got somebody',
+        'is there one or two',
+        'part of the fam',
+        'does that for them',
+        'is this the right number',
+        'did i call the right',
+        'am i calling the right',
+        'are you still open',
+        'are you guys open',
+        'what are your hours',
+        'when do you open',
+        'when do you close',
+        'are you open on',
+        'do you accept',
+        'do you take',
+        'where are you guys',
+        'how far are you',
+        'are you still in business',
+        'is this still',
+        'do you still do',
+        'do you guys still',
+        'what area do you serve',
+        'are you busy',
+        'how\'s it going',
+        'what\'s going on',
+        'how have you been',
+        'you know what i mean',
+        'know what i\'m saying',
+        'you there',
+        'can you hear',
+        'i\'m sorry',
+        'sorry to bother',
+        'i apologize',
+        'no worries',
+        'right right',
+        'exactly exactly',
     ]
     
     # Pain point indicators
@@ -1065,6 +1112,48 @@ class InteractionIntelligenceService:
                 # REMOVED: strict keyword relevance check
                 # Now we accept all questions that pass the above filters
                 # The industry-specific filtering happens at display time
+                
+                # SERVICE-RELEVANCE CHECK: Only keep questions that relate to the business
+                # Must contain at least one service/business keyword OR be a clear service inquiry
+                question_lower = question.lower()
+                
+                # Service inquiry patterns (questions about pricing, scheduling, process, etc.)
+                service_inquiry_patterns = [
+                    r'\b(how much|what.{0,5}cost|price|pricing|fee|charge|rate|estimate|quote)\b',
+                    r'\b(how long|when can|how soon|how fast|time.{0,5}take|turnaround)\b',
+                    r'\b(do you (do|offer|provide|handle|service|fix|repair|install|replace))\b',
+                    r'\b(can you (do|fix|repair|install|replace|come|help|check|look))\b',
+                    r'\b(need.{0,10}(repair|replace|install|fix|service|inspect|clean|maintain))\b',
+                    r'\b(warranty|guarantee|covered|insurance)\b',
+                    r'\b(what.{0,5}(process|procedure|steps|involved|required|needed|happen))\b',
+                    r'\b(is there.{0,10}(way|option|chance|possibility))\b',
+                    r'\b(should i|do i need|will i need|would i need)\b',
+                    r'\b(difference between|which.{0,5}(better|best|recommend))\b',
+                    r'\b(problem|issue|broken|not working|stopped|won\'t|doesn\'t)\b',
+                    r'\b(brand|model|type|kind|size|unit|system|equipment)\b',
+                    r'\b(new|old|replacement|upgrade|install)\b',
+                    r'\b(disconnect|swap|remove|add|put in)\b',
+                    r'\b(package|unit|high voltage|low voltage|wire|wiring)\b',
+                ]
+                
+                has_service_relevance = False
+                
+                # Check against service inquiry patterns
+                for pattern in service_inquiry_patterns:
+                    if re.search(pattern, question_lower):
+                        has_service_relevance = True
+                        break
+                
+                # Check against industry/universal keywords
+                if not has_service_relevance:
+                    for keyword in relevance_keywords:
+                        if keyword.lower() in question_lower:
+                            has_service_relevance = True
+                            break
+                
+                if not has_service_relevance:
+                    logger.debug(f"Skipping non-service question: {question[:60]}...")
+                    continue
                     
                 if not question.endswith('?'):
                     question += '?'
@@ -1082,11 +1171,28 @@ class InteractionIntelligenceService:
         pain_points = []
         text_lower = text.lower()
         
-        # Phrases that indicate non-relevant content (legal issues, personal drama)
+        # Phrases that indicate non-relevant content (legal issues, personal drama, conversational)
         irrelevant_phrases = [
             'court date', 'judge', 'custody', 'divorce', 'hearing',
             'police', 'arrested', 'jail', 'probation',
             'notified about that', 'absent from',
+            # Conversational/filler phrases — not real pain points
+            'hopefully it doesn\'t bug you',
+            'hope that\'s okay',
+            'sorry to bother',
+            'i apologize for',
+            'don\'t want to be a bother',
+            'hope you don\'t mind',
+            'if that\'s alright',
+            'and then there was a call for',
+            'and then we\'ll',
+            'i appreciate',
+            'thank you so much',
+            'thanks so much',
+            'have a good',
+            'have a great',
+            'god bless',
+            'take care',
         ]
         
         # Split into sentences
@@ -1119,8 +1225,20 @@ class InteractionIntelligenceService:
                     pain_point = re.sub(r'^(caller|agent|customer):\s*', '', sentence, flags=re.IGNORECASE)
                     pain_point = pain_point.strip()
                     
+                    # Skip pain points that are too vague or just conversational filler
+                    pp_lower = pain_point.lower()
+                    is_filler = (
+                        pp_lower.startswith('and then') or
+                        pp_lower.startswith('and hopefully') or
+                        pp_lower.startswith('and so') or
+                        pp_lower.startswith('but ') and len(pain_point) < 40 or
+                        pp_lower.startswith('so ') and len(pain_point) < 40
+                    )
+                    if is_filler:
+                        break
+                    
                     # Only add if it's meaningful
-                    if len(pain_point) >= 20 and len(pain_point) <= 250:
+                    if len(pain_point) >= 25 and len(pain_point) <= 250:
                         pain_points.append(pain_point)
                     break
         
