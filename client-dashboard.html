@@ -2423,6 +2423,19 @@
                                         class="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-sm mb-2 focus:outline-none focus:border-orange-500">
                                     <div class="text-xs text-gray-500 mb-1" id="wufooFormCount"></div>
                                     <div id="wufooFormsList" class="space-y-1 max-h-64 overflow-y-auto"></div>
+                                    
+                                    <!-- Manual form hash entry for 100+ forms -->
+                                    <div class="mt-3 p-2 bg-amber-500/5 border border-amber-500/20 rounded-lg">
+                                        <p class="text-xs text-amber-400 mb-1"><i class="fas fa-info-circle mr-1"></i>Wufoo API only returns 100 forms. Add additional form hashes manually:</p>
+                                        <div class="flex gap-2">
+                                            <input type="text" id="wufooManualHash" placeholder="Paste form hash (e.g. z1abc2de3)"
+                                                class="flex-1 px-2 py-1 bg-white/5 border border-white/10 rounded text-white text-xs focus:outline-none focus:border-orange-500">
+                                            <button onclick="addManualWufooHash()" class="px-3 py-1 bg-orange-600 hover:bg-orange-700 text-white text-xs rounded transition">
+                                                <i class="fas fa-plus mr-1"></i>Add
+                                            </button>
+                                        </div>
+                                        <p class="text-xs text-gray-600 mt-1">Find hashes in Wufoo: Form → More → API Information</p>
+                                    </div>
                                 </div>
                                 <p class="text-xs text-gray-500 mt-2">One account → pick which forms belong to this client</p>
                             </div>
@@ -7668,6 +7681,23 @@
                     if (!integrations.wufoo) integrations.wufoo = {};
                     integrations.wufoo.form_hashes = serverHashes;
                     currentClient.integrations = integrations;
+                    
+                    // Add any saved hashes that aren't in the API results (forms beyond 100 limit)
+                    const apiHashes = new Set(wufooAllForms.map(f => f.hash));
+                    for (const hash of serverHashes) {
+                        if (!apiHashes.has(hash)) {
+                            wufooAllForms.push({
+                                hash: hash,
+                                name: `Form: ${hash}`,
+                                description: 'Beyond API 100-form limit',
+                                entry_count: '?',
+                                url: '',
+                                created: '',
+                                updated: '',
+                                manual: true
+                            });
+                        }
+                    }
 
                     // Update status
                     const statusEl = document.getElementById('wufooStatusTop');
@@ -7729,7 +7759,7 @@
                     <input type="checkbox" class="wufoo-form-checkbox accent-orange-500" value="${form.hash}" 
                         ${selectedHashes.includes(form.hash) ? 'checked' : ''}>
                     <div class="flex-1 min-w-0">
-                        <span class="text-sm text-white block truncate">${form.name}</span>
+                        <span class="text-sm text-white block truncate">${form.name}${form.manual ? ' <span class="text-amber-400 text-xs">(manual)</span>' : ''}</span>
                         <span class="text-xs text-gray-500 block truncate">${form.hash}${form.created ? ' • ' + form.created.split(' ')[0] : ''}</span>
                     </div>
                     <span class="text-xs ${form.entry_count > 0 ? 'text-green-400' : 'text-gray-600'} flex-shrink-0">${form.entry_count} entries</span>
@@ -7739,6 +7769,46 @@
 
         function filterWufooForms() {
             renderWufooFormPicker();
+        }
+
+        function addManualWufooHash() {
+            const input = document.getElementById('wufooManualHash');
+            const hash = (input?.value || '').trim();
+            if (!hash) {
+                showToast('Please enter a form hash', 'warning');
+                return;
+            }
+            
+            // Check if already in the list
+            const existing = wufooAllForms.find(f => f.hash === hash);
+            if (existing) {
+                showToast(`Form "${existing.name || hash}" is already in the list`, 'info');
+                input.value = '';
+                return;
+            }
+            
+            // Add to the forms list as a manually-added form
+            wufooAllForms.push({
+                hash: hash,
+                name: `Manual: ${hash}`,
+                description: 'Manually added form hash',
+                entry_count: '?',
+                url: '',
+                created: '',
+                updated: '',
+                manual: true
+            });
+            
+            input.value = '';
+            renderWufooFormPicker();
+            
+            // Auto-check the new form
+            setTimeout(() => {
+                const cb = document.querySelector(`.wufoo-form-checkbox[value="${hash}"]`);
+                if (cb) cb.checked = true;
+            }, 100);
+            
+            showToast(`Form hash ${hash} added — don't forget to click Save`, 'success');
         }
 
         function getWufooSelectedHashes() {
