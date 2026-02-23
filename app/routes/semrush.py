@@ -14,9 +14,8 @@ semrush_service = SEMRushService()
 
 
 @semrush_bp.route('/check-units', methods=['GET'])
-@token_required
-def check_units(current_user):
-    """Check SEMrush API units balance directly"""
+def check_units():
+    """Check SEMrush API units balance directly - no auth needed for diagnostics"""
     api_key = os.environ.get('SEMRUSH_API_KEY', '')
     
     if not api_key:
