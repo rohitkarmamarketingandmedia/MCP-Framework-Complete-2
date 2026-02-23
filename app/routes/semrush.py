@@ -13,6 +13,57 @@ semrush_bp = Blueprint('semrush', __name__)
 semrush_service = SEMRushService()
 
 
+@semrush_bp.route('/check-units', methods=['GET'])
+@token_required
+def check_units(current_user):
+    """Check SEMrush API units balance directly"""
+    api_key = os.environ.get('SEMRUSH_API_KEY', '')
+    
+    if not api_key:
+        return jsonify({'error': 'SEMRUSH_API_KEY not set'})
+    
+    results = {
+        'key_prefix': api_key[:8] + '...',
+        'key_length': len(api_key),
+    }
+    
+    # Try the direct API units check
+    try:
+        resp = requests.get(
+            'https://www.semrush.com/users/countapiunits.html',
+            params={'key': api_key},
+            timeout=10
+        )
+        results['units_check'] = {
+            'status_code': resp.status_code,
+            'response': resp.text.strip()[:200]
+        }
+    except Exception as e:
+        results['units_check'] = {'error': str(e)}
+    
+    # Try a minimal API call to test
+    try:
+        resp = requests.get(
+            'https://api.semrush.com/',
+            params={
+                'type': 'domain_rank',
+                'key': api_key,
+                'domain': 'google.com',
+                'database': 'us',
+                'export_columns': 'Dn,Rk'
+            },
+            timeout=10
+        )
+        results['test_call'] = {
+            'status_code': resp.status_code,
+            'response': resp.text.strip()[:300]
+        }
+    except Exception as e:
+        results['test_call'] = {'error': str(e)}
+    
+    return jsonify(results)
+
+
 @semrush_bp.route('/status', methods=['GET'])
 @token_required
 def get_status(current_user):
