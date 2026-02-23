@@ -155,42 +155,67 @@ class WufooService:
         page_start: int = 0
     ) -> List[Dict]:
         """
-        Get form entries (submissions)
+        Get ALL form entries (submissions) with automatic pagination.
+        Wufoo caps at 100 entries per request, so we loop until we get them all.
         
         Args:
             since: ISO date string to filter entries after this date
             page_size: Number of entries per page (max 100)
             page_start: Starting index for pagination
         """
-        try:
-            url = f"{self._get_base_url(subdomain)}/forms/{form_hash}/entries.json"
-            params = {
-                'pageSize': min(page_size, 100),
-                'pageStart': page_start,
-                'sort': 'EntryId',
-                'sortDirection': 'DESC'
-            }
-            
-            if since:
-                # Wufoo date filter format
-                params['Filter1'] = f'DateCreated Is_after {since}'
-            
-            resp = requests.get(
-                url, 
-                headers=self._get_auth_header(api_key), 
-                params=params,
-                timeout=self.timeout
-            )
-            
-            if resp.status_code == 200:
-                data = resp.json()
-                return data.get('Entries', [])
-            else:
-                logger.error(f"Wufoo entries error {resp.status_code}: {resp.text[:200]}")
-                return []
-        except Exception as e:
-            logger.error(f"Wufoo get_entries error: {e}")
-            return []
+        all_entries = []
+        current_start = page_start
+        
+        while True:
+            try:
+                url = f"{self._get_base_url(subdomain)}/forms/{form_hash}/entries.json"
+                params = {
+                    'pageSize': min(page_size, 100),
+                    'pageStart': current_start,
+                    'sort': 'EntryId',
+                    'sortDirection': 'DESC'
+                }
+                
+                if since:
+                    # Wufoo date filter format
+                    params['Filter1'] = f'DateCreated Is_after {since}'
+                
+                resp = requests.get(
+                    url, 
+                    headers=self._get_auth_header(api_key), 
+                    params=params,
+                    timeout=self.timeout
+                )
+                
+                if resp.status_code == 200:
+                    data = resp.json()
+                    entries = data.get('Entries', [])
+                    
+                    if not entries:
+                        break
+                    
+                    all_entries.extend(entries)
+                    logger.info(f"Wufoo: fetched {len(entries)} entries (page_start={current_start}, total so far={len(all_entries)})")
+                    
+                    # If we got fewer than page_size, we've reached the end
+                    if len(entries) < page_size:
+                        break
+                    
+                    current_start += len(entries)
+                    
+                    # Safety limit: max 5000 entries per form
+                    if len(all_entries) >= 5000:
+                        logger.warning(f"Wufoo: hit 5000 entry safety limit for form {form_hash}")
+                        break
+                else:
+                    logger.error(f"Wufoo entries error {resp.status_code}: {resp.text[:200]}")
+                    break
+            except Exception as e:
+                logger.error(f"Wufoo get_entries error: {e}")
+                break
+        
+        logger.info(f"Wufoo: total entries fetched for form {form_hash}: {len(all_entries)}")
+        return all_entries
     
     def parse_entry_to_lead(self, entry: Dict, fields: List[Dict], form_name: str = '') -> Dict:
         """
