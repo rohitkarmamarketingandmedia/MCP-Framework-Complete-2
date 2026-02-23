@@ -44,33 +44,25 @@ class WufooService:
         return self.base_url_template.format(subdomain=subdomain)
     
     def get_forms(self, subdomain: str, api_key: str) -> List[Dict]:
-        """Get all forms for the account including sub-user forms"""
+        """Get all forms for the account including sub-user forms.
+        
+        Wufoo's /forms.json endpoint caps at 100 forms per API key.
+        To get ALL forms (100+), we must also query each sub-user's forms.
+        """
         all_forms = []
         seen_hashes = set()
         
-        # Method 1: Try fetching with large pageSize (Wufoo may cap at 100)
-        for page_start in range(0, 2000, 100):
-            try:
-                url = f"{self._get_base_url(subdomain)}/forms.json"
-                params = {'pageSize': 100, 'pageStart': page_start}
-                logger.info(f"Wufoo: fetching forms (start={page_start})...")
-                
-                resp = requests.get(url, headers=self._get_auth_header(api_key), params=params, timeout=30)
-                
-                if resp.status_code != 200:
-                    logger.error(f"Wufoo forms error: {resp.status_code}")
-                    break
-                
+        # Method 1: Fetch main account forms (capped at 100 by Wufoo)
+        try:
+            url = f"{self._get_base_url(subdomain)}/forms.json"
+            resp = requests.get(url, headers=self._get_auth_header(api_key), timeout=30)
+            
+            if resp.status_code == 200:
                 forms = resp.json().get('Forms', [])
-                if not forms:
-                    break
-                
-                new_count = 0
                 for f in forms:
                     fh = f.get('Hash', '')
                     if fh and fh not in seen_hashes:
                         seen_hashes.add(fh)
-                        new_count += 1
                         all_forms.append({
                             'hash': fh,
                             'name': f.get('Name', ''),
@@ -80,53 +72,67 @@ class WufooService:
                             'created': f.get('DateCreated', ''),
                             'updated': f.get('DateUpdated', '')
                         })
-                
-                logger.info(f"Wufoo: got {len(forms)} forms, {new_count} new (total unique: {len(all_forms)})")
-                
-                # If got fewer than 100 or all were duplicates, we're done
-                if len(forms) < 100 or new_count == 0:
-                    break
-                    
-            except Exception as e:
-                logger.error(f"Wufoo get_forms error: {e}")
-                break
+                logger.info(f"Wufoo: main account returned {len(forms)} forms, {len(all_forms)} unique")
+            else:
+                logger.error(f"Wufoo forms error: {resp.status_code}")
+        except Exception as e:
+            logger.error(f"Wufoo get_forms error: {e}")
         
-        # Method 2: If we only got ~100, try fetching via sub-users
-        if len(all_forms) <= 100:
-            logger.info("Wufoo: only got <=100 forms, trying sub-user forms...")
-            try:
-                users_url = f"{self._get_base_url(subdomain)}/users.json"
-                resp = requests.get(users_url, headers=self._get_auth_header(api_key), timeout=15)
-                if resp.status_code == 200:
-                    users = resp.json().get('Users', [])
-                    logger.info(f"Wufoo: found {len(users)} users, checking their forms...")
-                    
-                    for user in users:
-                        user_hash = user.get('Hash', '')
-                        if not user_hash:
-                            continue
-                        try:
-                            user_forms_url = f"{self._get_base_url(subdomain)}/users/{user_hash}/forms.json"
-                            uf_resp = requests.get(user_forms_url, headers=self._get_auth_header(api_key), timeout=15)
-                            if uf_resp.status_code == 200:
-                                user_forms = uf_resp.json().get('Forms', [])
-                                for f in user_forms:
-                                    fh = f.get('Hash', '')
-                                    if fh and fh not in seen_hashes:
-                                        seen_hashes.add(fh)
-                                        all_forms.append({
-                                            'hash': fh,
-                                            'name': f.get('Name', ''),
-                                            'description': f.get('Description', ''),
-                                            'entry_count': int(f.get('EntryCount', 0) or 0),
-                                            'url': f.get('Url', ''),
-                                            'created': f.get('DateCreated', ''),
-                                            'updated': f.get('DateUpdated', '')
-                                        })
-                        except Exception as ue:
-                            logger.warning(f"Wufoo: error getting forms for user {user_hash}: {ue}")
-            except Exception as e:
-                logger.warning(f"Wufoo: could not fetch sub-user forms: {e}")
+        # Method 2: ALWAYS try sub-user forms (not just when <=100)
+        # Each sub-user may have access to different forms
+        try:
+            users_url = f"{self._get_base_url(subdomain)}/users.json"
+            resp = requests.get(users_url, headers=self._get_auth_header(api_key), timeout=15)
+            if resp.status_code == 200:
+                users = resp.json().get('Users', [])
+                logger.info(f"Wufoo: found {len(users)} users, checking their forms...")
+                
+                for user in users:
+                    user_hash = user.get('Hash', '')
+                    if not user_hash:
+                        continue
+                    try:
+                        user_forms_url = f"{self._get_base_url(subdomain)}/users/{user_hash}/forms.json"
+                        uf_resp = requests.get(user_forms_url, headers=self._get_auth_header(api_key), timeout=15)
+                        if uf_resp.status_code == 200:
+                            user_forms = uf_resp.json().get('Forms', [])
+                            new_from_user = 0
+                            for f in user_forms:
+                                fh = f.get('Hash', '')
+                                if fh and fh not in seen_hashes:
+                                    seen_hashes.add(fh)
+                                    new_from_user += 1
+                                    all_forms.append({
+                                        'hash': fh,
+                                        'name': f.get('Name', ''),
+                                        'description': f.get('Description', ''),
+                                        'entry_count': int(f.get('EntryCount', 0) or 0),
+                                        'url': f.get('Url', ''),
+                                        'created': f.get('DateCreated', ''),
+                                        'updated': f.get('DateUpdated', '')
+                                    })
+                            if new_from_user > 0:
+                                logger.info(f"Wufoo: user {user.get('User', user_hash)} added {new_from_user} new forms")
+                    except Exception as ue:
+                        logger.warning(f"Wufoo: error getting forms for user {user_hash}: {ue}")
+        except Exception as e:
+            logger.warning(f"Wufoo: could not fetch sub-user forms: {e}")
+        
+        # Method 3: Try reports endpoint - reports may reference forms not in the main list
+        try:
+            reports_url = f"{self._get_base_url(subdomain)}/reports.json"
+            resp = requests.get(reports_url, headers=self._get_auth_header(api_key), timeout=15)
+            if resp.status_code == 200:
+                reports = resp.json().get('Reports', [])
+                for r in reports:
+                    # Reports have a 'LinkForms' field that may reference form hashes
+                    link = r.get('LinkEntries', '') or r.get('Url', '')
+                    # Try to extract form hash from report links if available
+                    rh = r.get('Hash', '')
+                    if rh:
+                        logger.debug(f"Wufoo: report found: {r.get('Name', '')} (hash: {rh})")
+        except Exception as e:
+            logger.debug(f"Wufoo: reports check failed: {e}")
         
         logger.info(f"Wufoo: total unique forms: {len(all_forms)}")
         return all_forms
