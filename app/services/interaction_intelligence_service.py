@@ -111,6 +111,15 @@ class InteractionIntelligenceService:
         'who am i speaking',
         'spell your',
         'how do you spell',
+        'first and last name',
+        'your first name',
+        'your last name',
+        'last name please',
+        'first name please',
+        'and your name',
+        'name on the account',
+        'name for the',
+        'what name',
         
         # Phone number collection
         'what is your phone',
@@ -1231,10 +1240,30 @@ class InteractionIntelligenceService:
                         pp_lower.startswith('and then') or
                         pp_lower.startswith('and hopefully') or
                         pp_lower.startswith('and so') or
-                        pp_lower.startswith('but ') and len(pain_point) < 40 or
-                        pp_lower.startswith('so ') and len(pain_point) < 40
+                        pp_lower.startswith('i\'m not sure if') or
+                        pp_lower.startswith('i don\'t know if') or
+                        pp_lower.startswith('i don\'t think') or
+                        pp_lower.startswith('i\'m not sure who') or
+                        pp_lower.startswith('i was wondering') or
+                        (pp_lower.startswith('but ') and len(pain_point) < 40) or
+                        (pp_lower.startswith('so ') and len(pain_point) < 40)
                     )
                     if is_filler:
+                        break
+                    
+                    # Pain point must reference something tangible — skip vague conversational mentions
+                    # Must contain a service/problem keyword, not just "not sure" or "confused"
+                    has_substance = bool(re.search(
+                        r'\b(broke|broken|leak|not working|stopped|won\'t|doesn\'t|damaged|failing|failed|'
+                        r'noise|smell|expensive|wait|delay|hot|cold|froze|frozen|flood|'
+                        r'install|repair|replace|service|unit|system|house|home|office|building|'
+                        r'pipe|wire|light|heat|cool|air|water|electric|gas|drain|roof|floor|wall|'
+                        r'tooth|teeth|pain|hurt|ache|bleed|crack|chip|cavity|crown|'
+                        r'mold|rust|rot|stain|crack|dent|scratch)\b',
+                        pp_lower
+                    ))
+                    
+                    if not has_substance:
                         break
                     
                     # Only add if it's meaningful
@@ -1557,6 +1586,18 @@ class InteractionIntelligenceService:
             for match in matches:
                 if match and len(match) > 3:
                     services.append(match.strip().title())
+        
+        # Filter out garbage/non-service words
+        BLACKLISTED_SERVICES = {
+            'stuff', 'thing', 'things', 'something', 'anything', 'everything',
+            'it', 'that', 'this', 'them', 'there', 'here', 'what', 'which',
+            'some', 'other', 'more', 'less', 'much', 'many', 'any', 'all',
+            'like', 'just', 'also', 'really', 'actually', 'basically',
+            'okay', 'alright', 'sure', 'yeah', 'yes', 'no', 'not',
+            'good', 'bad', 'nice', 'fine', 'great', 'well',
+            'about', 'around', 'back', 'over', 'done', 'going',
+        }
+        services = [s for s in services if s.lower().strip() not in BLACKLISTED_SERVICES]
         
         return services
     
