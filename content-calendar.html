@@ -387,7 +387,8 @@
         // DATA LOADING
         // ==========================================
         async function loadAllData() {
-            await Promise.all([loadCalendar(), loadSummary()]);
+            await Promise.all([loadCalendar(), loadSummary(), loadClients()]);
+            populateClientFilter();
             renderCurrentView();
         }
 
@@ -405,7 +406,6 @@
                     calendarData = await res.json();
                     allItems = calendarData.items || [];
                     updateStats();
-                    populateClientFilter();
                 }
             } catch (e) { console.error('Calendar load error:', e); }
         }
@@ -421,6 +421,19 @@
             } catch (e) { console.error('Summary load error:', e); }
         }
 
+        let allClients = [];
+        async function loadClients() {
+            try {
+                const res = await fetch(`${API_URL}/api/clients`, {
+                    headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    allClients = data.clients || data || [];
+                }
+            } catch (e) { console.error('Clients load error:', e); }
+        }
+
         function updateStats() {
             if (!calendarData) return;
             const sc = calendarData.status_counts || {};
@@ -434,23 +447,50 @@
 
         function populateClientFilter() {
             const sel = document.getElementById('clientFilter');
-            const existing = new Set(Array.from(sel.options).map(o => o.value));
-            const clients = new Map();
-            allItems.forEach(i => { if (i.client_id && i.client_name) clients.set(i.client_id, i.client_name); });
+            const currentVal = sel.value;
             
-            // Also from summary
-            if (summaryData?.per_client) {
-                summaryData.per_client.forEach(c => clients.set(c.client_id, c.client_name));
+            // Build complete client list from all sources
+            const clients = new Map();
+            
+            // Primary: direct clients API
+            if (allClients.length) {
+                allClients.forEach(c => {
+                    const id = c.id || c.client_id;
+                    const name = c.business_name || c.name || c.client_name || id;
+                    if (id) clients.set(id, name);
+                });
             }
-
-            clients.forEach((name, id) => {
-                if (!existing.has(id)) {
-                    const opt = document.createElement('option');
-                    opt.value = id;
-                    opt.textContent = name;
-                    sel.appendChild(opt);
+            
+            // Supplement from summary data
+            if (summaryData?.per_client) {
+                summaryData.per_client.forEach(c => {
+                    if (!clients.has(c.client_id)) {
+                        clients.set(c.client_id, c.client_name);
+                    }
+                });
+            }
+            
+            // Supplement from calendar items
+            allItems.forEach(i => {
+                if (i.client_id && i.client_name && !clients.has(i.client_id)) {
+                    clients.set(i.client_id, i.client_name);
                 }
             });
+
+            // Sort by name
+            const sorted = Array.from(clients.entries()).sort((a, b) => a[1].localeCompare(b[1]));
+            
+            // Rebuild options (keep "All Clients" default)
+            sel.innerHTML = '<option value="">All Clients</option>';
+            sorted.forEach(([id, name]) => {
+                const opt = document.createElement('option');
+                opt.value = id;
+                opt.textContent = name;
+                sel.appendChild(opt);
+            });
+            
+            // Restore previous selection
+            if (currentVal) sel.value = currentVal;
         }
 
         // ==========================================
