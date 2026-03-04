@@ -598,16 +598,12 @@
                         <a href="/elite" data-nav-role="admin,manager" class="text-gray-400 hover:text-white transition flex items-center gap-2">
                             <i class="fas fa-chart-line"></i> SEO Elite
                         </a>
+                        <a href="/content-calendar" data-nav-role="admin,manager" class="text-gray-400 hover:text-white transition flex items-center gap-2">
+                            <i class="fas fa-calendar-alt"></i> Calendar
+                        </a>
                         <a href="/admin" data-nav-role="admin" class="text-gray-400 hover:text-white transition flex items-center gap-2">
                             <i class="fas fa-cog"></i> Admin
                         </a>
-                    </div>
-                    <div class="text-xs text-gray-500">
-                        <span class="text-purple-400">MCP</span> Framework
-                    </div>
-                </div>
-
-                <!-- Mobile nav dropdown -->
                 <div id="mobileNav" class="hidden md:hidden pb-4">
                     <div class="flex flex-col gap-2 text-sm">
                         <a href="/intake" data-nav-role="admin,manager"
@@ -623,6 +619,9 @@
                         </a>
                         <a href="/elite" data-nav-role="admin,manager" class="text-gray-400 hover:text-white transition flex items-center gap-2 py-2">
                             <i class="fas fa-chart-line w-5"></i> SEO Elite
+                        </a>
+                        <a href="/content-calendar" data-nav-role="admin,manager" class="text-gray-400 hover:text-white transition flex items-center gap-2 py-2">
+                            <i class="fas fa-calendar-alt w-5"></i> Calendar
                         </a>
                         <a href="/admin" data-nav-role="admin" class="text-gray-400 hover:text-white transition flex items-center gap-2 py-2">
                             <i class="fas fa-cog w-5"></i> Admin
@@ -1686,6 +1685,36 @@
 
             <!-- Calendar Panel -->
             <div id="panel-calendar" class="hidden fade-in">
+                <!-- Content Pipeline Stats -->
+                <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+                    <div class="glass rounded-xl p-4 cursor-pointer hover:ring-2 hover:ring-gray-400 transition" onclick="filterCalendarStatus('')">
+                        <div class="text-3xl font-bold text-white" id="calStatTotal">0</div>
+                        <div class="text-sm text-gray-400">Total Content</div>
+                    </div>
+                    <div class="glass rounded-xl p-4 cursor-pointer hover:ring-2 hover:ring-yellow-500 transition" onclick="filterCalendarStatus('draft')">
+                        <div class="text-3xl font-bold text-yellow-400" id="calStatDraft">0</div>
+                        <div class="text-sm text-gray-400">Drafts</div>
+                    </div>
+                    <div class="glass rounded-xl p-4 cursor-pointer hover:ring-2 hover:ring-orange-500 transition" onclick="filterCalendarStatus('review')">
+                        <div class="text-3xl font-bold text-orange-400" id="calStatReview">0</div>
+                        <div class="text-sm text-gray-400">In Review</div>
+                    </div>
+                    <div class="glass rounded-xl p-4 cursor-pointer hover:ring-2 hover:ring-blue-500 transition" onclick="filterCalendarStatus('approved')">
+                        <div class="text-3xl font-bold text-blue-400" id="calStatApproved">0</div>
+                        <div class="text-sm text-gray-400">Approved</div>
+                    </div>
+                    <div class="glass rounded-xl p-4 cursor-pointer hover:ring-2 hover:ring-green-500 transition" onclick="filterCalendarStatus('published')">
+                        <div class="text-3xl font-bold text-green-400" id="calStatPublished">0</div>
+                        <div class="text-sm text-gray-400">Published</div>
+                    </div>
+                </div>
+
+                <!-- Active filter label -->
+                <div id="calFilterLabel" class="hidden mb-4 px-4 py-2 bg-white/5 rounded-lg text-sm text-gray-300 flex items-center justify-between">
+                    <span id="calFilterText"></span>
+                    <button onclick="filterCalendarStatus('')" class="text-gray-400 hover:text-white ml-2">✕</button>
+                </div>
+
                 <div class="glass rounded-2xl p-6 mb-6">
                     <div class="flex items-center justify-between mb-6">
                         <div class="flex items-center gap-3">
@@ -1720,30 +1749,54 @@
                     </div>
 
                     <!-- Legend -->
-                    <div class="flex items-center gap-6 mt-6 pt-4 border-t border-white/10">
-                        <div class="flex items-center gap-2">
-                            <div class="w-3 h-3 rounded-full bg-green-500"></div>
-                            <span class="text-sm text-gray-400">Blog Post</span>
+                    <div class="flex flex-wrap items-center gap-4 mt-6 pt-4 border-t border-white/10">
+                        <span class="text-xs text-gray-500 font-medium mr-2">TYPE:</span>
+                        <div class="flex items-center gap-1">
+                            <i class="fas fa-file-alt text-green-400 text-xs"></i>
+                            <span class="text-xs text-gray-400">Blog</span>
                         </div>
-                        <div class="flex items-center gap-2">
-                            <div class="w-3 h-3 rounded-full bg-blue-500"></div>
-                            <span class="text-sm text-gray-400">GBP Post</span>
+                        <div class="flex items-center gap-1">
+                            <i class="fab fa-google text-blue-400 text-xs"></i>
+                            <span class="text-xs text-gray-400">GBP</span>
                         </div>
-                        <div class="flex items-center gap-2">
-                            <div class="w-3 h-3 rounded-full bg-indigo-500"></div>
-                            <span class="text-sm text-gray-400">Facebook</span>
+                        <div class="flex items-center gap-1">
+                            <i class="fab fa-facebook text-indigo-400 text-xs"></i>
+                            <span class="text-xs text-gray-400">Facebook</span>
                         </div>
-                        <div class="flex items-center gap-2">
-                            <div class="w-3 h-3 rounded-full bg-pink-500"></div>
-                            <span class="text-sm text-gray-400">Instagram</span>
+                        <div class="flex items-center gap-1">
+                            <i class="fab fa-instagram text-pink-400 text-xs"></i>
+                            <span class="text-xs text-gray-400">Instagram</span>
+                        </div>
+                        <span class="text-xs text-gray-500 font-medium ml-4 mr-2">STATUS:</span>
+                        <div class="flex items-center gap-1">
+                            <div class="w-2 h-2 rounded-full bg-yellow-500"></div>
+                            <span class="text-xs text-gray-400">Draft</span>
+                        </div>
+                        <div class="flex items-center gap-1">
+                            <div class="w-2 h-2 rounded-full bg-orange-500"></div>
+                            <span class="text-xs text-gray-400">Review</span>
+                        </div>
+                        <div class="flex items-center gap-1">
+                            <div class="w-2 h-2 rounded-full bg-blue-500"></div>
+                            <span class="text-xs text-gray-400">Approved</span>
+                        </div>
+                        <div class="flex items-center gap-1">
+                            <div class="w-2 h-2 rounded-full bg-green-500"></div>
+                            <span class="text-xs text-gray-400">Published</span>
                         </div>
                     </div>
                 </div>
 
-                <!-- Scheduled Content List -->
+                <!-- Content List (below calendar) -->
                 <div class="glass rounded-2xl p-6">
-                    <h3 class="text-lg font-semibold text-white mb-4"><i
-                            class="fas fa-list mr-2 text-purple-400"></i>Scheduled Content</h3>
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-lg font-semibold text-white"><i class="fas fa-list mr-2 text-purple-400"></i>Content Pipeline</h3>
+                        <select id="calListSort" onchange="renderScheduledList()" class="px-3 py-1 bg-white/10 border border-white/10 rounded-lg text-sm text-gray-300 focus:outline-none">
+                            <option value="date">Sort by Date</option>
+                            <option value="status">Sort by Status</option>
+                            <option value="type">Sort by Type</option>
+                        </select>
+                    </div>
                     <div id="scheduledList" class="space-y-3">
                         <p class="text-gray-500 text-sm">No content scheduled yet. Click "Auto-Schedule" to create a
                             posting schedule.</p>
@@ -5818,7 +5871,7 @@
 
             // Render calendar when calendar tab is shown
             if (tab === 'calendar') {
-                renderCalendar();
+                loadCalendarData();
             }
 
             // Update report stats when reports tab is shown
@@ -10622,9 +10675,56 @@
         // ==========================================
         let calendarDate = new Date();
         let scheduledContent = [];
+        let calendarApiData = null;
+        let calendarStatusFilter = '';
+
+        function filterCalendarStatus(status) {
+            calendarStatusFilter = status;
+            const label = document.getElementById('calFilterLabel');
+            const text = document.getElementById('calFilterText');
+            if (status) {
+                label.classList.remove('hidden');
+                const statusNames = { draft: 'Drafts', review: 'In Review', approved: 'Approved', published: 'Published' };
+                const statusColors = { draft: 'text-yellow-400', review: 'text-orange-400', approved: 'text-blue-400', published: 'text-green-400' };
+                text.innerHTML = `Showing: <span class="${statusColors[status] || 'text-white'} font-medium">${statusNames[status] || status}</span>`;
+            } else {
+                label.classList.add('hidden');
+            }
+            renderCalendar();
+        }
 
         function changeMonth(delta) {
             calendarDate.setMonth(calendarDate.getMonth() + delta);
+            loadCalendarData();
+        }
+
+        async function loadCalendarData() {
+            if (!currentClient) {
+                renderCalendar();
+                return;
+            }
+            try {
+                const year = calendarDate.getFullYear();
+                const month = calendarDate.getMonth() + 1;
+                const monthStr = `${year}-${String(month).padStart(2, '0')}`;
+                const statusParam = calendarStatusFilter ? `&status=${calendarStatusFilter}` : '';
+                const response = await fetch(`${API_URL}/api/content/calendar?client_id=${currentClient.id}&month=${monthStr}${statusParam}`, {
+                    headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
+                });
+                if (response.ok) {
+                    calendarApiData = await response.json();
+                    // Update pipeline stats (always show unfiltered counts)
+                    if (!calendarStatusFilter) {
+                        document.getElementById('calStatTotal').textContent = calendarApiData.total_items || 0;
+                        document.getElementById('calStatDraft').textContent = calendarApiData.status_counts?.draft || 0;
+                        document.getElementById('calStatReview').textContent = calendarApiData.status_counts?.review || 0;
+                        document.getElementById('calStatApproved').textContent = calendarApiData.status_counts?.approved || 0;
+                        document.getElementById('calStatPublished').textContent = calendarApiData.status_counts?.published || 0;
+                    }
+                }
+            } catch (e) {
+                console.error('Calendar data error:', e);
+            }
             renderCalendar();
         }
 
@@ -10672,154 +10772,164 @@
         }
 
         function getScheduledForDate(dateStr) {
-            const items = scheduledContent.filter(c => c.scheduled_date === dateStr);
+            // Use API data if available
+            let items = [];
+            if (calendarApiData?.by_date?.[dateStr]) {
+                items = calendarApiData.by_date[dateStr];
+            } else {
+                items = scheduledContent.filter(c => c.scheduled_date === dateStr);
+            }
+            
             if (items.length === 0) return '';
 
+            const statusColors = {
+                draft: 'bg-yellow-500/80',
+                review: 'bg-orange-500/80',
+                approved: 'bg-blue-500/80',
+                published: 'bg-green-500/80'
+            };
+            const typeIcons = {
+                blog: 'fas fa-file-alt',
+                social: 'fab fa-share-alt',
+                gbp: 'fab fa-google',
+                facebook: 'fab fa-facebook',
+                instagram: 'fab fa-instagram'
+            };
+
             return items.slice(0, 3).map(item => {
-                const colors = {
-                    blog: 'bg-green-500',
-                    gbp: 'bg-blue-500',
-                    facebook: 'bg-indigo-500',
-                    instagram: 'bg-pink-500'
-                };
-                return `<div class="w-full h-1.5 rounded ${colors[item.type] || 'bg-gray-500'}" title="${item.title || item.topic}"></div>`;
-            }).join('');
+                const color = statusColors[item.status] || 'bg-gray-500';
+                const icon = typeIcons[item.type || item.platform] || 'fas fa-file';
+                const title = item.title || item.topic || '';
+                const shortTitle = title.length > 25 ? title.substring(0, 25) + '…' : title;
+                return `<div class="flex items-center gap-1 ${color} rounded px-1 py-0.5" title="${title} (${item.status})">
+                    <i class="${icon} text-white" style="font-size:7px"></i>
+                    <span class="text-white truncate" style="font-size:8px">${shortTitle}</span>
+                </div>`;
+            }).join('') + (items.length > 3 ? `<div class="text-gray-400" style="font-size:8px">+${items.length - 3} more</div>` : '');
         }
 
         function renderScheduledList() {
             const container = document.getElementById('scheduledList');
+            const sortBy = document.getElementById('calListSort')?.value || 'date';
 
             // Combine blogs and social posts with REAL dates
             scheduledContent = [];
 
-            // Add blogs - use actual scheduled_for from database
-            allBlogs.forEach((blog) => {
-                let scheduledDate = null;
-                if (blog.scheduled_for) {
-                    scheduledDate = blog.scheduled_for.split('T')[0];
-                }
-                scheduledContent.push({
-                    id: blog.id,
-                    type: 'blog',
-                    title: blog.title,
-                    scheduled_date: scheduledDate,
-                    status: blog.status
+            // Use API data if available
+            if (calendarApiData?.items?.length) {
+                scheduledContent = calendarApiData.items.map(item => ({
+                    id: item.id,
+                    type: item.type === 'social' ? (item.platform || 'social') : item.type,
+                    title: item.title,
+                    scheduled_date: item.date,
+                    status: item.status,
+                    seo_score: item.seo_score,
+                    word_count: item.word_count,
+                    published_url: item.published_url,
+                    primary_keyword: item.primary_keyword,
+                    client_name: item.client_name
+                }));
+            } else {
+                // Fallback to local data
+                allBlogs.forEach((blog) => {
+                    scheduledContent.push({
+                        id: blog.id,
+                        type: 'blog',
+                        title: blog.title,
+                        scheduled_date: blog.scheduled_for ? blog.scheduled_for.split('T')[0] : (blog.created_at ? blog.created_at.split('T')[0] : null),
+                        status: blog.status,
+                        seo_score: blog.seo_score,
+                        primary_keyword: blog.primary_keyword
+                    });
                 });
-            });
-
-            // Add social posts - use actual scheduled_for
-            allSocial.forEach((post) => {
-                let scheduledDate = null;
-                if (post.scheduled_for) {
-                    scheduledDate = post.scheduled_for.split('T')[0];
-                }
-                scheduledContent.push({
-                    id: post.id,
-                    type: post.platform,
-                    topic: post.topic || post.content?.substring(0, 50),
-                    scheduled_date: scheduledDate,
-                    status: post.status
+                allSocial.forEach((post) => {
+                    scheduledContent.push({
+                        id: post.id,
+                        type: post.platform,
+                        topic: post.topic || post.content?.substring(0, 50),
+                        scheduled_date: post.scheduled_for ? post.scheduled_for.split('T')[0] : null,
+                        status: post.status
+                    });
                 });
-            });
+            }
 
-            // Filter to only scheduled items and sort by date
-            const scheduledOnly = scheduledContent.filter(c => c.scheduled_date);
-            scheduledOnly.sort((a, b) => a.scheduled_date.localeCompare(b.scheduled_date));
+            // Apply status filter
+            let filtered = calendarStatusFilter
+                ? scheduledContent.filter(c => c.status === calendarStatusFilter)
+                : scheduledContent;
 
-            // Stats
-            const scheduledCount = scheduledOnly.length;
-            const unscheduledCount = scheduledContent.length - scheduledCount;
+            // Sort
+            if (sortBy === 'status') {
+                const statusOrder = { draft: 0, review: 1, approved: 2, published: 3 };
+                filtered.sort((a, b) => (statusOrder[a.status] || 0) - (statusOrder[b.status] || 0));
+            } else if (sortBy === 'type') {
+                filtered.sort((a, b) => (a.type || '').localeCompare(b.type || ''));
+            } else {
+                filtered.sort((a, b) => (b.scheduled_date || '').localeCompare(a.scheduled_date || ''));
+            }
 
-            if (scheduledContent.length === 0) {
-                container.innerHTML = '<p class="text-gray-500 text-sm">No content yet. Generate content first.</p>';
+            if (filtered.length === 0) {
+                container.innerHTML = `<p class="text-gray-500 text-sm">${calendarStatusFilter ? 'No content with this status.' : 'No content yet. Generate content first.'}</p>`;
                 return;
             }
 
-            if (scheduledCount === 0) {
-                container.innerHTML = `
-                    <div class="text-center py-4">
-                        <p class="text-gray-400 text-sm mb-3">${unscheduledCount} items not scheduled</p>
-                        <button onclick="autoScheduleContent()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition">
-                            <i class="fas fa-magic mr-1"></i>Auto-Schedule All
-                        </button>
-                    </div>
-                `;
-                return;
-            }
+            const statusBadge = {
+                'draft': 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30',
+                'review': 'bg-orange-500/20 text-orange-400 border border-orange-500/30',
+                'approved': 'bg-blue-500/20 text-blue-400 border border-blue-500/30',
+                'published': 'bg-green-500/20 text-green-400 border border-green-500/30',
+            };
+            const typeGrad = {
+                blog: 'from-green-500 to-emerald-600',
+                gbp: 'from-blue-500 to-cyan-600',
+                facebook: 'from-indigo-500 to-blue-600',
+                instagram: 'from-pink-500 to-rose-600',
+                social: 'from-purple-500 to-violet-600',
+            };
+            const typeIcon = {
+                blog: 'fas fa-file-alt',
+                gbp: 'fab fa-google',
+                facebook: 'fab fa-facebook',
+                instagram: 'fab fa-instagram',
+                social: 'fab fa-share-alt',
+            };
 
-            // Show scheduled items
-            let html = '';
-
-            // Show cancel all schedules button if there are scheduled items
-            if (scheduledCount > 0) {
-                html += `
-                    <div class="mb-4 flex gap-2 justify-end">
-                        <button onclick="cancelAllSchedules()" class="px-3 py-1 bg-red-500/20 hover:bg-red-500/30 text-red-400 border border-red-500/50 rounded text-xs font-medium transition">
-                            <i class="fas fa-times mr-1"></i>Cancel All Schedules
-                        </button>
-                    </div>
-                `;
-            }
-
-            if (unscheduledCount > 0) {
-                html += `
-                    <div class="mb-4 p-3 bg-amber-500/20 border border-amber-500/50 rounded-lg">
-                        <p class="text-amber-400 text-sm">${unscheduledCount} items not scheduled</p>
-                        <button onclick="autoScheduleContent()" class="mt-2 px-3 py-1 bg-amber-500 hover:bg-amber-600 text-white rounded text-xs font-medium transition">
-                            <i class="fas fa-magic mr-1"></i>Auto-Schedule
-                        </button>
-                    </div>
-                `;
-            }
-
-            html += scheduledOnly.slice(0, 10).map(item => {
-                const colors = {
-                    blog: 'from-green-500 to-emerald-600',
-                    gbp: 'from-blue-500 to-cyan-600',
-                    facebook: 'from-indigo-500 to-blue-600',
-                    instagram: 'from-pink-500 to-rose-600'
-                };
-                const icons = {
-                    blog: 'fa-file-alt',
-                    gbp: 'fab fa-google',
-                    facebook: 'fab fa-facebook',
-                    instagram: 'fab fa-instagram'
-                };
-                const statusColors = {
-                    'draft': 'bg-gray-500/20 text-gray-400',
-                    'scheduled': 'bg-blue-500/20 text-blue-400',
-                    'approved': 'bg-green-500/20 text-green-400',
-                    'published': 'bg-emerald-500/20 text-emerald-400'
-                };
-
-                // Determine cancel function based on type
+            let html = filtered.slice(0, 20).map(item => {
                 const cancelFn = item.type === 'blog'
                     ? `cancelBlogSchedule('${item.id}')`
                     : `cancelSocialSchedule('${item.id}')`;
-
-                // Only show cancel button if not published
                 const cancelBtn = item.status !== 'published'
-                    ? `<button onclick="${cancelFn}" class="p-1 text-red-400 hover:text-red-300 hover:bg-red-500/20 rounded transition" title="Cancel schedule">
-                         <i class="fas fa-times"></i>
-                       </button>`
-                    : '';
+                    ? `<button onclick="${cancelFn}" class="p-1 text-red-400 hover:text-red-300 hover:bg-red-500/20 rounded transition" title="Cancel schedule"><i class="fas fa-times"></i></button>`
+                    : (item.published_url ? `<a href="${item.published_url}" target="_blank" class="p-1 text-green-400 hover:text-green-300 rounded transition" title="View published"><i class="fas fa-external-link-alt"></i></a>` : '');
+
+                const dateDisplay = item.scheduled_date ? formatDate(item.scheduled_date) : 'No date';
+                const seoTag = item.seo_score ? `<span class="text-xs ${item.seo_score >= 80 ? 'text-green-400' : item.seo_score >= 60 ? 'text-yellow-400' : 'text-red-400'}">SEO: ${item.seo_score}</span>` : '';
 
                 return `
-                    <div class="flex items-center gap-4 p-3 glass rounded-lg">
-                        <div class="w-10 h-10 rounded-lg bg-gradient-to-br ${colors[item.type] || 'from-gray-500 to-gray-600'} flex items-center justify-center">
-                            <i class="${icons[item.type] || 'fas fa-file'} text-white"></i>
+                    <div class="flex items-center gap-4 p-3 glass rounded-lg hover:bg-white/5 transition">
+                        <div class="w-10 h-10 rounded-lg bg-gradient-to-br ${typeGrad[item.type] || 'from-gray-500 to-gray-600'} flex items-center justify-center flex-shrink-0">
+                            <i class="${typeIcon[item.type] || 'fas fa-file'} text-white"></i>
                         </div>
                         <div class="flex-1 min-w-0">
                             <p class="text-white font-medium text-sm truncate">${item.title || item.topic || 'Untitled'}</p>
-                            <p class="text-gray-400 text-xs">${item.type.charAt(0).toUpperCase() + item.type.slice(1)} • ${formatDate(item.scheduled_date)}</p>
+                            <div class="flex items-center gap-2 text-xs text-gray-400">
+                                <span>${item.type === 'blog' ? 'Blog' : (item.type || '').charAt(0).toUpperCase() + (item.type || '').slice(1)}</span>
+                                <span>•</span>
+                                <span>${dateDisplay}</span>
+                                ${seoTag ? `<span>•</span>${seoTag}` : ''}
+                            </div>
                         </div>
-                        <span class="px-2 py-1 ${statusColors[item.status] || statusColors.draft} rounded text-xs whitespace-nowrap">
+                        <span class="px-2 py-1 ${statusBadge[item.status] || statusBadge.draft} rounded text-xs whitespace-nowrap">
                             ${item.status || 'draft'}
                         </span>
                         ${cancelBtn}
                     </div>
                 `;
             }).join('');
+
+            if (filtered.length > 20) {
+                html += `<p class="text-gray-500 text-sm text-center mt-2">+ ${filtered.length - 20} more items</p>`;
+            }
 
             container.innerHTML = html;
         }

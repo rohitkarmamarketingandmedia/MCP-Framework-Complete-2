@@ -1,0 +1,888 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Content Calendar | Karma Marketing + Media</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+        * { font-family: 'Inter', sans-serif; }
+        
+        body {
+            background: linear-gradient(135deg, #0f0f1a 0%, #1a1a2e 50%, #0f0f1a 100%);
+            min-height: 100vh;
+            color: #e5e7eb;
+        }
+        
+        .glass { 
+            background: rgba(255,255,255,0.03); 
+            backdrop-filter: blur(20px); 
+            border: 1px solid rgba(255,255,255,0.08); 
+        }
+        
+        .glass-card {
+            background: linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        
+        .fade-in { animation: fadeIn 0.3s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+        
+        .cal-day:hover { background: rgba(255,255,255,0.08) !important; }
+        .cal-today { border: 2px solid #8b5cf6 !important; background: rgba(139, 92, 246, 0.1) !important; }
+        
+        .status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+        .status-draft { background: #eab308; }
+        .status-review { background: #f97316; }
+        .status-approved { background: #3b82f6; }
+        .status-published { background: #10b981; }
+        
+        .content-chip {
+            font-size: 0.65rem;
+            padding: 1px 6px;
+            border-radius: 4px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 100%;
+            display: block;
+            line-height: 1.5;
+            cursor: pointer;
+        }
+        .chip-draft { background: rgba(234,179,8,0.2); color: #eab308; border: 1px solid rgba(234,179,8,0.3); }
+        .chip-review { background: rgba(249,115,22,0.2); color: #fb923c; border: 1px solid rgba(249,115,22,0.3); }
+        .chip-approved { background: rgba(59,130,246,0.2); color: #60a5fa; border: 1px solid rgba(59,130,246,0.3); }
+        .chip-published { background: rgba(16,185,129,0.2); color: #34d399; border: 1px solid rgba(16,185,129,0.3); }
+        
+        .client-row:hover { background: rgba(255,255,255,0.05); }
+        
+        /* Toast */
+        .toast { position: fixed; bottom: 20px; right: 20px; z-index: 9999; animation: slideUp 0.3s ease; }
+        @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 3px; }
+    </style>
+</head>
+<body>
+    <!-- Auth Modal -->
+    <div id="authModal" class="fixed inset-0 bg-black/90 flex items-center justify-center z-50">
+        <div class="glass-card rounded-2xl p-8 w-full max-w-md mx-4 fade-in">
+            <div class="text-center mb-8">
+                <div class="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-purple-500 to-pink-600 flex items-center justify-center">
+                    <i class="fas fa-calendar-alt text-3xl"></i>
+                </div>
+                <h1 class="text-2xl font-bold text-white mb-1">Content Calendar</h1>
+                <p class="text-gray-400 text-sm">Karma Marketing + Media</p>
+            </div>
+            <div class="space-y-4">
+                <input type="email" id="loginEmail" 
+                    class="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-purple-500" 
+                    placeholder="Email" onkeypress="if(event.key==='Enter')doLogin()">
+                <input type="password" id="loginPassword" autocomplete="current-password"
+                    class="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-purple-500" 
+                    placeholder="Password" onkeypress="if(event.key==='Enter')doLogin()">
+                <button onclick="doLogin()" class="w-full py-3 bg-gradient-to-r from-purple-500 to-pink-600 rounded-xl text-white font-bold hover:opacity-90 transition">
+                    Sign In
+                </button>
+                <p id="authError" class="text-red-400 text-sm text-center hidden"></p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Dashboard -->
+    <div id="dashboard" class="hidden">
+        <!-- Nav -->
+        <nav class="bg-slate-900/80 border-b border-white/10 backdrop-blur-xl sticky top-0 z-40">
+            <div class="max-w-7xl mx-auto px-4">
+                <div class="flex items-center justify-between h-12">
+                    <div class="flex items-center gap-6 text-sm">
+                        <a href="/intake" class="text-gray-400 hover:text-white transition"><i class="fas fa-plus-circle mr-1"></i>New Client</a>
+                        <a href="/agency" class="text-gray-400 hover:text-white transition"><i class="fas fa-building mr-1"></i>Agency</a>
+                        <a href="/client" class="text-gray-400 hover:text-white transition"><i class="fas fa-file-alt mr-1"></i>Content</a>
+                        <a href="/elite" class="text-gray-400 hover:text-white transition"><i class="fas fa-chart-line mr-1"></i>SEO Elite</a>
+                        <a href="/content-calendar" class="text-white font-medium"><i class="fas fa-calendar-alt mr-1"></i>Calendar</a>
+                        <a href="/admin" class="text-gray-400 hover:text-white transition"><i class="fas fa-cog mr-1"></i>Admin</a>
+                    </div>
+                    <div class="text-xs text-gray-500"><span class="text-purple-400">MCP</span> Framework</div>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Header -->
+        <header class="border-b border-white/10">
+            <div class="max-w-7xl mx-auto px-4 py-4">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-4">
+                        <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 to-pink-600 flex items-center justify-center">
+                            <i class="fas fa-calendar-alt text-lg"></i>
+                        </div>
+                        <div>
+                            <h1 class="text-xl font-bold text-white">Content Calendar</h1>
+                            <p class="text-xs text-gray-400">All clients · Draft → Published pipeline</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <!-- View Toggle -->
+                        <div class="flex glass rounded-lg overflow-hidden">
+                            <button onclick="setView('calendar')" id="viewBtnCalendar" class="px-3 py-2 text-sm text-white bg-purple-600/50">
+                                <i class="fas fa-calendar-alt mr-1"></i>Calendar
+                            </button>
+                            <button onclick="setView('pipeline')" id="viewBtnPipeline" class="px-3 py-2 text-sm text-gray-400 hover:text-white transition">
+                                <i class="fas fa-columns mr-1"></i>Pipeline
+                            </button>
+                            <button onclick="setView('clients')" id="viewBtnClients" class="px-3 py-2 text-sm text-gray-400 hover:text-white transition">
+                                <i class="fas fa-users mr-1"></i>By Client
+                            </button>
+                        </div>
+                        <!-- Client Filter -->
+                        <select id="clientFilter" onchange="applyFilters()" class="px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-sm text-gray-300 focus:outline-none focus:border-purple-500">
+                            <option value="">All Clients</option>
+                        </select>
+                        <!-- Refresh -->
+                        <button onclick="loadAllData()" class="p-2 glass rounded-lg hover:bg-white/10 transition" title="Refresh">
+                            <i class="fas fa-sync-alt text-gray-400"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <main class="max-w-7xl mx-auto px-4 py-6">
+            <!-- Summary Stats -->
+            <div class="grid grid-cols-2 md:grid-cols-6 gap-3 mb-6" id="statsRow">
+                <div class="glass-card rounded-xl p-4 cursor-pointer hover:ring-1 hover:ring-white/20 transition" onclick="filterStatus('')">
+                    <div class="text-2xl font-bold text-white" id="statTotal">-</div>
+                    <div class="text-xs text-gray-400">Total</div>
+                </div>
+                <div class="glass-card rounded-xl p-4 cursor-pointer hover:ring-1 hover:ring-yellow-500/40 transition" onclick="filterStatus('draft')">
+                    <div class="text-2xl font-bold text-yellow-400" id="statDraft">-</div>
+                    <div class="text-xs text-gray-400">Drafts</div>
+                </div>
+                <div class="glass-card rounded-xl p-4 cursor-pointer hover:ring-1 hover:ring-orange-500/40 transition" onclick="filterStatus('review')">
+                    <div class="text-2xl font-bold text-orange-400" id="statReview">-</div>
+                    <div class="text-xs text-gray-400">In Review</div>
+                </div>
+                <div class="glass-card rounded-xl p-4 cursor-pointer hover:ring-1 hover:ring-blue-500/40 transition" onclick="filterStatus('approved')">
+                    <div class="text-2xl font-bold text-blue-400" id="statApproved">-</div>
+                    <div class="text-xs text-gray-400">Approved</div>
+                </div>
+                <div class="glass-card rounded-xl p-4 cursor-pointer hover:ring-1 hover:ring-green-500/40 transition" onclick="filterStatus('published')">
+                    <div class="text-2xl font-bold text-green-400" id="statPublished">-</div>
+                    <div class="text-xs text-gray-400">Published</div>
+                </div>
+                <div class="glass-card rounded-xl p-4">
+                    <div class="text-2xl font-bold text-purple-400" id="statClients">-</div>
+                    <div class="text-xs text-gray-400">Clients</div>
+                </div>
+            </div>
+
+            <!-- Active Filter Banner -->
+            <div id="filterBanner" class="hidden mb-4 px-4 py-2 bg-white/5 rounded-lg text-sm text-gray-300 flex items-center justify-between fade-in">
+                <span id="filterBannerText"></span>
+                <button onclick="clearFilters()" class="text-gray-400 hover:text-white text-xs"><i class="fas fa-times mr-1"></i>Clear</button>
+            </div>
+
+            <!-- ============ CALENDAR VIEW ============ -->
+            <div id="viewCalendar" class="fade-in">
+                <div class="glass-card rounded-2xl p-6 mb-6">
+                    <div class="flex items-center justify-between mb-6">
+                        <div class="flex items-center gap-3">
+                            <button onclick="changeMonth(-1)" class="p-2 glass rounded-lg hover:bg-white/10 transition">
+                                <i class="fas fa-chevron-left text-white text-sm"></i>
+                            </button>
+                            <h2 id="calMonthLabel" class="text-lg font-bold text-white min-w-[180px] text-center">March 2026</h2>
+                            <button onclick="changeMonth(1)" class="p-2 glass rounded-lg hover:bg-white/10 transition">
+                                <i class="fas fa-chevron-right text-white text-sm"></i>
+                            </button>
+                        </div>
+                        <button onclick="goToday()" class="px-3 py-1.5 glass rounded-lg text-xs text-gray-300 hover:text-white transition">Today</button>
+                    </div>
+
+                    <!-- Day Headers -->
+                    <div class="grid grid-cols-7 gap-1 mb-1">
+                        <div class="text-center text-xs text-gray-500 font-medium py-1">Sun</div>
+                        <div class="text-center text-xs text-gray-500 font-medium py-1">Mon</div>
+                        <div class="text-center text-xs text-gray-500 font-medium py-1">Tue</div>
+                        <div class="text-center text-xs text-gray-500 font-medium py-1">Wed</div>
+                        <div class="text-center text-xs text-gray-500 font-medium py-1">Thu</div>
+                        <div class="text-center text-xs text-gray-500 font-medium py-1">Fri</div>
+                        <div class="text-center text-xs text-gray-500 font-medium py-1">Sat</div>
+                    </div>
+                    <div id="calGrid" class="grid grid-cols-7 gap-1"></div>
+
+                    <!-- Legend -->
+                    <div class="flex flex-wrap items-center gap-4 mt-4 pt-4 border-t border-white/5 text-xs text-gray-500">
+                        <span class="font-medium">STATUS:</span>
+                        <span class="flex items-center gap-1"><span class="status-dot status-draft"></span> Draft</span>
+                        <span class="flex items-center gap-1"><span class="status-dot status-review"></span> Review</span>
+                        <span class="flex items-center gap-1"><span class="status-dot status-approved"></span> Approved</span>
+                        <span class="flex items-center gap-1"><span class="status-dot status-published"></span> Published</span>
+                        <span class="ml-4 font-medium">TYPE:</span>
+                        <span><i class="fas fa-file-alt text-emerald-400 mr-1"></i>Blog</span>
+                        <span><i class="fab fa-share-alt text-sky-400 mr-1"></i>Social</span>
+                    </div>
+                </div>
+
+                <!-- Upcoming / Stale Drafts -->
+                <div class="grid md:grid-cols-2 gap-6">
+                    <div class="glass-card rounded-2xl p-6">
+                        <h3 class="text-sm font-semibold text-white mb-4"><i class="fas fa-clock text-orange-400 mr-2"></i>Stale Drafts <span class="text-gray-500 font-normal">(30+ days old)</span></h3>
+                        <div id="staleDraftsList" class="space-y-2 max-h-64 overflow-y-auto">
+                            <p class="text-gray-500 text-xs">Loading...</p>
+                        </div>
+                    </div>
+                    <div class="glass-card rounded-2xl p-6">
+                        <h3 class="text-sm font-semibold text-white mb-4"><i class="fas fa-calendar-check text-blue-400 mr-2"></i>Upcoming Scheduled</h3>
+                        <div id="upcomingList" class="space-y-2 max-h-64 overflow-y-auto">
+                            <p class="text-gray-500 text-xs">Loading...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ============ PIPELINE VIEW ============ -->
+            <div id="viewPipeline" class="hidden fade-in">
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <!-- Draft Column -->
+                    <div class="glass-card rounded-2xl p-4">
+                        <div class="flex items-center gap-2 mb-4 pb-3 border-b border-white/10">
+                            <span class="status-dot status-draft"></span>
+                            <h3 class="text-sm font-semibold text-yellow-400">Draft</h3>
+                            <span class="ml-auto text-xs text-gray-500 bg-white/5 px-2 py-0.5 rounded-full" id="pipeDraftCount">0</span>
+                        </div>
+                        <div id="pipeDraft" class="space-y-2 max-h-[60vh] overflow-y-auto"></div>
+                    </div>
+                    <!-- Review Column -->
+                    <div class="glass-card rounded-2xl p-4">
+                        <div class="flex items-center gap-2 mb-4 pb-3 border-b border-white/10">
+                            <span class="status-dot status-review"></span>
+                            <h3 class="text-sm font-semibold text-orange-400">In Review</h3>
+                            <span class="ml-auto text-xs text-gray-500 bg-white/5 px-2 py-0.5 rounded-full" id="pipeReviewCount">0</span>
+                        </div>
+                        <div id="pipeReview" class="space-y-2 max-h-[60vh] overflow-y-auto"></div>
+                    </div>
+                    <!-- Approved Column -->
+                    <div class="glass-card rounded-2xl p-4">
+                        <div class="flex items-center gap-2 mb-4 pb-3 border-b border-white/10">
+                            <span class="status-dot status-approved"></span>
+                            <h3 class="text-sm font-semibold text-blue-400">Approved</h3>
+                            <span class="ml-auto text-xs text-gray-500 bg-white/5 px-2 py-0.5 rounded-full" id="pipeApprovedCount">0</span>
+                        </div>
+                        <div id="pipeApproved" class="space-y-2 max-h-[60vh] overflow-y-auto"></div>
+                    </div>
+                    <!-- Published Column -->
+                    <div class="glass-card rounded-2xl p-4">
+                        <div class="flex items-center gap-2 mb-4 pb-3 border-b border-white/10">
+                            <span class="status-dot status-published"></span>
+                            <h3 class="text-sm font-semibold text-green-400">Published</h3>
+                            <span class="ml-auto text-xs text-gray-500 bg-white/5 px-2 py-0.5 rounded-full" id="pipePublishedCount">0</span>
+                        </div>
+                        <div id="pipePublished" class="space-y-2 max-h-[60vh] overflow-y-auto"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ============ BY CLIENT VIEW ============ -->
+            <div id="viewClients" class="hidden fade-in">
+                <div class="glass-card rounded-2xl overflow-hidden">
+                    <table class="w-full">
+                        <thead>
+                            <tr class="border-b border-white/10 text-xs text-gray-400 uppercase tracking-wider">
+                                <th class="text-left py-3 px-4">Client</th>
+                                <th class="text-center py-3 px-2">Total</th>
+                                <th class="text-center py-3 px-2"><span class="text-yellow-400">Draft</span></th>
+                                <th class="text-center py-3 px-2"><span class="text-orange-400">Review</span></th>
+                                <th class="text-center py-3 px-2"><span class="text-blue-400">Approved</span></th>
+                                <th class="text-center py-3 px-2"><span class="text-green-400">Published</span></th>
+                                <th class="text-center py-3 px-2">Last Activity</th>
+                                <th class="text-right py-3 px-4">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="clientTableBody"></tbody>
+                    </table>
+                    <div id="clientTableEmpty" class="hidden p-8 text-center text-gray-500 text-sm">No content found across clients</div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Item Detail Modal -->
+    <div id="itemModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 hidden flex items-center justify-center">
+        <div class="glass-card rounded-2xl p-6 w-full max-w-lg mx-4 max-h-[80vh] overflow-y-auto fade-in">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-bold text-white" id="modalTitle">Content Details</h3>
+                <button onclick="closeModal()" class="text-gray-400 hover:text-white"><i class="fas fa-times"></i></button>
+            </div>
+            <div id="modalBody"></div>
+        </div>
+    </div>
+
+    <script>
+        // ==========================================
+        // CONFIG & STATE
+        // ==========================================
+        const API_URL = window.location.hostname === 'localhost' ? 'http://localhost:5000' : 'https://mcp.karmamarketingandmedia.com';
+        let AUTH_TOKEN = localStorage.getItem('mcp_token') || '';
+        let currentView = 'calendar';
+        let calendarDate = new Date();
+        let calendarData = null;
+        let summaryData = null;
+        let allItems = [];
+        let statusFilter = '';
+        let clientFilter = '';
+
+        // ==========================================
+        // AUTH
+        // ==========================================
+        async function doLogin() {
+            const email = document.getElementById('loginEmail').value;
+            const password = document.getElementById('loginPassword').value;
+            const errEl = document.getElementById('authError');
+            errEl.classList.add('hidden');
+
+            try {
+                const res = await fetch(`${API_URL}/api/auth/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+                const data = await res.json();
+                if (res.ok && data.token) {
+                    AUTH_TOKEN = data.token;
+                    localStorage.setItem('mcp_token', AUTH_TOKEN);
+                    document.getElementById('authModal').classList.add('hidden');
+                    document.getElementById('dashboard').classList.remove('hidden');
+                    loadAllData();
+                } else {
+                    errEl.textContent = data.error || 'Login failed';
+                    errEl.classList.remove('hidden');
+                }
+            } catch (e) {
+                errEl.textContent = 'Connection error';
+                errEl.classList.remove('hidden');
+            }
+        }
+
+        async function checkAuth() {
+            if (!AUTH_TOKEN) return;
+            try {
+                const res = await fetch(`${API_URL}/api/auth/me`, {
+                    headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
+                });
+                if (res.ok) {
+                    document.getElementById('authModal').classList.add('hidden');
+                    document.getElementById('dashboard').classList.remove('hidden');
+                    loadAllData();
+                }
+            } catch (e) {}
+        }
+
+        // ==========================================
+        // DATA LOADING
+        // ==========================================
+        async function loadAllData() {
+            await Promise.all([loadCalendar(), loadSummary()]);
+            renderCurrentView();
+        }
+
+        async function loadCalendar() {
+            try {
+                const y = calendarDate.getFullYear();
+                const m = calendarDate.getMonth() + 1;
+                const monthStr = `${y}-${String(m).padStart(2, '0')}`;
+                let url = `${API_URL}/api/content/calendar?month=${monthStr}`;
+                if (clientFilter) url += `&client_id=${clientFilter}`;
+                if (statusFilter) url += `&status=${statusFilter}`;
+
+                const res = await fetch(url, { headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` } });
+                if (res.ok) {
+                    calendarData = await res.json();
+                    allItems = calendarData.items || [];
+                    updateStats();
+                    populateClientFilter();
+                }
+            } catch (e) { console.error('Calendar load error:', e); }
+        }
+
+        async function loadSummary() {
+            try {
+                const res = await fetch(`${API_URL}/api/content/calendar/summary`, {
+                    headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
+                });
+                if (res.ok) {
+                    summaryData = await res.json();
+                }
+            } catch (e) { console.error('Summary load error:', e); }
+        }
+
+        function updateStats() {
+            if (!calendarData) return;
+            const sc = calendarData.status_counts || {};
+            document.getElementById('statTotal').textContent = calendarData.total_items || 0;
+            document.getElementById('statDraft').textContent = sc.draft || 0;
+            document.getElementById('statReview').textContent = sc.review || 0;
+            document.getElementById('statApproved').textContent = sc.approved || 0;
+            document.getElementById('statPublished').textContent = sc.published || 0;
+            document.getElementById('statClients').textContent = calendarData.clients_count || 0;
+        }
+
+        function populateClientFilter() {
+            const sel = document.getElementById('clientFilter');
+            const existing = new Set(Array.from(sel.options).map(o => o.value));
+            const clients = new Map();
+            allItems.forEach(i => { if (i.client_id && i.client_name) clients.set(i.client_id, i.client_name); });
+            
+            // Also from summary
+            if (summaryData?.per_client) {
+                summaryData.per_client.forEach(c => clients.set(c.client_id, c.client_name));
+            }
+
+            clients.forEach((name, id) => {
+                if (!existing.has(id)) {
+                    const opt = document.createElement('option');
+                    opt.value = id;
+                    opt.textContent = name;
+                    sel.appendChild(opt);
+                }
+            });
+        }
+
+        // ==========================================
+        // FILTERS
+        // ==========================================
+        function filterStatus(s) {
+            statusFilter = s;
+            showFilterBanner();
+            loadCalendar().then(renderCurrentView);
+        }
+
+        function applyFilters() {
+            clientFilter = document.getElementById('clientFilter').value;
+            showFilterBanner();
+            loadCalendar().then(renderCurrentView);
+        }
+
+        function clearFilters() {
+            statusFilter = '';
+            clientFilter = '';
+            document.getElementById('clientFilter').value = '';
+            document.getElementById('filterBanner').classList.add('hidden');
+            loadCalendar().then(renderCurrentView);
+        }
+
+        function showFilterBanner() {
+            const banner = document.getElementById('filterBanner');
+            const parts = [];
+            if (statusFilter) {
+                const colors = { draft: 'text-yellow-400', review: 'text-orange-400', approved: 'text-blue-400', published: 'text-green-400' };
+                parts.push(`Status: <span class="${colors[statusFilter] || ''} font-medium">${statusFilter}</span>`);
+            }
+            if (clientFilter) {
+                const sel = document.getElementById('clientFilter');
+                const name = sel.options[sel.selectedIndex]?.textContent || clientFilter;
+                parts.push(`Client: <span class="text-purple-400 font-medium">${name}</span>`);
+            }
+            if (parts.length) {
+                document.getElementById('filterBannerText').innerHTML = parts.join(' · ');
+                banner.classList.remove('hidden');
+            } else {
+                banner.classList.add('hidden');
+            }
+        }
+
+        // ==========================================
+        // VIEW SWITCHING
+        // ==========================================
+        function setView(view) {
+            currentView = view;
+            ['calendar', 'pipeline', 'clients'].forEach(v => {
+                document.getElementById(`view${v.charAt(0).toUpperCase() + v.slice(1)}`).classList.toggle('hidden', v !== view);
+                const btn = document.getElementById(`viewBtn${v.charAt(0).toUpperCase() + v.slice(1)}`);
+                if (v === view) {
+                    btn.className = 'px-3 py-2 text-sm text-white bg-purple-600/50';
+                } else {
+                    btn.className = 'px-3 py-2 text-sm text-gray-400 hover:text-white transition';
+                }
+            });
+            renderCurrentView();
+        }
+
+        function renderCurrentView() {
+            if (currentView === 'calendar') renderCalendar();
+            else if (currentView === 'pipeline') renderPipeline();
+            else if (currentView === 'clients') renderClientsTable();
+        }
+
+        // ==========================================
+        // CALENDAR VIEW
+        // ==========================================
+        function changeMonth(delta) {
+            calendarDate.setMonth(calendarDate.getMonth() + delta);
+            loadCalendar().then(renderCurrentView);
+        }
+
+        function goToday() {
+            calendarDate = new Date();
+            loadCalendar().then(renderCurrentView);
+        }
+
+        function renderCalendar() {
+            const year = calendarDate.getFullYear();
+            const month = calendarDate.getMonth();
+            const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+            document.getElementById('calMonthLabel').textContent = `${monthNames[month]} ${year}`;
+
+            const firstDay = new Date(year, month, 1).getDay();
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+            const today = new Date();
+            const grid = document.getElementById('calGrid');
+            grid.innerHTML = '';
+
+            // Previous month padding
+            const prevMonth = new Date(year, month, 0);
+            for (let i = firstDay - 1; i >= 0; i--) {
+                const d = prevMonth.getDate() - i;
+                grid.innerHTML += `<div class="min-h-[90px] rounded-lg bg-white/[0.02] p-1.5 opacity-40">
+                    <div class="text-xs text-gray-600">${d}</div></div>`;
+            }
+
+            // Days of month
+            for (let day = 1; day <= daysInMonth; day++) {
+                const dateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+                const isToday = day === today.getDate() && month === today.getMonth() && year === today.getFullYear();
+                const dayItems = (calendarData?.by_date?.[dateStr] || []);
+                
+                let chips = dayItems.slice(0, 4).map(item => {
+                    const icon = item.type === 'blog' ? '<i class="fas fa-file-alt mr-1"></i>' : '<i class="fab fa-share-alt mr-1"></i>';
+                    return `<span class="content-chip chip-${item.status}" onclick="event.stopPropagation();showItemDetail('${item.id}')" title="${item.client_name}: ${item.title}">${icon}${item.client_name ? item.client_name.split(' ')[0] + ': ' : ''}${item.title}</span>`;
+                }).join('');
+                
+                if (dayItems.length > 4) {
+                    chips += `<span class="text-xs text-gray-500 mt-0.5 block">+${dayItems.length - 4} more</span>`;
+                }
+
+                grid.innerHTML += `<div class="min-h-[90px] rounded-lg bg-white/[0.03] cal-day p-1.5 transition cursor-pointer ${isToday ? 'cal-today' : ''}" onclick="showDateContent('${dateStr}')">
+                    <div class="text-xs font-medium ${isToday ? 'text-purple-400' : 'text-gray-400'} mb-1">${day}</div>
+                    <div class="space-y-0.5">${chips}</div>
+                </div>`;
+            }
+
+            // Render stale drafts & upcoming
+            renderStaleDrafts();
+            renderUpcoming();
+        }
+
+        function renderStaleDrafts() {
+            const el = document.getElementById('staleDraftsList');
+            const drafts = summaryData?.stale_drafts || [];
+            if (!drafts.length) { el.innerHTML = '<p class="text-gray-500 text-xs">No stale drafts — nice!</p>'; return; }
+            el.innerHTML = drafts.map(d => `
+                <div class="flex items-center justify-between p-2 bg-white/5 rounded-lg hover:bg-white/10 transition cursor-pointer" onclick="showItemDetail('${d.id}')">
+                    <div class="min-w-0">
+                        <div class="text-xs text-white truncate">${d.title || 'Untitled'}</div>
+                        <div class="text-[10px] text-gray-500">${d.client_name} · ${d.days_old}d old</div>
+                    </div>
+                    <span class="text-[10px] text-orange-400 bg-orange-500/10 px-2 py-0.5 rounded ml-2 whitespace-nowrap">${d.days_old}d</span>
+                </div>
+            `).join('');
+        }
+
+        function renderUpcoming() {
+            const el = document.getElementById('upcomingList');
+            const items = summaryData?.upcoming_scheduled || [];
+            if (!items.length) { el.innerHTML = '<p class="text-gray-500 text-xs">Nothing scheduled yet</p>'; return; }
+            el.innerHTML = items.map(s => {
+                const dt = new Date(s.scheduled_for);
+                const dateStr = dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                return `
+                <div class="flex items-center justify-between p-2 bg-white/5 rounded-lg hover:bg-white/10 transition cursor-pointer" onclick="showItemDetail('${s.id}')">
+                    <div class="min-w-0">
+                        <div class="text-xs text-white truncate">${s.title || 'Untitled'}</div>
+                        <div class="text-[10px] text-gray-500">${s.client_name}</div>
+                    </div>
+                    <span class="text-[10px] text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded ml-2 whitespace-nowrap">${dateStr}</span>
+                </div>`;
+            }).join('');
+        }
+
+        function showDateContent(dateStr) {
+            const items = calendarData?.by_date?.[dateStr] || [];
+            if (!items.length) return;
+            const dt = new Date(dateStr + 'T12:00:00');
+            const label = dt.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+            
+            document.getElementById('modalTitle').textContent = label;
+            document.getElementById('modalBody').innerHTML = items.map(item => renderItemCard(item)).join('');
+            document.getElementById('itemModal').classList.remove('hidden');
+        }
+
+        // ==========================================
+        // PIPELINE VIEW (Kanban)
+        // ==========================================
+        function renderPipeline() {
+            const columns = { draft: [], review: [], approved: [], published: [] };
+            allItems.forEach(item => {
+                if (columns[item.status]) columns[item.status].push(item);
+            });
+
+            ['draft', 'review', 'approved', 'published'].forEach(status => {
+                const col = document.getElementById(`pipe${status.charAt(0).toUpperCase() + status.slice(1)}`);
+                const countEl = document.getElementById(`pipe${status.charAt(0).toUpperCase() + status.slice(1)}Count`);
+                countEl.textContent = columns[status].length;
+                
+                if (!columns[status].length) {
+                    col.innerHTML = '<p class="text-gray-500 text-xs text-center py-4">Empty</p>';
+                    return;
+                }
+                col.innerHTML = columns[status].map(item => renderPipelineCard(item)).join('');
+            });
+        }
+
+        function renderPipelineCard(item) {
+            const icon = item.type === 'blog' 
+                ? '<i class="fas fa-file-alt text-emerald-400"></i>' 
+                : '<i class="fab fa-share-alt text-sky-400"></i>';
+            const dateLabel = item.published_at 
+                ? new Date(item.published_at).toLocaleDateString('en-US', {month:'short', day:'numeric'})
+                : item.scheduled_for 
+                    ? new Date(item.scheduled_for).toLocaleDateString('en-US', {month:'short', day:'numeric'})
+                    : item.created_at
+                        ? new Date(item.created_at).toLocaleDateString('en-US', {month:'short', day:'numeric'})
+                        : '';
+
+            // Action buttons based on status
+            let actions = '';
+            if (item.status === 'draft') {
+                actions = `<button onclick="event.stopPropagation();updateStatus('${item.id}','review')" class="text-[10px] text-orange-400 hover:text-orange-300" title="Move to Review"><i class="fas fa-arrow-right"></i></button>`;
+            } else if (item.status === 'review') {
+                actions = `<button onclick="event.stopPropagation();updateStatus('${item.id}','approved')" class="text-[10px] text-blue-400 hover:text-blue-300" title="Approve"><i class="fas fa-check"></i></button>`;
+            } else if (item.status === 'approved') {
+                actions = `<button onclick="event.stopPropagation();updateStatus('${item.id}','published')" class="text-[10px] text-green-400 hover:text-green-300" title="Publish"><i class="fas fa-rocket"></i></button>`;
+            }
+
+            return `
+            <div class="p-3 bg-white/5 rounded-lg hover:bg-white/10 transition cursor-pointer border border-white/5" onclick="showItemDetail('${item.id}')">
+                <div class="flex items-start justify-between mb-1">
+                    <span class="text-[10px] text-purple-400 font-medium">${item.client_name || ''}</span>
+                    <span class="text-[10px] text-gray-500">${dateLabel}</span>
+                </div>
+                <div class="flex items-center gap-1.5 mb-1">
+                    ${icon}
+                    <span class="text-xs text-white truncate font-medium">${item.title || 'Untitled'}</span>
+                </div>
+                <div class="flex items-center justify-between">
+                    <span class="text-[10px] text-gray-500">${item.primary_keyword ? '#' + item.primary_keyword : item.type}</span>
+                    ${actions}
+                </div>
+            </div>`;
+        }
+
+        // ==========================================
+        // CLIENTS TABLE VIEW
+        // ==========================================
+        function renderClientsTable() {
+            const tbody = document.getElementById('clientTableBody');
+            const perClient = summaryData?.per_client || [];
+            
+            if (!perClient.length) {
+                tbody.innerHTML = '';
+                document.getElementById('clientTableEmpty').classList.remove('hidden');
+                return;
+            }
+            document.getElementById('clientTableEmpty').classList.add('hidden');
+
+            // Find last activity per client from items
+            const lastActivity = {};
+            allItems.forEach(item => {
+                const d = item.published_at || item.created_at;
+                if (d && (!lastActivity[item.client_id] || d > lastActivity[item.client_id])) {
+                    lastActivity[item.client_id] = d;
+                }
+            });
+
+            tbody.innerHTML = perClient.map(c => {
+                const lastDate = lastActivity[c.client_id];
+                const lastStr = lastDate ? new Date(lastDate).toLocaleDateString('en-US', {month:'short', day:'numeric'}) : '-';
+                const barWidth = c.total ? 100 : 0;
+                const draftPct = c.total ? (c.draft / c.total * 100) : 0;
+                const reviewPct = c.total ? (c.review / c.total * 100) : 0;
+                const approvedPct = c.total ? (c.approved / c.total * 100) : 0;
+                const publishedPct = c.total ? (c.published / c.total * 100) : 0;
+
+                return `
+                <tr class="border-b border-white/5 client-row transition">
+                    <td class="py-3 px-4">
+                        <div class="text-sm text-white font-medium">${c.client_name}</div>
+                        <div class="w-full h-1.5 rounded-full bg-white/5 mt-1.5 overflow-hidden flex">
+                            <div class="h-full bg-yellow-500" style="width:${draftPct}%"></div>
+                            <div class="h-full bg-orange-500" style="width:${reviewPct}%"></div>
+                            <div class="h-full bg-blue-500" style="width:${approvedPct}%"></div>
+                            <div class="h-full bg-green-500" style="width:${publishedPct}%"></div>
+                        </div>
+                    </td>
+                    <td class="text-center py-3 px-2 text-sm font-bold text-white">${c.total}</td>
+                    <td class="text-center py-3 px-2 text-sm text-yellow-400">${c.draft || 0}</td>
+                    <td class="text-center py-3 px-2 text-sm text-orange-400">${c.review || 0}</td>
+                    <td class="text-center py-3 px-2 text-sm text-blue-400">${c.approved || 0}</td>
+                    <td class="text-center py-3 px-2 text-sm text-green-400">${c.published || 0}</td>
+                    <td class="text-center py-3 px-2 text-xs text-gray-400">${lastStr}</td>
+                    <td class="text-right py-3 px-4">
+                        <button onclick="filterClient('${c.client_id}')" class="text-xs text-purple-400 hover:text-purple-300 mr-2" title="Filter">
+                            <i class="fas fa-filter"></i>
+                        </button>
+                        <a href="/client#${c.client_id}" class="text-xs text-gray-400 hover:text-white" title="Open Dashboard">
+                            <i class="fas fa-external-link-alt"></i>
+                        </a>
+                    </td>
+                </tr>`;
+            }).join('');
+        }
+
+        function filterClient(cid) {
+            document.getElementById('clientFilter').value = cid;
+            applyFilters();
+        }
+
+        // ==========================================
+        // ITEM DETAIL MODAL
+        // ==========================================
+        function showItemDetail(itemId) {
+            const item = allItems.find(i => i.id === itemId);
+            if (!item) return;
+
+            const statusColors = { draft: 'text-yellow-400 bg-yellow-500/10', review: 'text-orange-400 bg-orange-500/10', approved: 'text-blue-400 bg-blue-500/10', published: 'text-green-400 bg-green-500/10' };
+            
+            document.getElementById('modalTitle').innerHTML = `
+                <div class="flex items-center gap-2">
+                    <i class="${item.type === 'blog' ? 'fas fa-file-alt text-emerald-400' : 'fab fa-share-alt text-sky-400'}"></i>
+                    <span>${item.title || 'Untitled'}</span>
+                </div>`;
+            
+            let html = `
+                <div class="space-y-3">
+                    <div class="flex flex-wrap gap-2 text-xs">
+                        <span class="px-2 py-1 rounded ${statusColors[item.status] || 'text-gray-400 bg-white/5'}">${item.status}</span>
+                        <span class="px-2 py-1 rounded bg-white/5 text-purple-400">${item.client_name}</span>
+                        <span class="px-2 py-1 rounded bg-white/5 text-gray-400">${item.type}</span>
+                        ${item.word_count ? `<span class="px-2 py-1 rounded bg-white/5 text-gray-400">${item.word_count} words</span>` : ''}
+                        ${item.seo_score ? `<span class="px-2 py-1 rounded bg-white/5 text-cyan-400">SEO: ${item.seo_score}</span>` : ''}
+                    </div>
+                    
+                    <div class="grid grid-cols-2 gap-3 text-xs">
+                        <div class="bg-white/5 rounded-lg p-3">
+                            <div class="text-gray-500 mb-1">Created</div>
+                            <div class="text-white">${item.created_at ? new Date(item.created_at).toLocaleDateString() : '-'}</div>
+                        </div>
+                        <div class="bg-white/5 rounded-lg p-3">
+                            <div class="text-gray-500 mb-1">${item.published_at ? 'Published' : 'Scheduled'}</div>
+                            <div class="text-white">${item.published_at ? new Date(item.published_at).toLocaleDateString() : item.scheduled_for ? new Date(item.scheduled_for).toLocaleDateString() : '-'}</div>
+                        </div>
+                    </div>
+                    
+                    ${item.primary_keyword ? `<div class="bg-white/5 rounded-lg p-3 text-xs"><span class="text-gray-500">Keyword:</span> <span class="text-cyan-400">${item.primary_keyword}</span></div>` : ''}
+                    ${item.published_url ? `<a href="${item.published_url}" target="_blank" class="flex items-center gap-1 text-xs text-green-400 hover:text-green-300"><i class="fas fa-external-link-alt"></i> View Published</a>` : ''}
+                    
+                    <div class="flex gap-2 pt-3 border-t border-white/10">`;
+            
+            // Status change buttons
+            if (item.status === 'draft') {
+                html += `<button onclick="updateStatus('${item.id}','review');closeModal()" class="flex-1 py-2 bg-orange-500/20 text-orange-400 rounded-lg text-xs font-medium hover:bg-orange-500/30 transition">Move to Review</button>`;
+            }
+            if (item.status === 'review') {
+                html += `<button onclick="updateStatus('${item.id}','approved');closeModal()" class="flex-1 py-2 bg-blue-500/20 text-blue-400 rounded-lg text-xs font-medium hover:bg-blue-500/30 transition">Approve</button>`;
+            }
+            if (item.status === 'approved') {
+                html += `<button onclick="updateStatus('${item.id}','published');closeModal()" class="flex-1 py-2 bg-green-500/20 text-green-400 rounded-lg text-xs font-medium hover:bg-green-500/30 transition">Publish</button>`;
+            }
+            html += `<a href="/client#${item.client_id}" class="flex-1 py-2 bg-white/5 text-gray-300 rounded-lg text-xs font-medium hover:bg-white/10 transition text-center">Open Client</a>`;
+            html += `</div></div>`;
+            
+            document.getElementById('modalBody').innerHTML = html;
+            document.getElementById('itemModal').classList.remove('hidden');
+        }
+
+        function renderItemCard(item) {
+            const statusColors = { draft: 'border-yellow-500/30', review: 'border-orange-500/30', approved: 'border-blue-500/30', published: 'border-green-500/30' };
+            const icon = item.type === 'blog' ? '<i class="fas fa-file-alt text-emerald-400 mr-1"></i>' : '<i class="fab fa-share-alt text-sky-400 mr-1"></i>';
+            return `
+            <div class="p-3 bg-white/5 rounded-lg border ${statusColors[item.status] || 'border-white/10'} mb-2 hover:bg-white/10 transition cursor-pointer" onclick="showItemDetail('${item.id}')">
+                <div class="flex items-center justify-between mb-1">
+                    <span class="text-[10px] text-purple-400">${item.client_name}</span>
+                    <span class="text-[10px] px-1.5 py-0.5 rounded chip-${item.status}">${item.status}</span>
+                </div>
+                <div class="text-sm text-white">${icon}${item.title || 'Untitled'}</div>
+                ${item.primary_keyword ? `<div class="text-[10px] text-cyan-400 mt-1">#${item.primary_keyword}</div>` : ''}
+            </div>`;
+        }
+
+        function closeModal() {
+            document.getElementById('itemModal').classList.add('hidden');
+        }
+
+        // ==========================================
+        // STATUS UPDATES
+        // ==========================================
+        async function updateStatus(itemId, newStatus) {
+            try {
+                const res = await fetch(`${API_URL}/api/content/blog/${itemId}`, {
+                    method: 'PATCH',
+                    headers: {
+                        'Authorization': `Bearer ${AUTH_TOKEN}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ status: newStatus })
+                });
+                if (res.ok) {
+                    showToast(`Moved to ${newStatus}`, 'success');
+                    await loadAllData();
+                } else {
+                    // Try content update endpoint
+                    const res2 = await fetch(`${API_URL}/api/content/${itemId}`, {
+                        method: 'PUT',
+                        headers: {
+                            'Authorization': `Bearer ${AUTH_TOKEN}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ status: newStatus })
+                    });
+                    if (res2.ok) {
+                        showToast(`Moved to ${newStatus}`, 'success');
+                        await loadAllData();
+                    } else {
+                        showToast('Update failed', 'error');
+                    }
+                }
+            } catch (e) {
+                console.error('Status update error:', e);
+                showToast('Update failed', 'error');
+            }
+        }
+
+        // ==========================================
+        // TOAST
+        // ==========================================
+        function showToast(msg, type = 'info') {
+            const colors = { success: 'bg-green-500/20 border-green-500/30 text-green-400', error: 'bg-red-500/20 border-red-500/30 text-red-400', info: 'bg-blue-500/20 border-blue-500/30 text-blue-400' };
+            const toast = document.createElement('div');
+            toast.className = `toast px-4 py-3 rounded-lg border text-sm ${colors[type] || colors.info}`;
+            toast.textContent = msg;
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 3000);
+        }
+
+        // ==========================================
+        // INIT
+        // ==========================================
+        document.addEventListener('DOMContentLoaded', checkAuth);
+        document.getElementById('itemModal').addEventListener('click', function(e) {
+            if (e.target === this) closeModal();
+        });
+    </script>
+</body>
+</html>
