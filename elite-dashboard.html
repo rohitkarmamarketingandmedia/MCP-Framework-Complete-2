@@ -499,63 +499,9 @@
                     <div class="flex items-center justify-between mb-6">
                         <h3 class="text-lg font-bold text-white"><i class="fas fa-balance-scale mr-2 text-orange-400"></i>Competitor Comparison</h3>
                     </div>
-                    <div class="grid md:grid-cols-3 gap-4 mb-6">
-                        <div class="glass rounded-xl p-4 text-center border-2 border-green-500/30">
-                            <p class="text-sm text-gray-400 mb-2">Your Site</p>
-                            <p class="text-lg font-bold text-white" id="compareYourDomain">--</p>
-                        </div>
-                        <div class="glass rounded-xl p-4 text-center">
-                            <p class="text-sm text-gray-400 mb-2">Competitor 1</p>
-                            <p class="text-lg font-bold text-white" id="compareComp1Domain">--</p>
-                        </div>
-                        <div class="glass rounded-xl p-4 text-center">
-                            <p class="text-sm text-gray-400 mb-2">Competitor 2</p>
-                            <p class="text-lg font-bold text-white" id="compareComp2Domain">--</p>
-                        </div>
-                    </div>
-                    <div class="overflow-x-auto">
-                        <table class="w-full text-sm">
-                            <thead>
-                                <tr class="text-gray-400 border-b border-white/10">
-                                    <th class="text-left py-3">Metric</th>
-                                    <th class="text-center py-3">You</th>
-                                    <th class="text-center py-3">Comp 1</th>
-                                    <th class="text-center py-3">Comp 2</th>
-                                </tr>
-                            </thead>
-                            <tbody id="compareTable">
-                                <tr class="border-b border-white/5">
-                                    <td class="py-3 text-gray-300">Keywords in Top 10</td>
-                                    <td class="py-3 text-center text-green-400 font-bold" id="compareYouTop10">--</td>
-                                    <td class="py-3 text-center text-white" id="compareC1Top10">--</td>
-                                    <td class="py-3 text-center text-white" id="compareC2Top10">--</td>
-                                </tr>
-                                <tr class="border-b border-white/5">
-                                    <td class="py-3 text-gray-300">Total Keywords</td>
-                                    <td class="py-3 text-center text-green-400 font-bold" id="compareYouTotal">--</td>
-                                    <td class="py-3 text-center text-white" id="compareC1Total">--</td>
-                                    <td class="py-3 text-center text-white" id="compareC2Total">--</td>
-                                </tr>
-                                <tr class="border-b border-white/5">
-                                    <td class="py-3 text-gray-300">Blog Posts</td>
-                                    <td class="py-3 text-center text-green-400 font-bold" id="compareYouBlogs">--</td>
-                                    <td class="py-3 text-center text-white" id="compareC1Blogs">--</td>
-                                    <td class="py-3 text-center text-white" id="compareC2Blogs">--</td>
-                                </tr>
-                                <tr class="border-b border-white/5">
-                                    <td class="py-3 text-gray-300">Avg. Word Count</td>
-                                    <td class="py-3 text-center text-green-400 font-bold" id="compareYouWords">--</td>
-                                    <td class="py-3 text-center text-white" id="compareC1Words">--</td>
-                                    <td class="py-3 text-center text-white" id="compareC2Words">--</td>
-                                </tr>
-                                <tr>
-                                    <td class="py-3 text-gray-300">Last New Content</td>
-                                    <td class="py-3 text-center text-green-400 font-bold" id="compareYouLast">--</td>
-                                    <td class="py-3 text-center text-white" id="compareC1Last">--</td>
-                                    <td class="py-3 text-center text-white" id="compareC2Last">--</td>
-                                </tr>
-                            </tbody>
-                        </table>
+                    <div class="text-center py-8 text-gray-500">
+                        <i class="fas fa-balance-scale text-3xl mb-3 block"></i>
+                        <p>Select a client to compare with competitors</p>
                     </div>
                 </div>
                 
@@ -843,33 +789,53 @@
             container.innerHTML = competitors.map(comp => {
                 const compPages = newPages.filter(p => p.competitor_id === comp.id);
                 const hasNew = compPages.length > 0;
+                const pageCount = comp.known_pages_count || 0;
+                const lastCrawl = comp.last_crawl_at ? getTimeAgo(comp.last_crawl_at) : 'Never';
+                const domain = escapeHtml(comp.domain || '');
+                const name = escapeHtml(comp.name || comp.domain || '');
                 
                 return `
-                    <div class="glass-card rounded-xl p-4 competitor-card transition cursor-pointer" onclick="crawlCompetitor('${comp.id}')">
-                        <div class="flex items-start justify-between mb-3">
-                            <div>
-                                <h3 class="font-bold">${comp.name || comp.domain}</h3>
-                                <p class="text-sm text-gray-400">${comp.domain}</p>
+                    <div class="glass-card rounded-xl p-4 competitor-card transition">
+                        <div class="flex items-start justify-between mb-2">
+                            <div class="min-w-0">
+                                <h3 class="font-bold text-sm truncate">${name}</h3>
+                                <p class="text-xs text-gray-500 truncate">${domain}</p>
                             </div>
                             ${hasNew ? `
-                                <span class="px-2 py-1 bg-red-500/20 text-red-400 rounded text-xs">
+                                <span class="px-2 py-0.5 bg-red-500/20 text-red-400 rounded text-[10px] flex-shrink-0">
                                     ${compPages.length} NEW
                                 </span>
                             ` : `
-                                <span class="px-2 py-1 bg-green-500/20 text-green-400 rounded text-xs">
-                                    <i class="fas fa-check mr-1"></i>Monitored
+                                <span class="px-2 py-0.5 bg-green-500/20 text-green-400 rounded text-[10px] flex-shrink-0">
+                                    <i class="fas fa-check mr-1"></i>Active
                                 </span>
                             `}
                         </div>
-                        <div class="flex items-center justify-between text-sm text-gray-400">
-                            <span><i class="fas fa-file-alt mr-1"></i>${comp.known_pages_count || 0} pages</span>
-                            <span>${comp.last_crawl_at ? 'Last: ' + new Date(comp.last_crawl_at).toLocaleDateString() : 'Never crawled'}</span>
+                        <div class="grid grid-cols-3 gap-2 mb-2 text-center">
+                            <div class="bg-white/5 rounded-lg py-1.5">
+                                <div class="text-sm font-bold text-white">${pageCount}</div>
+                                <div class="text-[10px] text-gray-500">Pages</div>
+                            </div>
+                            <div class="bg-white/5 rounded-lg py-1.5">
+                                <div class="text-sm font-bold text-white">${comp.keyword_count || '-'}</div>
+                                <div class="text-[10px] text-gray-500">Keywords</div>
+                            </div>
+                            <div class="bg-white/5 rounded-lg py-1.5">
+                                <div class="text-sm font-bold text-white">${comp.overlap_count || '-'}</div>
+                                <div class="text-[10px] text-gray-500">Overlap</div>
+                            </div>
+                        </div>
+                        <div class="flex items-center justify-between text-[10px] text-gray-500">
+                            <span>Crawled: ${lastCrawl}</span>
+                            <button onclick="crawlCompetitor('${comp.id}')" class="text-cyan-400 hover:text-cyan-300">
+                                <i class="fas fa-satellite-dish mr-1"></i>Re-crawl
+                            </button>
                         </div>
                         ${hasNew ? `
-                            <div class="mt-3 pt-3 border-t border-white/10">
-                                <p class="text-xs text-orange-400 mb-2">New content detected:</p>
+                            <div class="mt-2 pt-2 border-t border-white/10">
+                                <p class="text-[10px] text-orange-400 mb-1">New content:</p>
                                 ${compPages.slice(0, 2).map(p => `
-                                    <p class="text-xs text-gray-300 truncate">• ${p.title || p.url}</p>
+                                    <p class="text-[10px] text-gray-300 truncate">• ${escapeHtml(p.title || p.url || '')}</p>
                                 `).join('')}
                             </div>
                         ` : ''}
@@ -2164,35 +2130,208 @@
         // ==========================================
         // COMPETITOR COMPARISON
         // ==========================================
-        function populateCompareData() {
+        let competitorDashData = null;
+        
+        async function populateCompareData() {
             if (!currentClient) return;
             
-            // Your site
-            document.getElementById('compareYourDomain').textContent = currentClient.website_url?.replace(/https?:\/\//, '') || currentClient.business_name || '--';
-            document.getElementById('compareYouTop10').textContent = Math.floor(Math.random() * 15) + 5;
-            document.getElementById('compareYouTotal').textContent = currentClient.primary_keywords?.length || 0;
-            document.getElementById('compareYouBlogs').textContent = Math.floor(Math.random() * 20) + 10;
-            document.getElementById('compareYouWords').textContent = '1,850';
-            document.getElementById('compareYouLast').textContent = 'Today';
+            const container = document.getElementById('compareTable');
+            const parentPanel = document.getElementById('panel-competitorCompare');
             
-            // Competitors
-            if (competitors && competitors.length > 0) {
-                document.getElementById('compareComp1Domain').textContent = competitors[0]?.domain || '--';
-                document.getElementById('compareC1Top10').textContent = Math.floor(Math.random() * 20) + 8;
-                document.getElementById('compareC1Total').textContent = Math.floor(Math.random() * 30) + 15;
-                document.getElementById('compareC1Blogs').textContent = Math.floor(Math.random() * 30) + 15;
-                document.getElementById('compareC1Words').textContent = Math.floor(Math.random() * 500) + 1200;
-                document.getElementById('compareC1Last').textContent = '3 days ago';
+            // Show loading
+            parentPanel.innerHTML = `
+                <div class="flex items-center justify-between mb-6">
+                    <h3 class="text-lg font-bold text-white"><i class="fas fa-balance-scale mr-2 text-orange-400"></i>Competitor Comparison</h3>
+                    <button onclick="populateCompareData()" class="px-3 py-1.5 glass rounded-lg text-xs text-gray-300 hover:text-white transition"><i class="fas fa-sync-alt mr-1"></i>Refresh</button>
+                </div>
+                <div class="text-center py-8"><div class="spinner mx-auto mb-3"></div><p class="text-gray-400 text-sm">Loading competitor data...</p></div>`;
+            
+            try {
+                const res = await fetch(`${API_URL}/api/monitoring/competitor-dashboard/${currentClientId}`, {
+                    headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
+                });
                 
-                if (competitors.length > 1) {
-                    document.getElementById('compareComp2Domain').textContent = competitors[1]?.domain || '--';
-                    document.getElementById('compareC2Top10').textContent = Math.floor(Math.random() * 15) + 3;
-                    document.getElementById('compareC2Total').textContent = Math.floor(Math.random() * 25) + 10;
-                    document.getElementById('compareC2Blogs').textContent = Math.floor(Math.random() * 25) + 8;
-                    document.getElementById('compareC2Words').textContent = Math.floor(Math.random() * 600) + 1000;
-                    document.getElementById('compareC2Last').textContent = '1 week ago';
-                }
+                if (!res.ok) throw new Error('Failed to load');
+                competitorDashData = await res.json();
+                
+                renderComparePanel(competitorDashData);
+            } catch (e) {
+                console.error('Competitor dashboard error:', e);
+                parentPanel.innerHTML = `
+                    <div class="flex items-center justify-between mb-6">
+                        <h3 class="text-lg font-bold text-white"><i class="fas fa-balance-scale mr-2 text-orange-400"></i>Competitor Comparison</h3>
+                        <button onclick="populateCompareData()" class="px-3 py-1.5 glass rounded-lg text-xs text-gray-300 hover:text-white transition"><i class="fas fa-sync-alt mr-1"></i>Retry</button>
+                    </div>
+                    <div class="text-center py-8 text-gray-500">
+                        <i class="fas fa-exclamation-triangle text-2xl mb-3 block text-orange-400"></i>
+                        <p>Could not load competitor data</p>
+                        <p class="text-xs mt-1">Make sure competitors are configured in client settings</p>
+                    </div>`;
             }
+        }
+        
+        function renderComparePanel(data) {
+            const panel = document.getElementById('panel-competitorCompare');
+            const compData = data.competitor_data || [];
+            const clientKwCount = data.client_keyword_count || 0;
+            const clientDomain = data.client_domain || currentClient?.website_url?.replace(/https?:\/\//, '') || '';
+            const contentGaps = data.content_gaps || [];
+            
+            // Count client's top 10 keywords
+            const clientTop10 = data.client_top_10 || 0;
+            const clientBlogCount = data.client_blog_count || 0;
+            
+            let html = `
+                <div class="flex items-center justify-between mb-6">
+                    <h3 class="text-lg font-bold text-white"><i class="fas fa-balance-scale mr-2 text-orange-400"></i>Competitor Comparison</h3>
+                    <div class="flex gap-2">
+                        <span class="text-xs text-gray-500">Data from DB cache + crawls</span>
+                        <button onclick="populateCompareData()" class="px-3 py-1.5 glass rounded-lg text-xs text-gray-300 hover:text-white transition"><i class="fas fa-sync-alt mr-1"></i>Refresh</button>
+                    </div>
+                </div>`;
+            
+            if (!compData.length) {
+                html += `<div class="text-center py-8 text-gray-500">
+                    <i class="fas fa-users text-3xl mb-3 block"></i>
+                    <p>No competitors configured</p>
+                    <p class="text-xs mt-1">Add competitors in client settings to see comparison data</p>
+                </div>`;
+                panel.innerHTML = html;
+                return;
+            }
+            
+            // === OVERVIEW CARDS ===
+            html += `<div class="grid grid-cols-${Math.min(compData.length + 1, 4)} gap-3 mb-6">
+                <div class="glass rounded-xl p-4 text-center border border-green-500/30">
+                    <p class="text-xs text-gray-400 mb-1">Your Site</p>
+                    <p class="text-sm font-bold text-green-400 truncate">${escapeHtml(clientDomain)}</p>
+                    <div class="mt-2 text-2xl font-bold text-white">${clientKwCount}</div>
+                    <p class="text-[10px] text-gray-500">ranked keywords</p>
+                </div>`;
+            
+            compData.forEach((comp, i) => {
+                const colors = ['orange', 'purple', 'cyan', 'pink'];
+                const c = colors[i % colors.length];
+                html += `
+                <div class="glass rounded-xl p-4 text-center border border-${c}-500/30">
+                    <p class="text-xs text-gray-400 mb-1">Competitor ${i+1}</p>
+                    <p class="text-sm font-bold text-${c}-400 truncate">${escapeHtml(comp.domain)}</p>
+                    <div class="mt-2 text-2xl font-bold text-white">${comp.total_keywords || 0}</div>
+                    <p class="text-[10px] text-gray-500">ranked keywords</p>
+                </div>`;
+            });
+            html += `</div>`;
+            
+            // === COMPARISON TABLE ===
+            html += `<div class="overflow-x-auto mb-6">
+                <table class="w-full text-sm">
+                    <thead><tr class="text-gray-400 border-b border-white/10 text-xs uppercase">
+                        <th class="text-left py-3 px-2">Metric</th>
+                        <th class="text-center py-3 px-2 text-green-400">You</th>`;
+            compData.forEach((comp, i) => {
+                html += `<th class="text-center py-3 px-2">${escapeHtml(comp.name || comp.domain)}</th>`;
+            });
+            html += `</tr></thead><tbody>`;
+            
+            // Total Keywords
+            html += `<tr class="border-b border-white/5">
+                <td class="py-2.5 px-2 text-gray-300">Total Keywords</td>
+                <td class="py-2.5 px-2 text-center font-bold text-green-400">${clientKwCount}</td>`;
+            compData.forEach(comp => {
+                const diff = (comp.total_keywords || 0) - clientKwCount;
+                const cls = diff > 0 ? 'text-red-400' : 'text-green-400';
+                html += `<td class="py-2.5 px-2 text-center text-white">${comp.total_keywords || 0} ${diff !== 0 ? `<span class="${cls} text-[10px]">(${diff > 0 ? '+' : ''}${diff})</span>` : ''}</td>`;
+            });
+            html += `</tr>`;
+            
+            // Crawled Pages
+            html += `<tr class="border-b border-white/5">
+                <td class="py-2.5 px-2 text-gray-300">Crawled Pages</td>
+                <td class="py-2.5 px-2 text-center font-bold text-green-400">${clientBlogCount || '-'}</td>`;
+            compData.forEach(comp => {
+                html += `<td class="py-2.5 px-2 text-center text-white">${comp.total_pages || 0}</td>`;
+            });
+            html += `</tr>`;
+            
+            // Blog Posts
+            html += `<tr class="border-b border-white/5">
+                <td class="py-2.5 px-2 text-gray-300">Blog Posts</td>
+                <td class="py-2.5 px-2 text-center font-bold text-green-400">${clientBlogCount || '-'}</td>`;
+            compData.forEach(comp => {
+                html += `<td class="py-2.5 px-2 text-center text-white">${comp.blog_posts || 0}</td>`;
+            });
+            html += `</tr>`;
+            
+            // Service Pages
+            html += `<tr class="border-b border-white/5">
+                <td class="py-2.5 px-2 text-gray-300">Service Pages</td>
+                <td class="py-2.5 px-2 text-center font-bold text-green-400">-</td>`;
+            compData.forEach(comp => {
+                html += `<td class="py-2.5 px-2 text-center text-white">${comp.service_pages || 0}</td>`;
+            });
+            html += `</tr>`;
+            
+            // Keyword Overlap
+            html += `<tr class="border-b border-white/5">
+                <td class="py-2.5 px-2 text-gray-300">Keyword Overlap</td>
+                <td class="py-2.5 px-2 text-center text-green-400 font-bold">-</td>`;
+            compData.forEach(comp => {
+                const overlap = comp.keyword_overlap || [];
+                html += `<td class="py-2.5 px-2 text-center text-white">${overlap.length} <span class="text-gray-500 text-[10px]">shared</span></td>`;
+            });
+            html += `</tr>`;
+            
+            // Last Crawled
+            html += `<tr>
+                <td class="py-2.5 px-2 text-gray-300">Last Crawled</td>
+                <td class="py-2.5 px-2 text-center text-green-400 font-bold">-</td>`;
+            compData.forEach(comp => {
+                const lastCrawl = comp.last_crawled ? getTimeAgo(comp.last_crawled) : 'Never';
+                html += `<td class="py-2.5 px-2 text-center text-white text-xs">${lastCrawl}</td>`;
+            });
+            html += `</tr></tbody></table></div>`;
+            
+            // === KEYWORD OVERLAP DETAIL ===
+            const allOverlap = [];
+            compData.forEach(comp => {
+                (comp.keyword_overlap || []).forEach(kw => {
+                    if (!allOverlap.find(o => o.keyword === kw)) {
+                        allOverlap.push({ keyword: kw, competitors: [comp.domain] });
+                    } else {
+                        allOverlap.find(o => o.keyword === kw).competitors.push(comp.domain);
+                    }
+                });
+            });
+            
+            if (allOverlap.length > 0) {
+                html += `<div class="glass rounded-xl p-4 mb-6">
+                    <h4 class="text-sm font-semibold text-white mb-3"><i class="fas fa-key text-blue-400 mr-2"></i>Shared Keywords <span class="text-gray-500 font-normal">(${allOverlap.length} keywords you both rank for)</span></h4>
+                    <div class="flex flex-wrap gap-2">`;
+                allOverlap.slice(0, 20).forEach(o => {
+                    html += `<span class="px-2 py-1 bg-blue-500/10 text-blue-400 rounded text-xs border border-blue-500/20">${escapeHtml(o.keyword)}</span>`;
+                });
+                if (allOverlap.length > 20) html += `<span class="px-2 py-1 text-gray-500 text-xs">+${allOverlap.length - 20} more</span>`;
+                html += `</div></div>`;
+            }
+            
+            // === CONTENT GAPS ===
+            if (contentGaps.length > 0) {
+                html += `<div class="glass rounded-xl p-4">
+                    <h4 class="text-sm font-semibold text-white mb-3"><i class="fas fa-lightbulb text-yellow-400 mr-2"></i>Content Gaps <span class="text-gray-500 font-normal">(topics competitors cover that you don't)</span></h4>
+                    <div class="space-y-2">`;
+                contentGaps.slice(0, 8).forEach(gap => {
+                    html += `<div class="flex items-center justify-between p-2 bg-white/5 rounded-lg">
+                        <div class="min-w-0">
+                            <p class="text-xs text-white truncate">${escapeHtml(gap.title || gap.url || 'Unknown')}</p>
+                            <p class="text-[10px] text-gray-500">${escapeHtml(gap.competitor || '')} ${gap.word_count ? '· ' + gap.word_count + ' words' : ''}</p>
+                        </div>
+                        <span class="text-[10px] text-yellow-400 bg-yellow-500/10 px-2 py-0.5 rounded ml-2">Gap</span>
+                    </div>`;
+                });
+                html += `</div></div>`;
+            }
+            
+            panel.innerHTML = html;
         }
         
         // ==========================================
@@ -2203,73 +2342,77 @@
             container.innerHTML = '<div class="text-center py-4"><div class="spinner mx-auto mb-2"></div><p class="text-gray-400 text-sm">Scanning competitor sites...</p></div>';
             
             try {
+                // First try the dedicated content-changes endpoint
                 const res = await fetch(`${API_URL}/api/monitoring/content-changes/${currentClient?.id || ''}`, {
                     headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
                 });
                 
-                let changes;
+                let changes = [];
                 if (res.ok) {
-                    changes = await res.json();
-                } else {
-                    // Generate sample data
-                    changes = generateSampleChanges();
+                    const data = await res.json();
+                    changes = data.changes || [];
                 }
                 
-                renderContentChanges(changes.changes || []);
+                // If no changes from that endpoint, build from competitor dashboard data
+                if (changes.length === 0 && competitorDashData) {
+                    const gaps = competitorDashData.content_gaps || [];
+                    changes = gaps.map(g => ({
+                        type: 'content_gap',
+                        competitor: g.competitor || '',
+                        url: g.url || '',
+                        title: g.title || '',
+                        word_count: g.word_count || 0,
+                        detected_at: new Date().toISOString()
+                    }));
+                }
+                
+                // If still no data, try fetching the competitor dashboard
+                if (changes.length === 0 && !competitorDashData && currentClientId) {
+                    try {
+                        const dashRes = await fetch(`${API_URL}/api/monitoring/competitor-dashboard/${currentClientId}`, {
+                            headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
+                        });
+                        if (dashRes.ok) {
+                            competitorDashData = await dashRes.json();
+                            const gaps = competitorDashData.content_gaps || [];
+                            changes = gaps.map(g => ({
+                                type: 'content_gap',
+                                competitor: g.competitor || '',
+                                url: g.url || '',
+                                title: g.title || '',
+                                word_count: g.word_count || 0,
+                                detected_at: new Date().toISOString()
+                            }));
+                        }
+                    } catch (e2) {}
+                }
+                
+                renderContentChanges(changes);
             } catch (e) {
                 console.error('Content scan failed:', e);
-                renderContentChanges(generateSampleChanges().changes);
+                renderContentChanges([]);
             }
         }
         
-        function generateSampleChanges() {
-            const changes = [];
-            
-            if (competitors && competitors.length > 0) {
-                changes.push({
-                    type: 'new_page',
-                    competitor: competitors[0]?.domain || 'competitor.com',
-                    url: 'https://' + (competitors[0]?.domain || 'competitor.com') + '/blog/new-hvac-tips',
-                    title: 'Top 10 HVAC Maintenance Tips for Winter',
-                    word_count: 1850,
-                    detected_at: new Date(Date.now() - 3600000).toISOString()
-                });
-                
-                changes.push({
-                    type: 'content_update',
-                    competitor: competitors[0]?.domain || 'competitor.com',
-                    url: 'https://' + (competitors[0]?.domain || 'competitor.com') + '/services/ac-repair',
-                    title: 'AC Repair Services',
-                    old_word_count: 1200,
-                    new_word_count: 1650,
-                    detected_at: new Date(Date.now() - 86400000).toISOString()
-                });
-            }
-            
-            changes.push({
-                type: 'new_page',
-                competitor: 'other-competitor.com',
-                url: 'https://other-competitor.com/emergency-service',
-                title: '24/7 Emergency HVAC Service',
-                word_count: 980,
-                detected_at: new Date(Date.now() - 172800000).toISOString()
-            });
-            
-            return { changes };
-        }
+        // generateSampleChanges removed — using real data from competitor-dashboard API
+        
         
         function renderContentChanges(changes) {
             const container = document.getElementById('contentChangesList');
             
             if (changes.length === 0) {
-                container.innerHTML = '<div class="text-center py-8 text-gray-500"><i class="fas fa-check-circle text-4xl text-green-400 mb-3 block"></i><p>No recent content changes detected</p></div>';
+                container.innerHTML = '<div class="text-center py-8 text-gray-500"><i class="fas fa-check-circle text-4xl text-green-400 mb-3 block"></i><p>No content changes or gaps detected</p><p class="text-xs mt-1">Crawl competitors or click Compare tab for content gap analysis</p></div>';
                 return;
             }
             
             container.innerHTML = changes.map(change => {
-                const icon = change.type === 'new_page' ? 'fa-plus-circle text-green-400' : 'fa-edit text-yellow-400';
-                const typeLabel = change.type === 'new_page' ? 'New Page' : 'Updated';
-                const timeAgo = getTimeAgo(change.detected_at);
+                const typeMap = {
+                    'new_page': { icon: 'fa-plus-circle text-green-400', label: 'New Page', bg: 'bg-green-500/20' },
+                    'content_update': { icon: 'fa-edit text-yellow-400', label: 'Updated', bg: 'bg-yellow-500/20' },
+                    'content_gap': { icon: 'fa-lightbulb text-orange-400', label: 'Content Gap', bg: 'bg-orange-500/20' }
+                };
+                const t = typeMap[change.type] || typeMap['new_page'];
+                const timeAgo = change.detected_at ? getTimeAgo(change.detected_at) : '';
                 const safeUrl = escapeHtml(change.url || '');
                 const safeTitle = escapeHtml(change.title || 'Untitled');
                 const safeCompetitor = escapeHtml(change.competitor || '');
@@ -2277,19 +2420,19 @@
                 return `
                     <div class="glass rounded-xl p-4 hover:bg-white/5 transition">
                         <div class="flex items-start gap-3">
-                            <div class="w-10 h-10 rounded-lg ${change.type === 'new_page' ? 'bg-green-500/20' : 'bg-yellow-500/20'} flex items-center justify-center flex-shrink-0">
-                                <i class="fas ${icon}"></i>
+                            <div class="w-10 h-10 rounded-lg ${t.bg} flex items-center justify-center flex-shrink-0">
+                                <i class="fas ${t.icon}"></i>
                             </div>
                             <div class="flex-1 min-w-0">
                                 <div class="flex items-center gap-2 mb-1">
-                                    <span class="text-xs px-2 py-0.5 ${change.type === 'new_page' ? 'bg-green-500/20 text-green-400' : 'bg-yellow-500/20 text-yellow-400'} rounded">${typeLabel}</span>
-                                    <span class="text-xs text-gray-500">${timeAgo}</span>
+                                    <span class="text-xs px-2 py-0.5 ${t.bg} ${t.icon.split(' ')[1]} rounded">${t.label}</span>
+                                    ${timeAgo ? `<span class="text-xs text-gray-500">${timeAgo}</span>` : ''}
                                 </div>
                                 <p class="text-white font-medium truncate">${safeTitle}</p>
                                 <p class="text-gray-400 text-sm">${safeCompetitor}</p>
                                 ${change.type === 'content_update' ? 
                                     `<p class="text-xs text-gray-500 mt-1">Word count: ${change.old_word_count || 0} → ${change.new_word_count || 0} <span class="text-green-400">(+${(change.new_word_count || 0) - (change.old_word_count || 0)})</span></p>` :
-                                    `<p class="text-xs text-gray-500 mt-1">${change.word_count || 0} words</p>`
+                                    change.word_count ? `<p class="text-xs text-gray-500 mt-1">${change.word_count} words</p>` : ''
                                 }
                             </div>
                             <button onclick="respondToChange('${safeUrl}')" class="px-3 py-1 bg-purple-500/20 text-purple-400 rounded text-xs hover:bg-purple-500/30 flex-shrink-0">
