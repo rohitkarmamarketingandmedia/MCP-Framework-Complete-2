@@ -2397,3 +2397,293 @@ Return ONLY valid JSON. No markdown code blocks. No commentary."""
         import traceback
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500
+
+
+# ==========================================
+# CONTENT CALENDAR — Cross-Client Dashboard
+# ==========================================
+
+@content_bp.route('/calendar', methods=['GET'])
+@token_required
+def get_content_calendar(current_user):
+    """
+    Get content calendar data across all clients (admin) or a single client.
+    
+    GET /api/content/calendar?month=2026-03&client_id=xxx
+    
+    Query params:
+        month: YYYY-MM (default: current month)
+        client_id: optional, filter to one client
+        status: optional, filter by status (draft/review/approved/published)
+    
+    Returns calendar data with content items organized by date.
+    """
+    from app.models.db_models import DBClient, DBBlogPost, DBSocialPost
+    from app.database import db
+    from sqlalchemy import and_, or_
+    
+    # Parse month parameter
+    month_str = request.args.get('month', '')
+    show_all = month_str == 'all'
+    
+    if not show_all and month_str:
+        try:
+            year, month = int(month_str.split('-')[0]), int(month_str.split('-')[1])
+        except (ValueError, IndexError):
+            year, month = datetime.utcnow().year, datetime.utcnow().month
+    else:
+        year, month = datetime.utcnow().year, datetime.utcnow().month
+    
+    # Date range for the month (include a week before/after for calendar view)
+    from datetime import timedelta
+    month_start = datetime(year, month, 1)
+    if month == 12:
+        month_end = datetime(year + 1, 1, 1)
+    else:
+        month_end = datetime(year, month + 1, 1)
+    
+    # Extend range for calendar padding (or show everything for 'all')
+    if show_all:
+        view_start = datetime(2020, 1, 1)
+        view_end = datetime(2030, 1, 1)
+    else:
+        view_start = month_start - timedelta(days=7)
+        view_end = month_end + timedelta(days=7)
+    
+    client_id = request.args.get('client_id')
+    status_filter = request.args.get('status')
+    
+    # Determine which clients the user can see
+    if client_id:
+        if not current_user.has_access_to_client(client_id):
+            return jsonify({'error': 'Access denied'}), 403
+        client_ids = [client_id]
+    elif current_user.role in ('admin', 'super_admin'):
+        # Admin sees all clients
+        clients = DBClient.query.all()
+        client_ids = [c.id for c in clients]
+    else:
+        # Regular user sees their assigned clients
+        client_ids = [c.id for c in current_user.get_accessible_clients()]
+    
+    # Build client name lookup
+    clients_map = {}
+    for c in DBClient.query.filter(DBClient.id.in_(client_ids)).all():
+        clients_map[c.id] = {
+            'name': c.business_name,
+            'industry': c.industry
+        }
+    
+    # Query blog posts
+    blog_query = DBBlogPost.query.filter(DBBlogPost.client_id.in_(client_ids))
+    
+    if status_filter:
+        blog_query = blog_query.filter(DBBlogPost.status == status_filter)
+    
+    # Get blogs that have scheduled_for, published_at, or created_at in range
+    blogs = blog_query.filter(
+        or_(
+            and_(DBBlogPost.scheduled_for >= view_start, DBBlogPost.scheduled_for < view_end),
+            and_(DBBlogPost.published_at >= view_start, DBBlogPost.published_at < view_end),
+            and_(DBBlogPost.created_at >= view_start, DBBlogPost.created_at < view_end),
+        )
+    ).order_by(DBBlogPost.created_at.desc()).all()
+    
+    # Query social posts
+    social_query = DBSocialPost.query.filter(DBSocialPost.client_id.in_(client_ids))
+    
+    if status_filter:
+        social_query = social_query.filter(DBSocialPost.status == status_filter)
+    
+    socials = social_query.filter(
+        or_(
+            and_(DBSocialPost.scheduled_for >= view_start, DBSocialPost.scheduled_for < view_end),
+            and_(DBSocialPost.published_at >= view_start, DBSocialPost.published_at < view_end),
+            and_(DBSocialPost.created_at >= view_start, DBSocialPost.created_at < view_end),
+        )
+    ).order_by(DBSocialPost.created_at.desc()).all()
+    
+    # Build calendar items
+    items = []
+    
+    for blog in blogs:
+        # Determine the display date (priority: scheduled > published > created)
+        display_date = (
+            blog.scheduled_for or blog.published_at or blog.created_at
+        )
+        
+        items.append({
+            'id': blog.id,
+            'type': 'blog',
+            'title': blog.title,
+            'status': blog.status,
+            'client_id': blog.client_id,
+            'client_name': clients_map.get(blog.client_id, {}).get('name', 'Unknown'),
+            'date': display_date.strftime('%Y-%m-%d') if display_date else None,
+            'datetime': display_date.isoformat() if display_date else None,
+            'scheduled_for': blog.scheduled_for.isoformat() if blog.scheduled_for else None,
+            'published_at': blog.published_at.isoformat() if blog.published_at else None,
+            'created_at': blog.created_at.isoformat() if blog.created_at else None,
+            'primary_keyword': blog.primary_keyword,
+            'seo_score': blog.seo_score,
+            'word_count': blog.word_count,
+            'published_url': blog.published_url,
+        })
+    
+    for social in socials:
+        display_date = (
+            social.scheduled_for or social.published_at or social.created_at
+        )
+        
+        items.append({
+            'id': social.id,
+            'type': 'social',
+            'platform': social.platform,
+            'title': (social.content or '')[:80],
+            'status': social.status,
+            'client_id': social.client_id,
+            'client_name': clients_map.get(social.client_id, {}).get('name', 'Unknown'),
+            'date': display_date.strftime('%Y-%m-%d') if display_date else None,
+            'datetime': display_date.isoformat() if display_date else None,
+            'scheduled_for': social.scheduled_for.isoformat() if social.scheduled_for else None,
+            'published_at': social.published_at.isoformat() if social.published_at else None,
+            'created_at': social.created_at.isoformat() if social.created_at else None,
+        })
+    
+    # Summary stats
+    status_counts = {
+        'draft': sum(1 for i in items if i['status'] == 'draft'),
+        'review': sum(1 for i in items if i['status'] == 'review'),
+        'approved': sum(1 for i in items if i['status'] == 'approved'),
+        'published': sum(1 for i in items if i['status'] == 'published'),
+        'scheduled': sum(1 for i in items if i.get('scheduled_for')),
+    }
+    
+    # Group by date for calendar view
+    by_date = {}
+    for item in items:
+        d = item.get('date')
+        if d:
+            if d not in by_date:
+                by_date[d] = []
+            by_date[d].append(item)
+    
+    return jsonify({
+        'month': f'{year}-{month:02d}',
+        'total_items': len(items),
+        'status_counts': status_counts,
+        'clients_count': len(set(i['client_id'] for i in items)),
+        'items': items,
+        'by_date': by_date
+    })
+
+
+@content_bp.route('/calendar/summary', methods=['GET'])
+@token_required
+def get_content_calendar_summary(current_user):
+    """
+    Quick summary of content status across all clients (for admin dashboard cards).
+    
+    GET /api/content/calendar/summary
+    """
+    from app.models.db_models import DBClient, DBBlogPost, DBSocialPost
+    from app.database import db
+    from sqlalchemy import func
+    from datetime import timedelta
+    
+    # Admin/manager only
+    if current_user.role not in ('admin', 'super_admin', 'manager'):
+        return jsonify({'error': 'Admin access required'}), 403
+    
+    now = datetime.utcnow()
+    thirty_days_ago = now - timedelta(days=30)
+    
+    # Blog stats by status
+    blog_stats = db.session.query(
+        DBBlogPost.status,
+        func.count(DBBlogPost.id)
+    ).group_by(DBBlogPost.status).all()
+    
+    blog_by_status = {s: c for s, c in blog_stats}
+    
+    # Blog stats by client (for the per-client breakdown)
+    client_blog_stats = db.session.query(
+        DBBlogPost.client_id,
+        DBBlogPost.status,
+        func.count(DBBlogPost.id)
+    ).group_by(DBBlogPost.client_id, DBBlogPost.status).all()
+    
+    # Build per-client summary
+    client_summaries = {}
+    for client_id, status, count in client_blog_stats:
+        if client_id not in client_summaries:
+            client_summaries[client_id] = {'draft': 0, 'review': 0, 'approved': 0, 'published': 0, 'total': 0}
+        client_summaries[client_id][status] = count
+        client_summaries[client_id]['total'] += count
+    
+    # Add client names
+    client_names = {c.id: c.business_name for c in DBClient.query.all()}
+    
+    per_client = []
+    for cid, stats in client_summaries.items():
+        per_client.append({
+            'client_id': cid,
+            'client_name': client_names.get(cid, 'Unknown'),
+            **stats
+        })
+    
+    # Sort by total descending
+    per_client.sort(key=lambda x: x['total'], reverse=True)
+    
+    # Recent activity (last 30 days)
+    recent_published = DBBlogPost.query.filter(
+        DBBlogPost.published_at >= thirty_days_ago
+    ).count()
+    
+    recent_created = DBBlogPost.query.filter(
+        DBBlogPost.created_at >= thirty_days_ago
+    ).count()
+    
+    # Upcoming scheduled
+    upcoming = DBBlogPost.query.filter(
+        DBBlogPost.scheduled_for >= now,
+        DBBlogPost.status != 'published'
+    ).order_by(DBBlogPost.scheduled_for.asc()).limit(10).all()
+    
+    # Drafts needing attention (oldest first)
+    stale_drafts = DBBlogPost.query.filter(
+        DBBlogPost.status == 'draft',
+        DBBlogPost.created_at < thirty_days_ago
+    ).order_by(DBBlogPost.created_at.asc()).limit(10).all()
+    
+    return jsonify({
+        'total_blogs': sum(blog_by_status.values()),
+        'blog_by_status': blog_by_status,
+        'per_client': per_client,
+        'recent_30d': {
+            'published': recent_published,
+            'created': recent_created,
+        },
+        'upcoming_scheduled': [
+            {
+                'id': b.id,
+                'title': b.title,
+                'client_id': b.client_id,
+                'client_name': client_names.get(b.client_id, 'Unknown'),
+                'scheduled_for': b.scheduled_for.isoformat(),
+                'status': b.status
+            }
+            for b in upcoming
+        ],
+        'stale_drafts': [
+            {
+                'id': b.id,
+                'title': b.title,
+                'client_id': b.client_id,
+                'client_name': client_names.get(b.client_id, 'Unknown'),
+                'created_at': b.created_at.isoformat(),
+                'days_old': (now - b.created_at).days
+            }
+            for b in stale_drafts
+        ]
+    })

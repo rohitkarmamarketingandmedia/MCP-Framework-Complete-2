@@ -387,7 +387,8 @@
         // DATA LOADING
         // ==========================================
         async function loadAllData() {
-            await Promise.all([loadCalendar(), loadSummary(), loadClients()]);
+            await Promise.all([loadCalendar(), loadSummary(), loadClients(), loadAllContent()]);
+            updateStats();
             populateClientFilter();
             renderCurrentView();
         }
@@ -405,7 +406,6 @@
                 if (res.ok) {
                     calendarData = await res.json();
                     allItems = calendarData.items || [];
-                    updateStats();
                 }
             } catch (e) { console.error('Calendar load error:', e); }
         }
@@ -435,14 +435,84 @@
         }
 
         function updateStats() {
-            if (!calendarData) return;
-            const sc = calendarData.status_counts || {};
-            document.getElementById('statTotal').textContent = calendarData.total_items || 0;
-            document.getElementById('statDraft').textContent = sc.draft || 0;
-            document.getElementById('statReview').textContent = sc.review || 0;
-            document.getElementById('statApproved').textContent = sc.approved || 0;
-            document.getElementById('statPublished').textContent = sc.published || 0;
-            document.getElementById('statClients').textContent = calendarData.clients_count || 0;
+            // Prefer summary data (all-time) over calendar data (month-scoped)
+            if (summaryData && summaryData.blog_by_status) {
+                const bs = summaryData.blog_by_status || {};
+                const total = Object.values(bs).reduce((a, b) => a + b, 0);
+                document.getElementById('statTotal').textContent = total;
+                document.getElementById('statDraft').textContent = bs.draft || 0;
+                document.getElementById('statReview').textContent = bs.review || 0;
+                document.getElementById('statApproved').textContent = bs.approved || 0;
+                document.getElementById('statPublished').textContent = bs.published || 0;
+                document.getElementById('statClients').textContent = (summaryData.per_client || []).length;
+            } else {
+                // Count from allContentItems or allItems
+                const items = allContentItems.length ? allContentItems : allItems;
+                const counts = { draft: 0, review: 0, approved: 0, published: 0 };
+                const clientSet = new Set();
+                items.forEach(i => {
+                    if (counts[i.status] !== undefined) counts[i.status]++;
+                    if (i.client_id) clientSet.add(i.client_id);
+                });
+                document.getElementById('statTotal').textContent = items.length;
+                document.getElementById('statDraft').textContent = counts.draft;
+                document.getElementById('statReview').textContent = counts.review;
+                document.getElementById('statApproved').textContent = counts.approved;
+                document.getElementById('statPublished').textContent = counts.published;
+                document.getElementById('statClients').textContent = clientSet.size;
+            }
+        }
+
+        // Load ALL content across all months for pipeline/by-client views
+        let allContentItems = [];
+        async function loadAllContent() {
+            try {
+                // Try month=all first (requires updated content.py)
+                let url = `${API_URL}/api/content/calendar?month=all`;
+                if (clientFilter) url += `&client_id=${clientFilter}`;
+                if (statusFilter) url += `&status=${statusFilter}`;
+
+                const res = await fetch(url, { headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` } });
+                if (res.ok) {
+                    const data = await res.json();
+                    allContentItems = data.items || [];
+                    // If month=all returned data, we're good
+                    if (allContentItems.length > 0) return;
+                }
+            } catch (e) {
+                console.warn('month=all not supported, falling back to multi-month fetch');
+            }
+
+            // Fallback: load last 12 months + 2 future months
+            allContentItems = [];
+            const seen = new Set();
+            const now = new Date();
+            const fetches = [];
+            
+            for (let i = -12; i <= 2; i++) {
+                const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
+                const m = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+                let url = `${API_URL}/api/content/calendar?month=${m}`;
+                if (clientFilter) url += `&client_id=${clientFilter}`;
+                if (statusFilter) url += `&status=${statusFilter}`;
+                fetches.push(
+                    fetch(url, { headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` } })
+                        .then(r => r.ok ? r.json() : null)
+                        .catch(() => null)
+                );
+            }
+            
+            const results = await Promise.all(fetches);
+            results.forEach(data => {
+                if (data?.items) {
+                    data.items.forEach(item => {
+                        if (!seen.has(item.id)) {
+                            seen.add(item.id);
+                            allContentItems.push(item);
+                        }
+                    });
+                }
+            });
         }
 
         function populateClientFilter() {
@@ -596,7 +666,21 @@
             for (let day = 1; day <= daysInMonth; day++) {
                 const dateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
                 const isToday = day === today.getDate() && month === today.getMonth() && year === today.getFullYear();
-                const dayItems = (calendarData?.by_date?.[dateStr] || []);
+                
+                // Get items for this date from calendar API data
+                let dayItems = (calendarData?.by_date?.[dateStr] || []);
+                
+                // Also check allContentItems for items whose date matches
+                if (!dayItems.length && allContentItems.length) {
+                    const seen = new Set(dayItems.map(i => i.id));
+                    allContentItems.forEach(item => {
+                        const itemDate = (item.scheduled_for || item.published_at || item.created_at || '').substring(0, 10);
+                        if (itemDate === dateStr && !seen.has(item.id)) {
+                            dayItems.push(item);
+                            seen.add(item.id);
+                        }
+                    });
+                }
                 
                 let chips = dayItems.slice(0, 4).map(item => {
                     const icon = item.type === 'blog' ? '<i class="fas fa-file-alt mr-1"></i>' : '<i class="fab fa-share-alt mr-1"></i>';
@@ -652,7 +736,14 @@
         }
 
         function showDateContent(dateStr) {
-            const items = calendarData?.by_date?.[dateStr] || [];
+            let items = calendarData?.by_date?.[dateStr] || [];
+            // Also check allContentItems
+            if (!items.length && allContentItems.length) {
+                items = allContentItems.filter(item => {
+                    const d = (item.scheduled_for || item.published_at || item.created_at || '').substring(0, 10);
+                    return d === dateStr;
+                });
+            }
             if (!items.length) return;
             const dt = new Date(dateStr + 'T12:00:00');
             const label = dt.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
@@ -666,8 +757,9 @@
         // PIPELINE VIEW (Kanban)
         // ==========================================
         function renderPipeline() {
+            const items = allContentItems.length ? allContentItems : allItems;
             const columns = { draft: [], review: [], approved: [], published: [] };
-            allItems.forEach(item => {
+            items.forEach(item => {
                 if (columns[item.status]) columns[item.status].push(item);
             });
 
@@ -739,7 +831,8 @@
 
             // Find last activity per client from items
             const lastActivity = {};
-            allItems.forEach(item => {
+            const items = allContentItems.length ? allContentItems : allItems;
+            items.forEach(item => {
                 const d = item.published_at || item.created_at;
                 if (d && (!lastActivity[item.client_id] || d > lastActivity[item.client_id])) {
                     lastActivity[item.client_id] = d;
@@ -793,7 +886,7 @@
         // ITEM DETAIL MODAL
         // ==========================================
         function showItemDetail(itemId) {
-            const item = allItems.find(i => i.id === itemId);
+            const item = allItems.find(i => i.id === itemId) || allContentItems.find(i => i.id === itemId);
             if (!item) return;
 
             const statusColors = { draft: 'text-yellow-400 bg-yellow-500/10', review: 'text-orange-400 bg-orange-500/10', approved: 'text-blue-400 bg-blue-500/10', published: 'text-green-400 bg-green-500/10' };
