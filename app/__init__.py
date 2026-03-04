@@ -161,6 +161,11 @@ def create_app(config_name=None):
     def portal_dashboard():
         return send_from_directory(root_dir, 'portal-dashboard.html')
     
+    # Serve content calendar (admin cross-client view)
+    @app.route('/content-calendar')
+    def content_calendar():
+        return send_from_directory(root_dir, 'content-calendar.html')
+    
     # Public chat history page (no login required)
     @app.route('/chat/<share_token>')
     def public_chat_page(share_token):
@@ -249,7 +254,8 @@ def create_app(config_name=None):
                 'client': '/client-dashboard',
                 'elite': '/elite',
                 'admin': '/admin',
-                'portal': '/portal'
+                'portal': '/portal',
+                'content-calendar': '/content-calendar'
             }
         }
     
