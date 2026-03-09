@@ -60,6 +60,15 @@ def create_app(config_name=None):
     from app.database import init_db
     init_db(app)
     
+    # Import intelligence automation models so tables auto-create
+    try:
+        from app.models.intelligence_models import DBClientInsight, DBAiSuggestion, DBRankAlert
+        with app.app_context():
+            from app.database import db
+            db.create_all()
+    except Exception as e:
+        logger.warning(f"Could not initialize intelligence models: {e}")
+    
     # Register blueprints
     from app.routes import register_routes
     register_routes(app)
