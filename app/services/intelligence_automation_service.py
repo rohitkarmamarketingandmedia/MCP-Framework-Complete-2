@@ -1024,10 +1024,7 @@ class IntelligenceAutomationService:
         Aggregates all alerts, suggestions, and insights.
         """
         from app.models.intelligence_models import DBClientInsight, DBAiSuggestion, DBRankAlert
-        from app.models.db_models import (
-            DBClientInsight, DBAiSuggestion, DBRankAlert,
-            DBBlogPost, DBClient
-        )
+        from app.models.db_models import DBBlogPost, DBClient
         
         client = DBClient.query.get(client_id)
         if not client:
