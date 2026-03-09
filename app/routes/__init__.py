@@ -36,6 +36,7 @@ def register_routes(app: Flask):
     from app.routes.intelligence import intelligence_bp
     from app.routes.webhooks import webhooks_bp
     from app.routes.accessibility import accessibility_bp
+    from app.routes.intelligence_automation import intelligence_auto_bp
     
     # Register with /api prefix
     app.register_blueprint(auth_bp, url_prefix='/api/auth')
@@ -66,3 +67,4 @@ def register_routes(app: Flask):
     app.register_blueprint(intelligence_bp, url_prefix='/api/intelligence')
     app.register_blueprint(webhooks_bp, url_prefix='/api/webhooks')
     app.register_blueprint(accessibility_bp, url_prefix='/api/accessibility')
+    app.register_blueprint(intelligence_auto_bp, url_prefix='/api/ai')
