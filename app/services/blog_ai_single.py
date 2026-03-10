@@ -1,4 +1,4 @@
-# app/services/blog_ai_single.py
+# app/services/blog_ai_single.py  # v4 prompt update - March 2026
 """
 Robust blog generator that:
 - Never hard-fails JSON (handles Invalid escape)
