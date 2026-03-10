@@ -710,7 +710,8 @@ def generate_blog_sync(current_user):
         import traceback
         error_trace = traceback.format_exc()
         logger.error(f"[SYNC] Unexpected error: {e}\n{error_trace}")
-        return jsonify({'error': f'Server error: {str(e)}'}), 500
+        print(f"[BLOG-ERROR] {e}\n{error_trace}", flush=True)
+        return jsonify({'error': f'Server error: {str(e)}', 'trace': error_trace[:1000]}), 500
 
 
 @content_bp.route('/blog/generate-async', methods=['POST'])
