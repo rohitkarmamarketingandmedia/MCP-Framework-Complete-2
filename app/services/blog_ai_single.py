@@ -1,4 +1,4 @@
-# app/services/blog_ai_single.py  # v4 prompt update - March 2026
+# app/services/blog_ai_single.py  # v5 — Claude API primary engine — March 2026
 """
 Robust blog generator that:
 - Never hard-fails JSON (handles Invalid escape)
@@ -6,6 +6,7 @@ Robust blog generator that:
 - Enforces word count via continuation
 - Fixes SEO basics automatically
 - Handles city correctly from keyword
+- Uses Anthropic Claude API as primary engine (v5)
 """
 from __future__ import annotations
 
@@ -16,7 +17,7 @@ import logging
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
-from openai import OpenAI
+import anthropic
 
 logger = logging.getLogger(__name__)
 
@@ -70,9 +71,9 @@ class BlogAISingle:
         'clearwater', 'st petersburg', 'largo', 'pinellas park', 'dunedin'
     ]
 
-    def __init__(self, api_key: str = None, model_primary: str = "gpt-4o", model_fallback: str = "gpt-4o-mini"):
-        self.api_key = api_key or os.environ.get("OPENAI_API_KEY", "")
-        self.client = OpenAI(api_key=self.api_key) if self.api_key else None
+    def __init__(self, api_key: str = None, model_primary: str = "claude-sonnet-4-20250514", model_fallback: str = "claude-haiku-4-5-20251001"):
+        self.api_key = api_key or os.environ.get("ANTHROPIC_API_KEY", "")
+        self.client = anthropic.Anthropic(api_key=self.api_key) if self.api_key else None
         self.model_primary = model_primary
         self.model_fallback = model_fallback
         self._settings_city = ""
@@ -81,7 +82,7 @@ class BlogAISingle:
     def generate(self, req: BlogRequest) -> Dict[str, Any]:
         """Main entry point for blog generation"""
         if not self.client:
-            logger.error("OpenAI client not initialized - missing API key")
+            logger.error("Anthropic client not initialized - missing API key")
             return self._empty_result(req)
         
         # Detect city from keyword
@@ -230,17 +231,17 @@ CRITICAL:
 - Remove duplicate city names
 - Only include fields that need fixing"""
 
-            response = self.client.chat.completions.create(
-                model="gpt-4o-mini",
+            response = self.client.messages.create(
+                model=self.model_fallback,
+                max_tokens=2000,
+                system="You fix blog content issues. Return only valid JSON. Make H2 headings SHORT.",
                 messages=[
-                    {"role": "system", "content": "You fix blog content issues. Return only valid JSON. Make H2 headings SHORT."},
                     {"role": "user", "content": cleanup_prompt}
                 ],
                 temperature=0.1,
-                max_tokens=2000
             )
             
-            cleanup_text = response.choices[0].message.content.strip()
+            cleanup_text = response.content[0].text.strip()
             logger.info(f"AI cleanup response: {cleanup_text[:400]}...")
             
             # Parse the response
@@ -642,25 +643,29 @@ CRITICAL:
         return keyword
 
     def _call_model(self, model: str, prompt: str, system_prompt: str = None) -> str:
-        """Call OpenAI API with hardened settings"""
+        """Call Anthropic Claude API with hardened settings"""
         try:
-            logger.info(f"Calling {model}...")
+            logger.info(f"Calling Claude {model}...")
             
             if system_prompt is None:
                 system_prompt = "You are an SEO content generator. Return ONLY valid JSON. No markdown. No commentary."
             
-            resp = self.client.chat.completions.create(
+            resp = self.client.messages.create(
                 model=model,
+                max_tokens=8000,
+                system=system_prompt.strip(),
                 messages=[
-                    {"role": "system", "content": system_prompt.strip()},
                     {"role": "user", "content": prompt.strip()},
                 ],
                 temperature=0.4,  # Low temp for constraint following
-                max_tokens=8000,
             )
-            content = resp.choices[0].message.content or ""
+            content = resp.content[0].text or ""
             content = content.strip()
-            logger.info(f"Got {len(content)} chars from {model}")
+            logger.info(f"Got {len(content)} chars from Claude {model} (stop_reason={resp.stop_reason})")
+            
+            # Warn if response was truncated
+            if resp.stop_reason == "max_tokens":
+                logger.warning(f"Claude response was truncated (stop_reason=max_tokens)")
             
             # Validate JSON output
             if content and not content.startswith("{"):
@@ -671,6 +676,12 @@ CRITICAL:
                     content = content[start:]
             
             return content
+        except anthropic.RateLimitError as e:
+            logger.error(f"Claude rate limit hit: {e}")
+            return ""
+        except anthropic.APIError as e:
+            logger.error(f"Claude API error: {e}")
+            return ""
         except Exception as e:
             logger.error(f"Model call failed: {e}")
             return ""
@@ -697,16 +708,16 @@ Requirements:
 Return: {{"body_append": "<h2>Title</h2><p>Content...</p>"}}"""
         
         try:
-            resp = self.client.chat.completions.create(
+            resp = self.client.messages.create(
                 model=model,
+                max_tokens=4000,
+                system=system_prompt.strip(),
                 messages=[
-                    {"role": "system", "content": system_prompt.strip()},
                     {"role": "user", "content": prompt.strip()},
                 ],
                 temperature=0.4,
-                max_tokens=4000,
             )
-            return resp.choices[0].message.content or ""
+            return resp.content[0].text or ""
         except Exception as e:
             logger.error(f"Continue call failed: {e}")
             return ""

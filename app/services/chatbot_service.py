@@ -16,8 +16,9 @@ class ChatbotService:
     """Service for managing chatbot conversations and AI responses"""
     
     def __init__(self):
-        self.openai_api_key = os.getenv('OPENAI_API_KEY')
-        self.model = os.getenv('CHATBOT_MODEL', 'gpt-4o-mini')
+        self.anthropic_api_key = os.getenv('ANTHROPIC_API_KEY')
+        self.openai_api_key = os.getenv('OPENAI_API_KEY')  # fallback
+        self.model = os.getenv('CHATBOT_MODEL', 'claude-haiku-4-5-20251001')
     
     def build_system_prompt(self, client_data: Dict, chatbot_config: Dict, knowledge_entries: list = None) -> str:
         """
@@ -308,8 +309,39 @@ If asked about something outside MCP, politely redirect to MCP-related help or s
         max_tokens: int = 500
     ) -> Dict:
         """
-        Synchronous version of get_ai_response
+        Synchronous AI response — Claude (primary), OpenAI (fallback)
         """
+        # Try Anthropic Claude first
+        if self.anthropic_api_key:
+            try:
+                import anthropic
+                
+                start_time = time.time()
+                
+                client = anthropic.Anthropic(api_key=self.anthropic_api_key)
+                
+                response = client.messages.create(
+                    model=self.model,
+                    max_tokens=max_tokens,
+                    system=system_prompt,
+                    messages=messages,
+                    temperature=temperature,
+                )
+                
+                response_time = int((time.time() - start_time) * 1000)
+                content = response.content[0].text
+                tokens = response.usage.input_tokens + response.usage.output_tokens
+                
+                return {
+                    'content': content,
+                    'tokens_used': tokens,
+                    'response_time_ms': response_time
+                }
+                
+            except Exception as e:
+                logger.error(f"Chatbot Claude error: {str(e)}, falling back to OpenAI")
+        
+        # Fallback to OpenAI
         if not self.openai_api_key:
             return {
                 'content': "I'm having trouble connecting right now. Please leave your contact info and we'll get back to you shortly!",
@@ -335,7 +367,7 @@ If asked about something outside MCP, politely redirect to MCP-related help or s
                     'Content-Type': 'application/json'
                 },
                 json={
-                    'model': self.model,
+                    'model': 'gpt-4o-mini',
                     'messages': full_messages,
                     'temperature': temperature,
                     'max_tokens': max_tokens

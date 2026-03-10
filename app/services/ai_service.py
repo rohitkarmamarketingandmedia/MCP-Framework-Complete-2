@@ -32,8 +32,8 @@ class AIService:
     
     @property
     def default_model(self):
-        """Get default AI model at runtime - use gpt-3.5-turbo for speed"""
-        return os.environ.get('DEFAULT_AI_MODEL', 'gpt-3.5-turbo')
+        """Get default AI model at runtime - Claude Sonnet as primary"""
+        return os.environ.get('DEFAULT_AI_MODEL', 'claude-sonnet-4-20250514')
     
     def _rate_limit_delay(self):
         """Enforce minimum delay between API calls"""
@@ -447,7 +447,7 @@ Example for HVAC business:
         
         # Use agent config if available, but override for speed
         if agent_config:
-            fast_model = self.default_model  # gpt-3.5-turbo
+            fast_model = self.default_model  # claude-sonnet-4
             fast_tokens = min(agent_config.max_tokens, 500)  # Cap at 500 for social
             
             response = self._call_with_retry(
@@ -1293,8 +1293,32 @@ REMEMBER: Body must have {word_count}+ words AND at least 3 internal <a href> li
         return data
     
     def _call_with_retry(self, prompt: str, max_tokens: int = 2000, max_retries: int = 3, system_prompt: str = None, model: str = None, temperature: float = 0.7) -> Dict[str, Any]:
-        """Call OpenAI with retry logic for rate limits"""
+        """Call Claude (primary) with retry logic, falling back to OpenAI"""
         
+        # Try Anthropic Claude first (primary engine)
+        if self.anthropic_key:
+            for attempt in range(max_retries):
+                response = self._call_anthropic(prompt, max_tokens, system_prompt=system_prompt, model=model, temperature=temperature)
+                
+                if not response.get('error'):
+                    return response
+                
+                error_msg = str(response.get('error', '')).lower()
+                
+                if 'rate' in error_msg or '429' in error_msg or 'overloaded' in error_msg:
+                    wait_time = (attempt + 1) * 10
+                    logger.warning(f"Claude rate limited, waiting {wait_time}s before retry {attempt + 1}/{max_retries}")
+                    time.sleep(wait_time)
+                    continue
+                
+                # Non-retryable error — fall through to OpenAI
+                logger.warning(f"Claude error (non-retryable): {error_msg[:100]}")
+                break
+            else:
+                return {'error': 'Max retries exceeded for Claude API'}
+        
+        # Fallback to OpenAI
+        logger.info("Falling back to OpenAI...")
         for attempt in range(max_retries):
             response = self._call_openai(prompt, max_tokens, system_prompt=system_prompt, model=model, temperature=temperature)
             
@@ -1303,22 +1327,19 @@ REMEMBER: Body must have {word_count}+ words AND at least 3 internal <a href> li
             
             error_msg = str(response.get('error', '')).lower()
             
-            # Check if it's a rate limit error
             if 'rate' in error_msg or '429' in error_msg:
-                wait_time = (attempt + 1) * 10  # 10s, 20s, 30s
-                logger.warning(f"Rate limited, waiting {wait_time}s before retry {attempt + 1}/{max_retries}")
+                wait_time = (attempt + 1) * 10
+                logger.warning(f"OpenAI rate limited, waiting {wait_time}s before retry {attempt + 1}/{max_retries}")
                 time.sleep(wait_time)
                 continue
             
-            # Check if quota exceeded
             if 'quota' in error_msg or 'insufficient' in error_msg:
                 logger.error("OpenAI quota exceeded - need to add credits")
                 return response
             
-            # Other error, don't retry
             return response
         
-        return {'error': 'Max retries exceeded due to rate limits'}
+        return {'error': 'Max retries exceeded on both Claude and OpenAI'}
     
     def _call_openai(self, prompt: str, max_tokens: int = 2000, system_prompt: str = None, model: str = None, temperature: float = 0.7) -> Dict[str, Any]:
         """Call OpenAI API"""
@@ -1411,44 +1432,62 @@ REMEMBER: Body must have {word_count}+ words AND at least 3 internal <a href> li
             return {'error': f'Unexpected error calling OpenAI: {str(e)}'}
     
     def _call_anthropic(self, prompt: str, max_tokens: int = 2000, system_prompt: str = None, model: str = None, temperature: float = 0.7) -> Dict[str, Any]:
-        """Call Anthropic Claude API (fallback)"""
+        """Call Anthropic Claude API (primary engine)"""
         if not self.anthropic_key:
             return {'error': 'Anthropic API key not configured'}
         
+        actual_model = model or 'claude-sonnet-4-20250514'
+        
+        # Default system prompt if not provided
+        if system_prompt is None:
+            system_prompt = 'You are an expert SEO content writer. Always respond with valid JSON when requested. Never wrap JSON in markdown code blocks.'
+        
+        logger.info(f"Anthropic API call: model={actual_model}, max_tokens={max_tokens}")
+        
         try:
-            payload = {
-                'model': model or 'claude-3-sonnet-20240229',
-                'max_tokens': max_tokens,
-                'messages': [
+            import anthropic as _anthropic
+            client = _anthropic.Anthropic(api_key=self.anthropic_key)
+            
+            response = client.messages.create(
+                model=actual_model,
+                max_tokens=max_tokens,
+                system=system_prompt,
+                messages=[
                     {'role': 'user', 'content': prompt}
-                ]
-            }
-            
-            # Add system prompt if provided
-            if system_prompt:
-                payload['system'] = system_prompt
-            
-            response = requests.post(
-                'https://api.anthropic.com/v1/messages',
-                headers={
-                    'x-api-key': self.anthropic_key,
-                    'Content-Type': 'application/json',
-                    'anthropic-version': '2023-06-01'
-                },
-                json=payload,
-                timeout=90
+                ],
+                temperature=temperature,
             )
             
-            response.raise_for_status()
-            data = response.json()
+            content = response.content[0].text
+            
+            # Check for truncation
+            if response.stop_reason == 'max_tokens':
+                logger.warning(f"Anthropic response was truncated (stop_reason=max_tokens)")
+            
+            logger.info(f"Anthropic API success: content length={len(content)}, stop_reason={response.stop_reason}")
+            
+            if not content or len(content) < 50:
+                logger.error(f"Anthropic returned very short content: '{content[:100]}'")
+                return {'error': 'Anthropic returned empty or very short content. Try again.'}
             
             return {
-                'content': data['content'][0]['text'],
-                'usage': data.get('usage', {})
+                'content': content,
+                'usage': {
+                    'input_tokens': response.usage.input_tokens,
+                    'output_tokens': response.usage.output_tokens,
+                },
+                'stop_reason': response.stop_reason
             }
             
-        except requests.RequestException as e:
-            return {'error': f'Anthropic API error: {str(e)}'}
+        except _anthropic.RateLimitError as e:
+            logger.error(f"Anthropic rate limit: {e}")
+            return {'error': f'Anthropic rate limit exceeded. Please wait and try again.'}
+        except _anthropic.APIError as e:
+            logger.error(f"Anthropic API error: {e}")
+            return {'error': f'Anthropic API error: {str(e)[:200]}'}
+        except Exception as e:
+            logger.error(f"Anthropic unexpected error: {e}")
+            return {'error': f'Unexpected error calling Anthropic: {str(e)}'}
     
     def generate_with_agent(
         self,
@@ -1481,7 +1520,7 @@ REMEMBER: Body must have {word_count}+ words AND at least 3 internal <a href> li
                 system_prompt = system_prompt.replace(f'{{{key}}}', str(value))
         
         # Override model for speed on Render free tier
-        fast_model = self.default_model  # gpt-3.5-turbo
+        fast_model = self.default_model  # claude-sonnet-4
         fast_tokens = min(agent.max_tokens, 1000)  # Cap at 1000
         
         logger.info(f"Using agent '{agent_name}' with model {fast_model} (override)")

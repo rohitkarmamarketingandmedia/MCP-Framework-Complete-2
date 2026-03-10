@@ -232,7 +232,7 @@ def create_app(config_name=None):
             'api_env_vars': api_vars,
             'total_env_vars': len(os.environ),
             'missing_recommended': missing,
-            'message': 'All good!' if (openai_key or anthropic_key) else 'Set OPENAI_API_KEY in Render environment variables'
+            'message': 'All good!' if (openai_key or anthropic_key) else 'Set ANTHROPIC_API_KEY (primary) or OPENAI_API_KEY (fallback) in Render environment variables'
         }
     
     # API info endpoint

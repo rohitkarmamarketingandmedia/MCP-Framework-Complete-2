@@ -52,8 +52,8 @@ class BaseConfig:
     SEMRUSH_API_KEY = os.environ.get('SEMRUSH_API_KEY', '')
     
     # AI Model Settings
-    DEFAULT_AI_MODEL = os.environ.get('DEFAULT_AI_MODEL', 'gpt-4o-mini')
-    FALLBACK_AI_MODEL = os.environ.get('FALLBACK_AI_MODEL', 'claude-3-sonnet-20240229')
+    DEFAULT_AI_MODEL = os.environ.get('DEFAULT_AI_MODEL', 'claude-sonnet-4-20250514')
+    FALLBACK_AI_MODEL = os.environ.get('FALLBACK_AI_MODEL', 'gpt-4o-mini')
     
     # WordPress
     WP_BASE_URL = os.environ.get('WP_BASE_URL', '')
