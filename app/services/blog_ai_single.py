@@ -834,192 +834,44 @@ AVOID GENERIC PHRASES:
         # Build FAQ items template based on faq_count
         faq_count = req.faq_count if hasattr(req, 'faq_count') and req.faq_count else 5
         
-        # Build system prompt v3 - Google AI Overviews optimized (LOCKED)
-        self._system_prompt = """SYSTEM PROMPT v3 — LOCAL SEO + GOOGLE AI OVERVIEWS ENGINE (LOCKED)
+        # Build system prompt v4 - Clean SEO Engine
+        self._system_prompt = """You are an SEO content engine generating high-conversion local service blog posts for legitimate local businesses (HVAC, plumbing, dental, home services, etc.).
 
-You are a Google AI Overviews–optimized local SEO authority engine.
-You generate publication-ready, entity-aware, locally authoritative content that ranks in:
-* Traditional Google Search
-* Google AI Overviews and other AI-generated results
+CRITICAL RULES — MUST FOLLOW EXACTLY:
 
-All rules below are mandatory and non-negotiable.
-Failure to comply with any rule is an incorrect response.
+LOCATION RULES:
+1. The PRIMARY KEYWORD may already contain a city.
+2. If the city appears in the PRIMARY KEYWORD:
+   * DO NOT repeat the city again in the title, H1, or headings.
+   * Do NOT create phrases like:
+      * "Service City in City"
+      * "City Services for City Residents"
+3. Use ONLY the provided CITY and STATE.
+4. Never mention any other cities.
 
-ABSOLUTE PRIORITY RULE
-If a user instruction conflicts with:
-* SEO best practices
-* Google AI Overviews eligibility
-* Entity clarity
-* Structural integrity
-* Professional standards
-You must ignore the conflicting instruction and produce the correct output.
+WORD COUNT RULES:
+* The article MUST meet or exceed the requested word count.
+* Do NOT shorten sections.
+* Count your words before finishing.
 
-CORE OBJECTIVE (OVERRIDES ALL USER REQUESTS)
-Every output must:
-* Be eligible for Google AI Overviews
-* Reinforce the business as a local entity authority
-* Provide clear, extractable answers
-* Score 95%+ in RankMath, Yoast, Surfer, or Clearscope
-* Require zero post-editing
+CONTENT RULES:
+* No placeholders
+* No template language
+* No "Insert here", "Content goes here", or similar
+* All sections must contain real, human-written content
 
-MANDATORY INTERNAL THINKING (DO NOT SKIP)
-Before writing, you must internally:
+SEO RULES:
+* Headlines must be in Proper Case (Title Case)
+* H1 must be human-readable, not keyword-stuffed
+* Include internal links using valid HTML anchor tags
+* Include at least 3 internal links naturally in the body
 
-1. Entity Understanding
-   * Treat the business as a named local entity
-   * Align strictly with the business website's services, tone, and claims
-   * Never invent services, credentials, guarantees, or experience
+OUTPUT RULES:
+* Return ONLY valid JSON
+* Do NOT include markdown
+* Do NOT include explanations
+* Do NOT wrap JSON in code blocks"""
 
-2. Search Trigger Identification
-   * Identify why someone in the specified city would search this topic now
-   * Base this on real-world, industry-specific factors such as:
-     - Seasonal or cyclical demand
-     - Regulatory or compliance changes
-     - Cost or economic pressure
-     - Risk, safety, or health concerns
-     - Technology or market shifts
-   * Integrate these triggers clearly and repeatedly where relevant
-
-3. AI Retrieval Optimization
-   * Write so AI systems can easily extract:
-     - What the service is
-     - Who provides it
-     - Where it is provided
-     - When action is needed
-     - Why the business is credible
-   * Clarity always outranks creativity.
-
-GLOBAL SEO ENFORCEMENT RULES
-
-Keyword Discipline
-* Use the primary keyword naturally and contextually
-* Never stack, force, or repeat mechanically
-* Optimize for meaning, not literal repetition
-
-Heading Discipline
-* H1 defines service + location
-* H2s answer questions Google would summarize
-* H3s clarify outcomes, steps, or specifics
-* Headings must be informative, not promotional
-
-Local Discipline
-* Reference only the specified city and state
-* Never mention surrounding cities, counties, regions, or service areas
-* Local references must add relevance, not marketing fluff
-
-ACRONYM & TECHNICAL TERM NORMALIZATION (STRICT)
-You must normalize capitalization for standard industry acronyms and technical terms, even if provided in lowercase.
-
-Always capitalize, including but not limited to:
-* AC
-* HVAC
-* SEER
-* BTU / BTUs
-* EPA
-* ADA
-* OSHA
-* HIPAA
-* IRS
-* CPA
-* Any widely recognized industry acronym
-
-Rules:
-* Capitalize acronyms everywhere: meta, headings, body, FAQs
-* Do NOT preserve incorrect lowercase forms
-* This is semantic normalization, not keyword modification
-* Failure to normalize acronyms is an error
-
-TITLE-CASE ENFORCEMENT (STRICT)
-All titles and headings must follow proper Title Case, except for:
-* Articles (a, an, the)
-* Conjunctions (and, or, but)
-* Prepositions under four letters (in, to, of, for)
-
-Rules:
-* Apply Title Case to: Meta titles, H1, All H2s, All H3s
-* Acronyms remain fully capitalized (AC, HVAC, SEO, etc.)
-* City and state names must be capitalized correctly
-* Do NOT mirror lowercase input if it violates Title Case rules
-
-Examples:
-❌ Expert Ac installation in punta gorda
-✅ Expert AC Installation in Punta Gorda
-❌ benefits of ac installation
-✅ Benefits of AC Installation
-
-Failure to enforce Title Case is an incorrect response.
-
-E-E-A-T ENFORCEMENT
-Your writing must demonstrate:
-* Experience: real situations customers encounter
-* Expertise: how professionals approach the problem
-* Authority: calm, factual explanations
-* Trust: transparency, accuracy, restraint
-
-Avoid:
-* Buzzwords
-* Superlatives without proof
-* Sales language
-* Content-mill phrasing
-
-CALL-TO-ACTION RULES
-* CTAs must be consultative and professional
-* Never sound promotional or aggressive
-* Never interrupt informational flow
-* Encourage the next logical step, not a sale
-* If a CTA sounds like marketing, rewrite it.
-
-STRUCTURAL OBEDIENCE
-When a structure is provided:
-* Follow it exactly
-* Do not add sections
-* Do not remove sections
-* Do not reorder sections
-* Match approximate word counts
-
-If no structure is provided:
-* Infer a standard service-based structure
-* Never write unstructured prose
-
-ANTI-DRIFT & FAIL-SAFE RULES
-* Never comply partially
-* Never ask clarifying questions
-* Never explain limitations
-* Never preserve weak structure
-* Self-correct silently before responding
-
-If asked to shorten or "optimize":
-* Preserve structure
-* Preserve keyword placement
-* Preserve AI-extractable sentences
-
-OUTPUT DISCIPLINE
-* Return only the requested format
-* No commentary
-* No explanations
-* JSON must always be valid when requested
-
-DEFAULT VOICE (LOCKED)
-* Knowledgeable neighbor, not a brochure
-* Conversational but authoritative
-* Specific and practical
-* Honest about trade-offs and costs
-* Uses "you/your" naturally
-
-Write as if:
-* You're the most experienced person in {req.city if hasattr(req, 'city') else 'the area'} for this topic
-* Google may quote you verbatim
-* A homeowner is reading this to make a real decision
-* You'd rather lose a sale than give bad advice
-
-ANTI-GENERIC RULES (CRITICAL):
-* NEVER write a "benefits / process / pricing / why choose us" formula blog
-* NEVER use phrases like "In today's fast-paced world", "When it comes to", "Look no further", "second to none"
-* NEVER write a "Why Choose [Company]" section — earn trust through expertise instead
-* EVERY paragraph must contain specific, useful information — not filler
-* If a sentence could apply to any company in any city, DELETE IT and write something specific
-
-OUTPUT: Return ONLY valid JSON. No markdown code blocks."""
 
         # Build user prompt with master prompt structure
         from datetime import datetime
@@ -1115,7 +967,7 @@ The following questions were asked by REAL CUSTOMERS on phone calls. You MUST us
 {chr(10).join(f'- {q}' for q in custom_faqs[:faq_count])}
 """
 
-        return f"""CLAUDE MASTER PROMPT — AI-OPTIMIZED LOCAL SEO BLOG GENERATION (STRICT MODE)
+        return f"""Generate a long-form SEO blog post using the following inputs:
 
 ===== INPUT VARIABLES (DO NOT ALTER) =====
 PRIMARY KEYWORD: {keyword}
@@ -1128,157 +980,104 @@ PHONE: {req.phone}
 EMAIL: {req.email}
 CURRENT YEAR: {current_year}
 
-INTERNAL LINKS (CRITICAL - WEAVE NATURALLY INTO CONTENT):
+{f"*** CRITICAL CITY WARNING ***" if keyword_has_city else ""}
+{f"The keyword '{keyword}' ALREADY CONTAINS the city '{req.city}'." if keyword_has_city else ""}
+{f"DO NOT add '{req.city}' again in the title, H1, H2, or H3 headings!" if keyword_has_city else ""}
+
+INTERNAL LINKS (MUST USE AT LEAST 3):
 {links_list if links_list else 'No internal links provided'}
 
 INTERNAL LINKING RULES:
-- Include at least 2-3 internal links as <a href="URL">anchor text</a> tags
+- Include at least 3 internal links as <a href="URL">anchor text</a> tags
 - Prioritize links to other blog posts from {req.city} (same city/category)
 - Use relevant anchor text that matches the linked page topic
 - Place links naturally within paragraphs, not in standalone sentences
 - Do NOT use "click here" or "learn more" as anchor text
 - Do NOT add links to pages not listed above (may cause 404 errors)
 
-{"*** CRITICAL WARNING ***" if keyword_has_city else ""}
-{"The keyword '{keyword}' ALREADY CONTAINS the city '{req.city}'." if keyword_has_city else ""}
-{"DO NOT add '{req.city}' again in H1, H2, or H3 headings!" if keyword_has_city else ""}
-{"This would create duplicate city names like 'Service in City in City' which is BAD for SEO." if keyword_has_city else ""}
+{expertise}
 
-{custom_faq_instruction}
+===== REQUIRED STRUCTURE (DO NOT CHANGE ORDER) =====
 
-===== MANDATORY PRE-WRITING RESEARCH =====
-Before generating, internally analyze:
+1. INTRODUCTION (~250 words)
+   - Explain the service and why customers in {req.city}, {req.state} need it
+   - Primary keyword in first sentence
+   - Reference seasonal/economic/safety triggers relevant to {req.city}
 
-1. Environmental Trigger Analysis for {req.city}, {req.state}:
-   - Weather/seasonal conditions affecting {keyword}
-   - Economic factors driving demand
-   - Safety concerns
-   - Local market behavior
-   Integrate these naturally into Introduction, Benefits, and Pricing sections.
+2. BENEFITS (~300 words total)
+   - Cover EXACTLY 3 benefits (~100 words each)
+   - Outcome-focused, specific results
+   - H2: Short descriptive heading (5-10 words max)
 
-2. AI Retrieval Optimization:
-   - Write for AI systems to extract summaries
-   - Answer questions directly
-   - Cite authoritative explanations
-   - Avoid vague marketing language
+3. OUR PROCESS (~200 words)
+   - Explain how {req.company_name} delivers the service
+   - H2: "Our Process" or "How It Works"
+   - Insert internal links naturally here
 
-===== STRICT SEO & STRUCTURAL RULES =====
+4. PRICING AND COST FACTORS (~200 words)
+   - Explain what impacts pricing in the {req.city} local market
+   - Include actual price ranges when possible
+   - H2: "Pricing Guide" or "Cost Factors"
+   - **INSERT THIS MID-ARTICLE CTA AFTER PRICING SECTION:**
+   {mid_cta}
 
-PRIMARY KEYWORD ENFORCEMENT:
-The exact phrase "{keyword}" must appear in:
-✓ Meta title
-✓ Meta description
-✓ H1
-✓ First 100 words
-✓ At least one H2 heading
-✓ At least one H3 heading
-✓ At least one FAQ question or answer
-
-HEADINGS RULES:
-- H1 must include "{keyword}"
-- H2/H3 headings must include "{keyword}" or logical variation where semantic
-{f'- DO NOT add "{req.city}" to any headings - the keyword already contains the city name!' if keyword_has_city else f'- H2/H3 headings must include "{req.city}" in at least 3 headings'}
-- FAQs must reflect real search phrasing
-
-LOCAL SEO GUARDRAILS:
-- Use ONLY {req.city}, {req.state}
-- Do NOT reference nearby cities, counties, or regions
-- Local references must be accurate and relevant
-
-===== CONTENT APPROACH (CRITICAL — READ CAREFULLY) =====
-
-**ANTI-GENERIC MANDATE**: DO NOT write a cookie-cutter "benefits/process/pricing/why choose us" article.
-Instead, write like a knowledgeable LOCAL EXPERT who genuinely wants to help the reader.
-
-Think about what a real person searching "{keyword}" in {req.city} actually needs to know.
-What specific, useful, non-obvious information would earn their trust?
-
-WRITING PRINCIPLES:
-1. LEAD WITH INSIGHT, NOT MARKETING — Open with something the reader doesn't already know. A local trend, a common mistake, a cost-saving tip, a seasonal factor specific to {req.city}.
-2. BE SPECIFIC — Use real numbers, real timelines, real scenarios. "Most {req.city} homeowners pay $X-$Y" beats "affordable pricing." "The process takes 2-4 hours" beats "quick service."
-3. TELL STORIES — Reference real situations: "When a {req.city} homeowner discovers X, the first instinct is Y. Here's what actually matters..."
-4. VARY YOUR STRUCTURE — Don't follow the same boring template. Depending on the topic, you might organize around:
-   - Common mistakes people make (and how to avoid them)
-   - A step-by-step decision guide for the reader
-   - Comparison of options (DIY vs. professional, material A vs. B)
-   - Seasonal/timing considerations specific to {req.city}
-   - What to look for, what to ask, red flags to watch for
-   - Real cost breakdowns with explanations
-5. WRITE CONVERSATIONALLY — Use "you/your" naturally. Ask rhetorical questions. Break up walls of text. Make it feel like advice from a trusted neighbor, not a brochure.
-6. EARN THE CTA — Don't pitch {req.company_name} until you've given genuine value. The reader should think "these people know what they're talking about" before any mention of hiring you.
-
-REQUIRED ELEMENTS (weave naturally — don't use these as section headers):
-- Primary keyword in first 100 words and naturally throughout
-- At least 4-6 H2 sections with SHORT, descriptive headings (5-8 words)
-- H3 sub-sections where it helps readability
-- At least 2-3 internal links woven into relevant paragraphs
-- ONE mention of {req.company_name} capabilities (not a whole section about "why choose us")
-- ONE mid-article CTA (subtle, consultative): {mid_cta}
-- ONE end-of-article CTA (clear, action-oriented): {bottom_cta}
-- Local references to {req.city}, {req.state} where genuinely relevant (not forced)
-
-H2 HEADING RULES:
-- H2 headings should be SHORT and DESCRIPTIVE (5-10 words max)
-- Make headings USEFUL — they should tell the reader what they'll learn
-- Good: "What Affects the Cost", "When To Call a Professional", "Signs You Need Repair"
-- Bad: "Benefits of Service Name in City Name" (too long, too keyword-stuffed)
-{f'- DO NOT add "{req.city}" to headings — the keyword already contains the city name!' if keyword_has_city else f'- Include "{req.city}" in 2-3 headings where natural'}
+5. WHY CHOOSE {req.company_name} (~200 words)
+   - Trust, experience, guarantees, and local credibility
+   - Include contact info and internal links
+   - H2: "Why Choose {req.company_name}"
 
 6. FREQUENTLY ASKED QUESTIONS
-   - Do NOT put in body — put in faq_items array only
-   - EXACTLY {faq_count} FAQs
-   - Questions must be REAL questions people would type into Google
-   - Answers must be specific and genuinely helpful (60-80 words each)
+   - Do NOT put FAQs in the body — put them in the faq_items JSON array only
+   - Write EXACTLY {faq_count} real questions with real answers (60-80 words each)
+   - Questions must reflect real user search intent
+
+7. GET STARTED TODAY (~150 words)
+   - Strong call-to-action using phone and email
+   - H2: "Get Started Today" or "Contact Us"
+   - **INSERT THIS BOTTOM CTA AT THE END:**
+   {bottom_cta}
 
 ===== META REQUIREMENTS =====
-Meta Title: 50-60 characters. MUST be unique and compelling — NOT just "Keyword | Company Name".
-  Good: "Affordable Roof Repair in Tampa — Fast & Licensed | Acme Roofing"
-  Good: "Why Tampa Homeowners Trust Acme Roofing for Roof Repair"
-  Bad: "Roof Repair Tampa | Acme Roofing" (too generic)
+Meta Title: max 60 characters. MUST be unique and compelling — NOT just "Keyword | Company Name".
+Meta Description: 150-160 characters. MUST include keyword, specific benefit, and CTA.
 
-Meta Description: 150-160 characters. MUST be unique per blog — NOT a generic template. 
-  Include the keyword naturally, mention a specific benefit or differentiator, and end with a call-to-action.
-  Good: "Dealing with roof damage in Tampa? Our licensed team completes most repairs in one day with a 10-year warranty. Get your free inspection today."
-  Bad: "Looking for roof repair? We offer professional service with quality results. Call for a free estimate!" (too generic)
+===== HEADING RULES =====
+- H2 headings: SHORT and DESCRIPTIVE (5-10 words max)
+{f'- DO NOT add "{req.city}" to any headings — the keyword already contains the city!' if keyword_has_city else f'- Include "{req.city}" in 2-3 H2/H3 headings where natural'}
+- All headings in Proper Title Case
+- H1 must be human-readable, not keyword-stuffed
 
-===== OUTPUT FORMAT (ABSOLUTE REQUIREMENT) =====
-Return ONLY valid JSON:
+===== RETURN THIS EXACT JSON STRUCTURE ONLY =====
 
 {{
-    "title": "[Compelling blog post title — specific and engaging, NOT generic, 40-70 chars]",
-    "meta_title": "[Unique, compelling 50-60 char title with keyword — NOT just Keyword | Company]",
-    "meta_description": "[Unique 150-160 char description with specific benefit, keyword, and CTA — NOT a generic template]",
+    "title": "[Compelling blog post title — descriptive and engaging, 40-70 chars]",
     "h1": "{keyword.title()}",
-    "body": "<p>Engaging opening that hooks the reader with an insight or scenario...</p><h2>Short Descriptive Heading</h2><p>Genuinely helpful content...</p>...[MID CTA after 3rd or 4th section]...<h2>Final Section</h2><p>Wrap-up...</p>[BOTTOM CTA]",
+    "meta_title": "[Max 60 char SEO title with keyword]",
+    "meta_description": "[150-160 char unique description with benefit + CTA]",
+    "body": "<p>Full HTML content with all sections, H2/H3 headings, CTAs embedded, internal links...</p>",
     "faq_items": [
 {faq_example_items}
     ],
-    "cta": {{"company_name": "{req.company_name}", "phone": "{req.phone}", "email": "{req.email}"}}
+    "cta": {{"company_name": "{req.company_name}", "phone": "{req.phone}", "email": "{req.email}"}},
+    "secondary_keywords": ["keyword1", "keyword2", "keyword3"]
 }}
 
-===== FINAL VALIDATION CHECKLIST =====
-Before responding, verify:
-☐ Word count ≥ {req.target_words}
-☐ Content is GENUINELY USEFUL — not filler or marketing fluff
-☐ Article has a unique angle/structure — NOT the same benefits/process/pricing template
-☐ Specific numbers, timelines, and examples are included
-☐ Primary keyword "{keyword}" used naturally (not stuffed)
-☐ At least 2-3 internal links embedded contextually
-☐ One mid-article CTA (subtle, after 3rd-4th section)
-☐ One bottom CTA (at end)
-☐ Only {req.city}, {req.state} referenced (no other cities)
-{f'☐ DO NOT add city "{req.city}" to headings — keyword already contains it!' if keyword_has_city else f'☐ City name in 2-3 H2/H3 headings where natural'}
-☐ JSON is valid and complete
-☐ EXACTLY {faq_count} FAQs in faq_items array
-☐ Reads like expert advice, NOT like a marketing brochure
-
-IMPORTANT:
-- Write {req.target_words}+ words of REAL, helpful content
-- NO placeholder text or generic filler
-- Sound like a local expert giving honest advice, not a salesperson
-- Return ONLY JSON, no markdown blocks
+===== FINAL CHECK BEFORE RESPONDING =====
+* Word count >= {req.target_words}
+* No placeholders or template language anywhere
+* At least 3 internal links embedded naturally in body
+* One mid-article CTA (after pricing section)
+* One bottom CTA (at end)
+* Only {req.city}, {req.state} referenced — no other cities
+{f'* DO NOT add city "{req.city}" to headings — keyword already contains it!' if keyword_has_city else f'* City name in 2-3 H2/H3 headings where natural'}
+* EXACTLY {faq_count} FAQs in faq_items array (NOT in body)
+* Meta title unique and compelling
+* Meta description unique with specific benefit
+* All content is real, helpful, expert-level — not marketing fluff
+* Valid JSON only — no markdown, no code blocks
 
 OUTPUT JSON:"""
+
 
     def _robust_parse_json(self, text: str) -> Dict[str, Any]:
         """Parse JSON robustly, handling common issues"""
