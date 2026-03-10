@@ -137,7 +137,26 @@ def manual_ranks(current_user):
     
     try:
         run_rank_check(current_app._get_current_object())
-        return jsonify({'success': True, 'message': 'Rank check triggered'})
+        return jsonify({'success': True, 'message': 'Rank check triggered for all clients'})
+    except Exception as e:
+        return jsonify({'error': 'An error occurred. Please try again.'}), 500
+
+
+@scheduler_bp.route('/run-intelligence', methods=['POST'])
+@token_required
+@admin_required
+def manual_intelligence(current_user):
+    """
+    Manually run intelligence pipeline for all clients
+    
+    POST /api/scheduler/run-intelligence
+    """
+    from flask import current_app
+    from app.services.scheduler_service import run_intelligence_pipeline
+    
+    try:
+        run_intelligence_pipeline(current_app._get_current_object())
+        return jsonify({'success': True, 'message': 'Intelligence pipeline triggered for all clients'})
     except Exception as e:
         return jsonify({'error': 'An error occurred. Please try again.'}), 500
 

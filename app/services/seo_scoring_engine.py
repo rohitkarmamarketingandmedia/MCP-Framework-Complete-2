@@ -15,18 +15,18 @@ class SEOScoringEngine:
     
     def __init__(self):
         # Weights for each factor (must sum to 100)
-        # Adjusted for realistic blog content without images
         self.weights = {
-            'keyword_in_title': 12,        # Critical for SEO
-            'keyword_in_h1': 10,           # Very important
-            'keyword_in_first_100_words': 8,
-            'keyword_density': 12,         # Important for relevance
-            'word_count': 15,              # Comprehensive content
-            'heading_structure': 12,       # User experience
+            'keyword_in_title': 10,        # Critical for SEO
+            'keyword_in_h1': 8,            # Very important
+            'keyword_in_headings': 10,     # NEW: keyword in H2/H3 headings
+            'keyword_in_first_100_words': 7,
+            'keyword_density': 10,         # Important for relevance
+            'word_count': 12,              # Comprehensive content
+            'heading_structure': 10,       # User experience
             'meta_title_length': 8,        # Search appearance
-            'meta_description_length': 8,  # Search appearance
-            'readability': 8,              # User experience
-            'internal_links': 7,           # Site structure
+            'meta_description_length': 7,  # Search appearance
+            'readability': 6,              # User experience
+            'internal_links': 12,          # INCREASED: Site structure + interlinking
             'external_links': 0,           # Optional - not penalizing
             'image_optimization': 0,       # Optional - not penalizing for text content
             'content_depth': 0             # Removed - hard to measure accurately
@@ -110,6 +110,48 @@ class SEOScoringEngine:
         if score < self.weights['keyword_in_first_100_words']:
             result['recommendations'].append(f'Use "{target_keyword}" in your opening paragraph')
         
+        # 3b. Keyword in H2/H3 Headings (NEW - critical for on-page SEO)
+        h2_texts = [h.lower() for h in re.findall(r'<h2[^>]*>(.*?)</h2>', body_html, re.IGNORECASE | re.DOTALL)]
+        h3_texts = [h.lower() for h in re.findall(r'<h3[^>]*>(.*?)</h3>', body_html, re.IGNORECASE | re.DOTALL)]
+        all_headings = h2_texts + h3_texts
+        
+        # Check how many headings contain the keyword (full or partial)
+        keyword_words = keyword.split()
+        headings_with_keyword = 0
+        for heading in all_headings:
+            heading_clean = self._strip_html(heading).lower()
+            if keyword in heading_clean:
+                headings_with_keyword += 1
+            elif len(keyword_words) > 1:
+                # Check for partial match (at least 60% of keyword words)
+                matches = sum(1 for w in keyword_words if w in heading_clean)
+                if matches >= len(keyword_words) * 0.6:
+                    headings_with_keyword += 1
+        
+        kw_heading_weight = self.weights['keyword_in_headings']
+        if headings_with_keyword >= 3:
+            kw_heading_score = kw_heading_weight
+            kw_heading_msg = f'✓ Keyword in {headings_with_keyword} headings'
+        elif headings_with_keyword >= 2:
+            kw_heading_score = int(kw_heading_weight * 0.7)
+            kw_heading_msg = f'Keyword in {headings_with_keyword} headings (target: 3+)'
+        elif headings_with_keyword >= 1:
+            kw_heading_score = int(kw_heading_weight * 0.4)
+            kw_heading_msg = f'Keyword in only {headings_with_keyword} heading (target: 3+)'
+        else:
+            kw_heading_score = 0
+            kw_heading_msg = f'✗ Keyword not found in any H2/H3 headings'
+        
+        result['factors']['keyword_in_headings'] = {
+            'score': kw_heading_score,
+            'max': kw_heading_weight,
+            'message': kw_heading_msg,
+            'headings_with_keyword': headings_with_keyword,
+            'total_headings': len(all_headings)
+        }
+        if headings_with_keyword < 3:
+            result['recommendations'].append(f'Add "{target_keyword}" to at least 3 H2/H3 headings (currently in {headings_with_keyword})')
+        
         # 4. Keyword Density
         score, msg, density = self._score_keyword_density(keyword, body_text.lower())
         result['factors']['keyword_density'] = {
@@ -179,7 +221,7 @@ class SEOScoringEngine:
             'reading_level': reading_level
         }
         
-        # 10. Internal Links
+        # 10. Internal Links (CRITICAL for SEO)
         internal_count = len(re.findall(r'<a[^>]*href=["\'][^"\']*["\']', body_html))
         score, msg = self._score_link_count(internal_count, 3, 8, 'Internal links')
         result['factors']['internal_links'] = {
@@ -189,7 +231,9 @@ class SEOScoringEngine:
             'count': internal_count
         }
         if internal_count < 3:
-            result['recommendations'].append(f'Add more internal links (current: {internal_count}, target: 3-8)')
+            result['recommendations'].append(f'CRITICAL: Add more internal links (current: {internal_count}, minimum: 3, target: 5+)')
+        elif internal_count < 5:
+            result['recommendations'].append(f'Add more internal links for better SEO (current: {internal_count}, target: 5+)')
         
         # 11. External Links (authority links)
         external_count = len(re.findall(r'<a[^>]*href=["\']https?://[^"\']*["\']', body_html))

@@ -1986,6 +1986,9 @@ OUTPUT JSON:"""
         elif keyword_has_city:
             logger.info(f"Skipping city injection - keyword already contains city '{req.city}'")
         
+        # Ensure keyword appears in at least 2-3 H2/H3 headings
+        body = self._inject_keyword_in_headings(body, req.keyword)
+        
         # Ensure TWO CTAs are present in the body
         body = self._ensure_two_ctas(body, req)
         
@@ -2061,6 +2064,104 @@ OUTPUT JSON:"""
             return f'{open_tag}{new_heading}{close_tag}'
         
         body = re.sub(h2_pattern, add_city_to_heading, body, flags=re.IGNORECASE)
+        
+        return body
+    
+    def _inject_keyword_in_headings(self, body: str, keyword: str) -> str:
+        """Ensure primary keyword or variation appears in at least 2-3 H2/H3 headings"""
+        if not keyword:
+            return body
+        
+        kw_lower = keyword.lower().strip()
+        kw_words = kw_lower.split()
+        
+        # Find all H2 headings
+        h2_pattern = r'(<h2[^>]*>)(.*?)(</h2>)'
+        h2_matches = list(re.finditer(h2_pattern, body, re.IGNORECASE | re.DOTALL))
+        
+        # Count how many already have keyword (full or partial 60%+ match)
+        h2_with_keyword = 0
+        for match in h2_matches:
+            heading_text = re.sub(r'<[^>]+>', '', match.group(2)).lower().strip()
+            if kw_lower in heading_text:
+                h2_with_keyword += 1
+            elif len(kw_words) > 1:
+                matches = sum(1 for w in kw_words if w in heading_text)
+                if matches >= len(kw_words) * 0.6:
+                    h2_with_keyword += 1
+        
+        logger.info(f"H2 headings with keyword '{keyword}': {h2_with_keyword}/{len(h2_matches)}")
+        
+        if h2_with_keyword >= 2:
+            return body
+        
+        # Need to add keyword to some headings
+        headings_to_modify = 2 - h2_with_keyword
+        modified = 0
+        
+        # Extract core topic from keyword (remove city if present)
+        # e.g., "cosmetic dentist sarasota" -> "cosmetic dentist"
+        core_topic = kw_lower
+        for word in kw_words:
+            if len(word) >= 4:
+                # Simple check - if a word looks like a city name (capitalized in original)
+                orig_words = keyword.split()
+                for ow in orig_words:
+                    if ow.lower() == word and ow[0].isupper() and word not in ['hvac', 'seer', 'dental', 'roof', 'plumb']:
+                        core_topic = core_topic.replace(word, '').strip()
+        core_topic = ' '.join(core_topic.split())  # Clean whitespace
+        if not core_topic:
+            core_topic = kw_lower
+        
+        def add_keyword_to_heading(match):
+            nonlocal modified
+            if modified >= headings_to_modify:
+                return match.group(0)
+            
+            open_tag = match.group(1)
+            heading_text = re.sub(r'<[^>]+>', '', match.group(2)).strip()
+            close_tag = match.group(3)
+            heading_lower = heading_text.lower()
+            
+            # Skip if already has keyword
+            if kw_lower in heading_lower:
+                return match.group(0)
+            if len(kw_words) > 1:
+                matches = sum(1 for w in kw_words if w in heading_lower)
+                if matches >= len(kw_words) * 0.6:
+                    return match.group(0)
+            
+            # Skip certain headings
+            skip = ['faq', 'conclusion', 'get started', 'contact', 'related', 'table of contents']
+            if any(s in heading_lower for s in skip):
+                return match.group(0)
+            
+            modified += 1
+            
+            # Smart injection based on heading content
+            core_title = self._title_case(core_topic) if core_topic != kw_lower else self._title_case(keyword)
+            
+            if 'benefit' in heading_lower or 'advantage' in heading_lower:
+                new_heading = f'Benefits of {core_title}'
+            elif 'process' in heading_lower or 'how' in heading_lower:
+                new_heading = f'Our {core_title} Process'
+            elif 'cost' in heading_lower or 'pricing' in heading_lower or 'price' in heading_lower:
+                new_heading = f'{core_title} Pricing Guide'
+            elif 'why choose' in heading_lower or 'why ' in heading_lower:
+                new_heading = heading_text  # Keep as-is, these are usually fine
+                modified -= 1  # Don't count this
+            else:
+                # Default: prepend or integrate keyword
+                new_heading = f'{core_title}: {heading_text}'
+                if len(new_heading) > 60:
+                    new_heading = heading_text  # Too long, keep original
+                    modified -= 1
+            
+            if new_heading != heading_text:
+                logger.info(f"Injected keyword into H2: '{heading_text}' -> '{new_heading}'")
+            return f'{open_tag}{new_heading}{close_tag}'
+        
+        body = re.sub(h2_pattern, add_keyword_to_heading, body, flags=re.IGNORECASE | re.DOTALL)
         
         return body
     

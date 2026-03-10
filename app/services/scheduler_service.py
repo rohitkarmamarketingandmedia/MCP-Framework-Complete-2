@@ -148,7 +148,17 @@ def _add_scheduled_jobs(app):
         kwargs={'app': app}
     )
     
-    logger.info("Scheduled jobs added: competitor_crawl(3AM), rank_check(5AM), auto_publish(5min), alert_digest(hourly), daily_summary(8AM), content_due(7AM), digests(8AM), 3day_reports(Mon/Thu 9AM), review_responses(2hr)")
+    # Daily intelligence ingestion at 6 AM (after rank check at 5 AM)
+    scheduler.add_job(
+        func=run_intelligence_pipeline,
+        trigger=CronTrigger(hour=6, minute=0),
+        id='daily_intelligence_pipeline',
+        name='Daily Intelligence Pipeline',
+        replace_existing=True,
+        kwargs={'app': app}
+    )
+    
+    logger.info("Scheduled jobs added: competitor_crawl(hourly), rank_check(5AM), intelligence(6AM), auto_publish(5min), alert_digest(hourly), daily_summary(8AM), content_due(7AM), digests(8AM), 3day_reports(Mon/Thu 9AM), review_responses(2hr)")
 
 
 def run_competitor_crawl(app):
@@ -322,25 +332,88 @@ def _extract_keyword(title, url):
 
 
 def run_rank_check(app):
-    """Check rankings for all clients"""
+    """Check rankings for all clients and detect rank drops"""
     with app.app_context():
         from app.database import db
-        from app.models.db_models import DBClient
-        from app.services.rank_tracking_service import RankTrackingService
+        from app.models.db_models import DBClient, DBRankHistory
+        from app.services.rank_tracking_service import rank_tracking_service
         
         logger.info("Starting scheduled rank check...")
         
         clients = DBClient.query.filter_by(is_active=True).all()
+        total_checked = 0
+        total_drops = 0
         
         for client in clients:
             try:
-                service = RankTrackingService(client.id)
-                result = service.check_all_rankings()
-                logger.info(f"Rank check complete for {client.business_name}: {result.get('keywords_checked', 0)} keywords")
+                # Get keywords to track
+                keywords = []
+                try:
+                    keywords = (client.get_primary_keywords() + client.get_secondary_keywords())[:30]
+                except Exception:
+                    pass
+                
+                if not keywords:
+                    logger.debug(f"No keywords for {client.business_name}, skipping")
+                    continue
+                
+                # Check rankings via SEMrush (uses cache when available)
+                domain = client.website_url or client.business_name
+                result = rank_tracking_service.check_all_keywords(domain, keywords)
+                
+                if result.get('error') and not result.get('demo_mode'):
+                    logger.warning(f"Rank check error for {client.business_name}: {result['error']}")
+                    continue
+                
+                # Save results to DB
+                kw_count = 0
+                for kw_data in result.get('keywords', []):
+                    try:
+                        # Get previous position for change calculation
+                        prev = DBRankHistory.query.filter(
+                            DBRankHistory.client_id == client.id,
+                            DBRankHistory.keyword == kw_data['keyword'],
+                        ).order_by(DBRankHistory.checked_at.desc()).first()
+                        
+                        prev_position = prev.position if prev else None
+                        current_position = kw_data.get('position')
+                        change = 0
+                        if prev_position and current_position:
+                            change = prev_position - current_position  # Positive = improved
+                        
+                        history = DBRankHistory(
+                            client_id=client.id,
+                            keyword=kw_data['keyword'],
+                            position=current_position,
+                            previous_position=prev_position,
+                            change=change,
+                            url=kw_data.get('url', ''),
+                            search_volume=kw_data.get('search_volume', 0),
+                            cpc=kw_data.get('cpc', 0.0)
+                        )
+                        db.session.add(history)
+                        kw_count += 1
+                    except Exception as e:
+                        logger.debug(f"Error saving rank for {kw_data.get('keyword')}: {e}")
+                
+                db.session.commit()
+                total_checked += kw_count
+                logger.info(f"Rank check complete for {client.business_name}: {kw_count} keywords")
+                
+                # Trigger intelligence automation rank drop detection
+                try:
+                    from app.services.intelligence_automation_service import intelligence_automation
+                    alerts = intelligence_automation.check_rank_drops(client.id)
+                    if alerts:
+                        total_drops += len(alerts)
+                        logger.info(f"Rank drop alerts for {client.business_name}: {len(alerts)}")
+                except Exception as e:
+                    logger.debug(f"Intelligence automation not available: {e}")
+                
             except Exception as e:
                 logger.error(f"Error checking ranks for {client.business_name}: {e}")
         
-        logger.info("Rank check complete for all clients")
+        logger.info(f"Rank check complete: {total_checked} keywords across {len(clients)} clients, {total_drops} drop alerts")
 
 
 def send_alert_digest(app):
@@ -975,3 +1048,92 @@ def auto_generate_review_responses(app):
             
         except Exception as e:
             logger.error(f"Error in auto-generate review responses: {e}")
+
+def run_intelligence_pipeline(app):
+    """
+    Daily intelligence pipeline — runs after rank check.
+    For each active client:
+    1. Ingest data from all 4 sources (calls, chat, reviews, forms)
+    2. Update frequency windows & detect trending topics
+    3. Generate content suggestions
+    4. Rank drops already handled by run_rank_check
+    
+    Runs daily at 6 AM
+    """
+    with app.app_context():
+        from app.database import db
+        from app.models.db_models import DBClient
+        
+        logger.info("Starting daily intelligence pipeline...")
+        
+        clients = DBClient.query.filter_by(is_active=True).all()
+        total_insights = 0
+        total_suggestions = 0
+        
+        for client in clients:
+            try:
+                from app.services.intelligence_automation_service import intelligence_automation
+                
+                # 1. Ingest from chat
+                try:
+                    from app.models.db_models import DBChatConversation, DBChatMessage
+                    from datetime import timedelta
+                    
+                    yesterday = datetime.utcnow() - timedelta(days=1)
+                    conversations = DBChatConversation.query.filter(
+                        DBChatConversation.client_id == client.id,
+                        DBChatConversation.created_at >= yesterday,
+                    ).all()
+                    
+                    if conversations:
+                        conv_data = []
+                        for conv in conversations:
+                            messages = DBChatMessage.query.filter_by(conversation_id=conv.id).all()
+                            conv_data.append({
+                                'id': conv.id,
+                                'messages': [{'role': m.role, 'content': m.content} for m in messages]
+                            })
+                        result = intelligence_automation.ingest_from_chat(client.id, conv_data)
+                        total_insights += result.get('stored', 0) + result.get('updated', 0)
+                except Exception as e:
+                    logger.debug(f"Chat ingestion error for {client.business_name}: {e}")
+                
+                # 2. Ingest from reviews
+                try:
+                    from app.models.db_models import DBReview
+                    reviews = DBReview.query.filter_by(client_id=client.id).all()
+                    if reviews:
+                        review_data = [{'text': r.text or getattr(r, 'comment', '') or '', 'rating': r.rating or getattr(r, 'star_rating', 0) or 0} for r in reviews]
+                        result = intelligence_automation.ingest_from_reviews(client.id, review_data)
+                        total_insights += result.get('stored', 0) + result.get('updated', 0)
+                except Exception as e:
+                    logger.debug(f"Review ingestion error for {client.business_name}: {e}")
+                
+                # 3. Ingest from call intelligence (if available)
+                try:
+                    from app.services.interaction_intelligence_service import interaction_intelligence_service
+                    call_data = interaction_intelligence_service.analyze_interactions(
+                        client_id=client.id, days=1, force_refresh=False
+                    )
+                    if call_data and not call_data.get('error'):
+                        result = intelligence_automation.ingest_from_calls(client.id, call_data)
+                        total_insights += result.get('stored', 0) + result.get('updated', 0)
+                except Exception as e:
+                    logger.debug(f"Call ingestion error for {client.business_name}: {e}")
+                
+                # 4. Update frequency windows & detect trending
+                intelligence_automation.update_frequency_windows(client.id)
+                trending = intelligence_automation.detect_trending_topics(client.id)
+                
+                # 5. Generate suggestions
+                suggestions = intelligence_automation.generate_suggestions(client.id)
+                generated = suggestions.get('total_generated', 0)
+                total_suggestions += generated
+                
+                if generated > 0:
+                    logger.info(f"Intelligence: {client.business_name} — {generated} new suggestions")
+                
+            except Exception as e:
+                logger.error(f"Intelligence pipeline error for {client.business_name}: {e}")
+        
+        logger.info(f"Intelligence pipeline complete: {total_insights} insights, {total_suggestions} suggestions across {len(clients)} clients")
