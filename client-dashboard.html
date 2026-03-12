@@ -4234,6 +4234,11 @@
                             class="px-3 py-1.5 bg-sky-500/80 hover:bg-sky-500 text-white rounded-lg text-sm font-medium transition">
                             <i class="fab fa-wordpress mr-1"></i>WordPress
                         </button>
+                        <button onclick="showSendToClientModal()"
+                            class="px-3 py-1.5 bg-orange-500/80 hover:bg-orange-500 text-white rounded-lg text-sm font-medium transition"
+                            title="Send to client for review via email">
+                            <i class="fas fa-paper-plane mr-1"></i>Send to Client
+                        </button>
                     </div>
                     
                     <!-- AI Refinement Bar for Blogs -->
@@ -4851,6 +4856,44 @@
         </div>
     </div>
 
+    <!-- Send to Client Modal -->
+    <div id="sendToClientModal" class="hidden fixed inset-0 bg-black/80 z-[60] flex items-center justify-center"
+        onclick="if(event.target === this) closeSendToClientModal()">
+        <div class="glass-light rounded-2xl p-6 w-full max-w-md mx-4" onclick="event.stopPropagation()">
+            <h3 class="text-xl font-bold text-gray-800 mb-2"><i class="fas fa-paper-plane mr-2 text-orange-500"></i>Send to Client</h3>
+            <p class="text-sm text-gray-500 mb-4">Send this blog post to the client for review. They'll receive an email with a unique link to edit, comment, and approve.</p>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm text-gray-600 mb-1">Client Email *</label>
+                    <input type="email" id="sendClientEmail" 
+                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:border-orange-500 focus:ring-2 focus:ring-orange-200"
+                        placeholder="client@example.com">
+                </div>
+                <div>
+                    <label class="block text-sm text-gray-600 mb-1">CC (optional)</label>
+                    <input type="text" id="sendClientCC" 
+                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:border-orange-500 focus:ring-2 focus:ring-orange-200"
+                        placeholder="manager@example.com, team@example.com">
+                </div>
+                <div>
+                    <label class="block text-sm text-gray-600 mb-1">Message (optional)</label>
+                    <textarea id="sendClientMessage" rows="2"
+                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:border-orange-500 focus:ring-2 focus:ring-orange-200"
+                        placeholder="Hi! Here's your new blog post. Please review and let us know if any changes are needed."></textarea>
+                </div>
+            </div>
+            <div class="flex gap-2 mt-6">
+                <button onclick="closeSendToClientModal()"
+                    class="flex-1 px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg font-medium transition">Cancel</button>
+                <button onclick="sendBlogToClient()" id="btnSendToClient"
+                    class="flex-1 px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg font-medium transition">
+                    <i class="fas fa-paper-plane mr-1"></i>Send
+                </button>
+            </div>
+            <div id="sendToClientResult" class="hidden mt-4 p-3 rounded-lg text-sm"></div>
+        </div>
+    </div>
+
     <!-- Edit Client Modal -->
     <div id="editClientModal" class="hidden fixed inset-0 bg-black/90 z-50 overflow-y-auto"
         onclick="if(event.target === this) closeEditClient()">
@@ -4988,6 +5031,96 @@
                             <textarea id="editUSPs" rows="2"
                                 class="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white focus:border-blue-500"
                                 placeholder="24/7 service, Licensed & insured, 20+ years experience"></textarea>
+                        </div>
+                    </div>
+
+                    <!-- Blog Auto-Schedule Section -->
+                    <div class="border-b border-white/10 pb-4">
+                        <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wide mb-4">
+                            <i class="fas fa-calendar-alt mr-2 text-orange-400"></i>Blog Auto-Schedule
+                        </h3>
+                        <div class="flex items-center justify-between mb-4">
+                            <div>
+                                <p class="text-white font-medium">Auto-Generate Blog Posts</p>
+                                <p class="text-xs text-gray-500">Automatically create blog posts on a schedule and send to client for review</p>
+                            </div>
+                            <label class="relative inline-flex items-center cursor-pointer">
+                                <input type="checkbox" id="scheduleEnabled" class="sr-only peer" onchange="toggleScheduleFields()">
+                                <div class="w-11 h-6 bg-gray-600 peer-focus:ring-2 peer-focus:ring-orange-400 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-orange-500"></div>
+                            </label>
+                        </div>
+                        <div id="scheduleFields" class="hidden space-y-4">
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-sm text-gray-400 mb-1">Blogs Per Week</label>
+                                    <select id="scheduleBlogsPerWeek" class="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white focus:border-orange-500">
+                                        <option value="1">1 per week</option>
+                                        <option value="2" selected>2 per week</option>
+                                        <option value="3">3 per week</option>
+                                        <option value="5">5 per week (daily weekdays)</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-sm text-gray-400 mb-1">Generation Time (UTC)</label>
+                                    <select id="scheduleHour" class="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white focus:border-orange-500">
+                                        <option value="6">6:00 AM</option>
+                                        <option value="7">7:00 AM</option>
+                                        <option value="8">8:00 AM</option>
+                                        <option value="9" selected>9:00 AM</option>
+                                        <option value="10">10:00 AM</option>
+                                        <option value="12">12:00 PM</option>
+                                        <option value="14">2:00 PM</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-sm text-gray-400 mb-1">Target Word Count</label>
+                                    <select id="scheduleWordCount" class="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white focus:border-orange-500">
+                                        <option value="1200">~1,200 words</option>
+                                        <option value="1500">~1,500 words</option>
+                                        <option value="1800" selected>~1,800 words</option>
+                                        <option value="2200">~2,200 words</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-sm text-gray-400 mb-1">Client Email for Reviews</label>
+                                    <input type="email" id="scheduleClientEmail" 
+                                        class="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white focus:border-orange-500"
+                                        placeholder="client@example.com">
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-6 text-sm">
+                                <label class="flex items-center gap-2 text-gray-300 cursor-pointer">
+                                    <input type="checkbox" id="scheduleVerify" checked class="rounded border-white/20 bg-white/10 text-orange-500 focus:ring-orange-400">
+                                    Fact-check verification
+                                </label>
+                                <label class="flex items-center gap-2 text-gray-300 cursor-pointer">
+                                    <input type="checkbox" id="scheduleSendEmail" checked class="rounded border-white/20 bg-white/10 text-orange-500 focus:ring-orange-400">
+                                    Email to client
+                                </label>
+                                <label class="flex items-center gap-2 text-gray-300 cursor-pointer">
+                                    <input type="checkbox" id="scheduleFaq" checked class="rounded border-white/20 bg-white/10 text-orange-500 focus:ring-orange-400">
+                                    Include FAQs
+                                </label>
+                            </div>
+                            <div id="scheduleStatus" class="hidden p-3 rounded-lg bg-white/5 text-sm">
+                                <div class="flex items-center justify-between">
+                                    <span class="text-gray-400">Next generation:</span>
+                                    <span id="scheduleNextRun" class="text-orange-400 font-medium">--</span>
+                                </div>
+                                <div class="flex items-center justify-between mt-1">
+                                    <span class="text-gray-400">Total generated:</span>
+                                    <span id="scheduleTotalGenerated" class="text-white font-medium">0</span>
+                                </div>
+                                <div class="flex items-center justify-between mt-1">
+                                    <span class="text-gray-400">Last keyword:</span>
+                                    <span id="scheduleLastKeyword" class="text-gray-300">--</span>
+                                </div>
+                            </div>
+                            <button onclick="saveContentSchedule()" class="w-full py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg text-sm font-medium transition">
+                                <i class="fas fa-save mr-1"></i>Save Schedule Settings
+                            </button>
                         </div>
                     </div>
 
@@ -5688,6 +5821,9 @@
             document.getElementById('wpTestResult').className = 'text-sm';
 
             document.getElementById('editClientModal').classList.remove('hidden');
+            
+            // Load content schedule settings
+            loadContentSchedule();
         }
 
         function closeEditClient() {
@@ -12085,6 +12221,186 @@
                 toast.style.transform = 'translateY(20px)';
                 setTimeout(() => toast.remove(), 300);
             }, 3000);
+        }
+
+        // ==========================================
+        // SEND TO CLIENT
+        // ==========================================
+        
+        function showSendToClientModal() {
+            if (!currentBlog) return;
+            // Pre-fill email from client
+            const clientEmail = currentClient?.email || '';
+            document.getElementById('sendClientEmail').value = clientEmail;
+            document.getElementById('sendClientCC').value = '';
+            document.getElementById('sendClientMessage').value = '';
+            document.getElementById('sendToClientResult').classList.add('hidden');
+            document.getElementById('btnSendToClient').disabled = false;
+            document.getElementById('sendToClientModal').classList.remove('hidden');
+        }
+        
+        function closeSendToClientModal() {
+            document.getElementById('sendToClientModal').classList.add('hidden');
+        }
+        
+        async function sendBlogToClient() {
+            if (!currentBlog) return;
+            
+            const email = document.getElementById('sendClientEmail').value.trim();
+            if (!email) {
+                showToast('Please enter a client email address', 'error');
+                return;
+            }
+            
+            const btn = document.getElementById('btnSendToClient');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i>Sending...';
+            
+            const cc = document.getElementById('sendClientCC').value.trim();
+            const message = document.getElementById('sendClientMessage').value.trim();
+            
+            try {
+                const res = await fetch(`${API_URL}/api/schedule/send-to-client/${currentBlog.id}`, {
+                    method: 'POST',
+                    headers: { 
+                        'Authorization': `Bearer ${AUTH_TOKEN}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        email: email,
+                        cc: cc ? cc.split(',').map(e => e.trim()) : [],
+                        message: message
+                    })
+                });
+                
+                const data = await res.json();
+                const resultDiv = document.getElementById('sendToClientResult');
+                
+                if (data.success) {
+                    resultDiv.className = 'mt-4 p-3 rounded-lg text-sm bg-green-50 text-green-800 border border-green-200';
+                    let msg = `<i class="fas fa-check-circle mr-1"></i>`;
+                    if (data.email_sent) {
+                        msg += `Email sent to ${data.sent_to}!`;
+                    } else {
+                        msg += `Review link created but email could not be sent.`;
+                    }
+                    msg += `<br><span class="text-xs mt-1 block">Review URL: <a href="${data.review_url}" target="_blank" class="underline">${data.review_url}</a></span>`;
+                    resultDiv.innerHTML = msg;
+                    resultDiv.classList.remove('hidden');
+                    
+                    // Update blog status locally
+                    if (currentBlog) {
+                        currentBlog.client_status = 'pending_review';
+                        currentBlog.review_token = data.review_token;
+                    }
+                    
+                    showToast('Blog sent to client for review!', 'success');
+                    
+                    btn.innerHTML = '<i class="fas fa-check mr-1"></i>Sent!';
+                    setTimeout(() => closeSendToClientModal(), 3000);
+                } else {
+                    resultDiv.className = 'mt-4 p-3 rounded-lg text-sm bg-red-50 text-red-800 border border-red-200';
+                    resultDiv.innerHTML = `<i class="fas fa-exclamation-circle mr-1"></i>${data.error || 'Failed to send'}`;
+                    resultDiv.classList.remove('hidden');
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fas fa-paper-plane mr-1"></i>Send';
+                }
+            } catch(e) {
+                showToast('Network error. Please try again.', 'error');
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-paper-plane mr-1"></i>Send';
+            }
+        }
+        
+        // ==========================================
+        // CONTENT AUTO-SCHEDULE
+        // ==========================================
+        
+        function toggleScheduleFields() {
+            const enabled = document.getElementById('scheduleEnabled').checked;
+            document.getElementById('scheduleFields').classList.toggle('hidden', !enabled);
+        }
+        
+        async function loadContentSchedule() {
+            if (!currentClient) return;
+            try {
+                const res = await fetch(`${API_URL}/api/schedule/${currentClient.id}`, {
+                    headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
+                });
+                const data = await res.json();
+                
+                if (data.schedule) {
+                    const s = data.schedule;
+                    document.getElementById('scheduleEnabled').checked = s.is_active;
+                    document.getElementById('scheduleBlogsPerWeek').value = s.blogs_per_week || 2;
+                    document.getElementById('scheduleHour').value = s.preferred_hour || 9;
+                    document.getElementById('scheduleWordCount').value = s.target_word_count || 1800;
+                    document.getElementById('scheduleClientEmail').value = s.client_email || currentClient.email || '';
+                    document.getElementById('scheduleVerify').checked = s.verify_content !== false;
+                    document.getElementById('scheduleSendEmail').checked = s.send_to_client !== false;
+                    document.getElementById('scheduleFaq').checked = s.include_faq !== false;
+                    
+                    if (s.is_active) {
+                        document.getElementById('scheduleFields').classList.remove('hidden');
+                        document.getElementById('scheduleStatus').classList.remove('hidden');
+                        document.getElementById('scheduleNextRun').textContent = s.next_generation_at 
+                            ? new Date(s.next_generation_at).toLocaleString() : '--';
+                        document.getElementById('scheduleTotalGenerated').textContent = s.total_generated || 0;
+                        document.getElementById('scheduleLastKeyword').textContent = s.last_keyword_used || '--';
+                    }
+                } else {
+                    // No schedule yet — set defaults
+                    document.getElementById('scheduleEnabled').checked = false;
+                    document.getElementById('scheduleClientEmail').value = currentClient.email || '';
+                }
+            } catch(e) {
+                console.error('Failed to load schedule:', e);
+            }
+        }
+        
+        async function saveContentSchedule() {
+            if (!currentClient) return;
+            
+            const payload = {
+                is_active: document.getElementById('scheduleEnabled').checked,
+                blogs_per_week: parseInt(document.getElementById('scheduleBlogsPerWeek').value),
+                preferred_hour: parseInt(document.getElementById('scheduleHour').value),
+                target_word_count: parseInt(document.getElementById('scheduleWordCount').value),
+                client_email: document.getElementById('scheduleClientEmail').value.trim(),
+                verify_content: document.getElementById('scheduleVerify').checked,
+                send_to_client: document.getElementById('scheduleSendEmail').checked,
+                include_faq: document.getElementById('scheduleFaq').checked,
+                faq_count: 5
+            };
+            
+            try {
+                const res = await fetch(`${API_URL}/api/schedule/${currentClient.id}`, {
+                    method: 'PUT',
+                    headers: { 
+                        'Authorization': `Bearer ${AUTH_TOKEN}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(payload)
+                });
+                
+                const data = await res.json();
+                if (data.success) {
+                    showToast(payload.is_active 
+                        ? `Auto-schedule enabled: ${payload.blogs_per_week} blogs/week` 
+                        : 'Auto-schedule disabled', 'success');
+                    
+                    if (data.schedule) {
+                        document.getElementById('scheduleStatus').classList.toggle('hidden', !payload.is_active);
+                        document.getElementById('scheduleNextRun').textContent = data.schedule.next_generation_at 
+                            ? new Date(data.schedule.next_generation_at).toLocaleString() : '--';
+                        document.getElementById('scheduleTotalGenerated').textContent = data.schedule.total_generated || 0;
+                    }
+                } else {
+                    showToast(data.error || 'Failed to save schedule', 'error');
+                }
+            } catch(e) {
+                showToast('Network error. Please try again.', 'error');
+            }
         }
 
         function renderBlogTags() {
