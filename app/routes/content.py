@@ -46,16 +46,24 @@ def _generate_blog_tags(keyword, city='', industry='', client_name=''):
     city = (city or '').strip()
     keyword = (keyword or '').strip()
     industry = (industry or '').strip()
+    
+    # Check if keyword already contains the city name (avoid "Keyword Venice Venice")
+    keyword_has_city = city and city.lower() in keyword.lower()
 
-    # 1. Primary keyword with city
-    if keyword and city:
+    # 1. Primary keyword with city (only append city if not already in keyword)
+    if keyword and city and not keyword_has_city:
         tags.append(title_case(f"{keyword} {city}"))
     elif keyword:
         tags.append(title_case(keyword))
 
-    # 2. City + keyword (reversed)
-    if city and keyword:
+    # 2. City + keyword (reversed, only if city not already in keyword)
+    if city and keyword and not keyword_has_city:
         tags.append(title_case(f"{city} {keyword}"))
+    elif city and keyword and keyword_has_city:
+        # Keyword already has city, just add the keyword as-is
+        kw_tag = title_case(keyword)
+        if kw_tag not in tags:
+            tags.append(kw_tag)
 
     # 3. City name alone
     if city:
