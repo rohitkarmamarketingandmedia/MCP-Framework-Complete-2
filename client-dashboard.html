@@ -4306,6 +4306,59 @@
 
                     <!-- Meta fields - View mode -->
                     <div id="metaViewMode" class="mb-6 p-4 bg-gray-50 rounded-xl">
+
+                    <!-- Fact-Check Verification Card -->
+                    <div id="factCheckCard" class="hidden mb-6 p-4 bg-gradient-to-r from-slate-800 to-slate-900 rounded-xl text-white">
+                        <div class="flex items-center justify-between mb-4 cursor-pointer" onclick="toggleFactCheckDetails()">
+                            <h3 class="font-bold text-lg">
+                                <i id="factCheckIcon" class="fas fa-shield-alt mr-2 text-blue-400"></i>Fact-Check Verification
+                            </h3>
+                            <div class="flex items-center gap-3">
+                                <span id="factCheckScoreValue" class="text-3xl font-bold text-blue-400">--</span>
+                                <span class="text-gray-400">/100</span>
+                                <i id="factCheckToggle" class="fas fa-chevron-down text-gray-400 ml-2 transition-transform"></i>
+                            </div>
+                        </div>
+                        <div class="w-full bg-gray-700 rounded-full h-2 mb-4">
+                            <div id="factCheckBar" class="bg-gradient-to-r from-blue-500 to-cyan-400 h-2 rounded-full transition-all" style="width: 0%"></div>
+                        </div>
+                        
+                        <!-- Summary line -->
+                        <p id="factCheckSummary" class="text-sm text-gray-300 mb-3"></p>
+                        
+                        <!-- Quick stats -->
+                        <div class="grid grid-cols-3 gap-3 text-sm mb-3">
+                            <div class="flex items-center gap-2 p-2 rounded-lg bg-white/5">
+                                <i class="fas fa-check-circle text-green-400"></i>
+                                <span><strong id="factCheckVerifiedCount">0</strong> Verified</span>
+                            </div>
+                            <div class="flex items-center gap-2 p-2 rounded-lg bg-white/5">
+                                <i class="fas fa-exclamation-triangle text-yellow-400"></i>
+                                <span><strong id="factCheckFlaggedCount">0</strong> Flagged</span>
+                            </div>
+                            <div class="flex items-center gap-2 p-2 rounded-lg bg-white/5">
+                                <i class="fas fa-exclamation-circle text-red-400"></i>
+                                <span><strong id="factCheckHighCount">0</strong> High Risk</span>
+                            </div>
+                        </div>
+                        
+                        <!-- Expandable details -->
+                        <div id="factCheckDetails" class="hidden">
+                            <!-- Flagged Claims -->
+                            <div id="factCheckFlagged" class="mt-4">
+                                <h4 class="text-sm font-semibold text-yellow-400 mb-2"><i class="fas fa-flag mr-1"></i>Flagged Claims</h4>
+                                <div id="factCheckFlaggedList" class="space-y-2"></div>
+                            </div>
+                            
+                            <!-- Verified Claims -->
+                            <div id="factCheckVerified" class="mt-4">
+                                <h4 class="text-sm font-semibold text-green-400 mb-2"><i class="fas fa-check mr-1"></i>Verified Claims</h4>
+                                <div id="factCheckVerifiedList" class="space-y-2"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Meta fields - View mode (continued) -->
                         <p class="text-sm text-gray-500 mb-1">Meta Title</p>
                         <p id="modalMetaTitle" class="font-medium text-gray-800"></p>
                         <p class="text-sm text-gray-500 mt-3 mb-1">Meta Description</p>
@@ -11313,6 +11366,17 @@
                        </span>`
                     : '';
 
+                // Fact-Check Score badge
+                const fcScore = blog.fact_check_score || 0;
+                const fcColor = fcScore >= 80 ? 'text-blue-400 bg-blue-500/20' :
+                    fcScore >= 60 ? 'text-yellow-400 bg-yellow-500/20' :
+                        fcScore >= 40 ? 'text-orange-400 bg-orange-500/20' : 'text-red-400 bg-red-500/20';
+                const fcBadge = fcScore > 0
+                    ? `<span class="px-2 py-1 ${fcColor} rounded text-xs font-bold" title="Fact-Check Score">
+                         <i class="fas fa-shield-alt mr-1"></i>${fcScore}
+                       </span>`
+                    : '';
+
                 return `
                 <div class="content-card glass rounded-xl p-6 ${isSelected ? 'ring-2 ring-purple-500' : ''}" data-blog-id="${blog.id}">
                     <div class="flex items-start gap-4">
@@ -11327,6 +11391,7 @@
                                     ${blog.status || 'draft'}
                                 </span>
                                 ${seoScoreBadge}
+                                ${fcBadge}
                                 ${scheduledInfo}
                                 ${blog.featured_image_url ? '<span class="text-amber-400 text-xs"><i class="fas fa-image"></i></span>' : ''}
                             </div>
@@ -11682,6 +11747,110 @@
         let currentBlog = null;
         let currentBlogTags = [];
 
+        function updateFactCheckDisplay(blog) {
+            const card = document.getElementById('factCheckCard');
+            const report = blog.fact_check_report;
+            const score = blog.fact_check_score;
+            
+            if (!report || !score || report.status === 'skipped') {
+                card.classList.add('hidden');
+                return;
+            }
+            
+            card.classList.remove('hidden');
+            
+            // Score and bar
+            const scoreEl = document.getElementById('factCheckScoreValue');
+            const barEl = document.getElementById('factCheckBar');
+            const iconEl = document.getElementById('factCheckIcon');
+            
+            scoreEl.textContent = score;
+            barEl.style.width = `${score}%`;
+            
+            if (score >= 80) {
+                scoreEl.className = 'text-3xl font-bold text-green-400';
+                barEl.className = 'bg-gradient-to-r from-green-500 to-emerald-400 h-2 rounded-full transition-all';
+                iconEl.className = 'fas fa-shield-alt mr-2 text-green-400';
+            } else if (score >= 60) {
+                scoreEl.className = 'text-3xl font-bold text-yellow-400';
+                barEl.className = 'bg-gradient-to-r from-yellow-500 to-orange-400 h-2 rounded-full transition-all';
+                iconEl.className = 'fas fa-shield-alt mr-2 text-yellow-400';
+            } else {
+                scoreEl.className = 'text-3xl font-bold text-red-400';
+                barEl.className = 'bg-gradient-to-r from-red-500 to-orange-400 h-2 rounded-full transition-all';
+                iconEl.className = 'fas fa-shield-alt mr-2 text-red-400';
+            }
+            
+            // Summary
+            document.getElementById('factCheckSummary').textContent = report.summary || '';
+            
+            // Stats
+            document.getElementById('factCheckVerifiedCount').textContent = report.total_verified || 0;
+            document.getElementById('factCheckFlaggedCount').textContent = report.total_flagged || 0;
+            document.getElementById('factCheckHighCount').textContent = report.high_severity_count || 0;
+            
+            // Flagged claims list
+            const flaggedList = document.getElementById('factCheckFlaggedList');
+            const flagged = report.flagged_claims || [];
+            if (flagged.length > 0) {
+                document.getElementById('factCheckFlagged').classList.remove('hidden');
+                flaggedList.innerHTML = flagged.map(f => {
+                    const sevColor = f.severity === 'high' ? 'border-red-500 bg-red-500/10' : 
+                                     f.severity === 'medium' ? 'border-yellow-500 bg-yellow-500/10' : 
+                                     'border-gray-500 bg-gray-500/10';
+                    const sevIcon = f.severity === 'high' ? 'text-red-400' : 
+                                    f.severity === 'medium' ? 'text-yellow-400' : 'text-gray-400';
+                    return `<div class="p-3 rounded-lg border-l-4 ${sevColor}">
+                        <div class="flex items-start gap-2">
+                            <i class="fas fa-exclamation-triangle ${sevIcon} mt-1 flex-shrink-0"></i>
+                            <div class="flex-1 min-w-0">
+                                <p class="text-sm text-white font-medium">${escapeHtml(f.claim || '')}</p>
+                                <p class="text-xs text-gray-400 mt-1">${escapeHtml(f.issue || '')}</p>
+                                ${f.suggestion ? `<p class="text-xs text-cyan-300 mt-1"><i class="fas fa-lightbulb mr-1"></i>${escapeHtml(f.suggestion)}</p>` : ''}
+                            </div>
+                            <span class="px-2 py-0.5 rounded text-xs font-bold ${f.severity === 'high' ? 'bg-red-500/30 text-red-300' : f.severity === 'medium' ? 'bg-yellow-500/30 text-yellow-300' : 'bg-gray-500/30 text-gray-300'}">${f.severity || 'low'}</span>
+                        </div>
+                    </div>`;
+                }).join('');
+            } else {
+                document.getElementById('factCheckFlagged').classList.add('hidden');
+            }
+            
+            // Verified claims list
+            const verifiedList = document.getElementById('factCheckVerifiedList');
+            const verified = report.verified_claims || [];
+            if (verified.length > 0) {
+                document.getElementById('factCheckVerified').classList.remove('hidden');
+                verifiedList.innerHTML = verified.map(v => 
+                    `<div class="p-2 rounded-lg bg-green-500/10 flex items-start gap-2">
+                        <i class="fas fa-check-circle text-green-400 mt-1 flex-shrink-0"></i>
+                        <div class="flex-1 min-w-0">
+                            <p class="text-sm text-white">${escapeHtml(v.claim || '')}</p>
+                            ${v.source ? `<p class="text-xs text-gray-400 mt-1"><i class="fas fa-link mr-1"></i>${escapeHtml(v.source)}</p>` : ''}
+                        </div>
+                    </div>`
+                ).join('');
+            } else {
+                document.getElementById('factCheckVerified').classList.add('hidden');
+            }
+            
+            // Reset toggle state
+            document.getElementById('factCheckDetails').classList.add('hidden');
+            document.getElementById('factCheckToggle').style.transform = '';
+        }
+        
+        function toggleFactCheckDetails() {
+            const details = document.getElementById('factCheckDetails');
+            const toggle = document.getElementById('factCheckToggle');
+            if (details.classList.contains('hidden')) {
+                details.classList.remove('hidden');
+                toggle.style.transform = 'rotate(180deg)';
+            } else {
+                details.classList.add('hidden');
+                toggle.style.transform = '';
+            }
+        }
+
         function openBlogModal(blogId) {
             currentBlog = allBlogs.find(b => b.id === blogId);
             if (!currentBlog) return;
@@ -11754,6 +11923,9 @@
             } else {
                 faqSection.classList.add('hidden');
             }
+
+            // Fact-Check Verification
+            updateFactCheckDisplay(currentBlog);
 
             // Update Schedule button text based on status
             const scheduleBtn = document.getElementById('btnSchedule');
