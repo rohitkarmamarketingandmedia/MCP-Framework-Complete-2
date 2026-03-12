@@ -181,6 +181,22 @@ def create_app(config_name=None):
         from app.routes.chatbot import public_chat_history
         return public_chat_history(share_token)
     
+    # Public blog review page (no login required - client reviews via unique token)
+    @app.route('/review/<review_token>')
+    def public_review_page(review_token):
+        try:
+            from app.routes.content_schedule_page import render_review_page
+            return render_review_page(review_token)
+        except Exception as e:
+            logger.error(f"Review page error: {e}")
+            return f"""
+            <html><body style="font-family:sans-serif;padding:40px;text-align:center;">
+            <h2>Review Page Error</h2>
+            <p style="color:#666;">Something went wrong loading the review page.</p>
+            <pre style="background:#f3f4f6;padding:16px;border-radius:8px;text-align:left;max-width:600px;margin:20px auto;overflow:auto;">{str(e)}</pre>
+            </body></html>
+            """, 500
+    
     # Health check
     @app.route('/health')
     def health():
