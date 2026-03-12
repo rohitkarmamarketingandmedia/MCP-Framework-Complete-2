@@ -236,6 +236,7 @@ def send_blog_to_client(current_user, blog_id):
     # Build and send email
     try:
         from app.services.email_service import get_email_service
+        from markupsafe import escape
         email_service = get_email_service()
         
         client_name = client.business_name if client else 'Your Business'
@@ -258,7 +259,6 @@ def send_blog_to_client(current_user, blog_id):
         # Custom message section
         custom_html = ''
         if custom_message:
-            from markupsafe import escape
             custom_html = f'''
             <div style="background:#f0f4ff;border-left:4px solid #6366f1;border-radius:8px;padding:16px;margin:16px 0;">
                 <p style="margin:0;color:#4b5563;font-size:14px;font-style:italic;">"{escape(custom_message)}"</p>
