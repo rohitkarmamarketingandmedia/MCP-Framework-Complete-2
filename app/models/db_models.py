@@ -485,6 +485,10 @@ class DBBlogPost(db.Model):
     approved_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     approved_by: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
     
+    # Fact-check verification report (JSON from AI web-search verification)
+    fact_check_report: Mapped[Optional[str]] = mapped_column(Text, nullable=True)  # JSON
+    fact_check_score: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)  # 0-100
+    
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
@@ -541,6 +545,8 @@ class DBBlogPost(db.Model):
             'scheduled_for': self.scheduled_for.isoformat() if self.scheduled_for else None,
             'published_url': self.published_url,
             'published_at': self.published_at.isoformat() if self.published_at else None,
+            'fact_check_report': safe_json_loads(self.fact_check_report, None),
+            'fact_check_score': self.fact_check_score,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None
         }

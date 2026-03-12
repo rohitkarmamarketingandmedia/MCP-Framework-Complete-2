@@ -38,6 +38,7 @@ class BlogRequest:
     contact_url: str = ""  # URL for contact page (used in CTAs)
     blog_url: str = ""  # URL for blog page
     custom_faqs: Optional[List[str]] = None  # Custom FAQ questions from call intelligence
+    verify_content: bool = True  # Run web-search fact-check after generation
 
 
 class BlogAISingle:
@@ -140,6 +141,12 @@ class BlogAISingle:
         validation_result = self._validate_output(result, req)
         if validation_result['errors']:
             logger.warning(f"Validation errors: {validation_result['errors']}")
+        
+        # 12) Fact-check verification via web search (if enabled)
+        if req.verify_content:
+            result["fact_check"] = self._verify_content(result, req)
+        else:
+            result["fact_check"] = None
         
         logger.info(f"BlogAISingle.generate complete: {result['word_count']} words")
 
@@ -568,6 +575,132 @@ CRITICAL:
         
         return {'errors': errors, 'warnings': warnings}
     
+    def _verify_content(self, result: Dict[str, Any], req: BlogRequest) -> Dict[str, Any]:
+        """
+        Fact-check blog content using Claude with web search tool.
+        Returns a verification report with accuracy score and flagged claims.
+        """
+        try:
+            body = result.get('body', '')
+            faq_items = result.get('faq_items', [])
+            
+            if not body or len(body) < 200:
+                logger.info("Fact-check: Body too short, skipping")
+                return {'status': 'skipped', 'reason': 'content_too_short'}
+            
+            # Strip HTML for cleaner analysis
+            plain_text = re.sub(r'<[^>]+>', ' ', body)
+            plain_text = re.sub(r'\s+', ' ', plain_text).strip()
+            
+            # Truncate to ~3000 words to keep costs reasonable
+            words = plain_text.split()
+            if len(words) > 3000:
+                plain_text = ' '.join(words[:3000]) + '...'
+            
+            # Build FAQ text for verification
+            faq_text = ""
+            if faq_items:
+                faq_text = "\n\nFAQ ANSWERS TO VERIFY:\n"
+                for faq in faq_items[:7]:
+                    q = faq.get('question', faq.get('q', ''))
+                    a = faq.get('answer', faq.get('a', ''))
+                    if q and a:
+                        faq_text += f"Q: {q}\nA: {a}\n\n"
+            
+            verify_prompt = f"""You are a fact-checker for a local service business blog post.
+Review the following content about "{req.keyword}" for a {req.industry or 'local service'} business in {req.city}, {req.state}.
+
+CONTENT TO VERIFY:
+{plain_text}
+{faq_text}
+
+INSTRUCTIONS:
+1. Search the web to verify any specific factual claims, statistics, regulations, code references, or technical specifications in the content.
+2. Focus on claims that could be WRONG and harm the business's credibility — skip obvious general statements.
+3. Check industry-specific claims (building codes, regulations, certifications, pricing ranges, technical specs).
+4. Verify any referenced organizations, certifications, or standards actually exist.
+
+Return ONLY valid JSON (no markdown):
+{{
+    "accuracy_score": <number 0-100>,
+    "verified_claims": [
+        {{"claim": "claim text", "verdict": "verified", "source": "source URL or name"}}
+    ],
+    "flagged_claims": [
+        {{"claim": "claim text", "issue": "why it's wrong or unverifiable", "severity": "high|medium|low", "suggestion": "corrected version or recommendation"}}
+    ],
+    "summary": "1-2 sentence overall assessment"
+}}"""
+            
+            logger.info(f"Fact-check: Starting verification for '{req.keyword}' ({len(words)} words)")
+            
+            response = self.client.messages.create(
+                model=self.model_primary,
+                max_tokens=4000,
+                system="You are a meticulous fact-checker. Verify claims by searching the web. Return only valid JSON. Focus on claims that could be factually incorrect — ignore stylistic or marketing language.",
+                messages=[
+                    {"role": "user", "content": verify_prompt}
+                ],
+                tools=[{
+                    "type": "web_search_20250305",
+                    "name": "web_search",
+                    "max_uses": 8
+                }],
+                temperature=0.1,
+            )
+            
+            # Extract the text response (may have multiple content blocks due to tool use)
+            response_text = ""
+            for block in response.content:
+                if hasattr(block, 'text'):
+                    response_text += block.text
+            
+            response_text = response_text.strip()
+            logger.info(f"Fact-check: Got {len(response_text)} chars response")
+            
+            # Parse the verification result
+            report = self._robust_parse_json(response_text)
+            
+            if not report:
+                logger.warning("Fact-check: Could not parse verification response")
+                return {
+                    'status': 'error',
+                    'reason': 'parse_failure',
+                    'raw_response': response_text[:500]
+                }
+            
+            # Ensure required fields
+            report.setdefault('accuracy_score', 0)
+            report.setdefault('verified_claims', [])
+            report.setdefault('flagged_claims', [])
+            report.setdefault('summary', '')
+            report['status'] = 'complete'
+            
+            # Count high-severity issues
+            high_severity = [f for f in report.get('flagged_claims', []) if f.get('severity') == 'high']
+            report['high_severity_count'] = len(high_severity)
+            report['total_flagged'] = len(report.get('flagged_claims', []))
+            report['total_verified'] = len(report.get('verified_claims', []))
+            
+            logger.info(
+                f"Fact-check complete: score={report['accuracy_score']}, "
+                f"verified={report['total_verified']}, "
+                f"flagged={report['total_flagged']} "
+                f"(high={report['high_severity_count']})"
+            )
+            
+            return report
+            
+        except anthropic.RateLimitError as e:
+            logger.error(f"Fact-check rate limited: {e}")
+            return {'status': 'error', 'reason': 'rate_limited'}
+        except anthropic.APIError as e:
+            logger.error(f"Fact-check API error: {e}")
+            return {'status': 'error', 'reason': f'api_error: {str(e)[:100]}'}
+        except Exception as e:
+            logger.error(f"Fact-check error: {e}")
+            return {'status': 'error', 'reason': str(e)[:200]}
+    
     def _detect_city(self, req: BlogRequest):
         """Detect city from keyword and store for later correction"""
         import re
@@ -874,6 +1007,13 @@ CONTENT RULES:
 * No template language
 * No "Insert here", "Content goes here", or similar
 * All sections must contain real, human-written content
+
+ACCURACY RULES:
+* NEVER fabricate specific statistics, percentages, dollar amounts, or study results
+* NEVER invent certification numbers, license codes, or regulatory references you are not certain about
+* Use hedging language ("typically", "in most cases", "often") for claims you cannot verify with certainty
+* Prefer general factual ranges over suspiciously specific numbers (e.g., "can save 20-40%" not "saves exactly 37.2%")
+* Do NOT invent fake organization names, fake awards, or fake accreditations
 
 SEO RULES:
 * Headlines must be in Proper Case (Title Case)

@@ -406,6 +406,12 @@ def _generate_blog_background(task_id, app, client_id, keyword, word_count, incl
                 status=ContentStatus.DRAFT
             )
             
+            # Store fact-check report if available
+            fact_check = result.get('fact_check')
+            if fact_check and isinstance(fact_check, dict):
+                blog_post.fact_check_report = json.dumps(fact_check)
+                blog_post.fact_check_score = fact_check.get('accuracy_score')
+            
             data_service.save_blog_post(blog_post)
             
             _set_task(task_id, {
@@ -415,7 +421,9 @@ def _generate_blog_background(task_id, app, client_id, keyword, word_count, incl
                 'word_count': blog_post.word_count,
                 'links_added': links_added,
                 'seo_score': seo_score,
-                'seo_recommendations': seo_score_result.get('recommendations', [])
+                'seo_recommendations': seo_score_result.get('recommendations', []),
+                'fact_check_score': fact_check.get('accuracy_score') if fact_check else None,
+                'fact_check_flagged': fact_check.get('total_flagged', 0) if fact_check else 0
             })
             logger.info(f"[TASK {task_id}] Blog generation complete: {blog_post.id}")
             
@@ -694,6 +702,12 @@ def generate_blog_sync(current_user):
             status=ContentStatus.DRAFT
         )
         
+        # Store fact-check report if available
+        fact_check = result.get('fact_check')
+        if fact_check and isinstance(fact_check, dict):
+            blog_post.fact_check_report = json.dumps(fact_check)
+            blog_post.fact_check_score = fact_check.get('accuracy_score')
+        
         data_service.save_blog_post(blog_post)
         
         logger.info(f"[SYNC] Blog generation complete: {blog_post.id}, {blog_post.word_count} words")
@@ -703,7 +717,9 @@ def generate_blog_sync(current_user):
             'blog_id': blog_post.id,
             'title': blog_post.title,
             'word_count': blog_post.word_count,
-            'seo_score': seo_score
+            'seo_score': seo_score,
+            'fact_check_score': fact_check.get('accuracy_score') if fact_check else None,
+            'fact_check_flagged': fact_check.get('total_flagged', 0) if fact_check else 0
         })
         
     except Exception as e:

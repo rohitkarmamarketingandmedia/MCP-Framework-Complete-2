@@ -284,6 +284,25 @@ def run_migrations(app):
                 except:
                     pass
             
+            # Check if fact_check_report column exists in blog_posts
+            try:
+                result = db.session.execute(text("""
+                    SELECT column_name FROM information_schema.columns 
+                    WHERE table_name = 'blog_posts' AND column_name = 'fact_check_report'
+                """))
+                if not result.fetchone():
+                    logger.info("Adding fact-check columns to blog_posts table...")
+                    db.session.execute(text("ALTER TABLE blog_posts ADD COLUMN fact_check_report TEXT"))
+                    db.session.execute(text("ALTER TABLE blog_posts ADD COLUMN fact_check_score INTEGER"))
+                    db.session.commit()
+                    logger.info("✓ Added fact_check_report and fact_check_score columns")
+            except Exception as e:
+                logger.debug(f"fact_check migration: {e}")
+                try:
+                    db.session.rollback()
+                except:
+                    pass
+
         except Exception as e:
             logger.warning(f"Migration check: {e}")
             try:
