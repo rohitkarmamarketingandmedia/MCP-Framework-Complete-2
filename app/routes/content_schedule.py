@@ -235,7 +235,8 @@ def send_blog_to_client(current_user, blog_id):
     
     # Build and send email
     try:
-        from app.services.email_service import email_service
+        from app.services.email_service import get_email_service
+        email_service = get_email_service()
         
         client_name = client.business_name if client else 'Your Business'
         custom_message = data.get('message', '').strip()

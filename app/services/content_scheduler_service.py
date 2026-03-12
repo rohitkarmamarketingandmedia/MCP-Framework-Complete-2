@@ -274,7 +274,8 @@ def _get_next_keyword_city(schedule, client) -> tuple:
 def _send_review_email(app, schedule, client, blog_post):
     """Send the review email to the client with the blog preview and review link"""
     try:
-        from app.services.email_service import email_service
+        from app.services.email_service import get_email_service
+        email_service = get_email_service()
         
         # Determine recipient
         to_email = schedule.client_email or client.email
