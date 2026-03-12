@@ -489,6 +489,12 @@ class DBBlogPost(db.Model):
     fact_check_report: Mapped[Optional[str]] = mapped_column(Text, nullable=True)  # JSON
     fact_check_score: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)  # 0-100
     
+    # Client review workflow
+    review_token: Mapped[Optional[str]] = mapped_column(String(64), nullable=True, unique=True, index=True)
+    client_status: Mapped[Optional[str]] = mapped_column(String(30), nullable=True)  # None, 'pending_review', 'client_edited', 'client_approved'
+    client_reviewed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    auto_generated: Mapped[bool] = mapped_column(Boolean, default=False)  # True if created by scheduler
+    
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
@@ -547,6 +553,10 @@ class DBBlogPost(db.Model):
             'published_at': self.published_at.isoformat() if self.published_at else None,
             'fact_check_report': safe_json_loads(self.fact_check_report, None),
             'fact_check_score': self.fact_check_score,
+            'review_token': self.review_token,
+            'client_status': self.client_status,
+            'client_reviewed_at': self.client_reviewed_at.isoformat() if self.client_reviewed_at else None,
+            'auto_generated': self.auto_generated,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None
         }

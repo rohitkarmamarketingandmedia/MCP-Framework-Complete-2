@@ -302,6 +302,27 @@ def run_migrations(app):
                     db.session.rollback()
                 except:
                     pass
+            
+            # Check if review_token column exists in blog_posts
+            try:
+                result = db.session.execute(text("""
+                    SELECT column_name FROM information_schema.columns 
+                    WHERE table_name = 'blog_posts' AND column_name = 'review_token'
+                """))
+                if not result.fetchone():
+                    logger.info("Adding client review columns to blog_posts table...")
+                    db.session.execute(text("ALTER TABLE blog_posts ADD COLUMN review_token VARCHAR(64)"))
+                    db.session.execute(text("ALTER TABLE blog_posts ADD COLUMN client_status VARCHAR(30)"))
+                    db.session.execute(text("ALTER TABLE blog_posts ADD COLUMN client_reviewed_at TIMESTAMP"))
+                    db.session.execute(text("ALTER TABLE blog_posts ADD COLUMN auto_generated BOOLEAN DEFAULT FALSE"))
+                    db.session.commit()
+                    logger.info("✓ Added review_token, client_status, client_reviewed_at, auto_generated columns")
+            except Exception as e:
+                logger.debug(f"review_token migration: {e}")
+                try:
+                    db.session.rollback()
+                except:
+                    pass
 
         except Exception as e:
             logger.warning(f"Migration check: {e}")
@@ -318,6 +339,7 @@ def init_db(app):
     with app.app_context():
         # Import models to register them
         from app.models import db_models  # noqa
+        from app.models import schedule_models  # noqa — content_schedules, content_comments
         
         # Create all tables
         db.create_all()

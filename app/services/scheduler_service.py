@@ -158,6 +158,17 @@ def _add_scheduled_jobs(app):
         kwargs={'app': app}
     )
     
+    # Content auto-generation - runs every hour to check for due schedules
+    from app.services.content_scheduler_service import run_content_schedules
+    scheduler.add_job(
+        func=run_content_schedules,
+        trigger=CronTrigger(minute=15),  # Every hour at :15
+        id='content_auto_generation',
+        name='Auto-Generate Scheduled Blog Content',
+        replace_existing=True,
+        kwargs={'app': app}
+    )
+    
     logger.info("Scheduled jobs added: competitor_crawl(hourly), rank_check(5AM), intelligence(6AM), auto_publish(5min), alert_digest(hourly), daily_summary(8AM), content_due(7AM), digests(8AM), 3day_reports(Mon/Thu 9AM), review_responses(2hr)")
 
 
