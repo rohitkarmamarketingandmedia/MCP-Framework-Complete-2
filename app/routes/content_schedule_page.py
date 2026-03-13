@@ -316,17 +316,32 @@ def render_review_page(review_token):
         <!-- Featured Image -->
         <div class="bg-white rounded-xl border p-6 mb-6">
             <h3 class="font-bold text-gray-800 mb-3"><i class="fas fa-image mr-2 text-amber-500"></i>Featured Image</h3>
-            <div id="imagePreview" class="{'hidden' if not blog.featured_image_url else ''}">
-                <img id="featuredImg" src="{blog.featured_image_url or ''}" class="w-full max-h-96 object-contain rounded-lg border">
-                <button onclick="removeImage()" id="removeImgBtn" class="hidden mt-2 text-sm text-red-500 hover:text-red-700"><i class="fas fa-trash mr-1"></i>Remove</button>
-            </div>
-            <div id="imageUpload" class="{'hidden' if blog.featured_image_url else ''} border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
-                <i class="fas fa-cloud-upload-alt text-3xl text-gray-300 mb-2"></i>
-                <p class="text-gray-500 mb-2">Upload a featured image</p>
-                <input type="file" id="imageFile" accept="image/*" class="hidden" onchange="handleImageUpload(this)">
-                <button onclick="document.getElementById('imageFile').click()" id="uploadImgBtn" class="hidden px-4 py-2 bg-indigo-500 text-white rounded-lg text-sm hover:bg-indigo-600">
-                    Choose Image
+            
+            <!-- Current image preview -->
+            <div id="imagePreview" class="{'hidden' if not blog.featured_image_url else ''} mb-3">
+                <img id="featuredImg" src="{blog.featured_image_url or ''}" class="w-full max-h-96 object-contain rounded-lg border bg-gray-50">
+                <button onclick="removeImage()" id="removeImgBtn" class="hidden mt-2 text-sm text-red-500 hover:text-red-700 transition">
+                    <i class="fas fa-trash mr-1"></i>Remove Image
                 </button>
+            </div>
+            
+            <!-- Upload area (visible in edit mode) -->
+            <div id="imageUploadArea" class="hidden">
+                <div id="imageDropZone" class="border-2 border-dashed border-indigo-300 rounded-lg p-6 text-center bg-indigo-50/50 hover:bg-indigo-50 transition cursor-pointer"
+                     onclick="document.getElementById('imageFile').click()"
+                     ondragover="event.preventDefault(); this.classList.add('border-indigo-500','bg-indigo-100')"
+                     ondragleave="this.classList.remove('border-indigo-500','bg-indigo-100')"
+                     ondrop="event.preventDefault(); this.classList.remove('border-indigo-500','bg-indigo-100'); handleDroppedImage(event)">
+                    <i class="fas fa-cloud-upload-alt text-3xl text-indigo-400 mb-2"></i>
+                    <p class="text-indigo-600 font-medium">Click to upload or drag &amp; drop</p>
+                    <p class="text-xs text-gray-400 mt-1">PNG, JPG, WebP up to 5MB</p>
+                    <input type="file" id="imageFile" accept="image/*" class="hidden" onchange="handleImageUpload(this)">
+                </div>
+            </div>
+            
+            <!-- No image placeholder (view mode only) -->
+            <div id="noImageMsg" class="{'hidden' if blog.featured_image_url else ''} text-center py-4">
+                <p class="text-gray-400 text-sm">No featured image. Click Edit to add one.</p>
             </div>
         </div>
         
@@ -371,8 +386,9 @@ def render_review_page(review_token):
             document.getElementById('bodyEditWrapper').classList.toggle('hidden', !editMode);
             document.getElementById('tagInput').classList.toggle('hidden', !editMode);
             document.getElementById('btnSave').classList.toggle('hidden', !editMode);
-            document.getElementById('removeImgBtn').classList.toggle('hidden', !editMode);
-            document.getElementById('uploadImgBtn').classList.toggle('hidden', !editMode);
+            document.getElementById('removeImgBtn').classList.toggle('hidden', !editMode || !document.getElementById('featuredImg').src);
+            document.getElementById('imageUploadArea').classList.toggle('hidden', !editMode);
+            document.getElementById('noImageMsg').classList.toggle('hidden', editMode || !!document.getElementById('featuredImg').src);
             document.getElementById('btnSourceToggle').classList.toggle('hidden', !editMode);
             
             document.getElementById('btnEdit').className = editMode 
@@ -533,23 +549,39 @@ def render_review_page(review_token):
         
         // Image
         function removeImage() {{
-            document.getElementById('imagePreview').classList.add('hidden');
-            document.getElementById('imageUpload').classList.remove('hidden');
             document.getElementById('featuredImg').src = '';
+            document.getElementById('imagePreview').classList.add('hidden');
+            document.getElementById('noImageMsg').classList.add('hidden');
+            showToast('Image removed. Save to confirm.', 'info');
+        }}
+        
+        function handleDroppedImage(event) {{
+            const file = event.dataTransfer.files[0];
+            if (file && file.type.startsWith('image/')) {{
+                processImageFile(file);
+            }}
         }}
         
         function handleImageUpload(input) {{
             if (input.files && input.files[0]) {{
-                const reader = new FileReader();
-                reader.onload = function(e) {{
-                    document.getElementById('featuredImg').src = e.target.result;
-                    document.getElementById('imagePreview').classList.remove('hidden');
-                    document.getElementById('imageUpload').classList.add('hidden');
-                    // Note: For full production, you'd upload to server here
-                    showToast('Image preview loaded. Save to keep changes.', 'info');
-                }};
-                reader.readAsDataURL(input.files[0]);
+                processImageFile(input.files[0]);
             }}
+        }}
+        
+        function processImageFile(file) {{
+            if (file.size > 5 * 1024 * 1024) {{
+                showToast('Image must be under 5MB', 'error');
+                return;
+            }}
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {{
+                document.getElementById('featuredImg').src = e.target.result;
+                document.getElementById('imagePreview').classList.remove('hidden');
+                document.getElementById('noImageMsg').classList.add('hidden');
+                showToast('Image added. Save to keep changes.', 'success');
+            }};
+            reader.readAsDataURL(file);
         }}
         
         // Comments
