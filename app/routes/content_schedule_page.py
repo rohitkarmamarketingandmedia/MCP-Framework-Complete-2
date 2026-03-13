@@ -112,6 +112,38 @@ def render_review_page(review_token):
     
     tags_json = json.dumps(tags)
     
+    # FAQs
+    faq_html = ''
+    try:
+        faq_items = json.loads(blog.faq_content) if blog.faq_content else []
+    except (json.JSONDecodeError, TypeError):
+        faq_items = []
+    
+    if faq_items and len(faq_items) > 0:
+        faq_rows = ''
+        for i, faq in enumerate(faq_items):
+            q = faq.get('question', faq.get('q', ''))
+            a = faq.get('answer', faq.get('a', ''))
+            if q and a:
+                faq_rows += f'''
+                <div class="border border-gray-200 rounded-lg overflow-hidden">
+                    <div class="bg-gray-50 px-4 py-3 cursor-pointer flex items-center justify-between" onclick="this.nextElementSibling.classList.toggle('hidden'); this.querySelector('i').classList.toggle('fa-chevron-down'); this.querySelector('i').classList.toggle('fa-chevron-up');">
+                        <p class="font-medium text-gray-800 text-sm">{escape(q)}</p>
+                        <i class="fas fa-chevron-down text-gray-400 text-xs ml-2 flex-shrink-0"></i>
+                    </div>
+                    <div class="px-4 py-3 text-sm text-gray-600 border-t border-gray-100">{escape(a)}</div>
+                </div>'''
+        
+        faq_html = f'''
+        <div class="bg-white rounded-xl border p-6 mb-6">
+            <h3 class="font-bold text-gray-800 mb-4"><i class="fas fa-question-circle mr-2 text-purple-500"></i>Frequently Asked Questions ({len(faq_items)})</h3>
+            <div class="space-y-2">
+                {faq_rows}
+            </div>
+        </div>'''
+    
+    faq_json = json.dumps(faq_items)
+    
     # Blog body (sanitize for display)
     blog_body = blog.body or '<p>No content yet.</p>'
     
@@ -136,7 +168,14 @@ def render_review_page(review_token):
         .blog-content ul, .blog-content ol {{ margin: 0.5rem 0; padding-left: 1.5rem; }}
         .blog-content li {{ margin: 0.25rem 0; color: #4b5563; }}
         .blog-content .cta-box {{ background: #f0f4ff; border: 1px solid #c7d2fe; border-radius: 12px; padding: 20px; margin: 20px 0; }}
-        .editor-active {{ min-height: 400px; outline: none; border: 2px solid #6366f1; border-radius: 12px; padding: 24px; background: white; }}
+        .editor-active {{ min-height: 400px; outline: none; border: 2px solid #6366f1; border-radius: 0 0 12px 12px; padding: 24px; background: white; }}
+        .editor-toolbar {{ display: flex; flex-wrap: wrap; gap: 2px; padding: 8px 12px; background: #f8fafc; border: 2px solid #6366f1; border-bottom: 1px solid #e2e8f0; border-radius: 12px 12px 0 0; }}
+        .editor-toolbar button {{ width: 34px; height: 34px; display: flex; align-items: center; justify-content: center; border: none; background: transparent; color: #4b5563; border-radius: 6px; cursor: pointer; font-size: 14px; transition: all 0.15s; }}
+        .editor-toolbar button:hover {{ background: #e0e7ff; color: #4338ca; }}
+        .editor-toolbar button.active {{ background: #6366f1; color: white; }}
+        .editor-toolbar .separator {{ width: 1px; height: 24px; background: #d1d5db; margin: 5px 6px; }}
+        .editor-toolbar select {{ padding: 4px 8px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px; color: #374151; background: white; cursor: pointer; }}
+        .editor-toolbar select:focus {{ outline: none; border-color: #6366f1; }}
         .tag {{ display: inline-flex; align-items: center; gap: 4px; padding: 4px 12px; background: #ede9fe; color: #6d28d9; border-radius: 9999px; font-size: 13px; }}
         .tag button {{ background: none; border: none; cursor: pointer; color: #6d28d9; font-size: 16px; line-height: 1; }}
         .save-bar {{ position: sticky; bottom: 0; z-index: 50; }}
@@ -209,11 +248,58 @@ def render_review_page(review_token):
         <div class="bg-white rounded-xl border p-6 mb-6">
             <div class="flex items-center justify-between mb-4">
                 <h3 class="font-bold text-gray-800">Blog Content</h3>
-                <span id="wordCount" class="text-sm text-gray-400">{blog.word_count or 0} words</span>
+                <div class="flex items-center gap-3">
+                    <button onclick="toggleSourceView()" id="btnSourceToggle" class="hidden text-xs px-3 py-1 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-lg transition">
+                        <i class="fas fa-code mr-1"></i>HTML Source
+                    </button>
+                    <span id="wordCount" class="text-sm text-gray-400">{blog.word_count or 0} words</span>
+                </div>
             </div>
+            
+            <!-- View mode -->
             <div id="bodyView" class="blog-content">{blog_body}</div>
-            <div id="bodyEdit" class="hidden blog-content editor-active" contenteditable="true">{blog_body}</div>
+            
+            <!-- Edit mode: Toolbar + Editor -->
+            <div id="bodyEditWrapper" class="hidden">
+                <!-- Toolbar -->
+                <div class="editor-toolbar" id="editorToolbar">
+                    <select onchange="execCmd('formatBlock', this.value); this.value='';" title="Heading">
+                        <option value="">Paragraph</option>
+                        <option value="h2">Heading 2</option>
+                        <option value="h3">Heading 3</option>
+                        <option value="h4">Heading 4</option>
+                        <option value="p">Normal</option>
+                    </select>
+                    <div class="separator"></div>
+                    <button onclick="execCmd('bold')" title="Bold (Ctrl+B)" id="tbBold"><i class="fas fa-bold"></i></button>
+                    <button onclick="execCmd('italic')" title="Italic (Ctrl+I)" id="tbItalic"><i class="fas fa-italic"></i></button>
+                    <button onclick="execCmd('underline')" title="Underline (Ctrl+U)" id="tbUnderline"><i class="fas fa-underline"></i></button>
+                    <button onclick="execCmd('strikeThrough')" title="Strikethrough"><i class="fas fa-strikethrough"></i></button>
+                    <div class="separator"></div>
+                    <button onclick="execCmd('insertUnorderedList')" title="Bullet List"><i class="fas fa-list-ul"></i></button>
+                    <button onclick="execCmd('insertOrderedList')" title="Numbered List"><i class="fas fa-list-ol"></i></button>
+                    <div class="separator"></div>
+                    <button onclick="insertLink()" title="Insert Link"><i class="fas fa-link"></i></button>
+                    <button onclick="execCmd('unlink')" title="Remove Link"><i class="fas fa-unlink"></i></button>
+                    <div class="separator"></div>
+                    <button onclick="execCmd('justifyLeft')" title="Align Left"><i class="fas fa-align-left"></i></button>
+                    <button onclick="execCmd('justifyCenter')" title="Align Center"><i class="fas fa-align-center"></i></button>
+                    <button onclick="execCmd('justifyRight')" title="Align Right"><i class="fas fa-align-right"></i></button>
+                    <div class="separator"></div>
+                    <button onclick="execCmd('removeFormat')" title="Clear Formatting"><i class="fas fa-eraser"></i></button>
+                    <button onclick="execCmd('undo')" title="Undo (Ctrl+Z)"><i class="fas fa-undo"></i></button>
+                    <button onclick="execCmd('redo')" title="Redo (Ctrl+Y)"><i class="fas fa-redo"></i></button>
+                </div>
+                
+                <!-- Rich text editor -->
+                <div id="bodyEdit" class="blog-content editor-active" contenteditable="true">{blog_body}</div>
+                
+                <!-- HTML source editor (hidden by default) -->
+                <textarea id="bodySource" class="hidden w-full font-mono text-sm p-4 border-2 border-indigo-500 rounded-b-xl bg-gray-900 text-green-400" rows="20" spellcheck="false"></textarea>
+            </div>
         </div>
+        
+        {faq_html}
         
         <!-- Tags -->
         <div class="bg-white rounded-xl border p-6 mb-6">
@@ -251,12 +337,6 @@ def render_review_page(review_token):
                 {comments_html if comments_html else '<p class="text-gray-400 text-sm">No comments yet.</p>'}
             </div>
             <div class="border-t pt-4">
-                <div class="flex gap-2 mb-2">
-                    <input type="text" id="commentName" placeholder="Your name" 
-                        class="w-40 px-3 py-2 border border-gray-300 rounded-lg text-sm">
-                    <input type="email" id="commentEmail" placeholder="Your email (optional)" 
-                        class="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm">
-                </div>
                 <div class="flex gap-2">
                     <textarea id="commentText" rows="2" placeholder="Add a comment or feedback..." 
                         class="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-300"></textarea>
@@ -288,11 +368,12 @@ def render_review_page(review_token):
             fields.forEach(id => document.getElementById(id).disabled = !editMode);
             
             document.getElementById('bodyView').classList.toggle('hidden', editMode);
-            document.getElementById('bodyEdit').classList.toggle('hidden', !editMode);
+            document.getElementById('bodyEditWrapper').classList.toggle('hidden', !editMode);
             document.getElementById('tagInput').classList.toggle('hidden', !editMode);
             document.getElementById('btnSave').classList.toggle('hidden', !editMode);
             document.getElementById('removeImgBtn').classList.toggle('hidden', !editMode);
             document.getElementById('uploadImgBtn').classList.toggle('hidden', !editMode);
+            document.getElementById('btnSourceToggle').classList.toggle('hidden', !editMode);
             
             document.getElementById('btnEdit').className = editMode 
                 ? 'px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium' 
@@ -303,11 +384,96 @@ def render_review_page(review_token):
             
             if (editMode) {{
                 document.getElementById('bodyEdit').innerHTML = document.getElementById('bodyView').innerHTML;
+                // Reset source view
+                document.getElementById('bodySource').classList.add('hidden');
+                document.getElementById('bodyEdit').classList.remove('hidden');
+                document.getElementById('editorToolbar').classList.remove('hidden');
+                sourceMode = false;
             }}
         }}
         
+        // HTML Editor commands
+        function execCmd(command, value) {{
+            document.getElementById('bodyEdit').focus();
+            document.execCommand(command, false, value || null);
+            updateToolbarState();
+        }}
+        
+        function insertLink() {{
+            const url = prompt('Enter URL:', 'https://');
+            if (url) {{
+                document.getElementById('bodyEdit').focus();
+                document.execCommand('createLink', false, url);
+            }}
+        }}
+        
+        let sourceMode = false;
+        function toggleSourceView() {{
+            const editor = document.getElementById('bodyEdit');
+            const source = document.getElementById('bodySource');
+            const toolbar = document.getElementById('editorToolbar');
+            const btn = document.getElementById('btnSourceToggle');
+            
+            sourceMode = !sourceMode;
+            
+            if (sourceMode) {{
+                // Switch to source view
+                source.value = editor.innerHTML;
+                editor.classList.add('hidden');
+                toolbar.classList.add('hidden');
+                source.classList.remove('hidden');
+                btn.innerHTML = '<i class="fas fa-eye mr-1"></i>Visual Editor';
+                btn.className = 'text-xs px-3 py-1 bg-indigo-100 hover:bg-indigo-200 text-indigo-700 rounded-lg transition';
+            }} else {{
+                // Switch back to visual editor
+                editor.innerHTML = source.value;
+                source.classList.add('hidden');
+                editor.classList.remove('hidden');
+                toolbar.classList.remove('hidden');
+                btn.innerHTML = '<i class="fas fa-code mr-1"></i>HTML Source';
+                btn.className = 'text-xs px-3 py-1 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-lg transition';
+            }}
+        }}
+        
+        function updateToolbarState() {{
+            // Highlight active formatting buttons
+            const cmds = {{'bold': 'tbBold', 'italic': 'tbItalic', 'underline': 'tbUnderline'}};
+            for (const [cmd, btnId] of Object.entries(cmds)) {{
+                const btn = document.getElementById(btnId);
+                if (btn) {{
+                    if (document.queryCommandState(cmd)) {{
+                        btn.classList.add('active');
+                    }} else {{
+                        btn.classList.remove('active');
+                    }}
+                }}
+            }}
+        }}
+        
+        // Track selection changes for toolbar state
+        document.addEventListener('selectionchange', function() {{
+            if (editMode) updateToolbarState();
+        }});
+        
+        // Word count update on edit
+        const bodyEditEl = document.getElementById('bodyEdit');
+        if (bodyEditEl) {{
+            bodyEditEl.addEventListener('input', function() {{
+                const text = this.innerText || '';
+                const words = text.trim().split(/\\s+/).filter(w => w.length > 0).length;
+                document.getElementById('wordCount').textContent = words + ' words';
+            }});
+        }}
+        
         async function saveChanges(action) {{
-            const body = editMode ? document.getElementById('bodyEdit').innerHTML : null;
+            let body = null;
+            if (editMode) {{
+                if (sourceMode) {{
+                    body = document.getElementById('bodySource').value;
+                }} else {{
+                    body = document.getElementById('bodyEdit').innerHTML;
+                }}
+            }}
             const payload = {{
                 title: document.getElementById('editTitle').value,
                 meta_title: document.getElementById('editMetaTitle').value,
@@ -389,8 +555,8 @@ def render_review_page(review_token):
         // Comments
         async function submitComment() {{
             const text = document.getElementById('commentText').value.trim();
-            const name = document.getElementById('commentName').value.trim() || 'Client';
-            const email = document.getElementById('commentEmail').value.trim();
+            const name = 'Client';
+            const email = '';
             
             if (!text) return;
             
