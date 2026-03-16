@@ -343,74 +343,45 @@ def _extract_keyword(title, url):
 
 
 def run_rank_check(app):
-    """Check rankings for all clients and detect rank drops"""
+    """
+    Daily SERP check for all clients using tracked keywords.
+    Uses rank_tracking_service.run_serp_check() which:
+      1. Reads tracked keywords from DB (imported from SEMrush Position Tracking)
+      2. Calls SEMrush API for current positions
+      3. Saves rank snapshots to rank_history table
+    """
     with app.app_context():
-        from app.database import db
-        from app.models.db_models import DBClient, DBRankHistory
+        from app.models.db_models import DBClient
         from app.services.rank_tracking_service import rank_tracking_service
-        
-        logger.info("Starting scheduled rank check...")
-        
+
+        logger.info("Starting scheduled rank check (tracked keywords)...")
+
         clients = DBClient.query.filter_by(is_active=True).all()
         total_checked = 0
         total_drops = 0
-        
+
         for client in clients:
             try:
-                # Get keywords to track
-                keywords = []
-                try:
-                    keywords = (client.get_primary_keywords() + client.get_secondary_keywords())[:30]
-                except Exception:
-                    pass
-                
-                if not keywords:
-                    logger.debug(f"No keywords for {client.business_name}, skipping")
-                    continue
-                
-                # Check rankings via SEMrush (uses cache when available)
                 domain = client.website_url or client.business_name
-                result = rank_tracking_service.check_all_keywords(domain, keywords)
-                
-                if result.get('error') and not result.get('demo_mode'):
+                if not domain:
+                    logger.debug(f"No domain for {client.business_name}, skipping")
+                    continue
+
+                # run_serp_check handles: get tracked kw -> SEMrush API -> save snapshots
+                result = rank_tracking_service.run_serp_check(
+                    client_id=client.id,
+                    domain=domain,
+                    force_refresh=True  # Scheduled check always hits the API
+                )
+
+                if result.get('error'):
                     logger.warning(f"Rank check error for {client.business_name}: {result['error']}")
                     continue
-                
-                # Save results to DB
-                kw_count = 0
-                for kw_data in result.get('keywords', []):
-                    try:
-                        # Get previous position for change calculation
-                        prev = DBRankHistory.query.filter(
-                            DBRankHistory.client_id == client.id,
-                            DBRankHistory.keyword == kw_data['keyword'],
-                        ).order_by(DBRankHistory.checked_at.desc()).first()
-                        
-                        prev_position = prev.position if prev else None
-                        current_position = kw_data.get('position')
-                        change = 0
-                        if prev_position and current_position:
-                            change = prev_position - current_position  # Positive = improved
-                        
-                        history = DBRankHistory(
-                            client_id=client.id,
-                            keyword=kw_data['keyword'],
-                            position=current_position,
-                            previous_position=prev_position,
-                            change=change,
-                            url=kw_data.get('url', ''),
-                            search_volume=kw_data.get('search_volume', 0),
-                            cpc=kw_data.get('cpc', 0.0)
-                        )
-                        db.session.add(history)
-                        kw_count += 1
-                    except Exception as e:
-                        logger.debug(f"Error saving rank for {kw_data.get('keyword')}: {e}")
-                
-                db.session.commit()
+
+                kw_count = result.get('checked', 0)
                 total_checked += kw_count
                 logger.info(f"Rank check complete for {client.business_name}: {kw_count} keywords")
-                
+
                 # Trigger intelligence automation rank drop detection
                 try:
                     from app.services.intelligence_automation_service import intelligence_automation
@@ -420,10 +391,10 @@ def run_rank_check(app):
                         logger.info(f"Rank drop alerts for {client.business_name}: {len(alerts)}")
                 except Exception as e:
                     logger.debug(f"Intelligence automation not available: {e}")
-                
+
             except Exception as e:
                 logger.error(f"Error checking ranks for {client.business_name}: {e}")
-        
+
         logger.info(f"Rank check complete: {total_checked} keywords across {len(clients)} clients, {total_drops} drop alerts")
 
 

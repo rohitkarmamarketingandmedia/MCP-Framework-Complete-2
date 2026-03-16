@@ -893,6 +893,53 @@ class DBRankHistory(db.Model):
         }
 
 
+class DBTrackedKeyword(db.Model):
+    """
+    Keywords imported from SEMrush Position Tracking.
+    These are the exact keywords we run daily SERP checks for.
+    """
+    __tablename__ = 'tracked_keywords'
+
+    id: Mapped[str] = mapped_column(String(50), primary_key=True)
+    client_id: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
+
+    keyword: Mapped[str] = mapped_column(String(255), nullable=False)
+    search_engine: Mapped[str] = mapped_column(String(20), default='google')
+    device: Mapped[str] = mapped_column(String(20), default='desktop')  # desktop / mobile
+    location: Mapped[str] = mapped_column(String(100), default='')  # geo target
+
+    tags: Mapped[str] = mapped_column(Text, default='[]')  # JSON array of tag strings
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+
+    imported_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    last_checked_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+
+    def __init__(self, client_id: str, keyword: str, **kwargs):
+        self.id = f"tkw_{uuid.uuid4().hex[:12]}"
+        self.client_id = client_id
+        self.keyword = keyword
+        self.search_engine = kwargs.get('search_engine', 'google')
+        self.device = kwargs.get('device', 'desktop')
+        self.location = kwargs.get('location', '')
+        self.tags = json.dumps(kwargs.get('tags', []))
+        self.is_active = kwargs.get('is_active', True)
+        self.imported_at = datetime.utcnow()
+
+    def to_dict(self) -> dict:
+        return {
+            'id': self.id,
+            'client_id': self.client_id,
+            'keyword': self.keyword,
+            'search_engine': self.search_engine,
+            'device': self.device,
+            'location': self.location,
+            'tags': safe_json_loads(self.tags, []),
+            'is_active': self.is_active,
+            'imported_at': self.imported_at.isoformat() if self.imported_at else None,
+            'last_checked_at': self.last_checked_at.isoformat() if self.last_checked_at else None,
+        }
+
+
 class DBContentQueue(db.Model):
     """Auto-generated content waiting for approval"""
     __tablename__ = 'content_queue'

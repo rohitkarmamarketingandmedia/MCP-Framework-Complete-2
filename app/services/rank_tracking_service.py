@@ -204,10 +204,17 @@ class RankTrackingService:
         api_key = self.api_key
         logger.info(f"SEMrush check_all_keywords: api_key length={len(api_key) if api_key else 0}, domain={domain}")
         
-        # If no API key, return simulated data so dashboard still works
+        # No API key — return error, no demo data
         if not api_key:
-            logger.warning("SEMrush API key not found, returning demo data")
-            return self._generate_demo_rankings(domain, keywords)
+            logger.warning("SEMrush API key not configured — cannot check rankings")
+            return {
+                'domain': domain,
+                'checked_at': datetime.utcnow().isoformat(),
+                'keywords': [],
+                'summary': {'total': len(keywords), 'in_top_3': 0, 'in_top_10': 0,
+                            'in_top_20': 0, 'not_ranking': len(keywords)},
+                'error': 'SEMrush API key not configured',
+            }
         
         result = {
             'domain': domain,
@@ -257,10 +264,15 @@ class RankTrackingService:
                         'message': 'SEMrush API returned an error. Check your API key and account status.'
                     }
                 
-                # Fall back to demo mode if API fails
-                result = self._generate_demo_rankings(domain, keywords)
-                result['api_status'] = response.status_code
-                return result
+                # Return error — no demo fallback
+                return {
+                    'domain': domain,
+                    'checked_at': datetime.utcnow().isoformat(),
+                    'keywords': [],
+                    'summary': {'total': len(keywords), 'in_top_3': 0, 'in_top_10': 0,
+                                'in_top_20': 0, 'not_ranking': len(keywords)},
+                    'error': f'SEMrush API returned status {response.status_code}',
+                }
             
             # Check if response is an error message (SEMrush returns 200 even for errors sometimes)
             if response.text.startswith('ERROR'):
@@ -703,6 +715,226 @@ class RankTrackingService:
             'estimated_annual_value': round(total_value * 12, 2)
         }
     
+    # ==========================================
+    # TRACKED KEYWORD RANKING (Position Tracking)
+    # ==========================================
+
+    def import_tracked_keywords_from_semrush(self, client_id: str, domain: str, database: str = None) -> Dict:
+        """
+        Import tracked keywords from SEMrush Position Tracking project.
+
+        SEMrush Position Tracking API:
+          GET https://api.semrush.com/management/v1/projects/{project_id}/tracking/keywords
+        If no Position Tracking project exists, falls back to pulling
+        domain_organic keywords as the tracked set.
+
+        Returns: { imported: int, keywords: [str], source: str }
+        """
+        from app.database import db
+        from app.models.db_models import DBTrackedKeyword
+
+        if not self.api_key:
+            return {'error': 'SEMrush API key not configured', 'imported': 0}
+
+        domain = self._clean_domain(domain)
+        database = database or self.default_database
+
+        # Try SEMrush Position Tracking projects API first
+        keywords_to_import = []
+        source = 'position_tracking'
+
+        try:
+            # Step 1: list projects
+            proj_resp = requests.get(
+                'https://api.semrush.com/management/v1/projects',
+                params={'key': self.api_key},
+                timeout=30
+            )
+            projects = proj_resp.json() if proj_resp.status_code == 200 else []
+
+            # Find project matching this domain
+            project_id = None
+            for proj in (projects if isinstance(projects, list) else []):
+                proj_domain = self._clean_domain(proj.get('domain', '') or proj.get('url', ''))
+                if proj_domain == domain:
+                    project_id = proj.get('project_id') or proj.get('id')
+                    break
+
+            if project_id:
+                logger.info(f"[TRACKED-KW] Found Position Tracking project {project_id} for {domain}")
+                # Step 2: get tracked keywords from the project
+                kw_resp = requests.get(
+                    f'https://api.semrush.com/management/v1/projects/{project_id}/tracking/keywords',
+                    params={'key': self.api_key},
+                    timeout=30
+                )
+                if kw_resp.status_code == 200:
+                    kw_data = kw_resp.json()
+                    # The API returns a list of keyword objects
+                    kw_list = kw_data if isinstance(kw_data, list) else kw_data.get('data', [])
+                    for item in kw_list:
+                        kw_text = item.get('phrase') or item.get('keyword') or ''
+                        if kw_text.strip():
+                            keywords_to_import.append({
+                                'keyword': kw_text.strip(),
+                                'tags': item.get('tags', []),
+                                'device': item.get('device_type', 'desktop'),
+                            })
+                    logger.info(f"[TRACKED-KW] Got {len(keywords_to_import)} keywords from Position Tracking")
+        except Exception as e:
+            logger.warning(f"[TRACKED-KW] Position Tracking API failed: {e}")
+
+        # Fallback: pull top organic keywords if no Position Tracking project
+        if not keywords_to_import:
+            source = 'domain_organic'
+            logger.info(f"[TRACKED-KW] No Position Tracking project, falling back to domain_organic for {domain}")
+            try:
+                params = {
+                    'type': 'domain_organic',
+                    'key': self.api_key,
+                    'display_limit': 100,
+                    'export_columns': 'Ph,Nq',
+                    'domain': domain,
+                    'database': database
+                }
+                resp = requests.get(self.base_url, params=params, timeout=30)
+                if resp.status_code == 200 and not resp.text.startswith('ERROR'):
+                    lines = resp.text.strip().split('\n')
+                    for line in lines[1:]:
+                        parts = line.split(';')
+                        if len(parts) >= 1 and parts[0].strip('"').strip():
+                            keywords_to_import.append({
+                                'keyword': parts[0].strip('"').strip(),
+                                'tags': [],
+                                'device': 'desktop',
+                            })
+                    logger.info(f"[TRACKED-KW] Got {len(keywords_to_import)} keywords from domain_organic")
+            except Exception as e:
+                logger.warning(f"[TRACKED-KW] domain_organic fallback failed: {e}")
+
+        if not keywords_to_import:
+            return {'error': 'No keywords found to import', 'imported': 0, 'source': source}
+
+        # Upsert into tracked_keywords table
+        existing = {
+            tk.keyword.lower(): tk
+            for tk in DBTrackedKeyword.query.filter_by(client_id=client_id, is_active=True).all()
+        }
+
+        imported = 0
+        for kw_info in keywords_to_import:
+            kw_lower = kw_info['keyword'].lower()
+            if kw_lower not in existing:
+                tk = DBTrackedKeyword(
+                    client_id=client_id,
+                    keyword=kw_info['keyword'],
+                    device=kw_info.get('device', 'desktop'),
+                    tags=kw_info.get('tags', []),
+                )
+                db.session.add(tk)
+                imported += 1
+
+        db.session.commit()
+        logger.info(f"[TRACKED-KW] Imported {imported} new keywords for client {client_id} (source: {source})")
+
+        return {
+            'imported': imported,
+            'total': len(keywords_to_import),
+            'already_tracked': len(keywords_to_import) - imported,
+            'keywords': [k['keyword'] for k in keywords_to_import],
+            'source': source
+        }
+
+    def get_tracked_keywords(self, client_id: str) -> List[str]:
+        """
+        Get the list of actively tracked keywords for a client.
+        Falls back to client's primary + secondary keywords if none tracked.
+        """
+        from app.models.db_models import DBTrackedKeyword, DBClient
+
+        tracked = DBTrackedKeyword.query.filter_by(
+            client_id=client_id, is_active=True
+        ).all()
+
+        if tracked:
+            return [tk.keyword for tk in tracked]
+
+        # Fallback to client's configured keywords
+        client = DBClient.query.get(client_id)
+        if client:
+            return (client.get_primary_keywords() + client.get_secondary_keywords())[:50]
+
+        return []
+
+    def run_serp_check(self, client_id: str, domain: str, database: str = None, force_refresh: bool = False) -> Dict:
+        """
+        Run a SERP check for a client's tracked keywords.
+        Pulls current positions from SEMrush, saves snapshots to rank_history.
+
+        Returns: { checked: int, keywords: [...], summary: {...} }
+        """
+        from app.database import db
+        from app.models.db_models import DBRankHistory, DBTrackedKeyword
+
+        keywords = self.get_tracked_keywords(client_id)
+        if not keywords:
+            return {'error': 'No tracked keywords', 'checked': 0}
+
+        # Call SEMrush for current positions
+        result = self.check_all_keywords(domain, keywords, database=database, force_refresh=force_refresh)
+
+        if result.get('error') and not result.get('demo_mode'):
+            return result
+
+        # Skip saving demo data
+        if result.get('demo_mode'):
+            return {'error': 'SEMrush API not configured — cannot save real data', 'checked': 0}
+
+        # Save each keyword position as a snapshot
+        now = datetime.utcnow()
+        checked_count = 0
+
+        for kw_data in result.get('keywords', []):
+            keyword = kw_data['keyword']
+            current_pos = kw_data.get('position')
+
+            # Get previous position from last snapshot
+            prev = DBRankHistory.query.filter(
+                DBRankHistory.client_id == client_id,
+                DBRankHistory.keyword == keyword,
+            ).order_by(DBRankHistory.checked_at.desc()).first()
+
+            prev_pos = prev.position if prev else None
+            change = 0
+            if prev_pos and current_pos:
+                change = prev_pos - current_pos  # positive = improved
+
+            snapshot = DBRankHistory(
+                client_id=client_id,
+                keyword=keyword,
+                position=current_pos,
+                previous_position=prev_pos,
+                change=change,
+                url=kw_data.get('url', ''),
+                search_volume=kw_data.get('search_volume', 0),
+                cpc=kw_data.get('cpc', 0.0),
+            )
+            db.session.add(snapshot)
+            checked_count += 1
+
+        # Update last_checked_at on tracked keywords
+        DBTrackedKeyword.query.filter_by(
+            client_id=client_id, is_active=True
+        ).update({'last_checked_at': now})
+
+        db.session.commit()
+        logger.info(f"[SERP-CHECK] Saved {checked_count} rank snapshots for client {client_id}")
+
+        # Attach traffic value
+        result['traffic_value'] = self.calculate_traffic_value(result.get('keywords', []))
+        result['checked'] = checked_count
+        return result
+
     def _clean_domain(self, domain: str) -> str:
         """Clean domain string"""
         domain = domain.lower().strip()

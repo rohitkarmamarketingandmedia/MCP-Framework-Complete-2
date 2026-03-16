@@ -13,7 +13,8 @@ from app.utils import safe_int
 from app.database import db
 from app.models.db_models import (
     DBClient, DBCompetitor, DBCompetitorPage, DBRankHistory,
-    DBContentQueue, DBAlert, DBBlogPost, ContentStatus
+    DBContentQueue, DBAlert, DBBlogPost, ContentStatus,
+    DBTrackedKeyword
 )
 from app.services.competitor_monitoring_service import competitor_monitoring_service
 from app.services.seo_scoring_engine import seo_scoring_engine
@@ -1054,114 +1055,155 @@ def regenerate_queue_item(current_user, item_id):
 @monitoring_bp.route('/rankings', methods=['GET'])
 @token_required
 def get_rankings(current_user):
-    """Get current rankings for a client"""
-    import os
-    
+    """
+    Get current rankings for a client's tracked keywords.
+    Uses tracked keywords (imported from SEMrush Position Tracking).
+    Runs a live SERP check via SEMrush and stores snapshots.
+    """
     client_id = request.args.get('client_id')
-    
+
     if not client_id:
         return jsonify({'error': 'client_id required'}), 400
-    
+
     if not current_user.has_access_to_client(client_id):
         return jsonify({'error': 'Access denied'}), 403
-    
+
     client = DBClient.query.get(client_id)
     if not client:
         return jsonify({'error': 'Client not found'}), 404
-    
+
     try:
-        # Get keywords to track
-        keywords = client.get_primary_keywords() + client.get_secondary_keywords()
-        
-        if not keywords:
-            return jsonify({'error': 'No keywords configured for client'}), 400
-        
-        # Debug: Check if API key is available
-        api_key_set = bool(os.environ.get('SEMRUSH_API_KEY'))
-        service_key_set = bool(rank_tracking_service.api_key)
-        
-        # Check rankings
-        result = rank_tracking_service.check_all_keywords(
-            client.website_url or client.business_name,
-            keywords[:50]  # Limit to 50 keywords
+        domain = client.website_url or client.business_name
+        force = request.args.get('force', '').lower() in ('1', 'true')
+
+        # run_serp_check uses tracked keywords, calls SEMrush, saves snapshots
+        result = rank_tracking_service.run_serp_check(
+            client_id=client_id,
+            domain=domain,
+            force_refresh=force
         )
-        
-        # Add debug info to result
-        result['_debug'] = {
-            'env_var_set': api_key_set,
-            'service_key_set': service_key_set,
-            'key_length': len(os.environ.get('SEMRUSH_API_KEY', ''))
-        }
-        
-        # Don't treat demo_mode results as errors - they're valid responses
-        # Only return 500 for actual server errors, not SEMrush "nothing found"
-        if result.get('error') and not result.get('demo_mode'):
-            return jsonify({'error': result['error']}), 500
-        
-        # Get previous rankings from database to calculate changes if not provided by SEMrush
-        try:
-            # Get last ranking check for each keyword (from 1-7 days ago)
-            from sqlalchemy import func
-            seven_days_ago = datetime.utcnow() - timedelta(days=7)
-            one_day_ago = datetime.utcnow() - timedelta(days=1)
-            
-            # Get the most recent previous position for each keyword
-            previous_rankings = {}
-            for kw_data in result.get('keywords', []):
-                keyword = kw_data['keyword']
-                # Find the last recorded position (at least 1 day old to avoid same-day duplicates)
-                last_record = DBRankHistory.query.filter(
-                    DBRankHistory.client_id == client_id,
-                    DBRankHistory.keyword == keyword,
-                    DBRankHistory.checked_at < one_day_ago,
-                    DBRankHistory.checked_at >= seven_days_ago
-                ).order_by(DBRankHistory.checked_at.desc()).first()
-                
-                if last_record and last_record.position:
-                    previous_rankings[keyword] = last_record.position
-            
-            # Update keywords with calculated changes if SEMrush didn't provide them
-            for kw_data in result.get('keywords', []):
-                keyword = kw_data['keyword']
-                current_pos = kw_data.get('position')
-                
-                # If no change from SEMrush but we have historical data
-                if kw_data.get('change', 0) == 0 and current_pos and keyword in previous_rankings:
-                    prev_pos = previous_rankings[keyword]
-                    kw_data['previous_position'] = prev_pos
-                    kw_data['change'] = prev_pos - current_pos  # Positive = improved
-                    logger.debug(f"Calculated change for '{keyword}': {prev_pos} -> {current_pos} = {kw_data['change']}")
-        except Exception as e:
-            logger.warning(f"Could not calculate historical changes: {e}")
-        
-        # Save to history (only if not demo mode)
-        if not result.get('demo_mode'):
-            for kw_data in result.get('keywords', []):
-                history = DBRankHistory(
-                    client_id=client_id,
-                    keyword=kw_data['keyword'],
-                    position=kw_data.get('position'),
-                    previous_position=kw_data.get('previous_position'),
-                    change=kw_data.get('change', 0),
-                    url=kw_data.get('url', ''),
-                    search_volume=kw_data.get('search_volume', 0),
-                    cpc=kw_data.get('cpc', 0.0)
-                )
-                db.session.add(history)
-            
-            db.session.commit()
-        
-        # Calculate traffic value
-        traffic_value = rank_tracking_service.calculate_traffic_value(result.get('keywords', []))
-        
-        result['traffic_value'] = traffic_value
-        
+
+        if result.get('error'):
+            # Still return the error payload so the frontend can display it
+            return jsonify(result), 200 if result.get('keywords') else 400
+
         return jsonify(result)
-        
+
     except Exception as e:
         import traceback
         logger.error(f"Rankings error for client {client_id}: {e}\n{traceback.format_exc()}")
         return jsonify({'error': f'Server error: {str(e)}'}), 500
+
+
+# ==========================================
+# TRACKED KEYWORDS
+# ==========================================
+
+@monitoring_bp.route('/tracked-keywords/<client_id>/import', methods=['POST'])
+@token_required
+def import_tracked_keywords(current_user, client_id):
+    """
+    Import tracked keywords from SEMrush Position Tracking.
+    Falls back to pulling domain_organic keywords if no PT project.
+
+    POST /api/monitoring/tracked-keywords/{client_id}/import
+    """
+    if not current_user.has_access_to_client(client_id):
+        return jsonify({'error': 'Access denied'}), 403
+
+    client = DBClient.query.get(client_id)
+    if not client:
+        return jsonify({'error': 'Client not found'}), 404
+
+    domain = client.website_url or client.business_name
+    result = rank_tracking_service.import_tracked_keywords_from_semrush(client_id, domain)
+
+    if result.get('error'):
+        return jsonify(result), 400
+
+    return jsonify(result)
+
+
+@monitoring_bp.route('/tracked-keywords/<client_id>', methods=['GET'])
+@token_required
+def list_tracked_keywords(current_user, client_id):
+    """
+    List all tracked keywords for a client.
+
+    GET /api/monitoring/tracked-keywords/{client_id}
+    """
+    if not current_user.has_access_to_client(client_id):
+        return jsonify({'error': 'Access denied'}), 403
+
+    keywords = DBTrackedKeyword.query.filter_by(
+        client_id=client_id, is_active=True
+    ).order_by(DBTrackedKeyword.keyword).all()
+
+    return jsonify({
+        'client_id': client_id,
+        'count': len(keywords),
+        'keywords': [tk.to_dict() for tk in keywords]
+    })
+
+
+@monitoring_bp.route('/tracked-keywords/<client_id>', methods=['POST'])
+@token_required
+def add_tracked_keyword(current_user, client_id):
+    """
+    Manually add a keyword to tracking.
+
+    POST /api/monitoring/tracked-keywords/{client_id}
+    Body: { "keyword": "electrician venice fl" }
+    """
+    if not current_user.has_access_to_client(client_id):
+        return jsonify({'error': 'Access denied'}), 403
+
+    data = request.get_json(silent=True) or {}
+    keyword = (data.get('keyword') or '').strip()
+    if not keyword:
+        return jsonify({'error': 'keyword required'}), 400
+
+    # Check for duplicate
+    existing = DBTrackedKeyword.query.filter(
+        DBTrackedKeyword.client_id == client_id,
+        db.func.lower(DBTrackedKeyword.keyword) == keyword.lower(),
+        DBTrackedKeyword.is_active == True
+    ).first()
+
+    if existing:
+        return jsonify({'error': 'Keyword already tracked', 'keyword': existing.to_dict()}), 409
+
+    tk = DBTrackedKeyword(
+        client_id=client_id,
+        keyword=keyword,
+        device=data.get('device', 'desktop'),
+        tags=data.get('tags', []),
+    )
+    db.session.add(tk)
+    db.session.commit()
+
+    return jsonify(tk.to_dict()), 201
+
+
+@monitoring_bp.route('/tracked-keywords/<client_id>/<keyword_id>', methods=['DELETE'])
+@token_required
+def remove_tracked_keyword(current_user, client_id, keyword_id):
+    """
+    Remove a keyword from tracking (soft-delete).
+
+    DELETE /api/monitoring/tracked-keywords/{client_id}/{keyword_id}
+    """
+    if not current_user.has_access_to_client(client_id):
+        return jsonify({'error': 'Access denied'}), 403
+
+    tk = DBTrackedKeyword.query.filter_by(id=keyword_id, client_id=client_id).first()
+    if not tk:
+        return jsonify({'error': 'Tracked keyword not found'}), 404
+
+    tk.is_active = False
+    db.session.commit()
+
+    return jsonify({'deleted': True, 'keyword': tk.keyword})
 
 
 @monitoring_bp.route('/rankings/latest', methods=['GET'])
