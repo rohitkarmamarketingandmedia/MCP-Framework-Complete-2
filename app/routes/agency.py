@@ -267,14 +267,20 @@ def get_needs_attention(current_user):
                 'link': f'/elite?client={client_id}'
             })
     
-    # Urgent alerts
+    # Urgent alerts (deduplicated — same title+client on same day = 1 item)
     urgent_alerts = DBAlert.query.filter(
         DBAlert.client_id.in_(client_ids),
         DBAlert.is_read == False,
         DBAlert.priority == 'high'
-    ).order_by(DBAlert.created_at.desc()).limit(10).all()
+    ).order_by(DBAlert.created_at.desc()).limit(30).all()
     
+    seen_alerts = {}
     for alert in urgent_alerts:
+        dedup_key = f"{alert.client_id}:{alert.title}:{alert.created_at.strftime('%Y-%m-%d') if alert.created_at else ''}"
+        if dedup_key in seen_alerts:
+            continue
+        seen_alerts[dedup_key] = True
+        
         client = client_map.get(alert.client_id)
         attention_items.append({
             'type': 'urgent_alert',
