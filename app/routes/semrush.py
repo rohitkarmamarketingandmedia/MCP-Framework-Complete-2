@@ -557,15 +557,14 @@ def client_keyword_gap(current_user, client_id):
     if not client_domain:
         return jsonify({'error': 'Client domain not configured', 'gaps': []}), 400
     
-    # If no SEMRush API, return simulated data
+    # If no SEMRush API, return error — no demo/simulated data
     if not semrush_service.is_configured():
-        gaps = _generate_simulated_gaps(client, competitors)
         return jsonify({
-            'client_id': client_id,
-            'gaps': gaps,
+            'error': 'SEMrush API key not configured. Add your API key in Settings to enable live keyword gap analysis.',
+            'gaps': [],
             'competitors': competitor_domains,
-            'source': 'simulated'
-        })
+            'source': 'not_configured'
+        }), 503
     
     # ============================================
     # STEP 1: Pull domain_organic for ALL domains

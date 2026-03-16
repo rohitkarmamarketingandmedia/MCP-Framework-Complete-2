@@ -133,6 +133,37 @@
         #clientSelector option:checked {
             background-color: #334155;
         }
+        /* Keyword Gap Filter Tabs */
+        .gap-tab-btn {
+            background: rgba(255,255,255,0.05);
+            color: #9CA3AF;
+            border: 1px solid rgba(255,255,255,0.1);
+            cursor: pointer;
+        }
+        .gap-tab-btn:hover {
+            background: rgba(255,255,255,0.1);
+            color: #E5E7EB;
+        }
+        .gap-tab-active {
+            background: rgba(139,92,246,0.25) !important;
+            color: #C4B5FD !important;
+            border-color: rgba(139,92,246,0.5) !important;
+        }
+        .gap-type-badge {
+            display: inline-block;
+            padding: 1px 8px;
+            border-radius: 9999px;
+            font-size: 10px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .gap-type-shared { background: rgba(59,130,246,0.2); color: #93C5FD; }
+        .gap-type-missing { background: rgba(239,68,68,0.2); color: #FCA5A5; }
+        .gap-type-weak { background: rgba(245,158,11,0.2); color: #FCD34D; }
+        .gap-type-strong { background: rgba(34,197,94,0.2); color: #86EFAC; }
+        .gap-type-untapped { background: rgba(168,85,247,0.2); color: #D8B4FE; }
+        .gap-type-unique { background: rgba(6,182,212,0.2); color: #67E8F9; }
     </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.6/purify.min.js"></script>
 </head>
@@ -463,6 +494,31 @@
                             </button>
                         </div>
                     </div>
+                    <!-- SEMrush-style Filter Tabs -->
+                    <div id="gapFilterTabs" class="flex flex-wrap gap-2 mb-4" style="display:none;">
+                        <button onclick="filterGapTab('all')" id="gapTab-all" class="gap-tab-btn gap-tab-active px-3 py-1.5 rounded-lg text-xs font-semibold transition">
+                            All <span class="ml-1 px-1.5 py-0.5 rounded-full text-[10px] bg-white/10" id="gapCount-all">0</span>
+                        </button>
+                        <button onclick="filterGapTab('shared')" id="gapTab-shared" class="gap-tab-btn px-3 py-1.5 rounded-lg text-xs font-semibold transition">
+                            Shared <span class="ml-1 px-1.5 py-0.5 rounded-full text-[10px] bg-white/10" id="gapCount-shared">0</span>
+                        </button>
+                        <button onclick="filterGapTab('missing')" id="gapTab-missing" class="gap-tab-btn px-3 py-1.5 rounded-lg text-xs font-semibold transition">
+                            Missing <span class="ml-1 px-1.5 py-0.5 rounded-full text-[10px] bg-white/10" id="gapCount-missing">0</span>
+                        </button>
+                        <button onclick="filterGapTab('weak')" id="gapTab-weak" class="gap-tab-btn px-3 py-1.5 rounded-lg text-xs font-semibold transition">
+                            Weak <span class="ml-1 px-1.5 py-0.5 rounded-full text-[10px] bg-white/10" id="gapCount-weak">0</span>
+                        </button>
+                        <button onclick="filterGapTab('strong')" id="gapTab-strong" class="gap-tab-btn px-3 py-1.5 rounded-lg text-xs font-semibold transition">
+                            Strong <span class="ml-1 px-1.5 py-0.5 rounded-full text-[10px] bg-white/10" id="gapCount-strong">0</span>
+                        </button>
+                        <button onclick="filterGapTab('untapped')" id="gapTab-untapped" class="gap-tab-btn px-3 py-1.5 rounded-lg text-xs font-semibold transition">
+                            Untapped <span class="ml-1 px-1.5 py-0.5 rounded-full text-[10px] bg-white/10" id="gapCount-untapped">0</span>
+                        </button>
+                        <button onclick="filterGapTab('unique')" id="gapTab-unique" class="gap-tab-btn px-3 py-1.5 rounded-lg text-xs font-semibold transition">
+                            Unique <span class="ml-1 px-1.5 py-0.5 rounded-full text-[10px] bg-white/10" id="gapCount-unique">0</span>
+                        </button>
+                    </div>
+
                     <div class="overflow-x-auto">
                         <table class="w-full text-sm" id="keywordGapTableContainer">
                             <thead>
@@ -472,13 +528,14 @@
                                     <th class="text-center py-3 px-2 cursor-pointer hover:text-white" onclick="sortGapTable('comp1')" id="gapComp1Header">Competitor 1 <i class="fas fa-sort ml-1"></i></th>
                                     <th class="text-center py-3 px-2 cursor-pointer hover:text-white" onclick="sortGapTable('comp2')" id="gapComp2Header">Competitor 2 <i class="fas fa-sort ml-1"></i></th>
                                     <th class="text-center py-3 px-2 cursor-pointer hover:text-white" onclick="sortGapTable('volume')">Volume <i class="fas fa-sort ml-1"></i></th>
+                                    <th class="text-center py-3 px-2 cursor-pointer hover:text-white" onclick="sortGapTable('gap_type')">Type <i class="fas fa-sort ml-1"></i></th>
                                     <th class="text-center py-3 px-2 cursor-pointer hover:text-white" onclick="sortGapTable('priority')">Priority <i class="fas fa-sort ml-1"></i></th>
                                     <th class="text-center py-3 px-2">Action</th>
                                 </tr>
                             </thead>
                             <tbody id="keywordGapTable">
                                 <tr>
-                                    <td colspan="7" class="text-center py-8 text-gray-500">
+                                    <td colspan="8" class="text-center py-8 text-gray-500">
                                         <i class="fas fa-search text-4xl mb-2 block"></i>
                                         Click "Analyze" to find keyword opportunities
                                     </td>
@@ -1365,7 +1422,7 @@
                         // Also clear and show message to click Analyze
                         const table = document.getElementById('keywordGapTable');
                         if (table) {
-                            table.innerHTML = '<tr><td colspan="7" class="text-center py-8 text-gray-500">Click "Analyze" to load keyword gap data for this client</td></tr>';
+                            table.innerHTML = '<tr><td colspan="8" class="text-center py-8 text-gray-500">Click "Analyze" to load keyword gap data for this client</td></tr>';
                         }
                     }
                     if (tab === 'competitorCompare') populateCompareData();
@@ -1509,7 +1566,7 @@
         function renderRankAllTable(data) {
             const tbody = document.getElementById('rankAllKeywordsTable');
             if (!data.length) {
-                tbody.innerHTML = '<tr><td colspan="7" class="py-6 text-center text-gray-500">No keywords match filter</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="8" class="py-6 text-center text-gray-500">No keywords match filter</td></tr>';
                 return;
             }
             
@@ -1773,92 +1830,88 @@
             }
             
             const table = document.getElementById('keywordGapTable');
-            table.innerHTML = '<tr><td colspan="7" class="text-center py-4"><div class="spinner mx-auto"></div><p class="text-gray-400 text-sm mt-2">Analyzing keywords...</p></td></tr>';
+            table.innerHTML = '<tr><td colspan="8" class="text-center py-4"><div class="spinner mx-auto"></div><p class="text-gray-400 text-sm mt-2">Analyzing keywords...</p></td></tr>';
             window._gapUserSorted = false;
             
             try {
                 const res = await fetch(`${API_URL}/api/semrush/keyword-gap/${currentClient.id}`, {
                     headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
                 });
-                
-                let data;
-                if (res.ok) {
-                    data = await res.json();
-                    
-                    // Show data source indicator
-                    const sourceText = data.source === 'semrush' ? `SEMrush Data (${data.total_keywords || data.gaps?.length || 0} keywords found)` : 
-                                      data.source === 'gsc' ? 'Google Search Console Data' : 
-                                      data.source === 'simulated' ? 'Sample Data (Configure SEMrush for real data)' : 'Demo Data';
-                    const sourceClass = data.source === 'semrush' ? 'text-green-400' : 
-                                       data.source === 'gsc' ? 'text-blue-400' : 'text-amber-400';
-                    
-                    const headerEl = document.querySelector('#panel-keywordGap h3');
-                    if (headerEl) {
-                        headerEl.innerHTML = `<i class="fas fa-th-list mr-2 text-purple-400"></i>Keyword Gap Analysis 
-                            <span class="text-xs ${sourceClass} ml-2">(${sourceText})</span>`;
-                    }
-                } else {
-                    // Generate sample data for demo
-                    data = generateSampleKeywordGap();
+
+                const headerEl = document.querySelector('#panel-keywordGap h3');
+
+                if (!res.ok) {
+                    const errData = await res.json().catch(() => ({}));
+                    const errMsg = errData.error || `Server error (${res.status})`;
+                    table.innerHTML = `<tr><td colspan="8" class="text-center py-8">
+                        <i class="fas fa-exclamation-triangle text-red-400 text-3xl mb-3 block"></i>
+                        <p class="text-red-400 font-semibold mb-1">Failed to load keyword gap data</p>
+                        <p class="text-gray-500 text-xs">${escapeHtml(errMsg)}</p>
+                        <p class="text-gray-600 text-xs mt-2">Ensure SEMrush API is configured and competitors are added for this client.</p>
+                    </td></tr>`;
+                    document.getElementById('gapFilterTabs').style.display = 'none';
+                    return;
                 }
-                
-                renderKeywordGapTable(data.gaps || []);
+
+                const data = await res.json();
+
+                // Reject simulated/demo data — only accept real sources
+                if (data.source === 'simulated' || data.source === 'demo') {
+                    table.innerHTML = `<tr><td colspan="8" class="text-center py-8">
+                        <i class="fas fa-plug text-amber-400 text-3xl mb-3 block"></i>
+                        <p class="text-amber-400 font-semibold mb-1">SEMrush API not configured</p>
+                        <p class="text-gray-500 text-xs">Add your SEMrush API key in Settings to pull live keyword gap data.</p>
+                        <p class="text-gray-600 text-xs mt-2">No demo data will be shown — only real SEMrush data.</p>
+                    </td></tr>`;
+                    if (headerEl) {
+                        headerEl.innerHTML = `<i class="fas fa-th-list mr-2 text-purple-400"></i>Keyword Gap Analysis
+                            <span class="text-xs text-amber-400 ml-2">(SEMrush API required)</span>`;
+                    }
+                    document.getElementById('gapFilterTabs').style.display = 'none';
+                    return;
+                }
+
+                // Show data source indicator
+                const sourceText = data.source === 'semrush' ? `SEMrush Data (${data.total_keywords || data.gaps?.length || 0} keywords found)` :
+                                  data.source === 'gsc' ? 'Google Search Console Data' : data.source;
+                const sourceClass = data.source === 'semrush' ? 'text-green-400' :
+                                   data.source === 'gsc' ? 'text-blue-400' : 'text-gray-400';
+
+                if (headerEl) {
+                    headerEl.innerHTML = `<i class="fas fa-th-list mr-2 text-purple-400"></i>Keyword Gap Analysis
+                        <span class="text-xs ${sourceClass} ml-2">(${sourceText})</span>`;
+                }
+
+                const gapData = data.gaps || [];
+
+                if (gapData.length === 0) {
+                    table.innerHTML = `<tr><td colspan="8" class="text-center py-8">
+                        <i class="fas fa-info-circle text-blue-400 text-3xl mb-3 block"></i>
+                        <p class="text-gray-400 font-semibold mb-1">No keyword gaps found</p>
+                        <p class="text-gray-500 text-xs">Ensure competitors are configured and have ranking keywords.</p>
+                    </td></tr>`;
+                    document.getElementById('gapFilterTabs').style.display = 'none';
+                    return;
+                }
+
+                // Reset filter to "all" and store full data
+                window._gapActiveFilter = 'all';
+                document.querySelectorAll('.gap-tab-btn').forEach(btn => btn.classList.remove('gap-tab-active'));
+                const allTabBtn = document.getElementById('gapTab-all');
+                if (allTabBtn) allTabBtn.classList.add('gap-tab-active');
+
+                window.allGapData = gapData;
+                renderKeywordGapTable(gapData);
             } catch (e) {
                 console.error('Keyword gap analysis failed:', e);
-                renderKeywordGapTable(generateSampleKeywordGap().gaps);
+                table.innerHTML = `<tr><td colspan="8" class="text-center py-8">
+                    <i class="fas fa-wifi text-red-400 text-3xl mb-3 block"></i>
+                    <p class="text-red-400 font-semibold mb-1">Connection failed</p>
+                    <p class="text-gray-500 text-xs">${escapeHtml(e.message || 'Unable to reach the API server')}</p>
+                    <p class="text-gray-600 text-xs mt-2">Check that your server is running and try again.</p>
+                </td></tr>`;
+                document.getElementById('gapFilterTabs').style.display = 'none';
             }
-        }
-        
-        function generateSampleKeywordGap() {
-            // Use client's industry to generate relevant sample keywords
-            const industry = currentClient?.industry?.toLowerCase() || '';
-            const geo = currentClient?.geo || '';
-            const clientKeywords = currentClient?.primary_keywords || [];
-            
-            // Check if client has actual competitors configured
-            const hasCompetitors = competitors && competitors.length > 0;
-            
-            // Extract just the city name (before comma)
-            const cityName = geo.includes(',') ? geo.split(',')[0].trim().toLowerCase() : geo.split(' ')[0].toLowerCase();
-            
-            // Industry-specific keyword templates
-            const industryKeywords = {
-                'dental': ['dentist', 'dental cleaning', 'teeth whitening', 'emergency dentist', 'dental implants', 'cosmetic dentistry', 'family dentist', 'pediatric dentist', 'dental crown', 'root canal'],
-                'dentist': ['dentist', 'dental cleaning', 'teeth whitening', 'emergency dentist', 'dental implants', 'cosmetic dentistry', 'family dentist', 'pediatric dentist', 'dental crown', 'root canal'],
-                'hvac': ['ac repair', 'hvac service', 'air conditioning', 'furnace repair', 'heating and cooling', 'ac installation', 'emergency ac', '24 hour hvac', 'ac maintenance', 'duct cleaning'],
-                'plumbing': ['plumber', 'drain cleaning', 'water heater repair', 'emergency plumber', 'leak repair', 'sewer line', 'toilet repair', 'faucet installation', 'pipe repair', 'clogged drain'],
-                'legal': ['attorney', 'lawyer', 'personal injury', 'divorce lawyer', 'criminal defense', 'estate planning', 'family law', 'bankruptcy attorney', 'car accident lawyer', 'legal consultation'],
-                'default': clientKeywords.length > 0 ? clientKeywords : ['service', 'repair', 'professional', 'near me', 'best', 'affordable', 'emergency', 'local', 'expert', 'quality']
-            };
-            
-            // Get keywords for this industry
-            let keywords = industryKeywords[industry] || industryKeywords['default'];
-            
-            // Mix with client's actual keywords if available
-            if (clientKeywords.length > 0) {
-                keywords = [...new Set([...clientKeywords.slice(0, 5), ...keywords])];
-            }
-            
-            const gaps = keywords.slice(0, 10).map((kw, i) => {
-                // Check if keyword already contains the city name
-                const kwLower = kw.toLowerCase();
-                const alreadyHasGeo = cityName && kwLower.includes(cityName);
-                
-                // Only add geo if keyword doesn't already have the city
-                const fullKw = geo && !alreadyHasGeo ? `${kw} ${geo}` : kw;
-                
-                return {
-                    keyword: fullKw,
-                    you: Math.random() > 0.3 ? Math.floor(Math.random() * 30) + 1 : null,
-                    // Only show competitor data if competitors are actually configured
-                    comp1: hasCompetitors && competitors[0] ? (Math.random() > 0.2 ? Math.floor(Math.random() * 20) + 1 : null) : null,
-                    comp2: hasCompetitors && competitors[1] ? (Math.random() > 0.4 ? Math.floor(Math.random() * 25) + 1 : null) : null,
-                    volume: Math.floor(Math.random() * 5000) + 100,
-                    priority: i < 3 ? 'HIGH' : (i < 6 ? 'MEDIUM' : 'LOW')
-                };
-            });
-            
-            return { gaps, source: 'demo', hasCompetitors };
         }
         
         function renderKeywordGapTable(gaps) {
@@ -1866,7 +1919,7 @@
             const hasCompetitors = competitors && competitors.length > 0;
             
             if (gaps.length === 0) {
-                table.innerHTML = '<tr><td colspan="7" class="text-center py-8 text-gray-500">No keyword gaps found</td></tr>';
+                table.innerHTML = '<tr><td colspan="8" class="text-center py-8 text-gray-500">No keyword gaps found</td></tr>';
                 return;
             }
             
@@ -1945,6 +1998,9 @@
                         <td class="py-3 px-2 text-center ${hasCompetitors && competitors[1] ? posClass(gap.comp2) : 'text-gray-600'}">${comp2Display}</td>
                         <td class="py-3 px-2 text-center text-gray-300">${gap.volume?.toLocaleString() || '—'}</td>
                         <td class="py-3 px-2 text-center">
+                            <span class="gap-type-badge gap-type-${gap.gap_type || 'shared'}">${escapeHtml(gap.gap_type || 'shared')}</span>
+                        </td>
+                        <td class="py-3 px-2 text-center">
                             <span class="px-2 py-1 rounded text-xs ${priorityClass[gap.priority] || ''}">${escapeHtml(gap.priority) || 'LOW'}</span>
                         </td>
                         <td class="py-3 px-2 text-center">
@@ -1958,17 +2014,74 @@
             
             // Store gaps for sorting
             window.currentGapData = gaps;
+            // Store ALL gaps (unfiltered) for tab filtering
+            if (!window._gapActiveFilter || window._gapActiveFilter === 'all') {
+                window.allGapData = gaps;
+            }
+
+            // Show filter tabs & update counts
+            updateGapTabCounts();
         }
-        
+
+        // ==========================================
+        // GAP FILTER TABS (SEMrush-style)
+        // ==========================================
+        window._gapActiveFilter = 'all';
+
+        function updateGapTabCounts() {
+            const allData = window.allGapData || window.currentGapData || [];
+            if (allData.length === 0) {
+                document.getElementById('gapFilterTabs').style.display = 'none';
+                return;
+            }
+
+            document.getElementById('gapFilterTabs').style.display = 'flex';
+
+            const counts = { all: allData.length, shared: 0, missing: 0, weak: 0, strong: 0, untapped: 0, unique: 0 };
+            allData.forEach(g => {
+                const t = g.gap_type || 'shared';
+                if (counts[t] !== undefined) counts[t]++;
+            });
+
+            Object.keys(counts).forEach(key => {
+                const el = document.getElementById('gapCount-' + key);
+                if (el) el.textContent = counts[key];
+            });
+        }
+
+        function filterGapTab(tabId) {
+            window._gapActiveFilter = tabId;
+
+            // Update active tab styling
+            document.querySelectorAll('.gap-tab-btn').forEach(btn => btn.classList.remove('gap-tab-active'));
+            const activeBtn = document.getElementById('gapTab-' + tabId);
+            if (activeBtn) activeBtn.classList.add('gap-tab-active');
+
+            // Filter data
+            const allData = window.allGapData || window.currentGapData || [];
+            let filtered;
+            if (tabId === 'all') {
+                filtered = allData;
+            } else {
+                filtered = allData.filter(g => g.gap_type === tabId);
+            }
+
+            window.currentGapData = filtered;
+            window._gapUserSorted = false;
+            renderKeywordGapTable(filtered);
+            // Re-store allGapData since renderKeywordGapTable overwrites it
+            window.allGapData = allData;
+        }
+
         // Gap table sort state
         let gapSortColumn = 'priority';
         let gapSortAsc = true;
-        
+
         function sortGapTable(column) {
             if (!window.currentGapData) return;
-            
+
             window._gapUserSorted = true;
-            
+
             // Toggle direction if same column
             if (gapSortColumn === column) {
                 gapSortAsc = !gapSortAsc;
@@ -1976,12 +2089,12 @@
                 gapSortColumn = column;
                 gapSortAsc = true;
             }
-            
+
             const gaps = [...window.currentGapData];
-            
+
             gaps.sort((a, b) => {
                 let valA, valB;
-                
+
                 switch (column) {
                     case 'keyword':
                         valA = a.keyword || '';
@@ -2003,6 +2116,11 @@
                         valA = a.volume || 0;
                         valB = b.volume || 0;
                         break;
+                    case 'gap_type':
+                        const typeOrder = { missing: 0, weak: 1, untapped: 2, shared: 3, strong: 4, unique: 5 };
+                        valA = typeOrder[a.gap_type] ?? 3;
+                        valB = typeOrder[b.gap_type] ?? 3;
+                        break;
                     case 'priority':
                         const order = { HIGH: 0, MEDIUM: 1, LOW: 2 };
                         valA = order[a.priority] ?? 2;
@@ -2011,16 +2129,21 @@
                     default:
                         return 0;
                 }
-                
+
                 if (column === 'volume') {
                     // Volume: higher is better, so descending by default
                     return gapSortAsc ? valB - valA : valA - valB;
                 }
                 return gapSortAsc ? valA - valB : valB - valA;
             });
-            
+
             window.currentGapData = gaps;
             renderKeywordGapTable(gaps);
+            // Preserve allGapData after re-render
+            if (window.allGapData) {
+                const saved = window.allGapData;
+                window.allGapData = saved;
+            }
         }
         
         async function syncKeywordsFromSemrush() {
