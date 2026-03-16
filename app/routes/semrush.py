@@ -703,19 +703,41 @@ def client_keyword_gap(current_user, client_id):
         comp2 = comp_list[1] if len(comp_list) > 1 else None
         volume = kw.get('volume', 0)
         
-        # Calculate priority
+        # Calculate priority based on position, volume, AND competitor data
         y = your_pos or 999
         c1 = comp1 or 999
+        vol = volume or 0
+        
         if not your_pos and (comp1 or comp2):
-            priority = 'HIGH'  # They rank, you don't
+            # They rank, you don't — high priority gap
+            priority = 'HIGH'
+        elif your_pos and your_pos <= 3 and vol >= 50:
+            # You're top 3 with decent volume — defend this! 
+            priority = 'HIGH'
+        elif your_pos and your_pos <= 10 and vol >= 100:
+            # Top 10 with good volume — important to maintain
+            priority = 'HIGH'
         elif your_pos and your_pos > 20 and c1 <= 10:
+            # Competitor beats you significantly
             priority = 'HIGH'
         elif your_pos and your_pos > 10 and c1 <= 5:
             priority = 'HIGH'
+        elif your_pos and your_pos <= 10 and vol >= 30:
+            # Top 10, some volume — medium priority
+            priority = 'MEDIUM'
+        elif your_pos and your_pos <= 20 and vol >= 50:
+            # Page 2 with volume — opportunity
+            priority = 'MEDIUM'
         elif your_pos and comp1 and your_pos > comp1 + 10:
             priority = 'MEDIUM'
-        else:
+        elif your_pos and your_pos > 50:
+            # Ranking very low — low priority
             priority = 'LOW'
+        elif vol < 20:
+            # Very low volume regardless of position
+            priority = 'LOW'
+        else:
+            priority = 'MEDIUM'
         
         transformed_gaps.append({
             'keyword': kw.get('keyword', ''),
