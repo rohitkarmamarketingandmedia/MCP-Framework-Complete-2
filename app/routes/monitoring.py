@@ -1985,6 +1985,7 @@ def get_competitor_dashboard(current_user, client_id):
             'content_gaps_found': len(content_gaps),
             'total_battles': len(ranking_battles)
         },
+        'competitor_data': competitor_data,
         'competitors': competitor_data,
         'content_gaps': content_gaps[:20],
         'ranking_battles': ranking_battles[:20],
