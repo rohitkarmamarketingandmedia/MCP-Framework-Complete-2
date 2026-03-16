@@ -497,7 +497,7 @@ def crawl_competitor(current_user, competitor_id):
         # Send alert email if new pages found and alerts enabled
         if len(saved_pages) > 0:
             try:
-                from app.services.email_service import email_service
+                from app.services.email_service import get_email_service; email_service = get_email_service()
                 # Get client for this competitor
                 comp_client = DBClient.query.get(competitor.client_id)
                 if comp_client:
