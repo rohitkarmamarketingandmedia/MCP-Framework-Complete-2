@@ -395,7 +395,7 @@ class SEMRushService:
             'key': self.api_key,
             'domains': domains_str,
             'database': database,
-            'export_columns': 'Ph,Nq,Cp,Co,Kd,' + ','.join([f'P{i}' for i in range(len(all_domains))]),
+            'export_columns': 'Ph,Nq,Cp,Co,Kd,Nr,' + ','.join([f'P{i}' for i in range(len(all_domains))]),
             'display_limit': limit,
             'display_sort': 'nq_desc'
         }
@@ -601,20 +601,34 @@ class SEMRushService:
                     except (ValueError, TypeError):
                         return 0
                 
-                your_pos_raw = parse_int(values[5]) if len(values) > 5 else 0
+                # Columns: Ph(0), Nq(1), Cp(2), Co(3), Kd(4), Nr(5), P0(6), P1(7)...
+                # Nr may not be present in older requests, so handle flexibly
+                # Detect if Nr column is present by checking if we have enough columns
+                has_nr = len(values) >= 7  # At minimum: Ph,Nq,Cp,Co,Kd,Nr,P0
+
+                if has_nr:
+                    nr_val = parse_int(values[5])
+                    your_pos_raw = parse_int(values[6]) if len(values) > 6 else 0
+                    comp_start_idx = 7
+                else:
+                    nr_val = 0
+                    your_pos_raw = parse_int(values[5]) if len(values) > 5 else 0
+                    comp_start_idx = 6
+
                 gap = {
                     'keyword': values[0].strip(),
                     'volume': parse_int(values[1]),
                     'cpc': float(values[2].strip()) if values[2].strip() else 0.0,
                     'competition': float(values[3].strip()) if values[3].strip() else 0.0,
                     'difficulty': parse_int(values[4]),
+                    'results': nr_val,
                     'your_position': your_pos_raw if your_pos_raw > 0 else None,  # 0 = not ranking
                     'competitor_positions': {}
                 }
-                
+
                 # Add competitor positions (0 = not ranking = None)
                 for i, comp in enumerate(competitors):
-                    pos_idx = 6 + i
+                    pos_idx = comp_start_idx + i
                     if len(values) > pos_idx:
                         pos = parse_int(values[pos_idx])
                         gap['competitor_positions'][comp] = pos if pos > 0 else None

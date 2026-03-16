@@ -528,6 +528,10 @@
                                     <th class="text-center py-3 px-2 cursor-pointer hover:text-white" onclick="sortGapTable('comp1')" id="gapComp1Header">Competitor 1 <i class="fas fa-sort ml-1"></i></th>
                                     <th class="text-center py-3 px-2 cursor-pointer hover:text-white" onclick="sortGapTable('comp2')" id="gapComp2Header">Competitor 2 <i class="fas fa-sort ml-1"></i></th>
                                     <th class="text-center py-3 px-2 cursor-pointer hover:text-white" onclick="sortGapTable('volume')">Volume <i class="fas fa-sort ml-1"></i></th>
+                                    <th class="text-center py-3 px-2 cursor-pointer hover:text-white" onclick="sortGapTable('kd')">KD% <i class="fas fa-sort ml-1"></i></th>
+                                    <th class="text-center py-3 px-2 cursor-pointer hover:text-white" onclick="sortGapTable('cpc')">CPC <i class="fas fa-sort ml-1"></i></th>
+                                    <th class="text-center py-3 px-2 cursor-pointer hover:text-white" onclick="sortGapTable('com')">Com. <i class="fas fa-sort ml-1"></i></th>
+                                    <th class="text-center py-3 px-2 cursor-pointer hover:text-white" onclick="sortGapTable('results')">Results <i class="fas fa-sort ml-1"></i></th>
                                     <th class="text-center py-3 px-2 cursor-pointer hover:text-white" onclick="sortGapTable('gap_type')">Type <i class="fas fa-sort ml-1"></i></th>
                                     <th class="text-center py-3 px-2 cursor-pointer hover:text-white" onclick="sortGapTable('priority')">Priority <i class="fas fa-sort ml-1"></i></th>
                                     <th class="text-center py-3 px-2">Action</th>
@@ -535,7 +539,7 @@
                             </thead>
                             <tbody id="keywordGapTable">
                                 <tr>
-                                    <td colspan="8" class="text-center py-8 text-gray-500">
+                                    <td colspan="12" class="text-center py-8 text-gray-500">
                                         <i class="fas fa-search text-4xl mb-2 block"></i>
                                         Click "Analyze" to find keyword opportunities
                                     </td>
@@ -1422,7 +1426,7 @@
                         // Also clear and show message to click Analyze
                         const table = document.getElementById('keywordGapTable');
                         if (table) {
-                            table.innerHTML = '<tr><td colspan="8" class="text-center py-8 text-gray-500">Click "Analyze" to load keyword gap data for this client</td></tr>';
+                            table.innerHTML = '<tr><td colspan="12" class="text-center py-8 text-gray-500">Click "Analyze" to load keyword gap data for this client</td></tr>';
                         }
                     }
                     if (tab === 'competitorCompare') populateCompareData();
@@ -1566,7 +1570,7 @@
         function renderRankAllTable(data) {
             const tbody = document.getElementById('rankAllKeywordsTable');
             if (!data.length) {
-                tbody.innerHTML = '<tr><td colspan="8" class="py-6 text-center text-gray-500">No keywords match filter</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="12" class="py-6 text-center text-gray-500">No keywords match filter</td></tr>';
                 return;
             }
             
@@ -1830,7 +1834,7 @@
             }
             
             const table = document.getElementById('keywordGapTable');
-            table.innerHTML = '<tr><td colspan="8" class="text-center py-4"><div class="spinner mx-auto"></div><p class="text-gray-400 text-sm mt-2">Analyzing keywords...</p></td></tr>';
+            table.innerHTML = '<tr><td colspan="12" class="text-center py-4"><div class="spinner mx-auto"></div><p class="text-gray-400 text-sm mt-2">Analyzing keywords...</p></td></tr>';
             window._gapUserSorted = false;
             
             try {
@@ -1843,7 +1847,7 @@
                 if (!res.ok) {
                     const errData = await res.json().catch(() => ({}));
                     const errMsg = errData.error || `Server error (${res.status})`;
-                    table.innerHTML = `<tr><td colspan="8" class="text-center py-8">
+                    table.innerHTML = `<tr><td colspan="12" class="text-center py-8">
                         <i class="fas fa-exclamation-triangle text-red-400 text-3xl mb-3 block"></i>
                         <p class="text-red-400 font-semibold mb-1">Failed to load keyword gap data</p>
                         <p class="text-gray-500 text-xs">${escapeHtml(errMsg)}</p>
@@ -1857,7 +1861,7 @@
 
                 // Reject simulated/demo data — only accept real sources
                 if (data.source === 'simulated' || data.source === 'demo') {
-                    table.innerHTML = `<tr><td colspan="8" class="text-center py-8">
+                    table.innerHTML = `<tr><td colspan="12" class="text-center py-8">
                         <i class="fas fa-plug text-amber-400 text-3xl mb-3 block"></i>
                         <p class="text-amber-400 font-semibold mb-1">SEMrush API not configured</p>
                         <p class="text-gray-500 text-xs">Add your SEMrush API key in Settings to pull live keyword gap data.</p>
@@ -1885,7 +1889,7 @@
                 const gapData = data.gaps || [];
 
                 if (gapData.length === 0) {
-                    table.innerHTML = `<tr><td colspan="8" class="text-center py-8">
+                    table.innerHTML = `<tr><td colspan="12" class="text-center py-8">
                         <i class="fas fa-info-circle text-blue-400 text-3xl mb-3 block"></i>
                         <p class="text-gray-400 font-semibold mb-1">No keyword gaps found</p>
                         <p class="text-gray-500 text-xs">Ensure competitors are configured and have ranking keywords.</p>
@@ -1904,7 +1908,7 @@
                 renderKeywordGapTable(gapData);
             } catch (e) {
                 console.error('Keyword gap analysis failed:', e);
-                table.innerHTML = `<tr><td colspan="8" class="text-center py-8">
+                table.innerHTML = `<tr><td colspan="12" class="text-center py-8">
                     <i class="fas fa-wifi text-red-400 text-3xl mb-3 block"></i>
                     <p class="text-red-400 font-semibold mb-1">Connection failed</p>
                     <p class="text-gray-500 text-xs">${escapeHtml(e.message || 'Unable to reach the API server')}</p>
@@ -1919,7 +1923,7 @@
             const hasCompetitors = competitors && competitors.length > 0;
             
             if (gaps.length === 0) {
-                table.innerHTML = '<tr><td colspan="8" class="text-center py-8 text-gray-500">No keyword gaps found</td></tr>';
+                table.innerHTML = '<tr><td colspan="12" class="text-center py-8 text-gray-500">No keyword gaps found</td></tr>';
                 return;
             }
             
@@ -1990,6 +1994,24 @@
                 const comp1Display = hasCompetitors && competitors[0] ? (gap.comp1 ? '#' + gap.comp1 : '—') : '<span class="text-gray-600">N/A</span>';
                 const comp2Display = hasCompetitors && competitors[1] ? (gap.comp2 ? '#' + gap.comp2 : '—') : '<span class="text-gray-600">N/A</span>';
                 
+                // KD% color based on difficulty
+                const kdVal = gap.kd || 0;
+                const kdColor = kdVal <= 14 ? 'text-green-400' :
+                               kdVal <= 29 ? 'text-yellow-400' :
+                               kdVal <= 49 ? 'text-orange-400' :
+                               kdVal <= 69 ? 'text-red-400' : 'text-red-500';
+                const kdBarWidth = Math.min(kdVal, 100);
+                const kdBarColor = kdVal <= 14 ? '#4ade80' :
+                                  kdVal <= 29 ? '#facc15' :
+                                  kdVal <= 49 ? '#fb923c' :
+                                  kdVal <= 69 ? '#f87171' : '#ef4444';
+
+                // Format results count
+                const resultsVal = gap.results || 0;
+                const resultsDisplay = resultsVal >= 1000000 ? (resultsVal / 1000000).toFixed(1) + 'M' :
+                                      resultsVal >= 1000 ? (resultsVal / 1000).toFixed(0) + 'K' :
+                                      resultsVal > 0 ? resultsVal.toLocaleString() : '—';
+
                 return `
                     <tr class="border-b border-white/5 hover:bg-white/5">
                         <td class="py-3 px-2 text-white">${escapeHtml(gap.keyword)}</td>
@@ -1997,6 +2019,17 @@
                         <td class="py-3 px-2 text-center ${hasCompetitors && competitors[0] ? posClass(gap.comp1) : 'text-gray-600'}">${comp1Display}</td>
                         <td class="py-3 px-2 text-center ${hasCompetitors && competitors[1] ? posClass(gap.comp2) : 'text-gray-600'}">${comp2Display}</td>
                         <td class="py-3 px-2 text-center text-gray-300">${gap.volume?.toLocaleString() || '—'}</td>
+                        <td class="py-3 px-2 text-center">
+                            <div class="flex items-center justify-center gap-1">
+                                <div style="width:30px;height:6px;border-radius:3px;background:rgba(255,255,255,0.1);overflow:hidden">
+                                    <div style="width:${kdBarWidth}%;height:100%;background:${kdBarColor};border-radius:3px"></div>
+                                </div>
+                                <span class="${kdColor} text-xs font-semibold">${kdVal}</span>
+                            </div>
+                        </td>
+                        <td class="py-3 px-2 text-center text-gray-300 text-xs">${gap.cpc ? '$' + parseFloat(gap.cpc).toFixed(2) : '—'}</td>
+                        <td class="py-3 px-2 text-center text-gray-400 text-xs">${gap.com ? parseFloat(gap.com).toFixed(2) : '—'}</td>
+                        <td class="py-3 px-2 text-center text-gray-400 text-xs">${resultsDisplay}</td>
                         <td class="py-3 px-2 text-center">
                             <span class="gap-type-badge gap-type-${gap.gap_type || 'shared'}">${escapeHtml(gap.gap_type || 'shared')}</span>
                         </td>
@@ -2122,6 +2155,22 @@
                         valA = a.volume || 0;
                         valB = b.volume || 0;
                         break;
+                    case 'kd':
+                        valA = a.kd || 0;
+                        valB = b.kd || 0;
+                        break;
+                    case 'cpc':
+                        valA = parseFloat(a.cpc) || 0;
+                        valB = parseFloat(b.cpc) || 0;
+                        break;
+                    case 'com':
+                        valA = parseFloat(a.com) || 0;
+                        valB = parseFloat(b.com) || 0;
+                        break;
+                    case 'results':
+                        valA = a.results || 0;
+                        valB = b.results || 0;
+                        break;
                     case 'gap_type':
                         const typeOrder = { missing: 0, weak: 1, untapped: 2, shared: 3, strong: 4, unique: 5 };
                         valA = typeOrder[a.gap_type] ?? 3;
@@ -2136,8 +2185,8 @@
                         return 0;
                 }
 
-                if (column === 'volume') {
-                    // Volume: higher is better, so descending by default
+                if (['volume', 'cpc', 'com', 'results'].includes(column)) {
+                    // Higher is better for these — descending by default
                     return gapSortAsc ? valB - valA : valA - valB;
                 }
                 return gapSortAsc ? valA - valB : valB - valA;

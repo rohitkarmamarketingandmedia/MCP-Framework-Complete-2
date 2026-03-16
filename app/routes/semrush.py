@@ -679,6 +679,10 @@ def client_keyword_gap(current_user, client_id):
                 'comp1': comp1,
                 'comp2': comp2,
                 'volume': volume,
+                'kd': kw_data.get('difficulty', 0),
+                'cpc': kw_data.get('cpc', 0),
+                'com': kw_data.get('competition', 0),
+                'results': kw_data.get('results', 0),
                 'priority': priority,
                 'gap_type': gap_type
             })
