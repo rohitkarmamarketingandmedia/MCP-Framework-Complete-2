@@ -142,6 +142,45 @@ def update_client(current_user, client_id):
         client.secondary_keywords = json.dumps(data['secondary_keywords'])
     if 'competitors' in data:
         client.competitors = json.dumps(data['competitors'])
+        
+        # Sync to DBCompetitor table so monitoring system picks them up
+        try:
+            from app.models.db_models import DBCompetitor
+            from app.database import db
+            import re as _re
+            
+            def _normalize_domain(d):
+                d = d.lower().strip()
+                d = _re.sub(r'^https?://', '', d)
+                d = _re.sub(r'^www\.', '', d)
+                return d.rstrip('/').split('/')[0]
+            
+            new_domains = set()
+            for c in data['competitors']:
+                domain = _normalize_domain(c) if isinstance(c, str) else _normalize_domain(c.get('domain', ''))
+                if domain:
+                    new_domains.add(domain)
+            
+            # Get existing DB competitors for this client
+            existing = DBCompetitor.query.filter_by(client_id=client_id).all()
+            existing_map = {_normalize_domain(c.domain): c for c in existing}
+            
+            # Create new entries / reactivate existing
+            for domain in new_domains:
+                if domain in existing_map:
+                    if not existing_map[domain].is_active:
+                        existing_map[domain].is_active = True
+                else:
+                    name = domain.split('.')[0].replace('-', ' ').title()
+                    new_comp = DBCompetitor(client_id=client_id, name=name, domain=domain, is_active=True)
+                    db.session.add(new_comp)
+            
+            # Deactivate removed competitors
+            for domain, comp in existing_map.items():
+                if domain not in new_domains and comp.is_active:
+                    comp.is_active = False
+        except Exception as e:
+            logger.warning(f"Error syncing competitors to DB: {e}")
     if 'tone' in data:
         client.tone = data['tone']
     if 'unique_selling_points' in data:
