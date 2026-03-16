@@ -324,7 +324,7 @@ def get_recent_wins(current_user):
     """
     Get ranking wins across all clients (last 7 days)
     
-    Returns significant ranking improvements
+    Returns significant ranking improvements (deduplicated by keyword+client)
     """
     # Get accessible client IDs
     clients = get_user_clients(current_user)
@@ -340,10 +340,17 @@ def get_recent_wins(current_user):
         DBRankHistory.checked_at >= seven_days_ago,
         DBRankHistory.change >= 3,
         DBRankHistory.position != None
-    ).order_by(DBRankHistory.change.desc()).limit(20).all()
+    ).order_by(DBRankHistory.change.desc()).limit(50).all()
+    
+    # Deduplicate: keep only the best improvement per keyword+client
+    seen = {}
+    for win in wins:
+        key = f"{win.client_id}:{win.keyword.lower().strip()}"
+        if key not in seen or win.change > seen[key].change:
+            seen[key] = win
     
     result = []
-    for win in wins:
+    for win in sorted(seen.values(), key=lambda w: w.change, reverse=True)[:20]:
         client = client_map.get(win.client_id)
         prev_pos = (win.position + win.change) if win.position else None
         
@@ -372,7 +379,7 @@ def get_recent_wins(current_user):
 @token_required
 def get_recent_activity(current_user):
     """
-    Get recent activity feed across all clients
+    Get recent activity feed across all clients (deduplicated)
     """
     # Get accessible client IDs
     clients = get_user_clients(current_user)
@@ -382,12 +389,20 @@ def get_recent_activity(current_user):
     
     activity = []
     
-    # Recent alerts (all types)
+    # Recent alerts (all types) — fetch more than needed, then deduplicate
     recent_alerts = DBAlert.query.filter(
         DBAlert.client_id.in_(client_ids)
-    ).order_by(DBAlert.created_at.desc()).limit(20).all()
+    ).order_by(DBAlert.created_at.desc()).limit(50).all()
     
+    # Deduplicate alerts: same title + client within 24 hours = duplicate
+    seen_alerts = {}
     for alert in recent_alerts:
+        # Build dedup key: title + client + date (ignore time)
+        dedup_key = f"{alert.client_id}:{alert.title}:{alert.created_at.strftime('%Y-%m-%d') if alert.created_at else ''}"
+        if dedup_key in seen_alerts:
+            continue
+        seen_alerts[dedup_key] = True
+        
         client = client_map.get(alert.client_id)
         
         icon = '🔔'
