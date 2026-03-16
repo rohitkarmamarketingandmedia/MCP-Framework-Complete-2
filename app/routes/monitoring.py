@@ -1736,7 +1736,6 @@ def get_competitor_dashboard(current_user, client_id):
         return d.lower().replace('www.', '').replace('https://', '').replace('http://', '').strip('/').strip()
     
     # Get competitors from client.competitors JSON field (from settings edit screen)
-    # This is the SINGLE SOURCE OF TRUTH
     settings_domains = set()
     try:
         if client.competitors:
@@ -1755,10 +1754,32 @@ def get_competitor_dashboard(current_user, client_id):
     except Exception as e:
         logger.warning(f"Error parsing client.competitors: {e}")
     
-    logger.info(f"Settings domains (source of truth): {settings_domains}")
-    
     # Get all DBCompetitor entries for this client
     all_db_competitors = DBCompetitor.query.filter_by(client_id=client_id).all()
+    
+    # If client.competitors field is empty but DBCompetitor entries exist,
+    # use DB entries as the source (they were added via the monitoring UI)
+    if not settings_domains and all_db_competitors:
+        for db_comp in all_db_competitors:
+            if db_comp.is_active:
+                domain = normalize_domain(db_comp.domain)
+                if domain:
+                    settings_domains.add(domain)
+        
+        # Sync back to client.competitors so it stays consistent
+        if settings_domains:
+            try:
+                client.competitors = json.dumps(list(settings_domains))
+                db.session.commit()
+                logger.info(f"Synced {len(settings_domains)} DB competitors back to client.competitors field")
+            except Exception as e:
+                logger.warning(f"Failed to sync competitors to client field: {e}")
+                try:
+                    db.session.rollback()
+                except:
+                    pass
+    
+    logger.info(f"Settings domains: {settings_domains} (from {'client field' if client.competitors else 'DB entries'})")
     
     # Sync DBCompetitor table with settings
     final_competitors = []
