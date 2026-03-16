@@ -567,114 +567,89 @@ def client_keyword_gap(current_user, client_id):
         }), 503
     
     # ============================================
-    # STEP 1: Pull domain_organic for ALL domains
+    # STEP 1: Use SEMrush native domain_domains API
+    # This matches SEMrush's Keyword Gap tool exactly
     # ============================================
     database = 'us'
-    pull_limit = 500  # Per domain
-    
+    pull_limit = 500
+
     try:
-        # Pull client keywords
-        _log.info(f"[KEYWORD-GAP] Pulling domain_organic for {client_domain} (limit={pull_limit})")
-        client_result = semrush_service.get_domain_organic_keywords(client_domain, limit=pull_limit, database=database)
-        
-        client_kw_map = {}
-        if not client_result.get('error'):
-            for kw in client_result.get('keywords', []):
-                keyword = kw.get('keyword', '').lower().strip()
-                if keyword:
-                    client_kw_map[keyword] = {
-                        'position': kw.get('position'),
-                        'volume': kw.get('volume', 0),
-                        'cpc': kw.get('cpc', 0),
-                        'difficulty': kw.get('difficulty', 0),
-                        'url': kw.get('url', '')
-                    }
-        else:
-            _log.warning(f"[KEYWORD-GAP] Client domain_organic error: {client_result.get('error')}")
-        
-        _log.info(f"[KEYWORD-GAP] Client {client_domain}: {len(client_kw_map)} keywords")
-        
-        # Pull each competitor's keywords
-        comp_kw_maps = {}  # {domain: {keyword: {position, volume}}}
-        for comp_domain in competitor_domains:
-            _log.info(f"[KEYWORD-GAP] Pulling domain_organic for {comp_domain}")
-            comp_result = semrush_service.get_domain_organic_keywords(comp_domain, limit=pull_limit, database=database)
-            
-            comp_map = {}
-            if not comp_result.get('error'):
-                for kw in comp_result.get('keywords', []):
-                    keyword = kw.get('keyword', '').lower().strip()
-                    if keyword:
-                        comp_map[keyword] = {
-                            'position': kw.get('position'),
-                            'volume': kw.get('volume', 0)
-                        }
-            else:
-                _log.warning(f"[KEYWORD-GAP] Competitor {comp_domain} error: {comp_result.get('error')}")
-            
-            comp_kw_maps[comp_domain] = comp_map
-            _log.info(f"[KEYWORD-GAP] Competitor {comp_domain}: {len(comp_map)} keywords")
-        
+        _log.info(f"[KEYWORD-GAP] Using domain_domains API for {client_domain} vs {competitor_domains}")
+        comparison = semrush_service.get_keyword_comparison(
+            client_domain, competitor_domains, limit=pull_limit, database=database
+        )
+
+        if comparison.get('error'):
+            _log.warning(f"[KEYWORD-GAP] domain_domains error: {comparison.get('error')}")
+            return jsonify({
+                'error': f"SEMrush API error: {comparison.get('error')}",
+                'gaps': []
+            }), 502
+
+        raw_keywords = comparison.get('keywords', [])
+        _log.info(f"[KEYWORD-GAP] domain_domains returned {len(raw_keywords)} keywords")
+
         # ============================================
-        # STEP 2: Merge into unified keyword map
-        # ============================================
-        all_keywords = set(client_kw_map.keys())
-        for comp_map in comp_kw_maps.values():
-            all_keywords.update(comp_map.keys())
-        
-        _log.info(f"[KEYWORD-GAP] Total unique keywords across all domains: {len(all_keywords)}")
-        
-        # ============================================
-        # STEP 3: Build gap entries with classification
+        # STEP 2: Transform and classify each keyword
         # ============================================
         transformed_gaps = []
-        
-        for keyword in all_keywords:
-            client_data = client_kw_map.get(keyword, {})
-            your_pos = client_data.get('position')
-            volume = client_data.get('volume', 0)
-            
-            # Get competitor positions (ordered by competitor_domains list)
+
+        for kw_data in raw_keywords:
+            keyword = kw_data.get('keyword', '').strip()
+            if not keyword:
+                continue
+
+            your_pos = kw_data.get('your_position')
+            volume = kw_data.get('volume', 0)
+
+            # Get competitor positions in order
+            comp_positions = kw_data.get('competitor_positions', {})
             comp_positions_ordered = []
-            best_comp_pos = None
-            
             for comp_domain in competitor_domains:
-                comp_data = comp_kw_maps.get(comp_domain, {}).get(keyword, {})
-                pos = comp_data.get('position')
+                pos = comp_positions.get(comp_domain)
                 comp_positions_ordered.append(pos)
-                
-                # Get volume from competitor if client doesn't have it
-                if not volume and comp_data.get('volume'):
-                    volume = comp_data['volume']
-                
-                # Track best competitor position
-                if pos and (best_comp_pos is None or pos < best_comp_pos):
-                    best_comp_pos = pos
-            
+
             comp1 = comp_positions_ordered[0] if len(comp_positions_ordered) > 0 else None
             comp2 = comp_positions_ordered[1] if len(comp_positions_ordered) > 1 else None
-            
+
+            # Best/worst competitor positions
+            comp_positions_valid = [p for p in comp_positions_ordered if p is not None]
+            best_comp_pos = min(comp_positions_valid) if comp_positions_valid else None
+            worst_comp_pos = max(comp_positions_valid) if comp_positions_valid else None
+            any_comp_ranks = len(comp_positions_valid) > 0
+            all_comp_rank = (len(comp_positions_ordered) > 0 and
+                            all(p is not None for p in comp_positions_ordered))
+
             # ============================================
-            # STEP 4: Classify (missing/weak/strong/shared)
+            # Classify (SEMrush Keyword Gap logic)
             # ============================================
-            any_comp_ranks = any(p is not None for p in comp_positions_ordered)
-            
-            if not your_pos and any_comp_ranks:
-                gap_type = 'missing'   # Competitor ranks, you don't
-            elif your_pos and best_comp_pos and your_pos > best_comp_pos:
-                gap_type = 'weak'      # You rank worse than best competitor
-            elif your_pos and best_comp_pos and your_pos < best_comp_pos:
-                gap_type = 'strong'    # You rank better
+            # Shared  = ALL domains rank (you + every competitor)
+            #   Weak   = subset: you rank worse than ALL competitors
+            #   Strong = subset: you rank better than ALL competitors
+            # Missing = you don't rank, ALL competitors rank
+            # Untapped = you don't rank, only SOME competitors rank
+            # Unique  = only you rank, no competitors rank
+            if your_pos and all_comp_rank:
+                if your_pos > worst_comp_pos:
+                    gap_type = 'weak'
+                elif your_pos < best_comp_pos:
+                    gap_type = 'strong'
+                else:
+                    gap_type = 'shared'
             elif your_pos and any_comp_ranks:
-                gap_type = 'shared'    # Both rank, same or close
+                gap_type = 'shared'
             elif your_pos and not any_comp_ranks:
-                gap_type = 'unique'    # Only you rank
+                gap_type = 'unique'
+            elif not your_pos and all_comp_rank:
+                gap_type = 'missing'
+            elif not your_pos and any_comp_ranks:
+                gap_type = 'untapped'
             else:
-                gap_type = 'untapped'  # Neither ranks (shouldn't happen in merged set)
-            
+                gap_type = 'untapped'
+
             # Priority based on gap type, position, and volume
             vol = volume or 0
-            
+
             if gap_type == 'missing' and best_comp_pos and best_comp_pos <= 20 and vol >= 30:
                 priority = 'HIGH'
             elif gap_type == 'missing' and vol >= 50:
@@ -697,7 +672,7 @@ def client_keyword_gap(current_user, client_id):
                 priority = 'LOW'
             else:
                 priority = 'MEDIUM'
-            
+
             transformed_gaps.append({
                 'keyword': keyword,
                 'you': your_pos,
@@ -720,16 +695,17 @@ def client_keyword_gap(current_user, client_id):
             -(x.get('volume', 0) or 0)
         ))
         
-        # Stats
+        # Stats — note: Shared tab in SEMrush includes weak+strong as subsets
         stats = {
             'missing': sum(1 for g in transformed_gaps if g['gap_type'] == 'missing'),
             'weak': sum(1 for g in transformed_gaps if g['gap_type'] == 'weak'),
             'strong': sum(1 for g in transformed_gaps if g['gap_type'] == 'strong'),
-            'shared': sum(1 for g in transformed_gaps if g['gap_type'] == 'shared'),
+            'shared': sum(1 for g in transformed_gaps if g['gap_type'] in ('shared', 'weak', 'strong')),
             'unique': sum(1 for g in transformed_gaps if g['gap_type'] == 'unique'),
+            'untapped': sum(1 for g in transformed_gaps if g['gap_type'] == 'untapped'),
         }
-        
-        _log.info(f"[KEYWORD-GAP] Result: {len(transformed_gaps)} total — missing={stats['missing']}, weak={stats['weak']}, strong={stats['strong']}, shared={stats['shared']}, unique={stats['unique']}")
+
+        _log.info(f"[KEYWORD-GAP] Result: {len(transformed_gaps)} total — shared={stats['shared']} (weak={stats['weak']}, strong={stats['strong']}), missing={stats['missing']}, untapped={stats['untapped']}, unique={stats['unique']}")
         
         return jsonify({
             'client_id': client_id,
@@ -738,7 +714,7 @@ def client_keyword_gap(current_user, client_id):
             'source': 'semrush',
             'database': database,
             'total_keywords': len(transformed_gaps),
-            'your_keywords': len(client_kw_map),
+            'your_keywords': sum(1 for g in transformed_gaps if g.get('you') is not None),
             'stats': stats,
             'filtered_by_industry': False
         })

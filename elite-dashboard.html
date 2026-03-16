@@ -2037,11 +2037,14 @@
 
             document.getElementById('gapFilterTabs').style.display = 'flex';
 
+            // Count each type — Shared includes weak+strong (they are subsets in SEMrush)
             const counts = { all: allData.length, shared: 0, missing: 0, weak: 0, strong: 0, untapped: 0, unique: 0 };
             allData.forEach(g => {
                 const t = g.gap_type || 'shared';
                 if (counts[t] !== undefined) counts[t]++;
             });
+            // Shared tab count = shared + weak + strong (SEMrush behavior)
+            counts.shared = counts.shared + counts.weak + counts.strong;
 
             Object.keys(counts).forEach(key => {
                 const el = document.getElementById('gapCount-' + key);
@@ -2057,11 +2060,14 @@
             const activeBtn = document.getElementById('gapTab-' + tabId);
             if (activeBtn) activeBtn.classList.add('gap-tab-active');
 
-            // Filter data
+            // Filter data — Shared includes weak+strong subsets (SEMrush behavior)
             const allData = window.allGapData || window.currentGapData || [];
             let filtered;
             if (tabId === 'all') {
                 filtered = allData;
+            } else if (tabId === 'shared') {
+                // Shared tab shows ALL keywords where all domains rank (includes weak + strong)
+                filtered = allData.filter(g => g.gap_type === 'shared' || g.gap_type === 'weak' || g.gap_type === 'strong');
             } else {
                 filtered = allData.filter(g => g.gap_type === tabId);
             }
