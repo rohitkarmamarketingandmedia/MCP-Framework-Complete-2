@@ -1735,83 +1735,9 @@ def get_competitor_dashboard(current_user, client_id):
             return ''
         return d.lower().replace('www.', '').replace('https://', '').replace('http://', '').strip('/').strip()
     
-    # Get competitors from client.competitors JSON field (from settings edit screen)
-    # This is the SINGLE SOURCE OF TRUTH
-    settings_domains = set()
-    try:
-        if client.competitors:
-            import json
-            client_comps = json.loads(client.competitors) if isinstance(client.competitors, str) else client.competitors
-            if isinstance(client_comps, list):
-                for comp in client_comps:
-                    if isinstance(comp, str):
-                        domain = normalize_domain(comp)
-                    elif isinstance(comp, dict):
-                        domain = normalize_domain(comp.get('domain') or comp.get('url') or '')
-                    else:
-                        continue
-                    if domain:
-                        settings_domains.add(domain)
-    except Exception as e:
-        logger.warning(f"Error parsing client.competitors: {e}")
-    
-    # Get active DBCompetitor entries
-    all_db_competitors = DBCompetitor.query.filter_by(client_id=client_id).all()
-    active_db_competitors = [c for c in all_db_competitors if c.is_active]
-    
-    # If client.competitors field is empty but DB entries exist, use DB as source
-    if not settings_domains and active_db_competitors:
-        for db_comp in active_db_competitors:
-            domain = normalize_domain(db_comp.domain)
-            if domain:
-                settings_domains.add(domain)
-        # Sync back to client field
-        try:
-            client.competitors = json.dumps(list(settings_domains))
-            db.session.commit()
-            logger.info(f"Synced {len(settings_domains)} DB competitors to client.competitors")
-        except Exception:
-            try:
-                db.session.rollback()
-            except:
-                pass
-    
-    logger.info(f"Competitor domains: {settings_domains}")
-    
-    # Build final competitors list from DB entries that match settings
-    competitors = []
-    seen_domains = set()
-    
-    for db_comp in all_db_competitors:
-        domain = normalize_domain(db_comp.domain)
-        if domain in settings_domains and domain not in seen_domains:
-            if not db_comp.is_active:
-                db_comp.is_active = True
-            competitors.append(db_comp)
-            seen_domains.add(domain)
-    
-    # Create DB entries for any settings domains not yet in DB
-    for domain in settings_domains:
-        if domain not in seen_domains:
-            name = domain.split('.')[0].replace('-', ' ').title()
-            try:
-                new_comp = DBCompetitor(client_id=client_id, name=name, domain=domain, is_active=True)
-                db.session.add(new_comp)
-                db.session.flush()
-                competitors.append(new_comp)
-                seen_domains.add(domain)
-            except Exception as e:
-                logger.error(f"Error creating competitor {domain}: {e}")
-    
-    try:
-        db.session.commit()
-    except Exception:
-        try:
-            db.session.rollback()
-        except:
-            pass
-    
-    logger.info(f"Final competitor count: {len(competitors)}: {[c.domain for c in competitors]}")
+    # Get competitors directly from DB — this is where the UI adds them
+    competitors = DBCompetitor.query.filter_by(client_id=client_id, is_active=True).all()
+    logger.info(f"Competitors for {client_id}: {len(competitors)} found — {[c.domain for c in competitors]}")
     
     # Get client keywords
     client_keywords = []
