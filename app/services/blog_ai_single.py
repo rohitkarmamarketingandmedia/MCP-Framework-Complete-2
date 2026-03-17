@@ -99,12 +99,15 @@ class BlogAISingle:
         parsed = self._robust_parse_json(raw)
 
         if not parsed or not parsed.get("body"):
-            logger.warning("Primary model failed, trying fallback")
+            logger.warning(f"Primary model returned no body. parsed keys: {list(parsed.keys()) if parsed else 'None'}, raw length: {len(raw) if raw else 0}")
             raw2 = self._call_model(self.model_fallback, base_prompt, system_prompt)
             parsed = self._robust_parse_json(raw2)
+            if not parsed or not parsed.get("body"):
+                logger.error(f"Fallback model also returned no body. parsed keys: {list(parsed.keys()) if parsed else 'None'}, raw length: {len(raw2) if raw2 else 0}")
 
         # 2) Normalize shape
         result = self._normalize_result(parsed, req)
+        logger.info(f"[BODY DEBUG] After normalize: body length={len(result.get('body', ''))}, first 200 chars: {result.get('body', '')[:200]}")
         
         # Log what the AI actually returned vs what we normalized to
         logger.info(f"[TITLE DEBUG] AI raw title: '{parsed.get('title', 'MISSING')}'")
@@ -785,7 +788,7 @@ Return ONLY valid JSON (no markdown):
             
             resp = self.client.messages.create(
                 model=model,
-                max_tokens=8000,
+                max_tokens=16000,
                 system=system_prompt.strip(),
                 messages=[
                     {"role": "user", "content": prompt.strip()},
@@ -794,11 +797,11 @@ Return ONLY valid JSON (no markdown):
             )
             content = resp.content[0].text or ""
             content = content.strip()
-            logger.info(f"Got {len(content)} chars from Claude {model} (stop_reason={resp.stop_reason})")
-            
+            logger.info(f"Got {len(content)} chars from Claude {model} (stop_reason={resp.stop_reason}, usage={resp.usage})")
+
             # Warn if response was truncated
             if resp.stop_reason == "max_tokens":
-                logger.warning(f"Claude response was truncated (stop_reason=max_tokens)")
+                logger.warning(f"Claude response was TRUNCATED (stop_reason=max_tokens) — JSON likely incomplete. Last 100 chars: {content[-100:]}")
             
             # Validate JSON output
             if content and not content.startswith("{"):
@@ -1262,7 +1265,15 @@ OUTPUT JSON:"""
         result = self._try_json_loads(repaired)
         if result:
             return result
-        
+
+        # Try truncated JSON recovery — close incomplete JSON
+        recovered = self._recover_truncated_json(text)
+        if recovered:
+            result = self._try_json_loads(recovered)
+            if result:
+                logger.info("Recovered truncated JSON successfully")
+                return result
+
         logger.warning("All JSON parsing attempts failed")
         return {}
 
@@ -1292,6 +1303,42 @@ OUTPUT JSON:"""
         def repl(m):
             return "\\\\"
         return re.sub(r"\\(?![\"\\/bfnrtu])", repl, s)
+
+    def _recover_truncated_json(self, text: str) -> str:
+        """Attempt to recover a truncated JSON response (e.g. from max_tokens cutoff).
+        Finds the last complete key-value pair and closes the JSON object."""
+        start = text.find("{")
+        if start == -1:
+            return ""
+        text = text[start:]
+
+        # Strategy: find the last complete "key": "value" or "key": [...] and close after it
+        # Look for the last complete string value ending with ","  or just a quote before truncation
+        # Find last occurrence of '": "' which indicates a string value field
+        last_body_start = text.rfind('"body"')
+        if last_body_start == -1:
+            # No body field found at all — try closing after last complete field
+            pass
+
+        # Try progressively trimming from the end to find valid JSON
+        # Look for last complete field boundary: }", or ], or "
+        for end_marker in ['"}', '"]', '"}]']:
+            pos = text.rfind(end_marker)
+            if pos != -1:
+                candidate = text[:pos + len(end_marker)]
+                # Count unclosed braces/brackets and close them
+                open_braces = candidate.count('{') - candidate.count('}')
+                open_brackets = candidate.count('[') - candidate.count(']')
+                candidate += ']' * max(0, open_brackets) + '}' * max(0, open_braces)
+                try:
+                    obj = json.loads(candidate)
+                    if isinstance(obj, dict) and obj.get('body'):
+                        logger.info(f"Truncated JSON recovered with body ({len(obj['body'])} chars)")
+                        return candidate
+                except Exception:
+                    continue
+
+        return ""
 
     def _normalize_result(self, data: Dict[str, Any], req: BlogRequest) -> Dict[str, Any]:
         """Ensure all required fields exist with proper values"""
@@ -1929,8 +1976,24 @@ OUTPUT JSON:"""
         target_min = int(req.target_words * 0.80)  # Allow 20% tolerance
 
         if not result.get("body"):
-            logger.warning("Empty body, cannot ensure word count")
-            return result
+            logger.warning("Empty body detected — attempting standalone body generation")
+            body_prompt = f"""Write a {req.target_words}-word SEO blog post body in HTML (h2, h3, p tags only) for:
+Keyword: {req.keyword}
+Company: {req.company_name}
+City: {req.city}, {req.state}
+Industry: {req.industry}
+
+Return ONLY valid JSON: {{"body": "<h2>...</h2><p>...</p>..."}}
+No markdown. No commentary. Just the JSON object."""
+            raw = self._call_model(self.model_primary, body_prompt)
+            parsed = self._robust_parse_json(raw)
+            body = (parsed.get("body") or "").strip()
+            if body and len(body) > 100:
+                result["body"] = self._clean_body(body)
+                logger.info(f"Standalone body generation succeeded: {self._word_count(result['body'])} words")
+            else:
+                logger.error("Standalone body generation also failed — body is empty")
+                return result
 
         current = self._word_count(result["body"])
         logger.info(f"Initial word count: {current}, target minimum: {target_min}")
