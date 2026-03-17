@@ -638,6 +638,104 @@ class SEMRushService:
         return results
     
     # ==========================================
+    # KEYWORD GAP — UNION-BASED APPROACH
+    # ==========================================
+
+    def get_domain_organic_for_gap(self, domain: str, limit: int = 500,
+                                    database: str = 'us',
+                                    device: str = 'desktop') -> Dict[str, Any]:
+        """
+        Pull domain_organic with consistent params for gap analysis.
+        Returns keywords with rank ≤ 100, including volume, CPC, KD, intent, etc.
+        Every domain is queried with the SAME database + device so the snapshot
+        is comparable.
+
+        Export columns:
+            Ph  = Keyword
+            Po  = Position
+            Nq  = Search Volume
+            Cp  = CPC
+            Co  = Competition
+            Kd  = Keyword Difficulty
+            Nr  = Number of Results
+            Ur  = Ranking URL
+        """
+        domain = self._clean_domain(domain)
+
+        params = {
+            'type': 'domain_organic',
+            'key': self.api_key,
+            'domain': domain,
+            'database': database,
+            'export_columns': 'Ph,Po,Nq,Cp,Co,Kd,Nr,Ur',
+            'display_limit': limit,
+            'display_sort': 'nq_desc',
+            'display_filter': '+|Po|Lt|101',   # rank ≤ 100
+        }
+
+        # SEMrush doesn't have a top-level 'device' param for domain_organic,
+        # but the database itself covers desktop by default.  For mobile you'd
+        # use database 'us.mobile', etc.  We keep 'us' = desktop.
+
+        result = self._make_request(params)
+
+        if result.get('error'):
+            return result
+
+        raw = result.get('data', '')
+        lines = raw.strip().split('\n')
+        logger.info(f"domain_organic_for_gap {domain}: {len(lines)} lines")
+
+        keywords = []
+        if len(lines) >= 2:
+            for line in lines[1:]:
+                line = line.strip()
+                vals = line.split(';')
+                if len(vals) < 6:
+                    continue
+
+                def _int(v):
+                    v = v.strip()
+                    if not v:
+                        return 0
+                    try:
+                        return int(float(v))
+                    except (ValueError, TypeError):
+                        return 0
+
+                def _float(v):
+                    v = v.strip()
+                    if not v:
+                        return 0.0
+                    try:
+                        return float(v)
+                    except (ValueError, TypeError):
+                        return 0.0
+
+                pos = _int(vals[1])
+                if pos < 1 or pos > 100:
+                    continue  # enforce rank ≤ 100
+
+                keywords.append({
+                    'keyword': vals[0].strip().lower(),
+                    'keyword_display': vals[0].strip(),
+                    'position': pos,
+                    'volume': _int(vals[2]),
+                    'cpc': _float(vals[3]),
+                    'competition': _float(vals[4]),
+                    'difficulty': _int(vals[5]),
+                    'results': _int(vals[6]) if len(vals) > 6 else 0,
+                    'url': vals[7].strip() if len(vals) > 7 else '',
+                })
+
+        logger.info(f"  Parsed {len(keywords)} keywords (rank ≤ 100) for {domain}")
+        return {
+            'domain': domain,
+            'count': len(keywords),
+            'keywords': keywords
+        }
+
+    # ==========================================
     # HIGH-LEVEL RESEARCH METHODS
     # ==========================================
     

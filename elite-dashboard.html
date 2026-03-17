@@ -1875,9 +1875,13 @@
                     return;
                 }
 
-                // Show data source indicator
-                const sourceText = data.source === 'semrush' ? `SEMrush Data (${data.total_keywords || data.gaps?.length || 0} keywords found)` :
-                                  data.source === 'gsc' ? 'Google Search Console Data' : data.source;
+                // Show data source indicator with snapshot info
+                const kwCount = data.total_keywords || data.gaps?.length || 0;
+                const dbLabel = (data.database || 'us').toUpperCase();
+                const devLabel = (data.device || 'desktop');
+                const sourceText = data.source === 'semrush'
+                    ? `SEMrush ${dbLabel} / ${devLabel} — ${kwCount} keywords`
+                    : data.source === 'gsc' ? 'Google Search Console Data' : data.source;
                 const sourceClass = data.source === 'semrush' ? 'text-green-400' :
                                    data.source === 'gsc' ? 'text-blue-400' : 'text-gray-400';
 
