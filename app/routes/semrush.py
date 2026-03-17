@@ -551,11 +551,16 @@ def client_keyword_gap(current_user, client_id):
     if not client:
         return jsonify({'error': 'Client not found'}), 404
 
-    # Get active competitors (max 5)
+    # Get active competitors — SEMrush Keyword Gap supports max 4 competitors
+    # (total 5 domains: 1 target + up to 4 competitors).
+    # Default to top 2 to match the typical SEMrush comparison view.
+    max_comps = request.args.get('max_competitors', 4, type=int)
+    max_comps = min(max_comps, 4)  # hard cap at 4
+
     competitors = DBCompetitor.query.filter_by(
         client_id=client_id,
         is_active=True
-    ).limit(5).all()
+    ).limit(max_comps).all()
 
     competitor_domains = [semrush_service._clean_domain(c.domain)
                           for c in competitors if c.domain]

@@ -505,15 +505,15 @@ class SEMRushService:
     def _resolve_database(self, database: str = 'us', device: str = 'desktop') -> str:
         """
         Map (database, device) to the correct SEMrush database code.
-        SEMrush encodes device in the database string:
-            desktop → 'us'          (or 'uk', 'de', etc.)
-            mobile  → 'us.mobile'   (or 'uk.mobile', etc.)
+        SEMrush encodes device in the database string with an UNDERSCORE:
+            desktop → 'us'            (or 'uk', 'de', etc.)
+            mobile  → 'us_mobile'     (or 'uk_mobile', etc.)
         The caller passes a clean country code (e.g. 'us') and a device string;
         this helper returns the final database value for the API call.
         """
-        base = (database or 'us').lower().replace('.mobile', '')  # strip if already there
+        base = (database or 'us').lower().replace('_mobile', '').replace('.mobile', '')
         if device and device.lower() == 'mobile':
-            return f"{base}.mobile"
+            return f"{base}_mobile"
         return base
 
     def _clean_domain(self, domain: str) -> str:
