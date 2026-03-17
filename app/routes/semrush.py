@@ -63,6 +63,46 @@ def check_units():
     return jsonify(results)
 
 
+@semrush_bp.route('/test-mobile-db', methods=['GET'])
+def test_mobile_db():
+    """
+    Diagnostic: test which mobile database format SEMrush accepts.
+    Tests google.com (always has data) with multiple DB formats.
+
+    GET /api/semrush/test-mobile-db
+    """
+    api_key = os.environ.get('SEMRUSH_API_KEY', '')
+    if not api_key:
+        return jsonify({'error': 'No API key'}), 400
+
+    domain = request.args.get('domain', 'google.com')
+    formats = ['us_mobile', 'mobile_us', 'us.mobile', 'us-mobile']
+    results = {}
+
+    for fmt in formats:
+        try:
+            resp = requests.get('https://api.semrush.com/', params={
+                'type': 'domain_organic',
+                'key': api_key,
+                'domain': domain,
+                'database': fmt,
+                'export_columns': 'Ph,Po,Nq',
+                'display_limit': 2
+            }, timeout=15)
+            text = resp.text.strip()
+            is_error = text.startswith('ERROR')
+            lines = text.split('\n')
+            results[fmt] = {
+                'status': 'ERROR' if is_error else 'OK',
+                'lines': len(lines),
+                'preview': text[:300],
+            }
+        except Exception as e:
+            results[fmt] = {'status': 'EXCEPTION', 'error': str(e)}
+
+    return jsonify({'domain': domain, 'results': results})
+
+
 @semrush_bp.route('/status', methods=['GET'])
 @token_required
 def get_status(current_user):
@@ -615,8 +655,23 @@ def client_keyword_gap(current_user, client_id):
             domain_results[dom] = kw_map
             _log.info(f"[KEYWORD-GAP]   {dom}: {len(kw_map)} keywords")
 
-        # If ALL pulls failed, return error
+        # If ALL pulls failed, return a helpful error
         if len(api_errors) == len(all_domains):
+            # Check if this is a "NOTHING FOUND" issue (common for mobile)
+            all_nothing_found = all('NOTHING FOUND' in e for e in api_errors)
+            if all_nothing_found and DEVICE == 'mobile':
+                return jsonify({
+                    'error': f'No mobile ranking data available in SEMrush for these domains. '
+                             f'These sites may not have enough mobile search presence. '
+                             f'Try switching to Desktop.',
+                    'gaps': [],
+                    'competitors': competitor_domains,
+                    'source': 'semrush',
+                    'device': DEVICE,
+                    'total_keywords': 0,
+                    'stats': {'missing': 0, 'weak': 0, 'strong': 0,
+                              'shared': 0, 'unique': 0, 'untapped': 0},
+                }), 200  # 200 so frontend treats it as "no data" not crash
             return jsonify({
                 'error': f"All SEMrush API calls failed: {'; '.join(api_errors)}",
                 'gaps': []

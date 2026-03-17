@@ -1928,6 +1928,20 @@
 
                 const data = await res.json();
 
+                // Handle "no data available" (e.g. mobile with no SEMrush coverage)
+                if (data.error && data.total_keywords === 0) {
+                    table.innerHTML = `<tr><td colspan="12" class="text-center py-8">
+                        <i class="fas fa-mobile-alt text-amber-400 text-3xl mb-3 block"></i>
+                        <p class="text-amber-400 font-semibold mb-1">${escapeHtml(data.error)}</p>
+                    </td></tr>`;
+                    if (headerEl) {
+                        headerEl.innerHTML = `<i class="fas fa-th-list mr-2 text-purple-400"></i>Keyword Gap Analysis
+                            <span class="text-xs text-amber-400 ml-2">(No data for ${(data.device || gapDevice)} view)</span>`;
+                    }
+                    document.getElementById('gapFilterTabs').style.display = 'none';
+                    return;
+                }
+
                 // Reject simulated/demo data — only accept real sources
                 if (data.source === 'simulated' || data.source === 'demo') {
                     table.innerHTML = `<tr><td colspan="12" class="text-center py-8">

@@ -893,9 +893,9 @@ class RankTrackingService:
             return {'error': 'No tracked keywords', 'checked': 0}
 
         # Resolve the SEMrush database for this device
-        # SEMrush mobile format: us_mobile (underscore, NOT dot)
-        base_db = (database or 'us').replace('_mobile', '').replace('.mobile', '')
-        resolved_db = f"{base_db}_mobile" if device == 'mobile' else base_db
+        # SEMrush mobile format: mobile_us (prefix)
+        base_db = (database or 'us').replace('_mobile', '').replace('mobile_', '').replace('.mobile', '')
+        resolved_db = f"mobile_{base_db}" if device == 'mobile' else base_db
 
         # Call SEMrush for current positions
         result = self.check_all_keywords(
