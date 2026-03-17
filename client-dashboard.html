@@ -2134,19 +2134,19 @@
 
                 <!-- Stats Cards -->
                 <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-                    <div class="glass rounded-2xl p-4 text-center">
+                    <div class="glass rounded-2xl p-4 text-center cursor-pointer hover:ring-1 hover:ring-purple-500/30 transition" onclick="document.getElementById('competitorCards')?.scrollIntoView({behavior:'smooth'})">
                         <div class="text-3xl font-bold text-purple-400" id="compCount">0</div>
                         <div class="text-sm text-gray-400">Competitors Tracked</div>
                     </div>
-                    <div class="glass rounded-2xl p-4 text-center">
+                    <div class="glass rounded-2xl p-4 text-center cursor-pointer hover:ring-1 hover:ring-green-500/30 transition" onclick="document.getElementById('rankingBattles')?.scrollIntoView({behavior:'smooth'})">
                         <div class="text-3xl font-bold text-green-400" id="compWinRate">0%</div>
                         <div class="text-sm text-gray-400">Win Rate</div>
                     </div>
-                    <div class="glass rounded-2xl p-4 text-center">
+                    <div class="glass rounded-2xl p-4 text-center cursor-pointer hover:ring-1 hover:ring-blue-500/30 transition" onclick="document.getElementById('contentGaps')?.scrollIntoView({behavior:'smooth'})">
                         <div class="text-3xl font-bold text-blue-400" id="compGaps">0</div>
                         <div class="text-sm text-gray-400">Content Gaps</div>
                     </div>
-                    <div class="glass rounded-2xl p-4 text-center">
+                    <div class="glass rounded-2xl p-4 text-center cursor-pointer hover:ring-1 hover:ring-amber-500/30 transition" onclick="document.getElementById('rankingBattles')?.scrollIntoView({behavior:'smooth'})">
                         <div class="text-3xl font-bold text-amber-400" id="compKeywords">0</div>
                         <div class="text-sm text-gray-400">Ranking Battles</div>
                     </div>
@@ -6074,9 +6074,13 @@
                 loadChatbotConfig();
             }
 
-            // Load rankings when rankings tab is shown
+            // Load rankings when rankings tab is shown — auto-load cached data + history
             if (tab === 'rankings') {
                 loadRankingHistory();
+                // Auto-load cached rankings from DB if not already loaded
+                if (!rankingsData) {
+                    loadCachedRankings();
+                }
             }
 
             // Load competitor dashboard when competitors tab is shown
@@ -6315,8 +6319,27 @@
                 }
             }
 
-            // Use fallbacks from local data if API didn't return values
-            // If contentCount is 0, leave it as 0 to accurately reflect the current month
+            // Fallback: fetch calls count directly if not returned from analytics
+            if (calls === 0) {
+                try {
+                    const callsResponse = await fetch(`${API_URL}/api/calls?client_id=${currentClient.id}`, {
+                        headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
+                    });
+                    if (callsResponse.ok) {
+                        const callsData = await callsResponse.json();
+                        const now = new Date();
+                        const thisMonth = now.getMonth();
+                        const thisYear = now.getFullYear();
+                        const allCalls = callsData.calls || callsData.data || [];
+                        calls = allCalls.filter(c => {
+                            const callDate = new Date(c.created_at || c.start_time || c.date);
+                            return callDate.getMonth() === thisMonth && callDate.getFullYear() === thisYear;
+                        }).length;
+                    }
+                } catch (e) {
+                    console.error('Error fetching calls:', e);
+                }
+            }
 
             // Animate all stats with either API data or fallbacks
             animateNumber('overview-leads', 0, leads, 1500);
@@ -6616,6 +6639,10 @@
             // Clear all call intelligence UI elements when switching clients
             // This prevents data from one client showing on another client's dashboard
 
+            // Clear Top Customer Questions (overview section)
+            const topQuestionsEl = document.getElementById('topQuestions');
+            if (topQuestionsEl) topQuestionsEl.innerHTML = '<p class="text-gray-500 text-sm">Loading...</p>';
+
             // Clear questions
             const questionsEl = document.getElementById('extracted-questions');
             if (questionsEl) questionsEl.innerHTML = '<div class="text-xs text-gray-400">Loading...</div>';
@@ -6631,6 +6658,10 @@
             // Clear services/opportunities
             const opportunitiesEl = document.getElementById('content-opportunities');
             if (opportunitiesEl) opportunitiesEl.innerHTML = '<div class="text-xs text-gray-400">Loading...</div>';
+
+            // Clear content opportunities from calls
+            const callContentOpps = document.getElementById('callContentOpps');
+            if (callContentOpps) callContentOpps.innerHTML = '';
 
             // Clear calls count
             const callsToday = document.getElementById('calls-today');
@@ -16396,6 +16427,26 @@
             }
         }
 
+        async function loadCachedRankings() {
+            // Auto-load cached rankings from DB (from scheduler's daily 5 AM check)
+            // This avoids consuming SEMrush API units
+            if (!currentClient) return;
+            try {
+                const response = await fetch(`${API_URL}/api/monitoring/rankings/latest?client_id=${currentClient.id}&device=desktop`, {
+                    headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
+                });
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.keywords && data.keywords.length > 0) {
+                        rankingsData = data;
+                        renderRankings();
+                    }
+                }
+            } catch (e) {
+                console.log('No cached rankings available');
+            }
+        }
+
         function showTopKeywords(maxPosition) {
             const panel = document.getElementById('topKeywordsPanel');
             const body = document.getElementById('topKeywordsPanelBody');
@@ -16953,7 +17004,8 @@
             }
 
             try {
-                const response = await fetch(`${API_URL}/api/monitoring/competitor-dashboard/${currentClient.id}`, {
+                // Always pass refresh=1 to fetch competitor rankings for battles
+                const response = await fetch(`${API_URL}/api/monitoring/competitor-dashboard/${currentClient.id}?refresh=1`, {
                     headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
                 });
 
@@ -17523,11 +17575,42 @@
             return Math.floor(diff / 86400) + 'd ago';
         }
 
+        function _extractKeywordFromTopic(topic) {
+            // Extract a short SEO keyword (2-5 words) from a long title or question
+            let kw = topic.trim();
+
+            // Remove brand suffixes after | or -
+            kw = kw.replace(/\s*[|–—-]\s*[A-Za-z][A-Za-z0-9\s&'\-\.]{2,}$/, '').trim();
+
+            // Remove common question prefixes
+            kw = kw.replace(/^(how\s+to\s+(solve|fix|handle|deal\s+with|get|find|choose|install|repair)\s+)/i, '').trim();
+            kw = kw.replace(/^(what\s+(?:is|are)\s+(?:the\s+)?(?:best|top|most\s+common)\s+)/i, '').trim();
+            kw = kw.replace(/^(top\s+\d+\s+|the\s+(?:ultimate|complete|definitive)\s+guide\s+(?:to|for)\s+)/i, '').trim();
+            kw = kw.replace(/^(why\s+you\s+(?:should|need\s+to)\s+)/i, '').trim();
+            kw = kw.replace(/^(everything\s+you\s+need\s+to\s+know\s+about\s+)/i, '').trim();
+
+            // Remove location suffixes (in City, FL, etc.)
+            kw = kw.replace(/\s+(?:in|for|near|around)\s+[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*(?:,?\s*[A-Z]{2})?\s*$/g, '').trim();
+
+            // Remove trailing question marks and punctuation
+            kw = kw.replace(/[?!.,;:]+$/, '').trim();
+
+            // If still too long (>6 words), extract core phrase
+            const words = kw.split(/\s+/);
+            if (words.length > 6) {
+                const stop = new Set(['the', 'a', 'an', 'your', 'our', 'their', 'my', 'i', 'we', 'you', 'and', 'or', 'is', 'are', 'was', 'that', 'this', 'with', 'from', 'also', 'do', 'does', 'got']);
+                const core = words.filter(w => !stop.has(w.toLowerCase())).slice(0, 5);
+                kw = core.length > 0 ? core.join(' ') : words.slice(0, 5).join(' ');
+            }
+
+            return kw.trim() || topic;
+        }
+
         async function generateFromGap(topic, isCounterContent = false) {
             const decodedTopic = decodeURIComponent(topic);
 
-            // Create an optimized, unique keyword/title for our client
-            let optimizedKeyword = decodedTopic;
+            // Always extract a short SEO keyword from potentially long titles/questions
+            let optimizedKeyword = _extractKeywordFromTopic(decodedTopic);
 
             if (isCounterContent) {
                 const clientName = currentClient?.name || '';
@@ -17597,8 +17680,8 @@
             }
 
             const confirmMsg = isCounterContent
-                ? `Create counter content for:\n\nCompetitor topic: "${decodedTopic}"\n\nYour optimized keyword: "${optimizedKeyword}"\n\nThis will create a unique, SEO-optimized blog post for ${currentClient?.name || 'your company'}.`
-                : `Generate blog post about:\n\n"${decodedTopic}"\n\nThis will create a new SEO-optimized blog post.`;
+                ? `Create counter content for:\n\nCompetitor topic: "${decodedTopic}"\n\nYour optimized keyword: "${optimizedKeyword}"\n\nThis will create a unique, SEO-optimized blog post for ${currentClient?.name || currentClient?.business_name || 'your company'}.`
+                : `Generate blog post about:\n\nOriginal: "${decodedTopic}"\nKeyword: "${optimizedKeyword}"\n\nThis will create a new SEO-optimized blog post.`;
 
             if (!confirm(confirmMsg)) {
                 return;

@@ -27,6 +27,43 @@ monitoring_bp = Blueprint('monitoring', __name__)
 ai_service = AIService()
 
 
+def _extract_keyword_from_title(title: str) -> str:
+    """Extract a short SEO keyword (2-5 words) from a full blog post title.
+    e.g. 'Top 10 Electrical Safety Tips for Venice FL Homeowners | ABC Electric'
+         -> 'electrical safety tips'
+    """
+    import re
+    if not title:
+        return title
+
+    kw = title.strip()
+
+    # Remove brand suffixes after | or - near end
+    kw = re.sub(r'\s*[|–—-]\s*[A-Za-z][A-Za-z0-9\s&\'\-\.]{2,}$', '', kw).strip()
+
+    # Remove common title prefixes
+    kw = re.sub(r'^(top\s+\d+|the\s+(?:ultimate|complete|definitive|essential)\s+guide\s+(?:to|for)?|how\s+to|why\s+you\s+(?:should|need\s+to)|everything\s+you\s+need\s+to\s+know\s+about|a\s+guide\s+to|guide\s+to|understanding)\s+', '', kw, flags=re.IGNORECASE).strip()
+
+    # Remove location suffixes (in City, FL, etc.)
+    kw = re.sub(r'\s+(?:in|for|near|around)\s+[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*(?:,?\s*[A-Z]{2})?\s*$', '', kw).strip()
+
+    # Remove numbering artifacts
+    kw = re.sub(r'^\d+[\.\)]\s*', '', kw).strip()
+
+    # If still too long (>6 words), take the core noun phrase (first 4-5 meaningful words)
+    words = kw.split()
+    if len(words) > 6:
+        # Remove filler/stop words from beginning
+        stop = {'the', 'a', 'an', 'your', 'our', 'their', 'best', 'top', 'most', 'why', 'what', 'when', 'how'}
+        core = [w for w in words if w.lower() not in stop][:5]
+        kw = ' '.join(core) if core else ' '.join(words[:5])
+
+    # Final cleanup
+    kw = kw.strip(' ,-:;')
+
+    return kw if kw else title
+
+
 # ==========================================
 # SEMRUSH API TEST
 # ==========================================
@@ -1845,7 +1882,8 @@ def get_competitor_dashboard(current_user, client_id):
             params = {
                 'type': 'domain_organic',
                 'key': api_key,
-                'display_limit': 100,
+                'display_limit': 500,
+                'display_filter': '+|Po|Lt|101',
                 'export_columns': 'Ph,Po,Pp,Ur,Nq',
                 'domain': client_domain,
                 'database': rank_tracking_service.default_database
@@ -1896,7 +1934,8 @@ def get_competitor_dashboard(current_user, client_id):
                 comp_params = {
                     'type': 'domain_organic',
                     'key': api_key,
-                    'display_limit': 50,
+                    'display_limit': 200,
+                    'display_filter': '+|Po|Lt|101',
                     'export_columns': 'Ph,Po,Nq',
                     'domain': comp_domain,
                     'database': rank_tracking_service.default_database
@@ -1954,11 +1993,14 @@ def get_competitor_dashboard(current_user, client_id):
                         break
                 
                 if not has_similar:
+                    # Extract a short SEO keyword from the full title
+                    # instead of using the entire blog post title
+                    short_keyword = _extract_keyword_from_title(page.title)
                     content_gaps.append({
                         'competitor': comp.domain,
                         'title': page.title,
                         'url': page.url,
-                        'topic_suggestion': page.title,
+                        'topic_suggestion': short_keyword,
                         'type': 'content'
                     })
         

@@ -637,20 +637,33 @@ Return ONLY valid JSON (no markdown):
             
             logger.info(f"Fact-check: Starting verification for '{req.keyword}' ({len(words)} words)")
             
-            response = self.client.messages.create(
-                model=self.model_primary,
-                max_tokens=4000,
-                system="You are a meticulous fact-checker. Verify claims by searching the web. Return only valid JSON. Focus on claims that could be factually incorrect — ignore stylistic or marketing language.",
-                messages=[
-                    {"role": "user", "content": verify_prompt}
-                ],
-                tools=[{
-                    "type": "web_search_20250305",
-                    "name": "web_search",
-                    "max_uses": 8
-                }],
-                temperature=0.1,
-            )
+            # Try with web search tool first, fall back to without
+            try:
+                response = self.client.messages.create(
+                    model=self.model_primary,
+                    max_tokens=4000,
+                    system="You are a meticulous fact-checker. Verify claims by searching the web. Return only valid JSON. Focus on claims that could be factually incorrect — ignore stylistic or marketing language.",
+                    messages=[
+                        {"role": "user", "content": verify_prompt}
+                    ],
+                    tools=[{
+                        "type": "web_search_20250305",
+                        "name": "web_search",
+                        "max_uses": 8
+                    }],
+                    temperature=0.1,
+                )
+            except Exception as tool_err:
+                logger.warning(f"Fact-check: web_search tool failed ({tool_err}), falling back to knowledge-only verification")
+                response = self.client.messages.create(
+                    model=self.model_primary,
+                    max_tokens=4000,
+                    system="You are a meticulous fact-checker. Return only valid JSON. Focus on claims that could be factually incorrect — ignore stylistic or marketing language. Note: you cannot search the web, so only flag claims you are confident are wrong based on your training knowledge.",
+                    messages=[
+                        {"role": "user", "content": verify_prompt}
+                    ],
+                    temperature=0.1,
+                )
             
             # Extract the text response (may have multiple content blocks due to tool use)
             response_text = ""
