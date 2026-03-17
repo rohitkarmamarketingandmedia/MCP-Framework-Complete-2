@@ -537,7 +537,7 @@ def client_keyword_gap(current_user, client_id):
          exist after the ≤ 100 filter, but safety net).
       7. All domains use the same snapshot timestamp.
 
-    GET /api/semrush/keyword-gap/{client_id}
+    GET /api/semrush/keyword-gap/{client_id}?device=desktop|mobile
     """
     from app.models.db_models import DBClient, DBCompetitor
     from datetime import datetime, timezone
@@ -576,8 +576,10 @@ def client_keyword_gap(current_user, client_id):
         }), 503
 
     # ─── Consistent params for every pull ───
-    DATABASE  = 'us'
-    DEVICE    = 'desktop'   # 'us' database = desktop by default
+    DATABASE   = 'us'
+    DEVICE     = request.args.get('device', 'desktop').lower()
+    if DEVICE not in ('desktop', 'mobile'):
+        DEVICE = 'desktop'
     PULL_LIMIT = 500        # per domain
     snapshot_ts = datetime.now(timezone.utc).isoformat()
 

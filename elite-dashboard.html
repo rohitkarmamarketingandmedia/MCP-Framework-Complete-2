@@ -149,6 +149,19 @@
             color: #C4B5FD !important;
             border-color: rgba(139,92,246,0.5) !important;
         }
+        /* Device toggle (Desktop / Mobile) */
+        .gap-device-btn {
+            color: #9CA3AF;
+            cursor: pointer;
+        }
+        .gap-device-btn:hover {
+            color: #E5E7EB;
+            background: rgba(255,255,255,0.08);
+        }
+        .gap-device-active {
+            background: rgba(59,130,246,0.25) !important;
+            color: #93C5FD !important;
+        }
         .gap-type-badge {
             display: inline-block;
             padding: 1px 8px;
@@ -402,6 +415,17 @@
                     <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4">
                         <h3 class="text-lg font-bold text-white"><i class="fas fa-chart-line mr-2 text-blue-400"></i>Keyword Rank History</h3>
                         <div class="flex items-center gap-2">
+                            <!-- Device Toggle for Rankings -->
+                            <div class="flex items-center bg-white/5 rounded-lg p-0.5" id="rankDeviceToggle">
+                                <button onclick="setRankDevice('desktop')" id="rankDeviceDesktop"
+                                    class="gap-device-btn gap-device-active px-3 py-1.5 rounded-md text-xs font-semibold transition flex items-center gap-1">
+                                    <i class="fas fa-desktop"></i> Desktop
+                                </button>
+                                <button onclick="setRankDevice('mobile')" id="rankDeviceMobile"
+                                    class="gap-device-btn px-3 py-1.5 rounded-md text-xs font-semibold transition flex items-center gap-1">
+                                    <i class="fas fa-mobile-alt"></i> Mobile
+                                </button>
+                            </div>
                             <input type="text" id="rankFilterInput" placeholder="Filter keywords..." oninput="filterRankTable()"
                                 class="px-3 py-1.5 bg-white/5 border border-white/10 rounded-lg text-sm text-white w-48 focus:outline-none focus:border-blue-500">
                             <select id="rankFilterPosition" onchange="filterRankTable()" class="px-3 py-1.5 bg-white/5 border border-white/10 rounded-lg text-sm text-white">
@@ -486,6 +510,17 @@
                     <div class="flex items-center justify-between mb-6">
                         <h3 class="text-lg font-bold text-white"><i class="fas fa-th-list mr-2 text-purple-400"></i>Keyword Gap Analysis</h3>
                         <div class="flex items-center gap-2">
+                            <!-- Device Toggle (Desktop / Mobile) -->
+                            <div class="flex items-center bg-white/5 rounded-lg p-0.5" id="gapDeviceToggle">
+                                <button onclick="setGapDevice('desktop')" id="gapDeviceDesktop"
+                                    class="gap-device-btn gap-device-active px-3 py-1.5 rounded-md text-xs font-semibold transition flex items-center gap-1">
+                                    <i class="fas fa-desktop"></i> Desktop
+                                </button>
+                                <button onclick="setGapDevice('mobile')" id="gapDeviceMobile"
+                                    class="gap-device-btn px-3 py-1.5 rounded-md text-xs font-semibold transition flex items-center gap-1">
+                                    <i class="fas fa-mobile-alt"></i> Mobile
+                                </button>
+                            </div>
                             <button onclick="syncKeywordsFromSemrush()" class="px-4 py-2 bg-green-500/20 text-green-400 rounded-lg text-sm hover:bg-green-500/30 transition" id="syncKwBtn" title="Pull all keywords your domain ranks for from SEMrush">
                                 <i class="fas fa-sync-alt mr-1"></i>Sync from SEMrush
                             </button>
@@ -810,7 +845,8 @@
                 // Initialize rank chart with keywords
                 // First fetch existing ranking data
                 try {
-                    const rankRes = await fetch(`${API_URL}/api/monitoring/rankings?client_id=${clientId}`, {
+                    const _rkDev = window._rankDevice || 'desktop';
+                    const rankRes = await fetch(`${API_URL}/api/monitoring/rankings?client_id=${clientId}&device=${_rkDev}`, {
                         headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
                     });
                     if (rankRes.ok) {
@@ -1189,7 +1225,8 @@
             container.innerHTML = `<div class="glass-card rounded-xl p-4 text-center"><div class="spinner mx-auto"></div><p class="text-sm text-gray-400 mt-2">Checking rankings...</p></div>`;
 
             try {
-                const res = await fetch(`${API_URL}/api/monitoring/rankings?client_id=${currentClientId}`, {
+                const _rkDev2 = window._rankDevice || 'desktop';
+                const res = await fetch(`${API_URL}/api/monitoring/rankings?client_id=${currentClientId}&device=${_rkDev2}`, {
                     headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
                 });
 
@@ -1675,7 +1712,8 @@
                 const color = RANK_CHART_COLORS[i % RANK_CHART_COLORS.length];
                 
                 try {
-                    const res = await fetch(`${API_URL}/api/monitoring/rank-history/${currentClient.id}?keyword=${encodeURIComponent(kw)}`, {
+                    const _rhDev = window._rankDevice || 'desktop';
+                    const res = await fetch(`${API_URL}/api/monitoring/rank-history/${currentClient.id}?keyword=${encodeURIComponent(kw)}&device=${_rhDev}`, {
                         headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
                     });
                     
@@ -1827,6 +1865,33 @@
             }
         }
         
+        // ─── Device toggle state (Keyword Gap) ───
+        window._gapDevice = 'desktop';
+
+        function setGapDevice(device) {
+            window._gapDevice = device;
+            // Update only the gap panel device buttons
+            document.getElementById('gapDeviceDesktop').classList.toggle('gap-device-active', device === 'desktop');
+            document.getElementById('gapDeviceMobile').classList.toggle('gap-device-active', device === 'mobile');
+            // Auto-refresh if data was already loaded
+            if (window.allGapData && window.allGapData.length > 0) {
+                analyzeKeywordGap();
+            }
+        }
+
+        // ─── Device toggle state (Rank History) ───
+        window._rankDevice = 'desktop';
+
+        function setRankDevice(device) {
+            window._rankDevice = device;
+            document.getElementById('rankDeviceDesktop').classList.toggle('gap-device-active', device === 'desktop');
+            document.getElementById('rankDeviceMobile').classList.toggle('gap-device-active', device === 'mobile');
+            // Reload rankings if client is selected
+            if (currentClient) {
+                refreshRankings();
+            }
+        }
+
         async function analyzeKeywordGap() {
             if (!currentClient) {
                 alert('Please select a client first');
@@ -1838,7 +1903,8 @@
             window._gapUserSorted = false;
             
             try {
-                const res = await fetch(`${API_URL}/api/semrush/keyword-gap/${currentClient.id}`, {
+                const gapDevice = window._gapDevice || 'desktop';
+                const res = await fetch(`${API_URL}/api/semrush/keyword-gap/${currentClient.id}?device=${gapDevice}`, {
                     headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
                 });
 

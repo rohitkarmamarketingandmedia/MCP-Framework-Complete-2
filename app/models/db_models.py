@@ -859,13 +859,14 @@ class DBRankHistory(db.Model):
     position: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     previous_position: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     change: Mapped[int] = mapped_column(Integer, default=0)
-    
+
     url: Mapped[str] = mapped_column(String(500), default='')  # URL that's ranking
     search_volume: Mapped[int] = mapped_column(Integer, default=0)
     cpc: Mapped[float] = mapped_column(Float, default=0.0)
-    
+    device: Mapped[str] = mapped_column(String(20), default='desktop')  # desktop / mobile
+
     checked_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
-    
+
     def __init__(self, client_id: str, keyword: str, **kwargs):
         self.id = f"rank_{uuid.uuid4().hex[:12]}"
         self.client_id = client_id
@@ -876,8 +877,9 @@ class DBRankHistory(db.Model):
         self.url = kwargs.get('url', '')
         self.search_volume = kwargs.get('search_volume', 0)
         self.cpc = kwargs.get('cpc', 0.0)
+        self.device = kwargs.get('device', 'desktop')
         self.checked_at = datetime.utcnow()
-    
+
     def to_dict(self) -> dict:
         return {
             'id': self.id,
@@ -889,6 +891,7 @@ class DBRankHistory(db.Model):
             'url': self.url,
             'search_volume': self.search_volume,
             'cpc': self.cpc,
+            'device': self.device,
             'checked_at': self.checked_at.isoformat() if self.checked_at else None
         }
 

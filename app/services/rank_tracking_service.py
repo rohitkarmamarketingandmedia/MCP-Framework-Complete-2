@@ -845,16 +845,18 @@ class RankTrackingService:
             'source': source
         }
 
-    def get_tracked_keywords(self, client_id: str) -> List[str]:
+    def get_tracked_keywords(self, client_id: str, device: str = None) -> List[str]:
         """
         Get the list of actively tracked keywords for a client.
+        Optionally filter by device (desktop / mobile).
         Falls back to client's primary + secondary keywords if none tracked.
         """
         from app.models.db_models import DBTrackedKeyword, DBClient
 
-        tracked = DBTrackedKeyword.query.filter_by(
-            client_id=client_id, is_active=True
-        ).all()
+        q = DBTrackedKeyword.query.filter_by(client_id=client_id, is_active=True)
+        if device:
+            q = q.filter_by(device=device.lower())
+        tracked = q.all()
 
         if tracked:
             return [tk.keyword for tk in tracked]
@@ -866,22 +868,39 @@ class RankTrackingService:
 
         return []
 
-    def run_serp_check(self, client_id: str, domain: str, database: str = None, force_refresh: bool = False) -> Dict:
+    def run_serp_check(self, client_id: str, domain: str,
+                       database: str = None, device: str = 'desktop',
+                       force_refresh: bool = False) -> Dict:
         """
-        Run a SERP check for a client's tracked keywords.
-        Pulls current positions from SEMrush, saves snapshots to rank_history.
+        Run a SERP check for a client's tracked keywords on a specific device.
+        Pulls current positions from SEMrush, saves snapshots to rank_history
+        with the device dimension so desktop and mobile data stay separate.
 
-        Returns: { checked: int, keywords: [...], summary: {...} }
+        Returns: { checked: int, keywords: [...], summary: {...}, device: str }
         """
         from app.database import db
         from app.models.db_models import DBRankHistory, DBTrackedKeyword
 
-        keywords = self.get_tracked_keywords(client_id)
+        device = (device or 'desktop').lower()
+        if device not in ('desktop', 'mobile'):
+            device = 'desktop'
+
+        keywords = self.get_tracked_keywords(client_id, device=device)
+        if not keywords:
+            # Try without device filter as fallback
+            keywords = self.get_tracked_keywords(client_id)
         if not keywords:
             return {'error': 'No tracked keywords', 'checked': 0}
 
+        # Resolve the SEMrush database for this device
+        resolved_db = database or 'us'
+        if device == 'mobile' and '.mobile' not in resolved_db:
+            resolved_db = f"{resolved_db}.mobile"
+
         # Call SEMrush for current positions
-        result = self.check_all_keywords(domain, keywords, database=database, force_refresh=force_refresh)
+        result = self.check_all_keywords(
+            domain, keywords, database=resolved_db, force_refresh=force_refresh
+        )
 
         if result.get('error') and not result.get('demo_mode'):
             return result
@@ -890,7 +909,7 @@ class RankTrackingService:
         if result.get('demo_mode'):
             return {'error': 'SEMrush API not configured — cannot save real data', 'checked': 0}
 
-        # Save each keyword position as a snapshot
+        # Save each keyword position as a snapshot with device dimension
         now = datetime.utcnow()
         checked_count = 0
 
@@ -898,10 +917,11 @@ class RankTrackingService:
             keyword = kw_data['keyword']
             current_pos = kw_data.get('position')
 
-            # Get previous position from last snapshot
+            # Get previous position from last snapshot FOR THIS DEVICE
             prev = DBRankHistory.query.filter(
                 DBRankHistory.client_id == client_id,
                 DBRankHistory.keyword == keyword,
+                DBRankHistory.device == device,
             ).order_by(DBRankHistory.checked_at.desc()).first()
 
             prev_pos = prev.position if prev else None
@@ -918,6 +938,7 @@ class RankTrackingService:
                 url=kw_data.get('url', ''),
                 search_volume=kw_data.get('search_volume', 0),
                 cpc=kw_data.get('cpc', 0.0),
+                device=device,
             )
             db.session.add(snapshot)
             checked_count += 1
@@ -928,11 +949,12 @@ class RankTrackingService:
         ).update({'last_checked_at': now})
 
         db.session.commit()
-        logger.info(f"[SERP-CHECK] Saved {checked_count} rank snapshots for client {client_id}")
+        logger.info(f"[SERP-CHECK] Saved {checked_count} rank snapshots ({device}) for client {client_id}")
 
-        # Attach traffic value
+        # Attach traffic value and device
         result['traffic_value'] = self.calculate_traffic_value(result.get('keywords', []))
         result['checked'] = checked_count
+        result['device'] = device
         return result
 
     def _clean_domain(self, domain: str) -> str:

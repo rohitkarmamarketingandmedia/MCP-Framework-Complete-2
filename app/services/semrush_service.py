@@ -502,6 +502,20 @@ class SEMRushService:
         except requests.RequestException as e:
             return {'error': f'Request failed: {str(e)}'}
     
+    def _resolve_database(self, database: str = 'us', device: str = 'desktop') -> str:
+        """
+        Map (database, device) to the correct SEMrush database code.
+        SEMrush encodes device in the database string:
+            desktop → 'us'          (or 'uk', 'de', etc.)
+            mobile  → 'us.mobile'   (or 'uk.mobile', etc.)
+        The caller passes a clean country code (e.g. 'us') and a device string;
+        this helper returns the final database value for the API call.
+        """
+        base = (database or 'us').lower().replace('.mobile', '')  # strip if already there
+        if device and device.lower() == 'mobile':
+            return f"{base}.mobile"
+        return base
+
     def _clean_domain(self, domain: str) -> str:
         """Clean domain URL to just domain name"""
         domain = domain.lower().strip()
@@ -646,9 +660,12 @@ class SEMRushService:
                                     device: str = 'desktop') -> Dict[str, Any]:
         """
         Pull domain_organic with consistent params for gap analysis.
-        Returns keywords with rank ≤ 100, including volume, CPC, KD, intent, etc.
+        Returns keywords with rank ≤ 100, including volume, CPC, KD, etc.
         Every domain is queried with the SAME database + device so the snapshot
         is comparable.
+
+        Device is encoded in the database string via _resolve_database():
+            desktop → 'us',  mobile → 'us.mobile'
 
         Export columns:
             Ph  = Keyword
@@ -661,21 +678,18 @@ class SEMRushService:
             Ur  = Ranking URL
         """
         domain = self._clean_domain(domain)
+        resolved_db = self._resolve_database(database, device)
 
         params = {
             'type': 'domain_organic',
             'key': self.api_key,
             'domain': domain,
-            'database': database,
+            'database': resolved_db,
             'export_columns': 'Ph,Po,Nq,Cp,Co,Kd,Nr,Ur',
             'display_limit': limit,
             'display_sort': 'nq_desc',
             'display_filter': '+|Po|Lt|101',   # rank ≤ 100
         }
-
-        # SEMrush doesn't have a top-level 'device' param for domain_organic,
-        # but the database itself covers desktop by default.  For mobile you'd
-        # use database 'us.mobile', etc.  We keep 'us' = desktop.
 
         result = self._make_request(params)
 

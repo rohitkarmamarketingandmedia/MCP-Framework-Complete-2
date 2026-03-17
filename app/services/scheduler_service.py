@@ -367,20 +367,22 @@ def run_rank_check(app):
                     logger.debug(f"No domain for {client.business_name}, skipping")
                     continue
 
-                # run_serp_check handles: get tracked kw -> SEMrush API -> save snapshots
-                result = rank_tracking_service.run_serp_check(
-                    client_id=client.id,
-                    domain=domain,
-                    force_refresh=True  # Scheduled check always hits the API
-                )
+                # Run SERP check for BOTH devices — data stays separate
+                for device in ('desktop', 'mobile'):
+                    result = rank_tracking_service.run_serp_check(
+                        client_id=client.id,
+                        domain=domain,
+                        device=device,
+                        force_refresh=True  # Scheduled check always hits the API
+                    )
 
-                if result.get('error'):
-                    logger.warning(f"Rank check error for {client.business_name}: {result['error']}")
-                    continue
+                    if result.get('error'):
+                        logger.warning(f"Rank check error ({device}) for {client.business_name}: {result['error']}")
+                        continue
 
-                kw_count = result.get('checked', 0)
-                total_checked += kw_count
-                logger.info(f"Rank check complete for {client.business_name}: {kw_count} keywords")
+                    kw_count = result.get('checked', 0)
+                    total_checked += kw_count
+                    logger.info(f"Rank check ({device}) complete for {client.business_name}: {kw_count} keywords")
 
                 # Trigger intelligence automation rank drop detection
                 try:

@@ -1076,10 +1076,15 @@ def get_rankings(current_user):
         domain = client.website_url or client.business_name
         force = request.args.get('force', '').lower() in ('1', 'true')
 
+        device = request.args.get('device', 'desktop').lower()
+        if device not in ('desktop', 'mobile'):
+            device = 'desktop'
+
         # run_serp_check uses tracked keywords, calls SEMrush, saves snapshots
         result = rank_tracking_service.run_serp_check(
             client_id=client_id,
             domain=domain,
+            device=device,
             force_refresh=force
         )
 
@@ -1712,11 +1717,16 @@ def get_rank_history(current_user, client_id):
     keyword = request.args.get('keyword', '')
     if not keyword:
         return jsonify({'error': 'keyword parameter required'}), 400
-    
-    # Get rank history for this keyword
+
+    device = request.args.get('device', 'desktop').lower()
+    if device not in ('desktop', 'mobile'):
+        device = 'desktop'
+
+    # Get rank history for this keyword filtered by device
     history = DBRankHistory.query.filter(
         DBRankHistory.client_id == client_id,
         DBRankHistory.keyword == keyword,
+        DBRankHistory.device == device,
         DBRankHistory.checked_at >= datetime.utcnow() - timedelta(days=30)
     ).order_by(DBRankHistory.checked_at.asc()).all()
     
