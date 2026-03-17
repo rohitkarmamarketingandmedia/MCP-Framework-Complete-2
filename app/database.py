@@ -331,6 +331,46 @@ def run_migrations(app):
             except:
                 pass
 
+        # ── Add device column to rank_history ──
+        try:
+            result = db.session.execute(text("""
+                SELECT column_name FROM information_schema.columns
+                WHERE table_name = 'rank_history' AND column_name = 'device'
+            """))
+            if not result.fetchone():
+                logger.info("Adding device column to rank_history table...")
+                db.session.execute(text(
+                    "ALTER TABLE rank_history ADD COLUMN device VARCHAR(20) DEFAULT 'desktop'"
+                ))
+                db.session.commit()
+                logger.info("  device column added to rank_history")
+        except Exception as e:
+            logger.debug(f"rank_history device migration: {e}")
+            try:
+                db.session.rollback()
+            except:
+                pass
+
+        # ── Add device column to tracked_keywords if missing ──
+        try:
+            result = db.session.execute(text("""
+                SELECT column_name FROM information_schema.columns
+                WHERE table_name = 'tracked_keywords' AND column_name = 'device'
+            """))
+            if not result.fetchone():
+                logger.info("Adding device column to tracked_keywords table...")
+                db.session.execute(text(
+                    "ALTER TABLE tracked_keywords ADD COLUMN device VARCHAR(20) DEFAULT 'desktop'"
+                ))
+                db.session.commit()
+                logger.info("  device column added to tracked_keywords")
+        except Exception as e:
+            logger.debug(f"tracked_keywords device migration: {e}")
+            try:
+                db.session.rollback()
+            except:
+                pass
+
 
 def init_db(app):
     """Initialize database with app"""

@@ -1904,7 +1904,10 @@
             
             try {
                 const gapDevice = window._gapDevice || 'desktop';
-                const res = await fetch(`${API_URL}/api/semrush/keyword-gap/${currentClient.id}?device=${gapDevice}`, {
+                // Match SEMrush: pass max_competitors to limit the comparison set
+                // The table has 2 competitor columns, so default to 2
+                const maxComps = window._gapMaxCompetitors || 2;
+                const res = await fetch(`${API_URL}/api/semrush/keyword-gap/${currentClient.id}?device=${gapDevice}&max_competitors=${maxComps}`, {
                     headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
                 });
 
