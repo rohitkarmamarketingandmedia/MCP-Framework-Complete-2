@@ -994,18 +994,26 @@ def comprehensive_seo_research(current_user):
                 auto_competitors = [c['domain'] for c in competitors_data.get('competitors', [])[:3]]
                 results['competitors'] = competitors_data.get('competitors', [])[:5]
                 
-                # STEP 3: Get keyword gaps from auto-discovered competitors
+                # STEP 3: Find keyword gaps via domain_organic per competitor
                 if auto_competitors:
-                    gaps = semrush_service.get_keyword_gap(domain, auto_competitors, limit=50)
-                    if not gaps.get('error'):
-                        for gap in gaps.get('gaps', []):
-                            kw_lower = gap.get('keyword', '').lower()
-                            if kw_lower not in seen_keywords:
-                                seen_keywords.add(kw_lower)
-                                gap['source'] = 'competitor_gap'
-                                gap['intent'] = _classify_search_intent(gap.get('keyword', ''))
-                                all_keywords.append(gap)
-                                results['keyword_gaps'].append(gap)
+                    for comp_domain in auto_competitors[:3]:
+                        comp_organic = semrush_service.get_domain_organic_keywords(comp_domain, limit=100)
+                        if not comp_organic.get('error'):
+                            for kw in comp_organic.get('keywords', []):
+                                kw_lower = kw.get('keyword', '').lower()
+                                if kw_lower not in seen_keywords:
+                                    seen_keywords.add(kw_lower)
+                                    gap_entry = {
+                                        'keyword': kw.get('keyword', ''),
+                                        'volume': kw.get('volume', 0),
+                                        'difficulty': kw.get('difficulty', 0),
+                                        'cpc': kw.get('cpc', 0),
+                                        'competitor_position': kw.get('position', 0),
+                                        'source': 'competitor_gap',
+                                        'intent': _classify_search_intent(kw.get('keyword', ''))
+                                    }
+                                    all_keywords.append(gap_entry)
+                                    results['keyword_gaps'].append(gap_entry)
         
         # STEP 4: Analyze manual competitors
         for comp in manual_competitors[:3]:

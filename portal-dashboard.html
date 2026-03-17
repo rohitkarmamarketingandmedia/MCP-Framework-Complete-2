@@ -928,7 +928,7 @@
         async function loadRankings(headers) {
             try {
                 // Try to load from rank tracking service
-                const rankRes = await fetch(`${API_URL}/api/monitoring/rank-history?client_id=${clientId}&days=30`, { headers });
+                const rankRes = await fetch(`${API_URL}/api/monitoring/rank-history?client_id=${clientId}&days=30&device=desktop`, { headers });
                 
                 if (rankRes.ok) {
                     const rankData = await rankRes.json();

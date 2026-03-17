@@ -48,20 +48,26 @@ class SEOService:
             }
         """
         if not self.semrush_key:
-            # Return mock data for development
-            return self._mock_rankings(domain, keywords)
-        
+            return {
+                'domain': domain,
+                'keywords': [],
+                'timestamp': datetime.utcnow().isoformat(),
+                'error': 'SEMrush API key not configured'
+            }
+
         try:
-            # SEMrush Domain Organic Keywords
+            # SEMrush Domain Organic Keywords — rank ≤ 100
+            clean_domain = domain.replace('https://', '').replace('http://', '').replace('www.', '').split('/')[0]
             response = requests.get(
                 'https://api.semrush.com/',
                 params={
                     'type': 'domain_organic',
                     'key': self.semrush_key,
-                    'domain': domain.replace('https://', '').replace('http://', '').split('/')[0],
+                    'domain': clean_domain,
                     'database': 'us',
                     'export_columns': 'Ph,Po,Ur,Nq,Kd',
-                    'display_limit': 100
+                    'display_limit': 500,
+                    'display_filter': '+|Po|Lt|101',  # rank ≤ 100
                 },
                 timeout=30
             )

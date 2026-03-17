@@ -7475,7 +7475,7 @@
                 let keywords = [];
 
                 // Use cached rankings from DB (doesn't call SEMrush API, saves units)
-                const response = await fetch(`${API_URL}/api/monitoring/rankings/latest?client_id=${currentClient.id}`, {
+                const response = await fetch(`${API_URL}/api/monitoring/rankings/latest?client_id=${currentClient.id}&device=desktop`, {
                     headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
                 });
                 if (response.ok) {
@@ -16323,7 +16323,7 @@
             btn.disabled = true;
 
             try {
-                const response = await fetch(`${API_URL}/api/monitoring/rankings?client_id=${currentClient.id}`, {
+                const response = await fetch(`${API_URL}/api/monitoring/rankings?client_id=${currentClient.id}&device=desktop`, {
                     headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
                 });
 
@@ -16381,7 +16381,7 @@
             if (!currentClient) return;
 
             try {
-                const response = await fetch(`${API_URL}/api/monitoring/rankings/history?client_id=${currentClient.id}&days=30`, {
+                const response = await fetch(`${API_URL}/api/monitoring/rankings/history?client_id=${currentClient.id}&days=30&device=desktop`, {
                     headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
                 });
 
@@ -16694,7 +16694,7 @@
             if (!keywordHistoryData[keyword]) {
                 // Fetch from API (using existing history endpoint)
                 try {
-                    const response = await fetch(`${API_URL}/api/monitoring/rankings/history?client_id=${currentClient.id}&days=30&keyword=${encodeURIComponent(keyword)}`, {
+                    const response = await fetch(`${API_URL}/api/monitoring/rankings/history?client_id=${currentClient.id}&days=30&device=desktop&keyword=${encodeURIComponent(keyword)}`, {
                         headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
                     });
 

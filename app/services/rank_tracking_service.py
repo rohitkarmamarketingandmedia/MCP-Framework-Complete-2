@@ -117,11 +117,12 @@ class RankTrackingService:
             params = {
                 'type': 'domain_organic',
                 'key': self.api_key,
-                'display_limit': 100,
+                'display_limit': 500,
                 'export_columns': 'Ph,Po,Pp,Ur,Nq,Cp,Co',
                 'domain': domain,
                 'phrase': keyword,
-                'database': database
+                'database': database,
+                'display_filter': '+|Po|Lt|101',  # rank ≤ 100
             }
             
             response = requests.get(self.base_url, params=params, timeout=30)
@@ -191,20 +192,18 @@ class RankTrackingService:
         """
         domain = self._clean_domain(domain)
         database = database or self.default_database
-        
-        # Check cache first (unless force refresh)
+
+        # Cache key includes database (which encodes device: us vs mobile_us)
         cache_key = f"{domain}:{database}"
         if not force_refresh:
             cached = self._get_cached(cache_key)
             if cached:
                 cached['cached'] = True
                 return cached
-        
-        # Debug logging
+
         api_key = self.api_key
-        logger.info(f"SEMrush check_all_keywords: api_key length={len(api_key) if api_key else 0}, domain={domain}")
-        
-        # No API key — return error, no demo data
+        logger.info(f"SEMrush check_all_keywords: domain={domain}, db={database}, keywords={len(keywords)}")
+
         if not api_key:
             logger.warning("SEMrush API key not configured — cannot check rankings")
             return {
@@ -215,7 +214,7 @@ class RankTrackingService:
                             'in_top_20': 0, 'not_ranking': len(keywords)},
                 'error': 'SEMrush API key not configured',
             }
-        
+
         result = {
             'domain': domain,
             'checked_at': datetime.utcnow().isoformat(),
@@ -231,16 +230,17 @@ class RankTrackingService:
                 'unchanged': 0
             }
         }
-        
+
         try:
-            # Get all organic keywords for domain
+            # Pull organic keywords — rank ≤ 100, 500 limit so we don't miss tracked keywords
             params = {
                 'type': 'domain_organic',
                 'key': api_key,
-                'display_limit': 100,
-                'export_columns': 'Ph,Po,Pp,Ur,Nq,Cp,Co,Fk,Kd',  # Added Fk (SERP Features) and Kd (Keyword Difficulty)
+                'display_limit': 500,
+                'export_columns': 'Ph,Po,Pp,Ur,Nq,Cp,Co,Fk,Kd',
                 'domain': domain,
-                'database': database
+                'database': database,
+                'display_filter': '+|Po|Lt|101',  # rank ≤ 100
             }
             
             logger.info(f"SEMrush API request: domain={domain}, database={database}")
@@ -792,10 +792,11 @@ class RankTrackingService:
                 params = {
                     'type': 'domain_organic',
                     'key': self.api_key,
-                    'display_limit': 100,
+                    'display_limit': 500,
                     'export_columns': 'Ph,Nq',
                     'domain': domain,
-                    'database': database
+                    'database': database,
+                    'display_filter': '+|Po|Lt|101',  # rank ≤ 100
                 }
                 resp = requests.get(self.base_url, params=params, timeout=30)
                 if resp.status_code == 200 and not resp.text.startswith('ERROR'):

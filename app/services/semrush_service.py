@@ -240,13 +240,14 @@ class SEMRushService:
             'adwords_cost': float(values[8]) if len(values) > 8 and values[8] else 0.0
         }
     
-    def get_domain_organic_keywords(self, domain: str, limit: int = 50, database: str = None) -> Dict[str, Any]:
+    def get_domain_organic_keywords(self, domain: str, limit: int = 500, database: str = None) -> Dict[str, Any]:
         """
-        Get keywords a domain ranks for organically
+        Get keywords a domain ranks for organically.
+        Only returns keywords with rank ≤ 100.
         """
         database = database or self.default_database
         domain = self._clean_domain(domain)
-        
+
         params = {
             'type': 'domain_organic',
             'key': self.api_key,
@@ -254,7 +255,8 @@ class SEMRushService:
             'database': database,
             'export_columns': 'Ph,Po,Nq,Cp,Co,Kd,Ur',
             'display_limit': limit,
-            'display_sort': 'nq_desc'  # Sort by volume
+            'display_sort': 'nq_desc',
+            'display_filter': '+|Po|Lt|101',  # rank ≤ 100
         }
         
         result = self._make_request(params)
