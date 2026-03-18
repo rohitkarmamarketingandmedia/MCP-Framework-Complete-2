@@ -365,6 +365,23 @@ def render_review_page(review_token):
         </div>
     </div>
     
+    <!-- Editor Image Modal -->
+    <div id="editorImgModal" class="hidden fixed inset-0 bg-black/40 z-50 flex items-center justify-center" onclick="if(event.target===this)closeEditorImgModal()">
+        <div class="bg-white rounded-xl p-6 max-w-sm w-full mx-4 shadow-2xl" onclick="event.stopPropagation()">
+            <h3 class="font-bold text-gray-800 mb-4"><i class="fas fa-image mr-2 text-blue-500"></i>Insert Image</h3>
+            <button onclick="editorImgUpload()" class="w-full flex items-center gap-3 p-3 border rounded-lg hover:bg-gray-50 mb-2 text-left">
+                <i class="fas fa-upload text-green-500"></i>
+                <span class="text-sm font-medium">Upload from Computer</span>
+            </button>
+            <input type="file" id="editorImgFileInput" accept="image/*" class="hidden" onchange="editorImgFileChosen(this)">
+            <div class="flex gap-2 mt-3">
+                <input type="text" id="editorImgUrlInput" placeholder="Or paste image URL..." class="flex-1 px-3 py-2 border rounded-lg text-sm">
+                <button onclick="editorImgFromUrl()" class="px-3 py-2 bg-blue-500 text-white rounded-lg text-sm">Insert</button>
+            </div>
+            <button onclick="closeEditorImgModal()" class="mt-3 w-full py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-gray-600 text-sm">Cancel</button>
+        </div>
+    </div>
+
     <!-- Toast -->
     <div id="toast" class="toast hidden">
         <div id="toastContent" class="bg-green-600 text-white px-6 py-3 rounded-lg shadow-lg"></div>
@@ -425,55 +442,57 @@ def render_review_page(review_token):
             }}
         }}
 
+        // --- Image insertion into editor ---
+        var _editorSavedRange = null;
+
         function insertEditorImage() {{
-            // Save selection before opening the modal
-            const sel = window.getSelection();
-            let savedRange = sel.rangeCount > 0 ? sel.getRangeAt(0).cloneRange() : null;
+            // Save cursor position
+            var s = window.getSelection();
+            _editorSavedRange = s.rangeCount > 0 ? s.getRangeAt(0).cloneRange() : null;
+            // Show image insertion modal
+            document.getElementById('editorImgModal').classList.remove('hidden');
+        }}
 
-            const choice = prompt('Enter image URL, or type "upload" to select a file from your computer:', 'https://');
-            if (!choice) return;
+        function closeEditorImgModal() {{
+            document.getElementById('editorImgModal').classList.add('hidden');
+        }}
 
-            if (choice.trim().toLowerCase() === 'upload') {{
-                // Create a hidden file input, let user pick an image, convert to base64 and insert
-                const input = document.createElement('input');
-                input.type = 'file';
-                input.accept = 'image/*';
-                input.onchange = function() {{
-                    if (!input.files || !input.files[0]) return;
-                    const file = input.files[0];
-                    if (file.size > 5 * 1024 * 1024) {{
-                        showToast('Image must be under 5MB', 'error');
-                        return;
-                    }}
-                    const reader = new FileReader();
-                    reader.onload = function(e) {{
-                        const html = '<img src="' + e.target.result + '" alt="Image" style="max-width:100%;height:auto;margin:10px 0;border-radius:8px;">';
-                        const editor = document.getElementById('bodyEdit');
-                        editor.focus();
-                        if (savedRange) {{
-                            const s = window.getSelection();
-                            s.removeAllRanges();
-                            s.addRange(savedRange);
-                        }}
-                        document.execCommand('insertHTML', false, html);
-                        showToast('Image inserted!', 'success');
-                    }};
-                    reader.readAsDataURL(file);
-                }};
-                input.click();
-            }} else {{
-                // URL entered directly
-                const html = '<img src="' + choice.trim() + '" alt="Image" style="max-width:100%;height:auto;margin:10px 0;border-radius:8px;">';
-                const editor = document.getElementById('bodyEdit');
-                editor.focus();
-                if (savedRange) {{
-                    const s = window.getSelection();
-                    s.removeAllRanges();
-                    s.addRange(savedRange);
-                }}
-                document.execCommand('insertHTML', false, html);
-                showToast('Image inserted!', 'success');
+        function editorImgFromUrl() {{
+            var url = document.getElementById('editorImgUrlInput').value.trim();
+            if (!url) return;
+            _insertImgHtml('<img src="' + url + '" alt="Image" style="max-width:100%;height:auto;margin:10px 0;border-radius:8px;">');
+            document.getElementById('editorImgUrlInput').value = '';
+            closeEditorImgModal();
+        }}
+
+        function editorImgUpload() {{
+            document.getElementById('editorImgFileInput').click();
+        }}
+
+        function editorImgFileChosen(input) {{
+            if (!input.files || !input.files[0]) return;
+            var file = input.files[0];
+            if (file.size > 5 * 1024 * 1024) {{ showToast('Image must be under 5MB', 'error'); return; }}
+            var reader = new FileReader();
+            reader.onload = function(ev) {{
+                _insertImgHtml('<img src="' + ev.target.result + '" alt="Image" style="max-width:100%;height:auto;margin:10px 0;border-radius:8px;">');
+                closeEditorImgModal();
+            }};
+            reader.readAsDataURL(file);
+            input.value = '';
+        }}
+
+        function _insertImgHtml(html) {{
+            var editor = document.getElementById('bodyEdit');
+            editor.focus();
+            if (_editorSavedRange) {{
+                var sel = window.getSelection();
+                sel.removeAllRanges();
+                sel.addRange(_editorSavedRange);
             }}
+            document.execCommand('insertHTML', false, html);
+            _editorSavedRange = null;
+            showToast('Image inserted!', 'success');
         }}
         
         let sourceMode = false;

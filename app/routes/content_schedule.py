@@ -402,7 +402,7 @@ def submit_client_review(review_token):
     if 'featured_image_url' in data:
         img_url = data['featured_image_url']
         # If client uploaded a new image, it comes as a base64 data-URI.
-        # Save it to disk and store the file path so it survives refreshes.
+        # Decode it and upload via FTP (persistent) or save locally as fallback.
         if img_url and img_url.startswith('data:image'):
             try:
                 import base64, os, uuid as _uuid
@@ -416,16 +416,35 @@ def submit_client_review(review_token):
                 elif 'gif' in header:
                     ext = 'gif'
                 filename = f"review_{_uuid.uuid4().hex[:10]}.{ext}"
-                upload_dir = os.path.join(
-                    current_app.config.get('UPLOAD_FOLDER', 'static/uploads'),
-                    'client_images',
-                    blog.client_id or 'general'
-                )
-                os.makedirs(upload_dir, exist_ok=True)
-                filepath = os.path.join(upload_dir, filename)
-                with open(filepath, 'wb') as f:
-                    f.write(base64.b64decode(b64data))
-                img_url = f"/static/uploads/client_images/{blog.client_id or 'general'}/{filename}"
+                file_data = base64.b64decode(b64data)
+                client_id = blog.client_id or 'general'
+
+                # Try FTP first (persistent across Render deploys)
+                ftp_saved = False
+                try:
+                    from app.services.ftp_storage_service import get_ftp_service
+                    ftp = get_ftp_service()
+                    if ftp.is_configured():
+                        ftp_result = ftp.upload_file(file_data, filename, client_id, 'featured')
+                        if ftp_result:
+                            img_url = ftp_result['file_url']
+                            ftp_saved = True
+                            logger.info(f"Review featured image uploaded to FTP: {img_url}")
+                except Exception as ftp_err:
+                    logger.warning(f"FTP upload for review image failed: {ftp_err}")
+
+                # Fallback to local storage
+                if not ftp_saved:
+                    upload_dir = os.path.join(
+                        current_app.config.get('UPLOAD_FOLDER', 'static/uploads'),
+                        'client_images', client_id
+                    )
+                    os.makedirs(upload_dir, exist_ok=True)
+                    filepath = os.path.join(upload_dir, filename)
+                    with open(filepath, 'wb') as f:
+                        f.write(file_data)
+                    img_url = f"/static/uploads/client_images/{client_id}/{filename}"
+                    logger.info(f"Review featured image saved locally: {img_url}")
             except Exception as img_err:
                 logger.warning(f"Failed to save base64 featured image: {img_err}")
                 # Fall through — keep the data URI as a fallback
