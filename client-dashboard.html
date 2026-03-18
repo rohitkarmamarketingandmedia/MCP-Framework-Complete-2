@@ -5330,8 +5330,34 @@
             API_URL = 'https://' + API_URL.replace('http://', '').replace('https://', '');
         }
         console.log('API_URL:', API_URL);
-        let AUTH_TOKEN = '';
-        let USER_ROLE = '';
+        let AUTH_TOKEN = localStorage.getItem('mcp_auth_token') || '';
+        let USER_ROLE = localStorage.getItem('mcp_user_role') || '';
+
+        // ==========================================
+        // AUTO-LOGIN ON PAGE LOAD (if saved token exists)
+        // ==========================================
+        if (AUTH_TOKEN) {
+            // Validate the saved token by making a lightweight API call
+            fetch(`${API_URL}/api/clients/`, {
+                headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
+            }).then(res => {
+                if (res.ok) {
+                    // Token is still valid — skip login modal and load dashboard
+                    document.getElementById('authModal')?.classList.add('hidden');
+                    document.getElementById('dashboard')?.classList.remove('hidden');
+                    applyRoleNav();
+                    loadClients();
+                } else {
+                    // Token expired or invalid — clear it and show login
+                    localStorage.removeItem('mcp_auth_token');
+                    localStorage.removeItem('mcp_user_role');
+                    AUTH_TOKEN = '';
+                    USER_ROLE = '';
+                }
+            }).catch(() => {
+                // Network error — don't clear token, just show login
+            });
+        }
 
         function applyRoleNav() {
             // Hide nav links that the current user's role doesn't have access to
@@ -5559,7 +5585,9 @@
                 if (res.ok && data.token) {
                     AUTH_TOKEN = data.token;
                     USER_ROLE = 'admin';
-                    localStorage.setItem('mcp_user_email', email);  // Save for permission fixes
+                    localStorage.setItem('mcp_auth_token', data.token);
+                    localStorage.setItem('mcp_user_role', 'admin');
+                    localStorage.setItem('mcp_user_email', email);
                     showToast('Admin created! Email: ' + email, 'success');
                     document.getElementById('authModal').classList.add('hidden');
                     document.getElementById('dashboard').classList.remove('hidden');
@@ -5605,7 +5633,9 @@
                 if (data.token) {
                     AUTH_TOKEN = data.token;
                     USER_ROLE = data.user?.role || 'client';
-                    localStorage.setItem('mcp_user_email', email);  // Save for permission fixes
+                    localStorage.setItem('mcp_auth_token', data.token);
+                    localStorage.setItem('mcp_user_role', USER_ROLE);
+                    localStorage.setItem('mcp_user_email', email);
                     document.getElementById('authModal').classList.add('hidden');
                     document.getElementById('dashboard').classList.remove('hidden');
                     applyRoleNav();
@@ -5691,8 +5721,22 @@
         async function loadClient(clientId) {
             if (!clientId) return;
 
-            // Clear rankings data immediately when switching clients to prevent stale data showing
+            // Clear ALL cached data when switching clients to prevent stale data showing
             rankingsData = null;
+            if (typeof competitorData !== 'undefined') competitorData = null;
+            // Clear competitor dashboard UI
+            const rankBattlesEl = document.getElementById('rankingBattles');
+            if (rankBattlesEl) rankBattlesEl.innerHTML = '<p class="text-gray-500 text-sm">Loading competitor data...</p>';
+            const contentGapsEl = document.getElementById('contentGaps');
+            if (contentGapsEl) contentGapsEl.innerHTML = '';
+            const compCountEl = document.getElementById('compCount');
+            if (compCountEl) compCountEl.textContent = '0';
+            const compGapsEl = document.getElementById('compGaps');
+            if (compGapsEl) compGapsEl.textContent = '0';
+            const compKeywordsEl = document.getElementById('compKeywords');
+            if (compKeywordsEl) compKeywordsEl.textContent = '0';
+            const compWinRateEl = document.getElementById('compWinRate');
+            if (compWinRateEl) compWinRateEl.textContent = '0%';
             const rankingsTable = document.getElementById('rankingsTable');
             if (rankingsTable) rankingsTable.innerHTML = '<tr><td colspan="5" class="py-8 text-center text-gray-600"><i class="fas fa-spinner fa-spin mr-2"></i>Loading rankings...</td></tr>';
             const rankAvgEl = document.getElementById('rankAvgPosition');
@@ -5731,6 +5775,10 @@
 
                     // Check for token expiry
                     if (clientRes.status === 401 || errorText.includes('expired')) {
+                        // Clear saved token so we don't try auto-login with expired token
+                        localStorage.removeItem('mcp_auth_token');
+                        localStorage.removeItem('mcp_user_role');
+                        AUTH_TOKEN = '';
                         showToast('Session expired. Please log in again.', 'error');
                         setTimeout(() => window.location.href = '/admin', 2000);
                         return;

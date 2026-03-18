@@ -708,13 +708,32 @@
         }
         
         let API_URL = window.location.origin;
-        let AUTH_TOKEN = '';
+        let AUTH_TOKEN = localStorage.getItem('mcp_auth_token') || '';
         let currentClientId = '';
         let currentClient = null;
         let currentQueueItem = null;
         let competitors = [];  // Competitor data for gap analysis
         let rankingsData = {};  // Ranking data for keywords
         
+        // ==========================================
+        // AUTO-LOGIN ON PAGE LOAD
+        // ==========================================
+        if (AUTH_TOKEN) {
+            fetch(`${API_URL}/api/clients/`, {
+                headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
+            }).then(res => {
+                if (res.ok) {
+                    document.getElementById('authModal')?.classList.add('hidden');
+                    document.getElementById('dashboard')?.classList.remove('hidden');
+                    loadClients();
+                } else {
+                    localStorage.removeItem('mcp_auth_token');
+                    localStorage.removeItem('mcp_user_role');
+                    AUTH_TOKEN = '';
+                }
+            }).catch(() => {});
+        }
+
         // ==========================================
         // UTILITY FUNCTIONS
         // ==========================================
@@ -746,6 +765,8 @@
 
                 if (data.token) {
                     AUTH_TOKEN = data.token;
+                    localStorage.setItem('mcp_auth_token', data.token);
+                    localStorage.setItem('mcp_user_role', data.user?.role || 'admin');
                     document.getElementById('authModal').classList.add('hidden');
                     document.getElementById('dashboard').classList.remove('hidden');
                     loadClients();
