@@ -5763,6 +5763,10 @@
             window._callFaqQuestions = null;
             document.getElementById('callFaqBanner')?.remove();
 
+            // Immediately clear call intelligence UI (including executive summary) to prevent
+            // previous client's data from showing while new client's data loads
+            clearCallIntelligenceUI();
+
             try {
                 // Load client details
                 const clientRes = await fetch(`${API_URL}/api/clients/${clientId}`, {
@@ -6445,7 +6449,12 @@
 
             // Animate all stats with either API data or fallbacks
             animateNumber('overview-leads', 0, leads, 1500);
-            animateNumber('overview-calls', 0, calls, 1500);
+            // Only set overview-calls from analytics if we actually got a non-zero value.
+            // If calls === 0, leave it as '--' for loadCallIntelligence() to populate from
+            // the intelligence API (which has the authoritative call count from CallRail).
+            if (calls > 0) {
+                animateNumber('overview-calls', 0, calls, 1500);
+            }
             animateNumber('overview-content', 0, contentCount, 1500);
 
             // Show leads change
@@ -6869,6 +6878,17 @@
             if (callerLocation) callerLocation.textContent = '';
             if (callTimer) callTimer.textContent = '00:00';
 
+            // Clear AI executive summary (CRITICAL: prevents old client's summary showing for new client)
+            const summaryEl = document.getElementById('ai-executive-summary');
+            if (summaryEl) {
+                summaryEl.innerHTML = '';
+                summaryEl.classList.add('hidden');
+            }
+
+            // Reset overview-calls counter while new data loads
+            const overviewCallsEl = document.getElementById('overview-calls');
+            if (overviewCallsEl) overviewCallsEl.textContent = '--';
+
             // Stop any running simulation
             if (callSimulationInterval) {
                 clearInterval(callSimulationInterval);
@@ -6886,7 +6906,8 @@
 
             try {
                 // First try the full intelligence report which includes AI analysis
-                const reportResponse = await fetch(`${API_URL}/api/intelligence/report/${currentClient.id}?days=30&_v=${Date.now()}`, {
+                // Use 90 days (matching Call Intel tab default) so Overview shows same data
+                const reportResponse = await fetch(`${API_URL}/api/intelligence/report/${currentClient.id}?days=90&_v=${Date.now()}`, {
                     headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
                 });
 
@@ -6896,11 +6917,18 @@
                     const report = await reportResponse.json();
                     console.log('Full intelligence report for', currentClient.business_name, ':', JSON.stringify(report, null, 2));
 
-                    // Update calls count
+                    // Update calls count (both the phone mockup label AND the overview stat card)
+                    const callCount = report.call_count || report.total_calls || 0;
                     const callsToday = document.getElementById('calls-today');
                     if (callsToday) {
-                        const callCount = report.call_count || report.total_calls || 0;
                         callsToday.textContent = `${callCount} calls analyzed`;
+                    }
+                    // Sync overview-calls stat card with the real call count from intelligence API
+                    const overviewCallsEl = document.getElementById('overview-calls');
+                    if (overviewCallsEl && callCount > 0) {
+                        animateNumber('overview-calls', 0, callCount, 1500);
+                    } else if (overviewCallsEl && callCount === 0) {
+                        overviewCallsEl.textContent = '0';
                     }
 
                     // Check if we have REAL transcript-based AI insights (must have questions from calls)
