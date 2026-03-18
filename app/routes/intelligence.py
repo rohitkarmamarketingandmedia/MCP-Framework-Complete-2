@@ -362,8 +362,166 @@ def get_intelligence_report(current_user, client_id):
             logger.error(f"Error generating metadata insights: {e}")
             import traceback
             traceback.print_exc()
-    
+
+    # ── AI-POWERED INSIGHT REFINEMENT ──────────────────────────
+    # If we have combined_insights with raw questions, run them through Claude
+    # to deduplicate, categorize and produce genuinely useful insights.
+    combined = report.get('combined_insights')
+    if combined and combined.get('top_questions'):
+        try:
+            refined = _refine_insights_with_ai(
+                combined, client_name, client_industry, client_id
+            )
+            if refined:
+                report['combined_insights'] = refined
+                logger.info("AI-refined insights applied")
+        except Exception as e:
+            logger.warning(f"AI insight refinement failed, using raw data: {e}")
+
     return jsonify(report)
+
+
+# ──────────────────────────────────────────────────────────────
+# AI Insight Refinement — in-memory cache (client_id → {ts, data})
+# ──────────────────────────────────────────────────────────────
+_AI_INSIGHT_CACHE: Dict[str, dict] = {}
+_AI_INSIGHT_CACHE_TTL = 3600 * 4  # 4 hours
+
+
+def _refine_insights_with_ai(
+    raw_insights: Dict,
+    client_name: str,
+    client_industry: str,
+    client_id: str,
+) -> Dict | None:
+    """
+    Send raw extracted call data through Claude to:
+    1. Deduplicate near-identical questions
+    2. Rephrase conversational fragments into clean FAQ-style questions
+    3. Categorize pain points (pricing, scheduling, trust, urgency)
+    4. Rank by business impact / content opportunity value
+    5. Generate an "executive summary" of what callers care about
+
+    Returns a replacement `combined_insights` dict, or None on failure.
+    Caches results for _AI_INSIGHT_CACHE_TTL seconds per client.
+    """
+    import time, json as _json
+
+    # Check cache
+    cached = _AI_INSIGHT_CACHE.get(client_id)
+    if cached and (time.time() - cached['ts']) < _AI_INSIGHT_CACHE_TTL:
+        logger.info(f"Using cached AI insights for {client_id}")
+        return cached['data']
+
+    # Build concise input from raw data
+    raw_questions = [
+        q.get('question', q) if isinstance(q, dict) else q
+        for q in (raw_insights.get('top_questions') or [])[:30]
+    ]
+    raw_pain_points = [
+        p.get('pain_point', p) if isinstance(p, dict) else p
+        for p in (raw_insights.get('top_pain_points') or [])[:15]
+    ]
+    raw_keywords = [
+        k.get('keyword', k) if isinstance(k, dict) else k
+        for k in (raw_insights.get('top_keywords') or [])[:30]
+    ]
+    raw_services = [
+        s.get('service', s) if isinstance(s, dict) else s
+        for s in (raw_insights.get('services_requested') or [])[:15]
+    ]
+
+    if not raw_questions:
+        return None
+
+    prompt = f"""You are analyzing phone call data for "{client_name}", a {client_industry or 'local service'} business.
+
+Below are RAW questions, pain points, keywords and services extracted directly from call transcripts. Many are duplicates, conversational fragments, or scheduling chatter.
+
+RAW CUSTOMER QUESTIONS (may have duplicates/fragments):
+{chr(10).join(f'- {q}' for q in raw_questions)}
+
+RAW PAIN POINTS:
+{chr(10).join(f'- {p}' for p in raw_pain_points) if raw_pain_points else '(none extracted)'}
+
+RAW KEYWORDS MENTIONED:
+{', '.join(raw_keywords[:20]) if raw_keywords else '(none)'}
+
+RAW SERVICES REQUESTED:
+{', '.join(raw_services[:10]) if raw_services else '(none)'}
+
+TASK: Transform this raw data into polished, actionable business intelligence. Return ONLY valid JSON:
+{{
+  "executive_summary": "2-3 sentence summary of what customers care most about and the biggest business opportunity",
+  "top_questions": ["question1", "question2", ...],
+  "top_pain_points": ["pain1", "pain2", ...],
+  "top_keywords": ["keyword1", "keyword2", ...],
+  "services_requested": ["service1", "service2", ...],
+  "content_recommendations": ["recommendation1", "recommendation2", ...]
+}}
+
+RULES for top_questions (return 8-12):
+- Merge duplicates and near-duplicates into ONE clean question
+- Rewrite conversational fragments as clear FAQ-style questions (e.g. "how much is a cleaning?" → "How much does a dental cleaning cost?")
+- REMOVE scheduling/availability questions ("can I come in tomorrow?", "what time are you open?")
+- REMOVE generic pleasantries ("can you help me?", "is there any way?")
+- KEEP only questions a potential customer would Google or want answered on a website
+- Sort by business value (questions that would make the best blog/FAQ content first)
+
+RULES for top_pain_points (return 3-6):
+- Summarize into clear, concise pain points
+- Focus on emotional/financial concerns (cost worry, urgency, trust, past bad experience)
+- Remove duplicates
+
+RULES for top_keywords (return 10-15):
+- Only include industry-relevant SEO keywords
+- Remove generic words (schedule, appointment, time, today, tomorrow, phone, call)
+- Include service-specific terms customers actually use
+
+RULES for services_requested (return 3-8):
+- Clean service names (e.g. "Root Canal" not "i need a root canal done")
+- Deduplicate
+- Sort by frequency
+
+RULES for content_recommendations (return 3-5):
+- Specific blog post or FAQ ideas based on what customers actually ask about
+- Format: "Blog: [title idea]" or "FAQ: [topic]"
+"""
+
+    try:
+        import anthropic
+        ai_client = anthropic.Anthropic()
+        response = ai_client.messages.create(
+            model="claude-sonnet-4-20250514",
+            max_tokens=2000,
+            temperature=0.3,
+            system="You are a business intelligence analyst. Return ONLY valid JSON, no markdown.",
+            messages=[{"role": "user", "content": prompt}],
+        )
+        text = "".join(b.text for b in response.content if hasattr(b, 'text')).strip()
+
+        # Parse — handle possible markdown wrapping
+        text = text.replace('```json', '').replace('```', '').strip()
+        result = _json.loads(text)
+
+        # Preserve any fields we don't replace
+        refined = dict(raw_insights)
+        refined['top_questions'] = result.get('top_questions', raw_insights.get('top_questions', []))
+        refined['top_pain_points'] = result.get('top_pain_points', raw_insights.get('top_pain_points', []))
+        refined['top_keywords'] = result.get('top_keywords', raw_insights.get('top_keywords', []))
+        refined['services_requested'] = result.get('services_requested', raw_insights.get('services_requested', []))
+        refined['content_recommendations'] = result.get('content_recommendations', [])
+        refined['executive_summary'] = result.get('executive_summary', '')
+        refined['ai_refined'] = True
+
+        # Cache
+        _AI_INSIGHT_CACHE[client_id] = {'ts': time.time(), 'data': refined}
+        logger.info(f"AI insight refinement complete: {len(refined['top_questions'])} questions, {len(refined['top_pain_points'])} pain points")
+        return refined
+
+    except Exception as e:
+        logger.error(f"AI insight refinement error: {e}")
+        return None
 
 
 def _generate_metadata_insights(calls: List[Dict]) -> Dict:

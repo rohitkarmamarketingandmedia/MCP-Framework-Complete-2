@@ -1034,6 +1034,10 @@
                             </div>
                         </div>
 
+                        <!-- AI Executive Summary (shown when AI-refined) -->
+                        <div id="ai-executive-summary" class="hidden mb-4 p-3 rounded-xl bg-gradient-to-r from-purple-500/10 to-pink-500/10 border border-purple-500/20">
+                        </div>
+
                         <div class="grid md:grid-cols-2 gap-4">
                             <!-- Questions Extracted -->
                             <div class="bg-slate-900/50 rounded-xl p-4">
@@ -1069,11 +1073,11 @@
                                 </div>
                             </div>
 
-                            <!-- Services Requested -->
+                            <!-- Services Requested / Content Opportunities -->
                             <div class="bg-slate-900/50 rounded-xl p-4">
                                 <div class="flex items-center gap-2 mb-3">
-                                    <span class="text-emerald-400">🔧</span>
-                                    <span class="text-sm font-medium text-white">Services Requested</span>
+                                    <span class="text-emerald-400" id="services-icon">🔧</span>
+                                    <span class="text-sm font-medium text-white" id="services-label">Services Requested</span>
                                 </div>
                                 <div class="space-y-2" id="content-opportunities">
                                     <div class="text-xs text-emerald-300">Loading...</div>
@@ -6896,6 +6900,20 @@
 
                         const opportunities = services.slice(0, 6); // Limit to 6
 
+                        // Show executive summary if AI-refined
+                        if (insights.executive_summary) {
+                            const summaryEl = document.getElementById('ai-executive-summary');
+                            if (summaryEl) {
+                                summaryEl.innerHTML = `<p class="text-sm text-gray-300">${insights.executive_summary}</p>`;
+                                summaryEl.classList.remove('hidden');
+                            }
+                        }
+
+                        // Use content recommendations as opportunities if available (AI-refined)
+                        const displayOpportunities = insights.content_recommendations && insights.content_recommendations.length > 0
+                            ? insights.content_recommendations.slice(0, 6)
+                            : opportunities;
+
                         updateExtractedUI(
                             (insights.top_questions || []).map(q => {
                                 if (typeof q === 'string') return q;
@@ -6909,7 +6927,7 @@
                                 if (typeof p === 'string') return p;
                                 return p.pain_point || p.text || JSON.stringify(p);
                             }),
-                            opportunities
+                            displayOpportunities
                         );
                     } else if (report.metadata_insights) {
                         // Show metadata-based insights when no transcripts
@@ -7194,12 +7212,22 @@
             // Update opportunities/services
             const opportunitiesEl = document.getElementById('content-opportunities');
             if (opportunitiesEl) {
+                // Check if these are AI content recommendations vs raw services
+                const isContentRecs = opportunities.length > 0 && (opportunities[0] || '').toString().startsWith('Blog:') || (opportunities[0] || '').toString().startsWith('FAQ:');
+                const labelEl = document.getElementById('services-label');
+                const iconEl = document.getElementById('services-icon');
+                if (isContentRecs && labelEl) {
+                    labelEl.textContent = 'Content Opportunities';
+                    if (iconEl) iconEl.textContent = '💡';
+                }
+
                 if (opportunities.length > 0) {
-                    opportunitiesEl.innerHTML = opportunities.map((o, i) => `
-                        <div class="text-xs text-emerald-300 fade-in cursor-pointer hover:text-emerald-200" style="animation-delay: ${i * 0.15}s">
-                            💡 ${o}
-                        </div>
-                    `).join('');
+                    opportunitiesEl.innerHTML = opportunities.map((o, i) => {
+                        const icon = o.startsWith('Blog:') ? '📝' : o.startsWith('FAQ:') ? '❓' : '💡';
+                        return `<div class="text-xs text-emerald-300 fade-in cursor-pointer hover:text-emerald-200" style="animation-delay: ${i * 0.15}s">
+                            ${icon} ${o}
+                        </div>`;
+                    }).join('');
                 } else {
                     opportunitiesEl.innerHTML = `<div class="text-xs text-gray-500 italic">Analyzing call patterns...</div>`;
                 }
