@@ -382,7 +382,7 @@ def _get_base_url(app):
     """Get the base URL for the app"""
     import os
     # Try common env vars
-    for var in ['BASE_URL', 'APP_URL', 'RENDER_EXTERNAL_URL']:
+    for var in ['APP_URL', 'BASE_URL', 'RENDER_EXTERNAL_URL']:
         url = os.environ.get(var, '')
         if url:
             return url.rstrip('/')

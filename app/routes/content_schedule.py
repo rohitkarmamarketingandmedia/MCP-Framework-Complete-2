@@ -228,7 +228,7 @@ def send_blog_to_client(current_user, blog_id):
     
     # Build review URL
     import os
-    base_url = os.environ.get('BASE_URL', '') or os.environ.get('RENDER_EXTERNAL_URL', '') or os.environ.get('APP_URL', '')
+    base_url = os.environ.get('BASE_URL', '') or os.environ.get('APP_URL', '') or os.environ.get('RENDER_EXTERNAL_URL', '')
     if not base_url:
         base_url = request.host_url.rstrip('/')
     review_url = f"{base_url}/review/{blog.review_token}"
