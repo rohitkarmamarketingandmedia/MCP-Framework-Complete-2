@@ -140,7 +140,12 @@ def scan_website(current_user, client_id):
         response = requests.get(url, headers=headers, timeout=30, allow_redirects=True)
         response.raise_for_status()
         html = response.text
-        
+
+        # Check if we got a real page (not a bot challenge or redirect)
+        if len(html) < 500 or '<body' not in html.lower():
+            logger.warning(f"Received very short or invalid HTML from {url} ({len(html)} chars)")
+            return jsonify({'error': 'Website returned an incomplete page (possible bot protection). Try again in a moment.'}), 400
+
         # Run the scanner
         scanner = get_accessibility_scanner()
         results = scanner.scan_html(html, url)

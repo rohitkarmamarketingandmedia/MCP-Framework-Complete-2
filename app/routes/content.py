@@ -328,8 +328,9 @@ def _generate_blog_background(task_id, app, client_id, keyword, word_count, incl
             logger.info(f"[TASK {task_id}] BlogAISingle returned. Word count: {result.get('word_count', 0)}")
             
             if result.get('error'):
-                logger.error(f"[TASK {task_id}] AI error: {result['error']}")
-                _set_task(task_id, {'status': 'error', 'error': result['error']})
+                error_code = result.get('error_code', '')
+                logger.error(f"[TASK {task_id}] AI error ({error_code}): {result['error']}")
+                _set_task(task_id, {'status': 'error', 'error': result['error'], 'error_code': error_code})
                 return
             
             # Validate the result - make sure body is actual HTML not JSON
@@ -652,9 +653,19 @@ def generate_blog_sync(current_user):
         logger.info(f"[SYNC] BlogAISingle returned: {result.get('word_count', 0)} words")
         
         if result.get('error'):
-            logger.error(f"[SYNC] AI error: {result['error']}")
-            return jsonify({'error': result['error']}), 500
-        
+            error_msg = result['error']
+            error_code = result.get('error_code', '')
+            logger.error(f"[SYNC] AI error ({error_code}): {error_msg}")
+
+            # Return specific HTTP status for credit/auth errors
+            if error_code == 'ANTHROPIC_CREDITS_EXHAUSTED':
+                return jsonify({'error': error_msg, 'error_code': 'credits_exhausted'}), 402
+            elif error_code == 'ANTHROPIC_AUTH_ERROR':
+                return jsonify({'error': error_msg, 'error_code': 'auth_error'}), 503
+            elif error_code == 'ANTHROPIC_RATE_LIMIT':
+                return jsonify({'error': error_msg, 'error_code': 'rate_limit'}), 429
+            return jsonify({'error': error_msg}), 500
+
         # Validate body content
         body_content = result.get('body', '')
         if not body_content or len(body_content) < 100:
@@ -1187,7 +1198,13 @@ def bulk_generate(current_user):
                 tags=_generate_blog_tags(keyword, city=city, industry=client.industry, client_name=client.business_name),
                 status=ContentStatus.DRAFT
             )
-            
+
+            # Save fact-check data if available
+            fact_check = result.get('fact_check')
+            if fact_check and isinstance(fact_check, dict):
+                blog_post.fact_check_report = json.dumps(fact_check)
+                blog_post.fact_check_score = fact_check.get('accuracy_score')
+
             data_service.save_blog_post(blog_post)
             
             results.append({
@@ -1197,7 +1214,9 @@ def bulk_generate(current_user):
                 'title': blog_post.title,
                 'word_count': blog_post.word_count,
                 'links_added': links_added,
-                'seo_score': seo_score
+                'seo_score': seo_score,
+                'fact_check_score': fact_check.get('accuracy_score') if fact_check else None,
+                'fact_check_flagged': fact_check.get('total_flagged', 0) if fact_check else 0
             })
             logger.info(f"[BULK] Successfully generated blog for '{keyword}'")
             

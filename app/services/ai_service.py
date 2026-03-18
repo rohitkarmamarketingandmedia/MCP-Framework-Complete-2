@@ -1304,13 +1304,19 @@ REMEMBER: Body must have {word_count}+ words AND at least 3 internal <a href> li
                     return response
                 
                 error_msg = str(response.get('error', '')).lower()
-                
+                error_code = response.get('error_code', '')
+
+                # Never retry credit/auth errors
+                if error_code in ('credits_exhausted', 'auth_error'):
+                    logger.warning(f"Claude credits/auth error — not retrying: {error_msg[:100]}")
+                    return response
+
                 if 'rate' in error_msg or '429' in error_msg or 'overloaded' in error_msg:
                     wait_time = (attempt + 1) * 10
                     logger.warning(f"Claude rate limited, waiting {wait_time}s before retry {attempt + 1}/{max_retries}")
                     time.sleep(wait_time)
                     continue
-                
+
                 # Non-retryable error — fall through to OpenAI
                 logger.warning(f"Claude error (non-retryable): {error_msg[:100]}")
                 break
@@ -1479,9 +1485,21 @@ REMEMBER: Body must have {word_count}+ words AND at least 3 internal <a href> li
                 'stop_reason': response.stop_reason
             }
             
+        except _anthropic.AuthenticationError as e:
+            logger.error(f"Anthropic auth error: {e}")
+            return {'error': 'Anthropic API key is invalid or expired.', 'error_code': 'auth_error'}
         except _anthropic.RateLimitError as e:
+            error_msg = str(e).lower()
             logger.error(f"Anthropic rate limit: {e}")
-            return {'error': f'Anthropic rate limit exceeded. Please wait and try again.'}
+            if 'credit' in error_msg or 'balance' in error_msg or 'billing' in error_msg:
+                return {'error': 'Anthropic API credits have been exhausted. Please add credits at console.anthropic.com.', 'error_code': 'credits_exhausted'}
+            return {'error': f'Anthropic rate limit exceeded. Please wait and try again.', 'error_code': 'rate_limit'}
+        except _anthropic.APIStatusError as e:
+            error_msg = str(e).lower()
+            logger.error(f"Anthropic API status error ({e.status_code}): {e}")
+            if e.status_code == 402 or 'credit' in error_msg or 'billing' in error_msg:
+                return {'error': 'Anthropic API credits have been exhausted. Please add credits at console.anthropic.com.', 'error_code': 'credits_exhausted'}
+            return {'error': f'Anthropic API error: {str(e)[:200]}'}
         except _anthropic.APIError as e:
             logger.error(f"Anthropic API error: {e}")
             return {'error': f'Anthropic API error: {str(e)[:200]}'}

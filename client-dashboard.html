@@ -6563,6 +6563,98 @@
         }
 
         // ==========================================
+        // API ERROR MESSAGE FUNCTIONS
+        // ==========================================
+
+        function showCreditExhaustedMessage() {
+            // Remove any existing API error banners
+            document.querySelectorAll('.api-error-banner').forEach(el => el.remove());
+
+            const progress = document.getElementById('blogProgress');
+            const progressText = document.getElementById('blogProgressText');
+            if (progress) progress.classList.add('hidden');
+
+            const banner = document.createElement('div');
+            banner.className = 'api-error-banner fixed inset-0 bg-black/50 flex items-center justify-center z-50';
+            banner.innerHTML = `
+                <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full mx-4 overflow-hidden">
+                    <div class="bg-gradient-to-r from-red-500 to-orange-500 px-6 py-4">
+                        <div class="flex items-center gap-3 text-white">
+                            <i class="fas fa-exclamation-circle text-2xl"></i>
+                            <h3 class="text-lg font-bold">API Credits Exhausted</h3>
+                        </div>
+                    </div>
+                    <div class="px-6 py-5">
+                        <p class="text-gray-700 mb-4">Your Anthropic API credits have run out. Blog generation requires active API credits to work.</p>
+                        <div class="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4">
+                            <p class="text-amber-800 text-sm"><strong>To fix this:</strong></p>
+                            <p class="text-amber-700 text-sm mt-1">1. Visit your Anthropic billing dashboard</p>
+                            <p class="text-amber-700 text-sm">2. Add credits or update your payment method</p>
+                            <p class="text-amber-700 text-sm">3. Come back and try generating again</p>
+                        </div>
+                        <div class="flex gap-3">
+                            <a href="https://console.anthropic.com/settings/billing" target="_blank"
+                               class="flex-1 bg-gradient-to-r from-violet-600 to-indigo-600 text-white text-center py-2.5 rounded-lg font-medium hover:opacity-90 transition">
+                                <i class="fas fa-external-link-alt mr-2"></i>Anthropic Billing
+                            </a>
+                            <button onclick="this.closest('.api-error-banner').remove()"
+                                    class="flex-1 bg-gray-100 text-gray-700 py-2.5 rounded-lg font-medium hover:bg-gray-200 transition">
+                                Dismiss
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(banner);
+            banner.addEventListener('click', (e) => {
+                if (e.target === banner) banner.remove();
+            });
+
+            const btn = document.getElementById('btnGenerateBlog');
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-magic"></i> Generate Blog Post';
+            }
+        }
+
+        function showApiErrorMessage(title, message) {
+            document.querySelectorAll('.api-error-banner').forEach(el => el.remove());
+
+            const progress = document.getElementById('blogProgress');
+            if (progress) progress.classList.add('hidden');
+
+            const banner = document.createElement('div');
+            banner.className = 'api-error-banner fixed inset-0 bg-black/50 flex items-center justify-center z-50';
+            banner.innerHTML = `
+                <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full mx-4 overflow-hidden">
+                    <div class="bg-gradient-to-r from-red-500 to-pink-500 px-6 py-4">
+                        <div class="flex items-center gap-3 text-white">
+                            <i class="fas fa-exclamation-triangle text-2xl"></i>
+                            <h3 class="text-lg font-bold">${title}</h3>
+                        </div>
+                    </div>
+                    <div class="px-6 py-5">
+                        <p class="text-gray-700 mb-4">${message}</p>
+                        <button onclick="this.closest('.api-error-banner').remove()"
+                                class="w-full bg-gray-100 text-gray-700 py-2.5 rounded-lg font-medium hover:bg-gray-200 transition">
+                            Dismiss
+                        </button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(banner);
+            banner.addEventListener('click', (e) => {
+                if (e.target === banner) banner.remove();
+            });
+
+            const btn = document.getElementById('btnGenerateBlog');
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-magic"></i> Generate Blog Post';
+            }
+        }
+
+        // ==========================================
         // PERMISSION FIX FUNCTIONS
         // ==========================================
 
@@ -7495,7 +7587,7 @@
                     <th class="text-left py-3">Keyword</th>
                     <th class="text-center py-3">Position</th>
                     <th class="text-center py-3">Volume</th>
-                    <th class="text-center py-3">Change</th>
+                    <th class="text-center py-3" title="Position change since last ranking check">Change</th>
                 `;
             }
             if (sectionTitle) {
@@ -7540,10 +7632,14 @@
                     return a.position - b.position;
                 });
 
+                // Check if all changes are 0 (first scan — no previous data)
+                const allNoChange = keywords.every(kw => !kw.change);
+
                 tableEl.innerHTML = keywords.slice(0, 10).map(kw => {
                     const change = kw.change || 0;
                     const changeColor = change > 0 ? 'text-green-400' : change < 0 ? 'text-red-400' : 'text-gray-500';
-                    const changeIcon = change > 0 ? '▲' : change < 0 ? '▼' : '–';
+                    const changeIcon = change > 0 ? '▲' : change < 0 ? '▼' : '';
+                    const changeText = change !== 0 ? `${changeIcon} ${Math.abs(change)}` : (allNoChange ? '<span class="text-blue-400 text-xs">New</span>' : '–');
                     const posColor = kw.position && kw.position <= 3 ? 'text-yellow-400 font-bold' : kw.position && kw.position <= 10 ? 'text-green-400' : kw.position && kw.position <= 20 ? 'text-blue-400' : 'text-gray-400';
 
                     return `
@@ -7551,7 +7647,7 @@
                             <td class="py-3 text-white">${kw.keyword}</td>
                             <td class="py-3 text-center ${posColor}">${kw.position ? '#' + kw.position : '–'}</td>
                             <td class="py-3 text-center text-gray-400">${kw.search_volume ? kw.search_volume.toLocaleString() : '–'}</td>
-                            <td class="py-3 text-center ${changeColor}">${change !== 0 ? changeIcon + ' ' + Math.abs(change) : '–'}</td>
+                            <td class="py-3 text-center ${changeColor}">${changeText}</td>
                         </tr>
                     `;
                 }).join('');
@@ -9016,7 +9112,7 @@
                                     <div class="bg-white/5 rounded-lg p-3 border border-white/10 hover:border-purple-500/30 transition">
                                         <div class="text-sm text-white font-medium mb-1">${opp.title || opp.topic || ''}</div>
                                         <div class="text-xs text-gray-500 mb-2">${opp.type || 'blog'} • ${opp.reason || 'Based on customer calls'}</div>
-                                        <button onclick="generateFromGap('${encodeURIComponent(opp.title || opp.topic || '')}')" class="w-full px-2 py-1 bg-purple-500/20 text-purple-400 rounded text-xs hover:bg-purple-500/30 transition">
+                                        <button id="oppBtn_${idx}" onclick="generateFromOpportunity(this, '${encodeURIComponent(opp.title || opp.topic || '')}')" class="w-full px-2 py-1 bg-purple-500/20 text-purple-400 rounded text-xs hover:bg-purple-500/30 transition">
                                             <i class="fas fa-plus mr-1"></i>Create Content
                                         </button>
                                     </div>
@@ -9118,9 +9214,10 @@
                 });
                 if (res.ok) {
                     const report = await res.json();
-                    const questions = (report.combined_insights?.top_questions || []).slice(0, 10).map(q => typeof q === 'string' ? q : q.question || '').filter(q => q);
+                    const rawQuestions = (report.combined_insights?.top_questions || []).slice(0, 20).map(q => typeof q === 'string' ? q : q.question || '').filter(q => q);
+                    const questions = filterMeaningfulQuestions(rawQuestions).slice(0, 10);
                     if (questions.length === 0) {
-                        showToast('No questions found in call data', 'warning');
+                        showToast('No meaningful questions found in call data', 'warning');
                         return;
                     }
                     // Store questions globally so generateBlog() can use them
@@ -9164,6 +9261,51 @@
             generateSection.appendChild(banner);
         }
 
+        function filterMeaningfulQuestions(questions) {
+            // Filter out nonsensical/contextual questions that don't make sense outside a phone call
+            const nonsensePatterns = [
+                /^(and\s+)?do you/i,
+                /^can you do (something|that|it|this)/i,
+                /^could you do/i,
+                /^how do you (pronounce|spell|say)\s/i,
+                /^(ok|okay|yeah|yes|no|sure|alright|right|um|uh|well)\b/i,
+                /^(is|are) (that|this|it) (ok|okay|good|fine|right)/i,
+                /^what (time|day) (do you|are you|can)/i,
+                /^(can|could) (i|we) (come|go|do|get|have|make|be|see)\s/i,
+                /^(do|does|did) (he|she|they|it|that|this)\s/i,
+                /^(is|are) (he|she|they|it|that|this|there)\s/i,
+                /^\w{1,3}$/,  // Very short (1-3 chars)
+                /^(hello|hi|hey|bye|goodbye|thanks|thank you)/i,
+                /^(who|where) (is|are) (your|the|this)\s/i,
+                /^(so|and|but|or)\s+/i,
+                /\b(this morning|this afternoon|today|tomorrow|yesterday|next week)\b/i,
+                /^\d+\s*(am|pm|o'clock|oclock)/i,  // Time references
+            ];
+
+            return questions.filter(q => {
+                if (!q || q.length < 10) return false;  // Too short
+                if (q.length > 200) return false;  // Too long (probably not a real question)
+
+                // Check against nonsense patterns
+                for (const pattern of nonsensePatterns) {
+                    if (pattern.test(q.trim())) return false;
+                }
+
+                // Must look like a real question (contains question-y words or ends with ?)
+                const isQuestion = /\?$/.test(q) || /^(how|what|why|when|where|which|do|does|is|are|can|will|should|would|could)\s/i.test(q);
+                const isStatement = /^(i |my |we |our |the |a )/i.test(q);
+
+                // Accept questions and meaningful statements about services
+                if (isQuestion) {
+                    // Must have at least 3 meaningful words
+                    const words = q.replace(/[?!.,]/g, '').split(/\s+/).filter(w => w.length > 2);
+                    return words.length >= 3;
+                }
+
+                return false;
+            });
+        }
+
         function clearCallFaqs() {
             window._callFaqQuestions = null;
             document.getElementById('callFaqBanner')?.remove();
@@ -9179,9 +9321,10 @@
                 });
                 if (res.ok) {
                     const report = await res.json();
-                    const questions = (report.combined_insights?.top_questions || []).slice(0, 10).map(q => typeof q === 'string' ? q : q.question || '').filter(q => q);
+                    const rawQuestions = (report.combined_insights?.top_questions || []).slice(0, 20).map(q => typeof q === 'string' ? q : q.question || '').filter(q => q);
+                    const questions = filterMeaningfulQuestions(rawQuestions).slice(0, 10);
                     const opps = report.content_opportunities || [];
-                    
+
                     // Store questions for FAQ use
                     window._callFaqQuestions = questions;
                     
@@ -9195,7 +9338,12 @@
                         // Extract a keyword-like topic from questions
                         topic = topQuestions[0].replace(/^(do you|can you|how do|what is|is there|do i|how much|when|where|why)\s+/i, '').replace(/\?$/, '');
                     }
-                    
+
+                    // Always extract a short SEO keyword from potentially long titles
+                    if (topic) {
+                        topic = _extractKeywordFromTopic(topic);
+                    }
+
                     showTab('generate');
                     setTimeout(() => {
                         if (topic) {
@@ -9220,12 +9368,13 @@
                 });
                 if (res.ok) {
                     const report = await res.json();
-                    const questions = (report.combined_insights?.top_questions || []).slice(0, 15).map(q => typeof q === 'string' ? q : q.question || '').filter(q => q);
+                    const rawQuestions = (report.combined_insights?.top_questions || []).slice(0, 30).map(q => typeof q === 'string' ? q : q.question || '').filter(q => q);
+                    const questions = filterMeaningfulQuestions(rawQuestions);
                     if (questions.length === 0) {
-                        showToast('No questions found to add to chatbot', 'warning');
+                        showToast('No meaningful questions found to add to chatbot', 'warning');
                         return;
                     }
-                    
+
                     // Add each question as a knowledge base entry
                     let added = 0;
                     for (const q of questions.slice(0, 10)) {
@@ -14727,6 +14876,18 @@
                 }
 
                 if (!response.ok || result.error) {
+                    // Check for specific API credit/auth errors
+                    const errorCode = result.error_code || '';
+                    if (errorCode === 'credits_exhausted' || response.status === 402) {
+                        showCreditExhaustedMessage();
+                        return;
+                    } else if (errorCode === 'auth_error') {
+                        showApiErrorMessage('API Key Invalid', 'The Anthropic API key is invalid or expired. Please update it in your server configuration.');
+                        return;
+                    } else if (errorCode === 'rate_limit' || response.status === 429) {
+                        showApiErrorMessage('Rate Limit Reached', 'The AI service is temporarily rate-limited. Please wait a few minutes and try again.');
+                        return;
+                    }
                     throw new Error(result.error || `Server error: ${response.status}`);
                 }
 
@@ -17579,15 +17740,28 @@
             // Extract a short SEO keyword (2-5 words) from a long title or question
             let kw = topic.trim();
 
-            // Remove brand suffixes after | or -
-            kw = kw.replace(/\s*[|–—-]\s*[A-Za-z][A-Za-z0-9\s&'\-\.]{2,}$/, '').trim();
+            // Remove brand suffixes after | or - (e.g., "Title | 941 Dental Studio")
+            kw = kw.replace(/\s*[|–—]\s*[A-Za-z][A-Za-z0-9\s&'\-\.]{2,}$/, '').trim();
+            // Also handle " - Brand Name" (with dash)
+            kw = kw.replace(/\s+-\s+[A-Z][A-Za-z0-9\s&'\-\.]{2,}$/, '').trim();
+
+            // Remove generic page titles that aren't real keywords
+            kw = kw.replace(/^frequently\s+asked\s+questions?\s*/i, '').trim();
+            kw = kw.replace(/^faq'?s?\s*/i, '').trim();
 
             // Remove common question prefixes
             kw = kw.replace(/^(how\s+to\s+(solve|fix|handle|deal\s+with|get|find|choose|install|repair)\s+)/i, '').trim();
+            kw = kw.replace(/^(how\s+(?:much|long|often)\s+(?:does|do|is|are|will|should)\s+)/i, '').trim();
             kw = kw.replace(/^(what\s+(?:is|are)\s+(?:the\s+)?(?:best|top|most\s+common)\s+)/i, '').trim();
             kw = kw.replace(/^(top\s+\d+\s+|the\s+(?:ultimate|complete|definitive)\s+guide\s+(?:to|for)\s+)/i, '').trim();
             kw = kw.replace(/^(why\s+you\s+(?:should|need\s+to)\s+)/i, '').trim();
             kw = kw.replace(/^(everything\s+you\s+need\s+to\s+know\s+about\s+)/i, '').trim();
+            kw = kw.replace(/^(when\s+(?:to|should\s+you)\s+)/i, '').trim();
+            kw = kw.replace(/^(real\s+questions\s+from\s+)/i, '').trim();
+            kw = kw.replace(/^(how\s+to\s+)/i, '').trim();
+
+            // Remove trailing descriptors like "Complete Pricing Guide", "What to Expect"
+            kw = kw.replace(/\s*[:?]\s*(complete\s+)?(\w+\s+)?(guide|overview|explained|tips|what\s+to\s+expect)\s*$/i, '').trim();
 
             // Remove location suffixes (in City, FL, etc.)
             kw = kw.replace(/\s+(?:in|for|near|around)\s+[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*(?:,?\s*[A-Z]{2})?\s*$/g, '').trim();
@@ -17598,12 +17772,41 @@
             // If still too long (>6 words), extract core phrase
             const words = kw.split(/\s+/);
             if (words.length > 6) {
-                const stop = new Set(['the', 'a', 'an', 'your', 'our', 'their', 'my', 'i', 'we', 'you', 'and', 'or', 'is', 'are', 'was', 'that', 'this', 'with', 'from', 'also', 'do', 'does', 'got']);
+                const stop = new Set(['the', 'a', 'an', 'your', 'our', 'their', 'my', 'i', 'we', 'you', 'and', 'or', 'is', 'are', 'was', 'that', 'this', 'with', 'from', 'also', 'do', 'does', 'got', 'to', 'it', 'not', 'customers']);
                 const core = words.filter(w => !stop.has(w.toLowerCase())).slice(0, 5);
                 kw = core.length > 0 ? core.join(' ') : words.slice(0, 5).join(' ');
             }
 
+            // If keyword became empty or just generic words, fallback
+            if (!kw || kw.length < 3) {
+                // Try to extract from original after brand removal
+                kw = topic.replace(/\s*[|–—]\s*[A-Za-z][A-Za-z0-9\s&'\-\.]{2,}$/, '').trim();
+                kw = kw.replace(/[?!.,;:]+$/, '').trim();
+                const fallbackWords = kw.split(/\s+/).slice(0, 5);
+                kw = fallbackWords.join(' ');
+            }
+
             return kw.trim() || topic;
+        }
+
+        async function generateFromOpportunity(btn, topic) {
+            // Wrapper for content opportunity cards — shows progress on the button
+            const originalHtml = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i>Creating...';
+            btn.className = btn.className.replace('bg-purple-500/20 text-purple-400', 'bg-yellow-500/20 text-yellow-400');
+
+            try {
+                await generateFromGap(topic, false);
+            } catch(e) {
+                btn.innerHTML = '<i class="fas fa-exclamation-triangle mr-1"></i>Failed';
+                btn.className = btn.className.replace('bg-yellow-500/20 text-yellow-400', 'bg-red-500/20 text-red-400');
+                setTimeout(() => {
+                    btn.innerHTML = originalHtml;
+                    btn.className = btn.className.replace('bg-red-500/20 text-red-400', 'bg-purple-500/20 text-purple-400');
+                    btn.disabled = false;
+                }, 3000);
+            }
         }
 
         async function generateFromGap(topic, isCounterContent = false) {
@@ -19260,13 +19463,20 @@
 
         async function loadA11yReport() {
             if (!currentClient) return;
+
+            // Reset the score card when loading new report
+            const scoreCard = document.getElementById('a11yScoreCard');
+            if (scoreCard) scoreCard.classList.add('hidden');
+            const resultsContainer = document.getElementById('a11yResults');
+            if (resultsContainer) resultsContainer.innerHTML = '';
+
             try {
                 const response = await fetch(`${API_URL}/api/accessibility/report/${currentClient.id}`, {
                     headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
                 });
                 if (response.ok) {
                     const data = await response.json();
-                    if (data.has_report) {
+                    if (data.has_report && data.results && data.results.summary) {
                         renderA11yReport(data.results);
                     }
                 }

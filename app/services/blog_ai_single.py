@@ -84,26 +84,51 @@ class BlogAISingle:
         """Main entry point for blog generation"""
         if not self.client:
             logger.error("Anthropic client not initialized - missing API key")
-            return self._empty_result(req)
-        
+            result = self._empty_result(req)
+            result["error"] = "Anthropic API key is not configured. Please set ANTHROPIC_API_KEY."
+            return result
+
+        # Reset error tracking
+        self._last_error = None
+        self._last_error_message = None
+
         # Detect city from keyword
         self._detect_city(req)
-        
+
         logger.info(f"BlogAISingle.generate: keyword='{req.keyword}', target={req.target_words}, city='{req.city}'")
-        
+
         base_prompt = self._build_prompt(req)
         system_prompt = getattr(self, '_system_prompt', None)
 
         # 1) Try primary then fallback
         raw = self._call_model(self.model_primary, base_prompt, system_prompt)
+
+        # Check if API credits are exhausted — no point retrying
+        if not raw and self._last_error in ("ANTHROPIC_CREDITS_EXHAUSTED", "ANTHROPIC_AUTH_ERROR"):
+            result = self._empty_result(req)
+            result["error"] = self._last_error_message
+            result["error_code"] = self._last_error
+            return result
         parsed = self._robust_parse_json(raw)
 
         if not parsed or not parsed.get("body"):
             logger.warning(f"Primary model returned no body. parsed keys: {list(parsed.keys()) if parsed else 'None'}, raw length: {len(raw) if raw else 0}")
+            if raw:
+                logger.warning(f"[BODY DEBUG] Raw response first 500 chars: {raw[:500]}")
             raw2 = self._call_model(self.model_fallback, base_prompt, system_prompt)
             parsed = self._robust_parse_json(raw2)
             if not parsed or not parsed.get("body"):
                 logger.error(f"Fallback model also returned no body. parsed keys: {list(parsed.keys()) if parsed else 'None'}, raw length: {len(raw2) if raw2 else 0}")
+                # Last resort: extract body directly from raw response text
+                for raw_text in [raw, raw2]:
+                    if raw_text:
+                        extracted_body = self._extract_body_from_raw(raw_text)
+                        if extracted_body:
+                            if not parsed:
+                                parsed = {}
+                            parsed["body"] = extracted_body
+                            logger.info(f"Recovered body from raw output: {len(extracted_body)} chars")
+                            break
 
         # 2) Normalize shape
         result = self._normalize_result(parsed, req)
@@ -136,9 +161,14 @@ class BlogAISingle:
 
         # 9) Build HTML
         result["html"] = result.get("body", "")
-        
+
         # 10) Calculate word count
         result["word_count"] = self._word_count(result.get("body", ""))
+
+        # Safety: if body is still empty after all processing, flag the error clearly
+        if not result.get("body") or result["word_count"] < 50:
+            logger.error(f"CRITICAL: Body still empty/too short after all generation attempts. word_count={result['word_count']}")
+            result["error"] = "Content generation produced insufficient body text. Please try again."
         
         # 11) Final validation
         validation_result = self._validate_output(result, req)
@@ -825,14 +855,42 @@ Return ONLY valid JSON (no markdown):
                     content = content[start:]
             
             return content
+        except anthropic.AuthenticationError as e:
+            logger.error(f"Claude authentication failed (invalid API key): {e}")
+            self._last_error = "ANTHROPIC_AUTH_ERROR"
+            self._last_error_message = "Anthropic API key is invalid or expired. Please check your ANTHROPIC_API_KEY."
+            return ""
         except anthropic.RateLimitError as e:
-            logger.error(f"Claude rate limit hit: {e}")
+            error_msg = str(e).lower()
+            if 'credit' in error_msg or 'balance' in error_msg or 'billing' in error_msg or 'insufficient' in error_msg:
+                logger.error(f"Claude API credits exhausted: {e}")
+                self._last_error = "ANTHROPIC_CREDITS_EXHAUSTED"
+                self._last_error_message = "Anthropic API credits have been exhausted. Please add credits at console.anthropic.com to resume blog generation."
+            else:
+                logger.error(f"Claude rate limit hit: {e}")
+                self._last_error = "ANTHROPIC_RATE_LIMIT"
+                self._last_error_message = "Anthropic API rate limit reached. Please wait a moment and try again."
+            return ""
+        except anthropic.APIStatusError as e:
+            error_msg = str(e).lower()
+            if e.status_code == 402 or 'credit' in error_msg or 'billing' in error_msg or 'payment' in error_msg:
+                logger.error(f"Claude API credits/billing error (HTTP {e.status_code}): {e}")
+                self._last_error = "ANTHROPIC_CREDITS_EXHAUSTED"
+                self._last_error_message = "Anthropic API credits have been exhausted. Please add credits at console.anthropic.com to resume blog generation."
+            else:
+                logger.error(f"Claude API status error (HTTP {e.status_code}): {e}")
+                self._last_error = "ANTHROPIC_API_ERROR"
+                self._last_error_message = f"Anthropic API error (HTTP {e.status_code}). Please try again later."
             return ""
         except anthropic.APIError as e:
             logger.error(f"Claude API error: {e}")
+            self._last_error = "ANTHROPIC_API_ERROR"
+            self._last_error_message = f"Anthropic API error: {str(e)[:150]}"
             return ""
         except Exception as e:
             logger.error(f"Model call failed: {e}")
+            self._last_error = "MODEL_CALL_FAILED"
+            self._last_error_message = f"AI model call failed: {str(e)[:150]}"
             return ""
 
     def _call_model_continue(self, model: str, current_body: str, words_needed: int, req: BlogRequest) -> str:
@@ -1034,6 +1092,7 @@ ACCURACY RULES:
 SEO RULES:
 * Headlines must be in Proper Case (Title Case)
 * H1 must be human-readable, not keyword-stuffed
+* H2 headings must be VARIED — do NOT prefix every H2 with the same keyword phrase
 * Include internal links using valid HTML anchor tags
 * Include at least 3 internal links naturally in the body
 
@@ -1214,6 +1273,16 @@ Meta Description: 150-160 characters. MUST include keyword, specific benefit, an
 
 ===== HEADING RULES =====
 - H2 headings: SHORT and DESCRIPTIVE (5-10 words max)
+- CRITICAL: Do NOT start every H2 with the primary keyword! Each H2 must be UNIQUE and varied.
+  BAD example (keyword-stuffed, repetitive):
+    "Dental Care in Sarasota: Benefits"
+    "Dental Care in Sarasota: Our Process"
+    "Dental Care in Sarasota: Pricing"
+  GOOD example (varied, natural):
+    "Enhanced Confidence And Self-Esteem"
+    "Our Comprehensive Care Process"
+    "Transparent Pricing Guide"
+- The primary keyword should appear in AT MOST 1-2 H2 headings, NOT all of them
 {f'- DO NOT add "{req.city}" to any headings — the keyword already contains the city!' if keyword_has_city else f'- Include "{req.city}" in 2-3 H2/H3 headings where natural'}
 - All headings in Proper Title Case
 - H1 must be human-readable, not keyword-stuffed
@@ -1287,7 +1356,13 @@ OUTPUT JSON:"""
                 logger.info("Recovered truncated JSON successfully")
                 return result
 
-        logger.warning("All JSON parsing attempts failed")
+        # Last resort: try to extract body HTML directly from raw text
+        extracted_body = self._extract_body_from_raw(text)
+        if extracted_body:
+            logger.info(f"JSON parsing failed but extracted body from raw: {len(extracted_body)} chars")
+            return {"body": extracted_body}
+
+        logger.warning(f"All JSON parsing attempts failed. Text length: {len(text)}, first 300 chars: {text[:300]}")
         return {}
 
     def _try_json_loads(self, s: str) -> Dict[str, Any]:
@@ -1316,6 +1391,44 @@ OUTPUT JSON:"""
         def repl(m):
             return "\\\\"
         return re.sub(r"\\(?![\"\\/bfnrtu])", repl, s)
+
+    def _extract_body_from_raw(self, text: str) -> str:
+        """Last-resort: extract body HTML directly from raw model output using regex.
+        Works even when JSON parsing completely fails."""
+        if not text:
+            return ""
+
+        # Strategy 1: Find "body": "..." pattern and extract the HTML content
+        # Match "body" key followed by HTML content starting with <
+        body_match = re.search(r'"body"\s*:\s*"((?:<[^"]*(?:\\.[^"]*)*)+)"', text, re.DOTALL)
+        if body_match:
+            body = body_match.group(1)
+            # Unescape JSON string escapes
+            body = body.replace('\\"', '"').replace('\\n', '\n').replace('\\/', '/').replace('\\\\', '\\')
+            if len(body) > 200:
+                logger.info(f"Extracted body from raw output via regex: {len(body)} chars")
+                return body
+
+        # Strategy 2: Find content between first <h2> and last </p> or </div>
+        h2_start = text.find('<h2')
+        if h2_start == -1:
+            h2_start = text.find('<h2>')
+        if h2_start != -1:
+            # Find the last closing tag
+            last_p = text.rfind('</p>')
+            last_div = text.rfind('</div>')
+            end_pos = max(last_p + 4 if last_p != -1 else 0, last_div + 6 if last_div != -1 else 0)
+            if end_pos > h2_start:
+                body = text[h2_start:end_pos]
+                # Clean any JSON artifacts
+                body = re.sub(r'\\n', '\n', body)
+                body = re.sub(r'\\"', '"', body)
+                body = re.sub(r'\\/', '/', body)
+                if len(body) > 200:
+                    logger.info(f"Extracted body from raw HTML tags: {len(body)} chars")
+                    return body
+
+        return ""
 
     def _recover_truncated_json(self, text: str) -> str:
         """Attempt to recover a truncated JSON response (e.g. from max_tokens cutoff).
@@ -1395,7 +1508,8 @@ OUTPUT JSON:"""
         if '[' in out["meta_description"] or len(out["meta_description"]) < 30:
             out["meta_description"] = ""
             
-        out["body"] = (data.get("body") or "").strip()
+        # Try multiple keys for body content
+        out["body"] = (data.get("body") or data.get("content") or data.get("html_body") or data.get("article") or "").strip()
 
         # Clean body
         out["body"] = self._clean_body(out["body"])
@@ -1553,10 +1667,11 @@ OUTPUT JSON:"""
         body = body.replace('\\"', '"')
         body = body.replace("\\'", "'")
         
-        # Remove stray backslashes
+        # Remove stray backslashes before HTML tags only
         body = re.sub(r'\\+([<>])', r'\1', body)
-        body = re.sub(r'\\([^\\])', r'\1', body)
-        body = body.replace('\\', '')
+        # Remove remaining stray backslashes (but NOT if inside HTML attributes or content)
+        # Only remove isolated backslashes not part of valid escape sequences
+        body = re.sub(r'\\(?![nrt"\'\\<>])', '', body)
         
         # Remove/replace generic AI phrases that hurt credibility
         # EXTENSIVE list of banned phrases - these DESTROY professional credibility

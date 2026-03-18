@@ -75,7 +75,12 @@ def generate_social(current_user):
         
         # Check for AI errors
         if result.get('error'):
+            error_code = result.get('error_code', '')
             errors.append(f"{platform}: {result['error']}")
+            # Stop immediately on credit/auth errors — no point trying other platforms
+            if error_code in ('credits_exhausted', 'auth_error'):
+                logger.warning(f"Stopping social generation — API credits/auth issue")
+                break
             continue
         
         # Check for empty content
@@ -107,7 +112,12 @@ def generate_social(current_user):
     if errors:
         response['errors'] = errors
         response['warning'] = f'{len(errors)} platform(s) failed to generate'
-    
+        # Check if it's a credit exhaustion issue
+        if any('credits' in e.lower() for e in errors):
+            response['error_code'] = 'credits_exhausted'
+            if len(posts) == 0:
+                return jsonify(response), 402
+
     return jsonify(response)
 
 
@@ -164,9 +174,16 @@ def generate_social_kit(current_user):
         platforms=platforms
     )
     
-    # Save posts
+    # Save posts (skip any that have errors or empty text)
     saved_posts = []
+    kit_errors = []
     for platform, post_data in kit.items():
+        if post_data.get('error'):
+            kit_errors.append(f"{platform}: {post_data['error']}")
+            continue
+        if not post_data.get('text'):
+            kit_errors.append(f"{platform}: No content generated")
+            continue
         post = DBSocialPost(
             client_id=data['client_id'],
             platform=platform,
@@ -179,14 +196,24 @@ def generate_social_kit(current_user):
         data_service.save_social_post(post)
         saved_posts.append(post)
     
-    return jsonify({
-        'success': True,
+    response_data = {
+        'success': len(saved_posts) > 0,
         'topic': topic,
         'kit': {
             p.platform: p.to_dict()
             for p in saved_posts
-        }
-    })
+        },
+        'generated': len(saved_posts),
+        'requested': len(platforms)
+    }
+    if kit_errors:
+        response_data['errors'] = kit_errors
+        if any('credits' in e.lower() for e in kit_errors):
+            response_data['error_code'] = 'credits_exhausted'
+            if len(saved_posts) == 0:
+                return jsonify(response_data), 402
+
+    return jsonify(response_data)
 
 
 @social_bp.route('/<post_id>', methods=['GET'])
