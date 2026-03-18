@@ -2066,9 +2066,30 @@ def get_competitor_dashboard(current_user, client_id):
     for comp in competitor_data:
         comp['rankings'] = {}  # Don't send thousands of keywords to frontend
     
+    # Count client's own blog posts and pages for the comparison panel
+    client_blog_count = 0
+    client_page_count = 0
+    try:
+        client_blog_count = DBBlogPost.query.filter_by(client_id=client_id).count()
+    except Exception:
+        pass
+    try:
+        from app.models.db_models import DBServicePage
+        client_page_count = DBServicePage.query.filter_by(client_id=client_id).count()
+    except Exception:
+        pass
+
     return jsonify({
         'client_id': client_id,
         'client_name': client.business_name,
+        # Top-level fields the frontend reads for "Your Site" panel
+        'client_domain': client_domain,
+        'client_keyword_count': len(client_rankings),
+        'client_keywords_ranked': total_client_ranked,
+        'client_top_10': top_10_count,
+        'client_top_3': top_3_count,
+        'client_blog_count': client_blog_count,
+        'client_page_count': client_page_count,
         'summary': {
             'total_competitors': len(competitors),
             'client_keywords_tracked': len(client_keywords),

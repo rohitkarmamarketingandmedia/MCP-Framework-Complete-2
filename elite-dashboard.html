@@ -2438,13 +2438,14 @@
         function renderComparePanel(data) {
             const panel = document.getElementById('panel-competitorCompare');
             const compData = data.competitor_data || [];
-            const clientKwCount = data.client_keyword_count || 0;
+            const clientKwCount = data.client_keyword_count || data.summary?.client_total_keywords || 0;
             const clientDomain = data.client_domain || currentClient?.website_url?.replace(/https?:\/\//, '') || '';
             const contentGaps = data.content_gaps || [];
-            
-            // Count client's top 10 keywords
-            const clientTop10 = data.client_top_10 || 0;
+
+            // Client metrics from API
+            const clientTop10 = data.client_top_10 || data.summary?.top_10_keywords || 0;
             const clientBlogCount = data.client_blog_count || 0;
+            const clientPageCount = data.client_page_count || 0;
             
             let html = `
                 <div class="flex items-center justify-between mb-6">
@@ -2509,47 +2510,48 @@
             });
             html += `</tr>`;
             
-            // Crawled Pages
+            // Crawled Pages (client blog + page count vs competitor crawled pages)
+            const clientTotalPages = clientBlogCount + clientPageCount;
             html += `<tr class="border-b border-white/5">
                 <td class="py-2.5 px-2 text-gray-300">Crawled Pages</td>
-                <td class="py-2.5 px-2 text-center font-bold text-green-400">${clientBlogCount || '-'}</td>`;
+                <td class="py-2.5 px-2 text-center font-bold text-green-400">${clientTotalPages || '-'}</td>`;
             compData.forEach(comp => {
                 html += `<td class="py-2.5 px-2 text-center text-white">${comp.total_pages || 0}</td>`;
             });
             html += `</tr>`;
-            
+
             // Blog Posts
             html += `<tr class="border-b border-white/5">
                 <td class="py-2.5 px-2 text-gray-300">Blog Posts</td>
-                <td class="py-2.5 px-2 text-center font-bold text-green-400">${clientBlogCount || '-'}</td>`;
+                <td class="py-2.5 px-2 text-center font-bold text-green-400">${clientBlogCount || 0}</td>`;
             compData.forEach(comp => {
                 html += `<td class="py-2.5 px-2 text-center text-white">${comp.blog_posts || 0}</td>`;
             });
             html += `</tr>`;
-            
+
             // Service Pages
             html += `<tr class="border-b border-white/5">
                 <td class="py-2.5 px-2 text-gray-300">Service Pages</td>
-                <td class="py-2.5 px-2 text-center font-bold text-green-400">-</td>`;
+                <td class="py-2.5 px-2 text-center font-bold text-green-400">${clientPageCount || 0}</td>`;
             compData.forEach(comp => {
                 html += `<td class="py-2.5 px-2 text-center text-white">${comp.service_pages || 0}</td>`;
             });
             html += `</tr>`;
-            
+
             // Keyword Overlap
             html += `<tr class="border-b border-white/5">
                 <td class="py-2.5 px-2 text-gray-300">Keyword Overlap</td>
-                <td class="py-2.5 px-2 text-center text-green-400 font-bold">-</td>`;
+                <td class="py-2.5 px-2 text-center text-green-400 font-bold">—</td>`;
             compData.forEach(comp => {
                 const overlap = comp.keyword_overlap || [];
                 html += `<td class="py-2.5 px-2 text-center text-white">${overlap.length} <span class="text-gray-500 text-[10px]">shared</span></td>`;
             });
             html += `</tr>`;
-            
+
             // Last Crawled
             html += `<tr>
                 <td class="py-2.5 px-2 text-gray-300">Last Crawled</td>
-                <td class="py-2.5 px-2 text-center text-green-400 font-bold">-</td>`;
+                <td class="py-2.5 px-2 text-center text-green-400 font-bold">—</td>`;
             compData.forEach(comp => {
                 const lastCrawl = comp.last_crawled ? getTimeAgo(comp.last_crawled) : 'Never';
                 html += `<td class="py-2.5 px-2 text-center text-white text-xs">${lastCrawl}</td>`;
