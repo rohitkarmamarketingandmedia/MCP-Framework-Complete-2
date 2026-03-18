@@ -61,9 +61,6 @@ def _generate_blog_tags(keyword, city='', industry='', client_name=''):
     if industry.lower() in _generic_industries:
         industry = ''
 
-    # Check if keyword already contains the city name
-    keyword_has_city = city and city.lower() in keyword.lower()
-
     # Extract the core service from keyword (strip location parts like "in City", "near City")
     import re
     core_service = keyword
@@ -76,57 +73,79 @@ def _generate_blog_tags(keyword, city='', industry='', client_name=''):
         # Strip trailing prepositions left over from stripping
         core_service = re.sub(r'\s+(in|near|for|around|at|of)$', '', core_service, flags=re.IGNORECASE).strip()
 
-    # 1. Primary keyword + city
+    # Use industry OR fall back to core service for category-style tags
+    category = industry if industry else core_service
+
+    # 1. Primary keyword + city (e.g. "Sarasota SEO Company")
     if keyword:
         tags.append(title_case(ensure_city(keyword)))
 
-    # 2. City + core service (reversed order)
+    # 2. City + core service reversed (e.g. "Sarasota Search Engine Optimization")
     if city and core_service:
-        tags.append(title_case(f"{city} {core_service}"))
+        tag = title_case(f"{city} {core_service}")
+        if tag not in tags:
+            tags.append(tag)
 
-    # 3. Industry + city
-    if industry and city:
-        tags.append(title_case(f"{industry} in {city}"))
-    elif industry:
-        tags.append(title_case(industry))
-
-    # 4. Best [service] in [city]
+    # 3. Best [service] in [city] (e.g. "Best SEO Company in Sarasota")
     if core_service and city:
-        best_tag = title_case(f"Best {core_service} in {city}")
-        if best_tag not in tags:
-            tags.append(best_tag)
+        tag = title_case(f"Best {core_service} in {city}")
+        if tag not in tags:
+            tags.append(tag)
 
-    # 5. Local services tag with city
-    if city:
-        local_tag = title_case(f"Local {industry} in {city}" if industry else f"Local Services in {city}")
-        if local_tag not in tags:
-            tags.append(local_tag)
+    # 4. Professional [service] [city] (e.g. "Professional SEO Services Sarasota")
+    if core_service and city:
+        tag = title_case(f"Professional {core_service} Services {city}")
+        if tag not in tags:
+            tags.append(tag)
+    elif core_service:
+        tag = title_case(f"Professional {core_service}")
+        if tag not in tags:
+            tags.append(tag)
 
-    # Fill to 5 with city-inclusive defaults
+    # 5. [Service] services near me / [city] (e.g. "SEO Services in Sarasota")
+    if core_service and city:
+        tag = title_case(f"{core_service} Services in {city}")
+        if tag not in tags:
+            tags.append(tag)
+
+    # 6. Industry + city if we have a real industry (e.g. "Digital Marketing Sarasota")
+    if industry and city:
+        tag = title_case(f"{industry} in {city}")
+        if tag not in tags:
+            tags.append(tag)
+
+    # Additional fillers using keyword variations to guarantee 5+
     fillers = []
-    if city:
+    if city and core_service:
         fillers += [
-            title_case(f"{city} {industry}" if industry else f"{city} Services"),
-            title_case(f"Professional {industry} {city}" if industry else f"Professional Services {city}"),
-            title_case(f"{city} Expert {industry}" if industry else f"{city} Expert Services"),
+            title_case(f"Top {core_service} {city}"),
+            title_case(f"{city} {core_service} Experts"),
+            title_case(f"Affordable {core_service} in {city}"),
+            title_case(f"{core_service} Company {city}"),
+            title_case(f"Local {core_service} in {city}"),
+            title_case(f"Expert {core_service} {city}"),
         ]
-    else:
+    elif core_service:
         fillers += [
-            title_case(f"Professional {industry}" if industry else "Professional Services"),
-            title_case(f"Best {keyword}" if keyword else "Expert Services"),
+            title_case(f"Top {core_service}"),
+            title_case(f"Expert {core_service}"),
+            title_case(f"Professional {core_service}"),
         ]
+    if client_name and core_service:
+        fillers.append(title_case(f"{client_name} {core_service}"))
 
     for filler in fillers:
         if filler and filler not in tags and len(tags) < 5:
             tags.append(filler)
 
-    # Deduplicate while preserving order, limit to 5
+    # Deduplicate while preserving order, ensure at least 5
     seen = set()
     unique = []
     for t in tags:
-        if t and t not in seen:
-            seen.add(t)
-            unique.append(t)
+        t_clean = t.strip()
+        if t_clean and t_clean not in seen:
+            seen.add(t_clean)
+            unique.append(t_clean)
     return unique[:5]
 
 # Use database-backed task storage to work with multiple Gunicorn workers

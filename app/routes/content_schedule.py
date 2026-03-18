@@ -400,13 +400,43 @@ def submit_client_review(review_token):
     if 'tags' in data and isinstance(data['tags'], list):
         blog.tags = json.dumps(data['tags'])
     if 'featured_image_url' in data:
-        blog.featured_image_url = data['featured_image_url']
+        img_url = data['featured_image_url']
+        # If client uploaded a new image, it comes as a base64 data-URI.
+        # Save it to disk and store the file path so it survives refreshes.
+        if img_url and img_url.startswith('data:image'):
+            try:
+                import base64, os, uuid as _uuid
+                # Extract extension and raw bytes from data URI
+                header, b64data = img_url.split(',', 1)
+                ext = 'jpg'
+                if 'png' in header:
+                    ext = 'png'
+                elif 'webp' in header:
+                    ext = 'webp'
+                elif 'gif' in header:
+                    ext = 'gif'
+                filename = f"review_{_uuid.uuid4().hex[:10]}.{ext}"
+                upload_dir = os.path.join(
+                    current_app.config.get('UPLOAD_FOLDER', 'static/uploads'),
+                    'client_images',
+                    blog.client_id or 'general'
+                )
+                os.makedirs(upload_dir, exist_ok=True)
+                filepath = os.path.join(upload_dir, filename)
+                with open(filepath, 'wb') as f:
+                    f.write(base64.b64decode(b64data))
+                img_url = f"/static/uploads/client_images/{blog.client_id or 'general'}/{filename}"
+            except Exception as img_err:
+                logger.warning(f"Failed to save base64 featured image: {img_err}")
+                # Fall through — keep the data URI as a fallback
+        blog.featured_image_url = img_url
     
     # Mark as edited by client
     action = data.get('action', 'save')  # 'save' or 'approve'
     
     if action == 'approve':
         blog.client_status = 'client_approved'
+        blog.status = 'approved'  # Also update main status so it shows as approved in the dashboard
     else:
         blog.client_status = 'client_edited'
     

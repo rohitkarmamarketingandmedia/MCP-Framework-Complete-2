@@ -286,6 +286,8 @@ def render_review_page(review_token):
                     <button onclick="execCmd('justifyCenter')" title="Align Center"><i class="fas fa-align-center"></i></button>
                     <button onclick="execCmd('justifyRight')" title="Align Right"><i class="fas fa-align-right"></i></button>
                     <div class="separator"></div>
+                    <button onclick="insertEditorImage()" title="Insert Image"><i class="fas fa-image"></i></button>
+                    <div class="separator"></div>
                     <button onclick="execCmd('removeFormat')" title="Clear Formatting"><i class="fas fa-eraser"></i></button>
                     <button onclick="execCmd('undo')" title="Undo (Ctrl+Z)"><i class="fas fa-undo"></i></button>
                     <button onclick="execCmd('redo')" title="Redo (Ctrl+Y)"><i class="fas fa-redo"></i></button>
@@ -422,6 +424,57 @@ def render_review_page(review_token):
                 document.execCommand('createLink', false, url);
             }}
         }}
+
+        function insertEditorImage() {{
+            // Save selection before opening the modal
+            const sel = window.getSelection();
+            let savedRange = sel.rangeCount > 0 ? sel.getRangeAt(0).cloneRange() : null;
+
+            const choice = prompt('Enter image URL, or type "upload" to select a file from your computer:', 'https://');
+            if (!choice) return;
+
+            if (choice.trim().toLowerCase() === 'upload') {{
+                // Create a hidden file input, let user pick an image, convert to base64 and insert
+                const input = document.createElement('input');
+                input.type = 'file';
+                input.accept = 'image/*';
+                input.onchange = function() {{
+                    if (!input.files || !input.files[0]) return;
+                    const file = input.files[0];
+                    if (file.size > 5 * 1024 * 1024) {{
+                        showToast('Image must be under 5MB', 'error');
+                        return;
+                    }}
+                    const reader = new FileReader();
+                    reader.onload = function(e) {{
+                        const html = '<img src="' + e.target.result + '" alt="Image" style="max-width:100%;height:auto;margin:10px 0;border-radius:8px;">';
+                        const editor = document.getElementById('bodyEdit');
+                        editor.focus();
+                        if (savedRange) {{
+                            const s = window.getSelection();
+                            s.removeAllRanges();
+                            s.addRange(savedRange);
+                        }}
+                        document.execCommand('insertHTML', false, html);
+                        showToast('Image inserted!', 'success');
+                    }};
+                    reader.readAsDataURL(file);
+                }};
+                input.click();
+            }} else {{
+                // URL entered directly
+                const html = '<img src="' + choice.trim() + '" alt="Image" style="max-width:100%;height:auto;margin:10px 0;border-radius:8px;">';
+                const editor = document.getElementById('bodyEdit');
+                editor.focus();
+                if (savedRange) {{
+                    const s = window.getSelection();
+                    s.removeAllRanges();
+                    s.addRange(savedRange);
+                }}
+                document.execCommand('insertHTML', false, html);
+                showToast('Image inserted!', 'success');
+            }}
+        }}
         
         let sourceMode = false;
         function toggleSourceView() {{
@@ -490,6 +543,10 @@ def render_review_page(review_token):
                     body = document.getElementById('bodyEdit').innerHTML;
                 }}
             }}
+            // Capture featured image (may be a URL or base64 data-URI from a new upload)
+            const featuredImgEl = document.getElementById('featuredImg');
+            const featuredImgSrc = featuredImgEl ? featuredImgEl.src : '';
+
             const payload = {{
                 title: document.getElementById('editTitle').value,
                 meta_title: document.getElementById('editMetaTitle').value,
@@ -498,6 +555,10 @@ def render_review_page(review_token):
                 action: action
             }};
             if (body) payload.body = body;
+            // Include the featured image — works for both existing URLs and newly uploaded base64 data
+            if (featuredImgSrc && !featuredImgSrc.endsWith('/')) {{
+                payload.featured_image_url = featuredImgSrc;
+            }}
             
             try {{
                 const res = await fetch(`${{API_BASE}}/api/schedule/review/${{REVIEW_TOKEN}}`, {{

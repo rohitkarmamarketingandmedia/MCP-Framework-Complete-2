@@ -12491,7 +12491,7 @@
             panel.classList.add('hidden');
 
             try {
-                const res = await fetch(`${API_URL}/api/content-schedule/comments/${blogId}`, {
+                const res = await fetch(`${API_URL}/api/schedule/comments/${blogId}`, {
                     headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
                 });
                 if (!res.ok) return;
@@ -12558,7 +12558,7 @@
             if (!text) return;
 
             try {
-                const res = await fetch(`${API_URL}/api/content-schedule/comments/${currentBlog.id}`, {
+                const res = await fetch(`${API_URL}/api/schedule/comments/${currentBlog.id}`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
