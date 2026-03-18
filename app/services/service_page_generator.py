@@ -292,8 +292,12 @@ Requirements:
 - Do NOT write short stubs — write a complete, thorough page
 - Return ONLY valid JSON"""
 
+        system_prompt = """You are an expert SEO copywriter specializing in local service business landing pages.
+Generate detailed, conversion-focused service pages with rich HTML content.
+Return ONLY valid JSON — no markdown, no extra text."""
+
         try:
-            # Try using the agent config
+            # Try using the agent config first
             result = self.ai_service.generate_raw_with_agent(
                 agent_name='service_page_writer',
                 user_input=user_input,
@@ -302,17 +306,30 @@ Requirements:
                     'location': context['location']
                 }
             )
-            
+
             # Parse JSON response
             if isinstance(result, str):
                 # Clean up potential markdown code blocks
                 result = result.replace('```json', '').replace('```', '').strip()
                 result = json.loads(result)
-            
+
             return result
-            
-        except Exception as e:
-            logger.error(f"AI generation failed: {e}")
+
+        except Exception as agent_err:
+            logger.warning(f"Agent-based generation failed ({agent_err}), falling back to direct AI call")
+            try:
+                # Fallback: direct AI call with full prompt to honour the requested word count
+                direct_prompt = f"""{system_prompt}
+
+{user_input}
+
+Return a JSON object with keys: hero_headline, hero_subheadline, intro_text, body_content (full HTML, {target_words}+ words), cta_headline, cta_button_text, form_headline, trust_badges (list), faq (list of {{question, answer}}), meta_title, meta_description, secondary_keywords (list)."""
+                raw = self.ai_service.generate_raw(direct_prompt, max_tokens=4000)
+                if isinstance(raw, str):
+                    raw = raw.replace('```json', '').replace('```', '').strip()
+                    return json.loads(raw)
+            except Exception as direct_err:
+                logger.error(f"Direct AI generation also failed: {direct_err}")
             return self._generate_template(context)
     
     def _generate_location_with_ai(self, context: Dict) -> Dict:
@@ -338,6 +355,10 @@ Generate location-specific content emphasizing local service and expertise.
 body_content must be full HTML with multiple detailed sections totaling AT LEAST {target_words} words.
 Return ONLY valid JSON."""
 
+        system_prompt = """You are an expert SEO copywriter specializing in local service business landing pages.
+Generate detailed, conversion-focused location pages with rich HTML content.
+Return ONLY valid JSON — no markdown, no extra text."""
+
         try:
             result = self.ai_service.generate_raw_with_agent(
                 agent_name='service_page_writer',
@@ -347,15 +368,27 @@ Return ONLY valid JSON."""
                     'location': context['location']
                 }
             )
-            
+
             if isinstance(result, str):
                 result = result.replace('```json', '').replace('```', '').strip()
                 result = json.loads(result)
-            
+
             return result
-            
-        except Exception as e:
-            logger.error(f"AI generation failed: {e}")
+
+        except Exception as agent_err:
+            logger.warning(f"Agent-based location generation failed ({agent_err}), falling back to direct AI call")
+            try:
+                direct_prompt = f"""{system_prompt}
+
+{user_input}
+
+Return a JSON object with keys: hero_headline, hero_subheadline, intro_text, body_content (full HTML, {target_words}+ words), cta_headline, cta_button_text, form_headline, trust_badges (list), faq (list of {{question, answer}}), meta_title, meta_description, secondary_keywords (list)."""
+                raw = self.ai_service.generate_raw(direct_prompt, max_tokens=4000)
+                if isinstance(raw, str):
+                    raw = raw.replace('```json', '').replace('```', '').strip()
+                    return json.loads(raw)
+            except Exception as direct_err:
+                logger.error(f"Direct AI location generation also failed: {direct_err}")
             return self._generate_location_template(context)
     
     # ==========================================

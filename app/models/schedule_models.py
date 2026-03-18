@@ -146,7 +146,7 @@ class DBContentComment(db.Model):
     __tablename__ = 'content_comments'
     
     id: Mapped[str] = mapped_column(String(50), primary_key=True)
-    blog_id: Mapped[str] = mapped_column(String(50), ForeignKey('blog_posts.id'), index=True)
+    blog_id: Mapped[str] = mapped_column(String(50), ForeignKey('blog_posts.id', ondelete='CASCADE'), index=True)
     
     # Who commented — either a logged-in user or a client via review token
     author_type: Mapped[str] = mapped_column(String(20), default='client')  # 'client', 'team', 'system'

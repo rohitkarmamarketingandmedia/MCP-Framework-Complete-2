@@ -199,9 +199,18 @@ class DataService:
         return DBBlogPost.query.filter_by(client_id=client_id).order_by(DBBlogPost.created_at.desc()).all()
     
     def delete_blog_post(self, post_id: str) -> bool:
-        """Delete a blog post"""
+        """Delete a blog post and all related child records (comments, etc.)"""
         post = DBBlogPost.query.get(post_id)
         if post:
+            # Delete child records first to avoid FK constraint violations.
+            # This is a belt-and-suspenders guard; the FK also carries ondelete='CASCADE'
+            # at the model level, but older DB schemas may not have the constraint yet.
+            try:
+                from app.models.schedule_models import DBContentComment
+                DBContentComment.query.filter_by(blog_id=post_id).delete(synchronize_session=False)
+            except Exception:
+                pass  # Table may not exist yet on older deployments
+
             db.session.delete(post)
             try:
                 db.session.commit()

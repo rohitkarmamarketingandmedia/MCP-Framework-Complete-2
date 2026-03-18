@@ -293,10 +293,8 @@ def run_competitor_crawl(app):
         
         db.session.commit()
         logger.info(f"Competitor crawl complete. Found {total_new_pages} new pages across {len(due_competitors)} competitors.")
-        
-        # Send notification if new content found
-        if total_new_pages > 0:
-            _notify_new_competitor_content(total_new_pages)
+        # Per-competitor alert emails are already sent inside the loop above.
+        # The global _notify_new_competitor_content call has been removed to prevent duplicate emails.
 
 
 def _auto_generate_counter_content(client_id, competitor_id, new_page_ids):
@@ -508,14 +506,35 @@ def send_daily_summary(app):
         logger.info("Daily summary email sent")
 
 
+# Track last time a competitor content notification was sent (in-memory cooldown)
+_last_competitor_notify_at: datetime = None
+_COMPETITOR_NOTIFY_COOLDOWN_HOURS = 6
+
+
 def _notify_new_competitor_content(count):
-    """Send notification about new competitor content"""
+    """Send notification about new competitor content.
+    Enforces a cooldown so the same alert cannot be sent more than once
+    every _COMPETITOR_NOTIFY_COOLDOWN_HOURS hours, preventing email spam
+    if the job is triggered multiple times in quick succession.
+    """
+    global _last_competitor_notify_at
+
+    now = datetime.utcnow()
+    if _last_competitor_notify_at is not None:
+        hours_since = (now - _last_competitor_notify_at).total_seconds() / 3600
+        if hours_since < _COMPETITOR_NOTIFY_COOLDOWN_HOURS:
+            logger.info(
+                f"Competitor notify skipped — last sent {hours_since:.1f}h ago "
+                f"(cooldown: {_COMPETITOR_NOTIFY_COOLDOWN_HOURS}h)"
+            )
+            return
+
     from app.services.email_service import EmailService
     from app.models.db_models import DBUser
-    
+
     email = EmailService()
     admins = DBUser.query.filter_by(role='admin').all()
-    
+
     for admin in admins:
         if admin.email:
             email.send_simple(
@@ -523,6 +542,9 @@ def _notify_new_competitor_content(count):
                 subject=f"🚨 {count} New Competitor Posts Detected",
                 body=f"Your competitors published {count} new pieces of content. Counter-content has been auto-generated and is waiting for your approval.\n\nLogin to review: /agency"
             )
+
+    _last_competitor_notify_at = now
+    logger.info(f"Competitor content notification sent to admins (count={count})")
 
 
 def get_scheduler_status():

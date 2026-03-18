@@ -885,7 +885,7 @@
                             <i class="fas fa-phone text-white text-2xl"></i>
                         </div>
                         <div class="text-4xl font-bold text-white mb-1" id="overview-calls">--</div>
-                        <div class="text-sm text-gray-400 mb-3">Phone Calls</div>
+                        <div class="text-sm text-gray-400 mb-3">Phone Calls <span class="text-xs text-gray-500">(this month)</span></div>
                         <div class="w-full bg-slate-700 rounded-full h-2 mb-1">
                             <div id="answer-rate-bar" class="bg-emerald-500 h-2 rounded-full progress-bar-animated"
                                 style="width: 0%"></div>
@@ -4532,6 +4532,28 @@
                                 class="fas fa-question-circle mr-2 text-purple-500"></i>Frequently Asked Questions</h3>
                         <div id="faqContent" class="space-y-4"></div>
                     </div>
+
+                    <!-- Client Review Comments Panel -->
+                    <div id="clientCommentsPanel" class="hidden mt-8 border-t pt-6">
+                        <h3 class="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+                            <i class="fas fa-comments text-blue-500"></i>
+                            Client Comments &amp; Review
+                            <span id="clientCommentsBadge" class="px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-xs font-semibold"></span>
+                        </h3>
+                        <!-- Approval status banner -->
+                        <div id="clientApprovalBanner" class="hidden mb-4 p-3 rounded-lg flex items-center gap-3"></div>
+                        <!-- Comment list -->
+                        <div id="clientCommentsList" class="space-y-3 mb-4"></div>
+                        <!-- Team reply input -->
+                        <div class="flex gap-2">
+                            <input type="text" id="teamReplyInput" placeholder="Reply to client…"
+                                class="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-300">
+                            <button onclick="submitTeamReply()"
+                                class="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-sm font-medium transition">
+                                <i class="fas fa-paper-plane mr-1"></i>Reply
+                            </button>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Footer - View mode -->
@@ -5681,6 +5703,17 @@
             if (rankChangeEl) rankChangeEl.textContent = '-- vs last check';
             // Remove any demo/error notices from previous client
             document.getElementById('rankingsDemoNotice')?.remove();
+
+            // Clear generate content form fields to prevent stale data from previous client
+            const customBlogKeywordEl = document.getElementById('customBlogKeyword');
+            if (customBlogKeywordEl) customBlogKeywordEl.value = '';
+            const bulkKeywordsEl = document.getElementById('bulkKeywords');
+            if (bulkKeywordsEl) bulkKeywordsEl.value = '';
+            const socialTopicEl = document.getElementById('socialTopic');
+            if (socialTopicEl) socialTopicEl.value = '';
+            // Clear Call FAQ banner and stored questions from previous client
+            window._callFaqQuestions = null;
+            document.getElementById('callFaqBanner')?.remove();
 
             try {
                 // Load client details
@@ -12278,6 +12311,9 @@
             // Fact-Check Verification
             updateFactCheckDisplay(currentBlog);
 
+            // Client comments & approval status
+            loadClientComments(currentBlog.id, currentBlog.client_status);
+
             // Update Schedule button text based on status
             const scheduleBtn = document.getElementById('btnSchedule');
             const scheduleBtnText = document.getElementById('btnScheduleText');
@@ -12439,9 +12475,113 @@
         }
 
         // ==========================================
+        // CLIENT COMMENTS & APPROVAL
+        // ==========================================
+
+        async function loadClientComments(blogId, clientStatus) {
+            const panel = document.getElementById('clientCommentsPanel');
+            const list  = document.getElementById('clientCommentsList');
+            const badge = document.getElementById('clientCommentsBadge');
+            const banner = document.getElementById('clientApprovalBanner');
+
+            // Always reset
+            list.innerHTML = '';
+            badge.textContent = '';
+            banner.classList.add('hidden');
+            panel.classList.add('hidden');
+
+            try {
+                const res = await fetch(`${API_URL}/api/content-schedule/comments/${blogId}`, {
+                    headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
+                });
+                if (!res.ok) return;
+                const data = await res.json();
+                const comments = data.comments || [];
+
+                // Show approval status banner
+                if (clientStatus === 'client_approved') {
+                    banner.className = 'mb-4 p-3 rounded-lg flex items-center gap-3 bg-green-50 border border-green-200 text-green-800';
+                    banner.innerHTML = '<i class="fas fa-check-circle text-green-500 text-lg"></i><span><strong>Client Approved</strong> — This post has been reviewed and approved by the client.</span>';
+                    banner.classList.remove('hidden');
+                } else if (clientStatus === 'client_edited') {
+                    banner.className = 'mb-4 p-3 rounded-lg flex items-center gap-3 bg-amber-50 border border-amber-200 text-amber-800';
+                    banner.innerHTML = '<i class="fas fa-edit text-amber-500 text-lg"></i><span><strong>Client Made Edits</strong> — The client has edited this post. Please review their changes.</span>';
+                    banner.classList.remove('hidden');
+                } else if (clientStatus === 'pending_review') {
+                    banner.className = 'mb-4 p-3 rounded-lg flex items-center gap-3 bg-blue-50 border border-blue-200 text-blue-800';
+                    banner.innerHTML = '<i class="fas fa-clock text-blue-500 text-lg"></i><span><strong>Awaiting Client Review</strong> — Review link has been sent to the client.</span>';
+                    banner.classList.remove('hidden');
+                }
+
+                // Show if there are comments or a non-null status
+                if (comments.length > 0 || clientStatus) {
+                    panel.classList.remove('hidden');
+                }
+
+                if (comments.length === 0) {
+                    if (clientStatus && clientStatus !== 'pending_review') {
+                        list.innerHTML = '<p class="text-sm text-gray-400 italic">No comments left yet.</p>';
+                    }
+                    badge.textContent = '';
+                    return;
+                }
+
+                badge.textContent = comments.length;
+                list.innerHTML = comments.map(c => {
+                    const isClient = c.author_type === 'client';
+                    const bubbleClass = isClient
+                        ? 'bg-blue-50 border border-blue-200'
+                        : 'bg-gray-50 border border-gray-200';
+                    const nameColor = isClient ? 'text-blue-700' : 'text-gray-700';
+                    const icon = isClient ? 'fa-user text-blue-400' : 'fa-headset text-gray-400';
+                    const ts = c.created_at ? new Date(c.created_at).toLocaleString() : '';
+                    return `
+                        <div class="p-3 rounded-lg ${bubbleClass}">
+                            <div class="flex items-center gap-2 mb-1">
+                                <i class="fas ${icon} text-xs"></i>
+                                <span class="text-xs font-semibold ${nameColor}">${c.author_name || (isClient ? 'Client' : 'Team')}</span>
+                                <span class="text-xs text-gray-400 ml-auto">${ts}</span>
+                            </div>
+                            <p class="text-sm text-gray-700">${c.comment}</p>
+                        </div>`;
+                }).join('');
+
+            } catch (e) {
+                console.error('loadClientComments error:', e);
+            }
+        }
+
+        async function submitTeamReply() {
+            if (!currentBlog) return;
+            const input = document.getElementById('teamReplyInput');
+            const text = input.value.trim();
+            if (!text) return;
+
+            try {
+                const res = await fetch(`${API_URL}/api/content-schedule/comments/${currentBlog.id}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${AUTH_TOKEN}`
+                    },
+                    body: JSON.stringify({ comment: text })
+                });
+                if (res.ok) {
+                    input.value = '';
+                    loadClientComments(currentBlog.id, currentBlog.client_status);
+                    showToast('Reply sent', 'success');
+                } else {
+                    showToast('Failed to send reply', 'error');
+                }
+            } catch (e) {
+                showToast('Error: ' + e.message, 'error');
+            }
+        }
+
+        // ==========================================
         // SEND TO CLIENT
         // ==========================================
-        
+
         function showSendToClientModal() {
             if (!currentBlog) return;
             // Pre-fill email from client
@@ -17775,6 +17915,11 @@
             // Extract a short SEO keyword (2-5 words) from a long title or question
             let kw = topic.trim();
 
+            // Reject placeholder/hash titles like "Blog Post Title One Me8Cm" — fall back to empty so caller can prompt user
+            if (/^Blog Post Title (One|Two|Three|Four|Five|Six)\s+[A-Za-z0-9]{4,8}$/i.test(kw)) {
+                return '';
+            }
+
             // Remove brand suffixes after | or - (e.g., "Title | 941 Dental Studio")
             kw = kw.replace(/\s*[|–—]\s*[A-Za-z][A-Za-z0-9\s&'\-\.]{2,}$/, '').trim();
             // Also handle " - Brand Name" (with dash)
@@ -17849,6 +17994,13 @@
 
             // Always extract a short SEO keyword from potentially long titles/questions
             let optimizedKeyword = _extractKeywordFromTopic(decodedTopic);
+
+            // If extraction returned empty (e.g. placeholder title), ask the user for a keyword
+            if (!optimizedKeyword) {
+                const userKw = prompt('The competitor page title looks like a placeholder. Please enter a keyword to use for this blog post:');
+                if (!userKw || !userKw.trim()) return;
+                optimizedKeyword = userKw.trim();
+            }
 
             if (isCounterContent) {
                 const clientName = currentClient?.name || '';

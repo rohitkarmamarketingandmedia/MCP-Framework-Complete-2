@@ -56,6 +56,11 @@ def _generate_blog_tags(keyword, city='', industry='', client_name=''):
     keyword = (keyword or '').strip()
     industry = (industry or '').strip()
 
+    # Treat generic/placeholder industry values as empty — they produce useless tags
+    _generic_industries = {'other', 'general', 'n/a', 'na', 'none', 'unknown', 'misc', 'miscellaneous', ''}
+    if industry.lower() in _generic_industries:
+        industry = ''
+
     # Check if keyword already contains the city name
     keyword_has_city = city and city.lower() in keyword.lower()
 

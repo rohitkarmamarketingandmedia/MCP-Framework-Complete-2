@@ -159,7 +159,32 @@ class BlogAISingle:
         # 8) AI CLEANUP - Send to AI to fix any remaining issues
         result = self._ai_cleanup(result, req)
 
-        # 9) Build HTML
+        # 9) Capitalise city name wherever it appears in body as plain text
+        # (AI sometimes generates "sarasota" in lowercase even when it should be "Sarasota")
+        if req.city:
+            city_proper = req.city.title()  # e.g. "sarasota, fl" -> "Sarasota, Fl" / "Sarasota" -> "Sarasota"
+            # More precise: only capitalise the first word of the city for multi-word cities
+            city_words = req.city.strip().split(',')[0].strip()  # e.g. "Sarasota" from "Sarasota, FL"
+            city_proper = ' '.join(w.capitalize() for w in city_words.split())
+            body = result.get('body', '')
+            # Replace the city only in visible text (not inside HTML attribute values like href=)
+            # Strategy: replace word-boundary occurrences that are NOT inside an HTML tag
+            import re as _re
+            def _capitalise_city_in_text(html, city_raw, city_cased):
+                """Replace lowercase city occurrences in text nodes only (not in HTML attributes)."""
+                pattern = _re.compile(r'(?i)(?<!["\'/\w])' + _re.escape(city_raw) + r'(?![\w/])')
+                # Split on tags, process only text segments
+                parts = _re.split(r'(<[^>]+>)', html)
+                fixed = []
+                for part in parts:
+                    if part.startswith('<'):
+                        fixed.append(part)
+                    else:
+                        fixed.append(pattern.sub(city_cased, part))
+                return ''.join(fixed)
+            result['body'] = _capitalise_city_in_text(body, req.city, city_proper)
+
+        # 10) Build HTML
         result["html"] = result.get("body", "")
 
         # 10) Calculate word count
@@ -738,7 +763,31 @@ Return ONLY valid JSON (no markdown):
             return report
             
         except anthropic.RateLimitError as e:
-            logger.error(f"Fact-check rate limited: {e}")
+            logger.warning(f"Fact-check rate limited, retrying in 30s: {e}")
+            import time
+            time.sleep(30)
+            try:
+                response = self.client.messages.create(
+                    model=self.model_primary,
+                    max_tokens=4000,
+                    system="You are a meticulous fact-checker. Return only valid JSON. Focus on claims that could be factually incorrect.",
+                    messages=[{"role": "user", "content": verify_prompt}],
+                    temperature=0.1,
+                )
+                response_text = "".join(block.text for block in response.content if hasattr(block, 'text')).strip()
+                report = self._robust_parse_json(response_text)
+                if report:
+                    report.setdefault('accuracy_score', 0)
+                    report.setdefault('verified_claims', [])
+                    report.setdefault('flagged_claims', [])
+                    report.setdefault('summary', '')
+                    report['status'] = 'complete'
+                    report['high_severity_count'] = len([f for f in report.get('flagged_claims', []) if f.get('severity') == 'high'])
+                    report['total_flagged'] = len(report.get('flagged_claims', []))
+                    report['total_verified'] = len(report.get('verified_claims', []))
+                    return report
+            except Exception as retry_err:
+                logger.error(f"Fact-check retry failed: {retry_err}")
             return {'status': 'error', 'reason': 'rate_limited'}
         except anthropic.APIError as e:
             logger.error(f"Fact-check API error: {e}")
@@ -2238,6 +2287,12 @@ No markdown. No commentary. Just the JSON object."""
             # Use the meta_title as the blog title (it's already been fixed above)
             result["title"] = result["meta_title"]
             logger.info(f"Fixed blog title (was bad): '{title}' -> '{result['title']}'")
+
+        # Always enforce Title Case on the final title and H1 — the AI sometimes returns
+        # them in all-lowercase (e.g. "search engine optimization sarasota")
+        result["title"] = self._title_case(result.get("title", ""))
+        result["h1"] = self._title_case(result.get("h1", ""))
+        logger.info(f"Title case enforced: title='{result['title']}' h1='{result['h1']}'")
 
         # Fix meta description - only override if AI-generated one is bad
         meta_desc = result.get("meta_description", "").strip()
