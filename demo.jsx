@@ -154,7 +154,7 @@ export default function RankCommanderDemo() {
           <div className="space-y-4">
             <input 
               type="text" 
-              defaultValue="https://mcp-framework.onrender.com"
+              defaultValue="https://mcp.karmamarketingandmedia.com"
               className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-gray-500"
               placeholder="API URL"
             />

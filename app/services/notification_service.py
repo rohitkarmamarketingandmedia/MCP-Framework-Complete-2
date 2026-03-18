@@ -33,7 +33,7 @@ class NotificationService:
     
     def __init__(self):
         self.email_service = get_email_service()
-        self.app_url = os.getenv('APP_URL', 'https://mcp-framework.onrender.com')
+        self.app_url = os.getenv('APP_URL', 'https://mcp.karmamarketingandmedia.com')
         self.max_retries = 3
         self.retry_delay_minutes = 5
     

@@ -103,10 +103,10 @@ class EmailService:
         response = sg.send(message)
         
         if response.status_code in [200, 201, 202]:
-            logger.info(f"Email sent to {to} (cc: {cc}, bcc: {bcc}): {subject}")
+            logger.info(f"Email sent to {to} (cc: {cc}, bcc: {bcc}) from={self.from_email}: {subject}")
             return True
         else:
-            logger.error(f"SendGrid error: {response.status_code}")
+            logger.error(f"SendGrid error: status={response.status_code}, from={self.from_email}, to={to}, body={response.body}")
             return False
     
     def _send_smtp(self, to: str, subject: str, body: str, html: bool, cc: list = None, bcc: list = None) -> bool:
@@ -157,7 +157,7 @@ class EmailService:
             {''.join(self._alert_html(a) for a in other)}
             
             <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee;">
-                <a href="{os.getenv('APP_URL', 'https://mcp-framework.onrender.com')}/agency" 
+                <a href="{os.getenv('APP_URL', 'https://mcp.karmamarketingandmedia.com')}/agency" 
                    style="display: inline-block; padding: 12px 24px; background: #111; color: #fff; text-decoration: none; border-radius: 6px;">
                     View Dashboard →
                 </a>
@@ -209,7 +209,7 @@ class EmailService:
             </table>
             
             <div style="margin-top: 30px;">
-                <a href="{os.getenv('APP_URL', 'https://mcp-framework.onrender.com')}/agency" 
+                <a href="{os.getenv('APP_URL', 'https://mcp.karmamarketingandmedia.com')}/agency" 
                    style="display: inline-block; padding: 12px 24px; background: #111; color: #fff; text-decoration: none; border-radius: 6px;">
                     Open Dashboard →
                 </a>
@@ -235,7 +235,7 @@ class EmailService:
             <p>Counter-content has been generated and is ready for your approval.</p>
             
             <div style="margin-top: 30px;">
-                <a href="{os.getenv('APP_URL', 'https://mcp-framework.onrender.com')}/elite" 
+                <a href="{os.getenv('APP_URL', 'https://mcp.karmamarketingandmedia.com')}/elite" 
                    style="display: inline-block; padding: 12px 24px; background: #111; color: #fff; text-decoration: none; border-radius: 6px;">
                     Review Content →
                 </a>
@@ -261,7 +261,7 @@ class EmailService:
             <p>Counter-content is being generated automatically. You'll be notified when it's ready for review.</p>
             
             <div style="margin-top: 30px;">
-                <a href="{os.getenv('APP_URL', 'https://mcp-framework.onrender.com')}/agency" 
+                <a href="{os.getenv('APP_URL', 'https://mcp.karmamarketingandmedia.com')}/agency" 
                    style="display: inline-block; padding: 12px 24px; background: #dc2626; color: #fff; text-decoration: none; border-radius: 6px;">
                     View Details →
                 </a>
@@ -297,7 +297,7 @@ class EmailService:
             </div>
             
             <div style="margin-top: 30px;">
-                <a href="{os.getenv('APP_URL', 'https://mcp-framework.onrender.com')}/elite" 
+                <a href="{os.getenv('APP_URL', 'https://mcp.karmamarketingandmedia.com')}/elite" 
                    style="display: inline-block; padding: 12px 24px; background: #111; color: #fff; text-decoration: none; border-radius: 6px;">
                     View Rankings →
                 </a>

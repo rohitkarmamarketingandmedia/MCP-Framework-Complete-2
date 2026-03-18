@@ -198,50 +198,80 @@ def run_competitor_crawl(app):
         logger.info(f"Found {len(due_competitors)} competitors due for crawl.")
         total_new_pages = 0
         
+        from app.models.db_models import DBCompetitorPage
+        import uuid as _uuid
+
+        service = CompetitorMonitoringService()  # Singleton — no args needed
+
         for competitor in due_competitors:
             try:
-                service = CompetitorMonitoringService(competitor.client_id)
-                result = service.crawl_competitor(competitor.id)
-                new_pages = result.get('new_pages', 0)
-                total_new_pages += new_pages
-                
-                if new_pages > 0:
+                # Get known pages for this competitor from DB
+                known_db_pages = DBCompetitorPage.query.filter_by(competitor_id=competitor.id).all()
+                known_pages = [{'url': p.url, 'lastmod': p.last_checked_at.isoformat() if p.last_checked_at else None} for p in known_db_pages]
+
+                # Detect new content by comparing current sitemap with known pages
+                new_pages_list, updated_pages_list = service.detect_new_content(
+                    competitor.domain, known_pages, competitor.last_crawl_at
+                )
+
+                new_page_count = len(new_pages_list)
+                total_new_pages += new_page_count
+
+                # Save new pages to DB
+                new_page_ids = []
+                for page in new_pages_list:
+                    page_id = f"cpage_{_uuid.uuid4().hex[:12]}"
+                    db_page = DBCompetitorPage(
+                        competitor_id=competitor.id,
+                        client_id=competitor.client_id,
+                        url=page.get('url', ''),
+                        title=page.get('title', ''),
+                    )
+                    db_page.id = page_id
+                    db.session.add(db_page)
+                    new_page_ids.append(page_id)
+
+                # Update known pages count
+                competitor.known_pages_count = len(known_db_pages) + new_page_count
+                competitor.new_pages_detected = new_page_count
+
+                if new_page_count > 0:
                     client = DBClient.query.get(competitor.client_id)
                     client_name = client.business_name if client else competitor.client_id
-                    logger.info(f"Found {new_pages} new pages for {competitor.name} (client: {client_name})")
-                    
+                    logger.info(f"Found {new_page_count} new pages for {competitor.name} (client: {client_name})")
+
                     # Send alert emails
                     try:
                         from app.services.email_service import email_service
                         from app.models.db_models import DBUser
-                        
+
                         if client:
                             recipients = set()
                             if client.email:
                                 recipients.add(client.email)
-                            
+
                             # Notify admin/manager users with access
                             admins = DBUser.query.filter(DBUser.role.in_(['admin', 'manager']), DBUser.is_active == True).all()
                             for admin in admins:
                                 if admin.email and admin.has_access_to_client(client.id):
                                     recipients.add(admin.email)
-                            
+
                             for recipient in recipients:
                                 try:
                                     email_service.send_competitor_alert(
                                         to=recipient,
                                         client_name=client_name,
                                         competitor_name=competitor.name or competitor.domain,
-                                        new_pages=new_pages
+                                        new_pages=new_page_count
                                     )
                                     logger.info(f"Sent crawl alert to {recipient}")
                                 except Exception as email_err:
                                     logger.warning(f"Failed to send crawl alert to {recipient}: {email_err}")
                     except Exception as alert_err:
                         logger.warning(f"Could not send crawl alerts: {alert_err}")
-                    
+
                     # Auto-generate counter content for new pages
-                    _auto_generate_counter_content(competitor.client_id, competitor.id, result.get('new_page_ids', []))
+                    _auto_generate_counter_content(competitor.client_id, competitor.id, new_page_ids)
                 
                 # Update last_crawl_at and compute next_crawl_at
                 competitor.last_crawl_at = now

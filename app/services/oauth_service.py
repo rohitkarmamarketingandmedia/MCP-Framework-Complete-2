@@ -34,7 +34,7 @@ class OAuthConfig:
     GOOGLE_SCOPES = 'https://www.googleapis.com/auth/business.manage'
     
     # App URL for callbacks
-    APP_URL = os.getenv('APP_URL', 'https://mcp-framework.onrender.com')
+    APP_URL = os.getenv('APP_URL', 'https://mcp.karmamarketingandmedia.com')
     
     @classmethod
     def get_callback_url(cls, platform: str) -> str:

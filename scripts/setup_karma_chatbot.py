@@ -152,7 +152,7 @@ def setup_karma_chatbot():
             print(f"✓ FAQs already exist ({existing_faqs})")
         
         # Generate embed code
-        base_url = os.getenv('BASE_URL', 'https://mcp-framework-complete-2.onrender.com')
+        base_url = os.getenv('BASE_URL', 'https://mcp.karmamarketingandmedia.com')
         
         embed_code = f'''<!-- Karma Marketing Chatbot -->
 <script>

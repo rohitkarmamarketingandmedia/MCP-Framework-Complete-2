@@ -353,7 +353,7 @@ def _send_review_email(app, schedule, client, blog_post):
             <div style="background:#f9fafb;padding:20px 32px;text-align:center;border-top:1px solid #e5e7eb;">
                 <p style="color:#9ca3af;font-size:12px;margin:0;">
                     This is an automated blog post from your content schedule. 
-                    Powered by {client.business_name}'s Marketing Platform.
+                    Sent by Karma Marketing + Media's Marketing Platform.
                 </p>
             </div>
         </div>
@@ -387,4 +387,4 @@ def _get_base_url(app):
         if url:
             return url.rstrip('/')
     # Fallback
-    return 'https://your-app.onrender.com'
+    return 'https://mcp.karmamarketingandmedia.com'
