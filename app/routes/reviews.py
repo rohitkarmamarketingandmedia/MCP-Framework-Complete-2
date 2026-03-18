@@ -324,35 +324,73 @@ def post_reply_to_google(current_user, review_id):
                 return jsonify({'error': f'Could not fetch GBP accounts: {accounts["error"]}'}), 500
             
             review_name = None
+            lookup_errors = []
             for account in accounts.get('accounts', []):
-                account_name = account.get('name')
-                locations = gbp_service.get_locations(access_token, account_name)
-                
-                for location in locations.get('locations', []):
-                    location_name = location.get('name')
-                    # Fetch reviews for this location
-                    reviews_result = gbp_service.get_reviews(access_token, location_name)
-                    
+                account_name = account.get('name')  # "accounts/123456"
+                locations_data = gbp_service.get_locations(access_token, account_name)
+
+                if locations_data.get('error'):
+                    lookup_errors.append(f"get_locations({account_name}): {locations_data['error']}")
+                    continue
+
+                for location in locations_data.get('locations', []):
+                    loc_name = location.get('name')  # "locations/xxx" from businessinformation API
+
+                    # CRITICAL: businessinformation API returns "locations/xxx" without the account
+                    # prefix, but the v4 reviews API requires the full "accounts/xxx/locations/xxx".
+                    if loc_name and not loc_name.startswith('accounts/'):
+                        full_location_name = f"{account_name}/{loc_name}"
+                    else:
+                        full_location_name = loc_name
+
+                    logger.info(f"Searching for review in location: {full_location_name}")
+
+                    # Fetch reviews for this location using the full path
+                    reviews_result = gbp_service.get_reviews(access_token, full_location_name)
+
+                    if reviews_result.get('error'):
+                        lookup_errors.append(f"get_reviews({full_location_name}): {reviews_result['error']}")
+                        continue
+
                     for gr in reviews_result.get('reviews', []):
-                        # Match by reviewer name and rating
+                        # Match by reviewer name and rating (primary)
                         gr_name = gr.get('reviewer', {}).get('displayName', '')
                         gr_rating = {'ONE': 1, 'TWO': 2, 'THREE': 3, 'FOUR': 4, 'FIVE': 5}.get(gr.get('starRating'), 0)
-                        
-                        if gr_name == review.reviewer_name and gr_rating == review.rating:
+
+                        name_match = gr_name == review.reviewer_name
+                        rating_match = gr_rating == review.rating
+
+                        # Also try fuzzy name match (Places API may abbreviate last names)
+                        if not name_match and review.reviewer_name:
+                            # e.g., "John S." vs "John Smith"
+                            first_word_match = gr_name.split()[0].lower() == review.reviewer_name.split()[0].lower() if gr_name and review.reviewer_name else False
+                            name_match = first_word_match
+
+                        # Also try matching by review text snippet (most reliable)
+                        gr_text = (gr.get('comment') or '').strip()[:80]
+                        db_text = (review.review_text or '').strip()[:80]
+                        text_match = gr_text and db_text and gr_text == db_text
+
+                        if (name_match and rating_match) or text_match:
                             review_name = gr.get('name')
+                            logger.info(f"Found review match: {review_name} (name_match={name_match}, rating_match={rating_match}, text_match={text_match})")
                             # Save for future use
                             review.platform_review_id = review_name
                             db.session.commit()
                             break
-                    
+
                     if review_name:
                         break
                 if review_name:
                     break
-            
+
             if not review_name:
+                error_detail = '; '.join(lookup_errors) if lookup_errors else 'No matching review found in any GBP location'
+                logger.warning(f"Could not find review {review_id} on Google. Lookup errors: {error_detail}")
                 return jsonify({
-                    'error': 'Could not find this review on Google. The review may have been deleted or the GBP account may not match.'
+                    'error': 'Could not find this review on Google.',
+                    'detail': 'The review may have been synced via Google Places (public API) but your GBP OAuth account may be connected to a different Google account. Try disconnecting and reconnecting Google Business Profile in Settings.',
+                    'lookup_errors': lookup_errors
                 }), 404
         
         # Post the reply
@@ -823,7 +861,49 @@ def sync_reviews(current_user):
             synced_count += 1
         
         db.session.commit()
-        
+
+        # ── Secondary pass: if GBP OAuth is connected, try to pre-populate platform_review_id
+        # with the real GBP review name so "Post to Google" works without a lookup next time.
+        gbp_enriched = 0
+        try:
+            if client.gbp_access_token:
+                tokens = gbp_service.refresh_access_token(client.gbp_access_token)
+                gbp_token = tokens.get('access_token') if 'error' not in tokens else None
+                if gbp_token:
+                    gbp_accounts = gbp_service.get_accounts(gbp_token)
+                    for acct in gbp_accounts.get('accounts', []):
+                        acct_name = acct.get('name')
+                        locs_data = gbp_service.get_locations(gbp_token, acct_name)
+                        for loc in locs_data.get('locations', []):
+                            loc_name = loc.get('name', '')
+                            full_loc = f"{acct_name}/{loc_name}" if not loc_name.startswith('accounts/') else loc_name
+                            gbp_reviews_resp = gbp_service.get_reviews(gbp_token, full_loc)
+                            for gr in gbp_reviews_resp.get('reviews', []):
+                                gr_disp = gr.get('reviewer', {}).get('displayName', '')
+                                gr_rating = {'ONE': 1, 'TWO': 2, 'THREE': 3, 'FOUR': 4, 'FIVE': 5}.get(gr.get('starRating'), 0)
+                                gr_text = (gr.get('comment') or '').strip()[:80]
+                                # Find matching DB review that lacks a proper GBP review name
+                                db_reviews = DBReview.query.filter(
+                                    DBReview.client_id == client_id,
+                                    DBReview.platform == 'google',
+                                    DBReview.rating == gr_rating
+                                ).all()
+                                for db_rev in db_reviews:
+                                    if db_rev.platform_review_id and db_rev.platform_review_id.startswith('accounts/'):
+                                        continue  # Already has the right ID
+                                    db_text = (db_rev.review_text or '').strip()[:80]
+                                    first_word_match = (
+                                        gr_disp.split()[0].lower() == (db_rev.reviewer_name or '').split()[0].lower()
+                                        if gr_disp and db_rev.reviewer_name else False
+                                    )
+                                    text_match = gr_text and db_text and gr_text == db_text
+                                    if text_match or (first_word_match and gr_rating == db_rev.rating):
+                                        db_rev.platform_review_id = gr.get('name')
+                                        gbp_enriched += 1
+                            db.session.commit()
+        except Exception as gbp_err:
+            logger.warning(f"GBP secondary enrichment failed (non-critical): {gbp_err}")
+
         # Auto-generate responses for new reviews
         auto_responded = 0
         if synced_count > 0:
@@ -851,9 +931,10 @@ def sync_reviews(current_user):
             'synced': synced_count,
             'skipped': skipped_count,
             'auto_responded': auto_responded,
+            'gbp_enriched': gbp_enriched,
             'total_rating': result.get('rating'),
             'total_reviews': result.get('user_ratings_total', 0),
-            'message': f'Synced {synced_count} new reviews ({skipped_count} already existed)',
+            'message': f'Synced {synced_count} new reviews ({skipped_count} already existed){f", linked {gbp_enriched} to GBP" if gbp_enriched else ""}',
             'debug': debug_info
         })
         

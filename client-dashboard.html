@@ -8449,7 +8449,7 @@
         function formatDate(dateStr) {
             if (!dateStr) return '';
             const date = new Date(dateStr);
-            return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+            return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' });
         }
 
         // ==========================================
@@ -8906,7 +8906,9 @@
                     showToast('GBP token expired. Please reconnect Google.', 'warning');
                     showGBPSetupGuide();
                 } else {
-                    showToast(data.error || 'Failed to post to Google', 'error');
+                    // Prefer data.detail over data.error when available (more actionable)
+                    const msg = data.detail || data.error || 'Failed to post to Google';
+                    showToast(msg, 'error');
                 }
             } catch (error) {
                 showToast('Error posting to Google: ' + error.message, 'error');
