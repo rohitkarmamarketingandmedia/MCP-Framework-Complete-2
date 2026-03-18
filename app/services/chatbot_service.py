@@ -17,7 +17,6 @@ class ChatbotService:
     
     def __init__(self):
         self.anthropic_api_key = os.getenv('ANTHROPIC_API_KEY')
-        self.openai_api_key = os.getenv('OPENAI_API_KEY')  # fallback
         self.model = os.getenv('CHATBOT_MODEL', 'claude-haiku-4-5-20251001')
     
     def build_system_prompt(self, client_data: Dict, chatbot_config: Dict, knowledge_entries: list = None) -> str:
@@ -236,64 +235,42 @@ If asked about something outside MCP, politely redirect to MCP-related help or s
         max_tokens: int = 500
     ) -> Dict:
         """
-        Get AI response from OpenAI
+        Get AI response from Claude (async)
         """
-        if not self.openai_api_key:
+        if not self.anthropic_api_key:
             return {
                 'content': "I'm having trouble connecting right now. Please leave your contact info and we'll get back to you shortly!",
                 'tokens_used': 0,
                 'response_time_ms': 0,
                 'error': 'No API key configured'
             }
-        
+
         try:
-            import httpx
-            
+            import anthropic
+
             start_time = time.time()
-            
-            # Build messages with system prompt
-            full_messages = [
-                {"role": "system", "content": system_prompt}
-            ] + messages
-            
-            async with httpx.AsyncClient(timeout=30.0) as client:
-                response = await client.post(
-                    'https://api.openai.com/v1/chat/completions',
-                    headers={
-                        'Authorization': f'Bearer {self.openai_api_key}',
-                        'Content-Type': 'application/json'
-                    },
-                    json={
-                        'model': self.model,
-                        'messages': full_messages,
-                        'temperature': temperature,
-                        'max_tokens': max_tokens
-                    }
-                )
-                
-                response_time = int((time.time() - start_time) * 1000)
-                
-                if response.status_code != 200:
-                    logger.error(f"OpenAI API error: {response.status_code} - {response.text}")
-                    return {
-                        'content': "I'm experiencing some technical difficulties. Please try again or leave your contact info!",
-                        'tokens_used': 0,
-                        'response_time_ms': response_time,
-                        'error': f'API error: {response.status_code}'
-                    }
-                
-                data = response.json()
-                content = data['choices'][0]['message']['content']
-                tokens = data.get('usage', {}).get('total_tokens', 0)
-                
-                return {
-                    'content': content,
-                    'tokens_used': tokens,
-                    'response_time_ms': response_time
-                }
-                
+
+            client = anthropic.AsyncAnthropic(api_key=self.anthropic_api_key)
+            response = await client.messages.create(
+                model=self.model,
+                max_tokens=max_tokens,
+                system=system_prompt,
+                messages=messages,
+                temperature=temperature,
+            )
+
+            response_time = int((time.time() - start_time) * 1000)
+            content = response.content[0].text
+            tokens = response.usage.input_tokens + response.usage.output_tokens
+
+            return {
+                'content': content,
+                'tokens_used': tokens,
+                'response_time_ms': response_time
+            }
+
         except Exception as e:
-            logger.error(f"Chatbot AI error: {str(e)}")
+            logger.error(f"Chatbot Claude async error: {str(e)}")
             return {
                 'content': "I'm having trouble responding right now. Please leave your contact info and someone will reach out soon!",
                 'tokens_used': 0,
@@ -309,95 +286,42 @@ If asked about something outside MCP, politely redirect to MCP-related help or s
         max_tokens: int = 500
     ) -> Dict:
         """
-        Synchronous AI response — Claude (primary), OpenAI (fallback)
+        Synchronous AI response — Claude only
         """
-        # Try Anthropic Claude first
-        if self.anthropic_api_key:
-            try:
-                import anthropic
-                
-                start_time = time.time()
-                
-                client = anthropic.Anthropic(api_key=self.anthropic_api_key)
-                
-                response = client.messages.create(
-                    model=self.model,
-                    max_tokens=max_tokens,
-                    system=system_prompt,
-                    messages=messages,
-                    temperature=temperature,
-                )
-                
-                response_time = int((time.time() - start_time) * 1000)
-                content = response.content[0].text
-                tokens = response.usage.input_tokens + response.usage.output_tokens
-                
-                return {
-                    'content': content,
-                    'tokens_used': tokens,
-                    'response_time_ms': response_time
-                }
-                
-            except Exception as e:
-                logger.error(f"Chatbot Claude error: {str(e)}, falling back to OpenAI")
-        
-        # Fallback to OpenAI
-        if not self.openai_api_key:
+        if not self.anthropic_api_key:
             return {
                 'content': "I'm having trouble connecting right now. Please leave your contact info and we'll get back to you shortly!",
                 'tokens_used': 0,
                 'response_time_ms': 0,
                 'error': 'No API key configured'
             }
-        
+
         try:
-            import requests
-            
+            import anthropic
+
             start_time = time.time()
-            
-            # Build messages with system prompt
-            full_messages = [
-                {"role": "system", "content": system_prompt}
-            ] + messages
-            
-            response = requests.post(
-                'https://api.openai.com/v1/chat/completions',
-                headers={
-                    'Authorization': f'Bearer {self.openai_api_key}',
-                    'Content-Type': 'application/json'
-                },
-                json={
-                    'model': 'gpt-4o-mini',
-                    'messages': full_messages,
-                    'temperature': temperature,
-                    'max_tokens': max_tokens
-                },
-                timeout=30
+
+            client = anthropic.Anthropic(api_key=self.anthropic_api_key)
+            response = client.messages.create(
+                model=self.model,
+                max_tokens=max_tokens,
+                system=system_prompt,
+                messages=messages,
+                temperature=temperature,
             )
-            
+
             response_time = int((time.time() - start_time) * 1000)
-            
-            if response.status_code != 200:
-                logger.error(f"OpenAI API error: {response.status_code} - {response.text}")
-                return {
-                    'content': "I'm experiencing some technical difficulties. Please try again or leave your contact info!",
-                    'tokens_used': 0,
-                    'response_time_ms': response_time,
-                    'error': f'API error: {response.status_code}'
-                }
-            
-            data = response.json()
-            content = data['choices'][0]['message']['content']
-            tokens = data.get('usage', {}).get('total_tokens', 0)
-            
+            content = response.content[0].text
+            tokens = response.usage.input_tokens + response.usage.output_tokens
+
             return {
                 'content': content,
                 'tokens_used': tokens,
                 'response_time_ms': response_time
             }
-            
+
         except Exception as e:
-            logger.error(f"Chatbot AI error: {str(e)}")
+            logger.error(f"Chatbot Claude error: {str(e)}")
             return {
                 'content': "I'm having trouble responding right now. Please leave your contact info and someone will reach out soon!",
                 'tokens_used': 0,

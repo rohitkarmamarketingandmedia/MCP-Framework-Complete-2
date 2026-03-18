@@ -21,11 +21,6 @@ class AIService:
         self._min_call_interval = 2  # seconds between calls to avoid rate limits
     
     @property
-    def openai_key(self):
-        """Get OpenAI API key at runtime"""
-        return os.environ.get('OPENAI_API_KEY', '')
-    
-    @property
     def anthropic_key(self):
         """Get Anthropic API key at runtime"""
         return os.environ.get('ANTHROPIC_API_KEY', '')
@@ -132,23 +127,15 @@ class AIService:
         # Enforce rate limiting
         self._rate_limit_delay()
         
-        # Model selection
-        # Primary: gpt-4o (best quality, 16K output)
-        # Fallback: gpt-4o-mini (good quality, 16K output, cheaper, follows instructions well)
-        # Note: gpt-3.5-turbo-16k has only 4K OUTPUT limit despite 16K context - don't use it!
-        primary_model = os.environ.get('BLOG_AI_MODEL', 'gpt-4o')
-        fallback_model = 'gpt-4o-mini'  # Much better than gpt-3.5-turbo-16k
-        
-        # Calculate tokens - both models support 16K output
+        # Model selection — Claude only
+        claude_model = os.environ.get('BLOG_AI_MODEL', 'claude-sonnet-4-20250514')
+
+        # Calculate tokens — Claude supports up to 16K output
         # 1 word ≈ 1.5 tokens, plus JSON overhead
         tokens_needed = min(12000, int(word_count * 2.5) + 2000)
-        
-        logger.info(f"Blog generation: word_count={word_count}, tokens={tokens_needed}, primary={primary_model}, fallback={fallback_model}")
-        
-        # Try primary model first
-        response = None
-        model_used = primary_model
-        
+
+        logger.info(f"Blog generation: word_count={word_count}, tokens={tokens_needed}, model={claude_model}")
+
         # System prompt - SEO content engine
         system_prompt = '''You are an SEO content engine generating high-conversion local service blog posts.
 
@@ -174,35 +161,23 @@ OUTPUT FORMAT:
 - Follow the exact JSON structure requested
 
 You are generating content for legitimate local service businesses (HVAC, plumbing, dental, etc.).'''
-        
+
         if agent_config:
             system_prompt = agent_config.system_prompt
             system_prompt = system_prompt.replace('{tone}', tone)
             system_prompt = system_prompt.replace('{industry}', industry)
-        
-        # Try primary model
-        logger.info(f"Trying primary model: {primary_model}")
+
+        # Generate with Claude
+        logger.info(f"Generating blog with Claude model: {claude_model}")
         response = self._call_with_retry(
-            prompt, 
+            prompt,
             max_tokens=tokens_needed,
             system_prompt=system_prompt,
-            model=primary_model,
+            model=claude_model,
             temperature=0.7
         )
-        
-        # If primary model fails, try fallback (gpt-4o-mini also supports 16K output)
-        if response.get('error'):
-            logger.warning(f"Primary model {primary_model} failed: {response['error']}, trying fallback {fallback_model}")
-            model_used = fallback_model
-            response = self._call_with_retry(
-                prompt, 
-                max_tokens=tokens_needed,  # Same tokens - gpt-4o-mini supports 16K output
-                system_prompt=system_prompt,
-                model=fallback_model,
-                temperature=0.7
-            )
-        
-        logger.info(f"Blog generation completed with model={model_used}")
+
+        logger.info(f"Blog generation completed with model={claude_model}")
         
         if response.get('error'):
             logger.error(f"Blog generation failed: {response['error']}")
@@ -1293,149 +1268,38 @@ REMEMBER: Body must have {word_count}+ words AND at least 3 internal <a href> li
         return data
     
     def _call_with_retry(self, prompt: str, max_tokens: int = 2000, max_retries: int = 3, system_prompt: str = None, model: str = None, temperature: float = 0.7) -> Dict[str, Any]:
-        """Call Claude (primary) with retry logic, falling back to OpenAI"""
-        
-        # Try Anthropic Claude first (primary engine)
-        if self.anthropic_key:
-            for attempt in range(max_retries):
-                response = self._call_anthropic(prompt, max_tokens, system_prompt=system_prompt, model=model, temperature=temperature)
-                
-                if not response.get('error'):
-                    return response
-                
-                error_msg = str(response.get('error', '')).lower()
-                error_code = response.get('error_code', '')
+        """Call Claude with retry logic — Claude only, no OpenAI fallback"""
 
-                # Never retry credit/auth errors
-                if error_code in ('credits_exhausted', 'auth_error'):
-                    logger.warning(f"Claude credits/auth error — not retrying: {error_msg[:100]}")
-                    return response
+        if not self.anthropic_key:
+            return {'error': 'ANTHROPIC_API_KEY not configured. Please set it in your environment variables.', 'error_code': 'auth_error'}
 
-                if 'rate' in error_msg or '429' in error_msg or 'overloaded' in error_msg:
-                    wait_time = (attempt + 1) * 10
-                    logger.warning(f"Claude rate limited, waiting {wait_time}s before retry {attempt + 1}/{max_retries}")
-                    time.sleep(wait_time)
-                    continue
-
-                # Non-retryable error — fall through to OpenAI
-                logger.warning(f"Claude error (non-retryable): {error_msg[:100]}")
-                break
-            else:
-                return {'error': 'Max retries exceeded for Claude API'}
-        
-        # Fallback to OpenAI
-        logger.info("Falling back to OpenAI...")
         for attempt in range(max_retries):
-            response = self._call_openai(prompt, max_tokens, system_prompt=system_prompt, model=model, temperature=temperature)
-            
+            response = self._call_anthropic(prompt, max_tokens, system_prompt=system_prompt, model=model, temperature=temperature)
+
             if not response.get('error'):
                 return response
-            
+
             error_msg = str(response.get('error', '')).lower()
-            
-            if 'rate' in error_msg or '429' in error_msg:
+            error_code = response.get('error_code', '')
+
+            # Never retry credit/auth errors
+            if error_code in ('credits_exhausted', 'auth_error'):
+                logger.warning(f"Claude credits/auth error — not retrying: {error_msg[:100]}")
+                return response
+
+            if 'rate' in error_msg or '429' in error_msg or 'overloaded' in error_msg:
                 wait_time = (attempt + 1) * 10
-                logger.warning(f"OpenAI rate limited, waiting {wait_time}s before retry {attempt + 1}/{max_retries}")
+                logger.warning(f"Claude rate limited, waiting {wait_time}s before retry {attempt + 1}/{max_retries}")
                 time.sleep(wait_time)
                 continue
-            
-            if 'quota' in error_msg or 'insufficient' in error_msg:
-                logger.error("OpenAI quota exceeded - need to add credits")
-                return response
-            
+
+            # Non-retryable error — return immediately
+            logger.warning(f"Claude error (non-retryable): {error_msg[:100]}")
             return response
-        
-        return {'error': 'Max retries exceeded on both Claude and OpenAI'}
+
+        return {'error': 'Max retries exceeded for Claude API'}
     
-    def _call_openai(self, prompt: str, max_tokens: int = 2000, system_prompt: str = None, model: str = None, temperature: float = 0.7) -> Dict[str, Any]:
-        """Call OpenAI API"""
-        if not self.openai_key:
-            return {'error': 'OpenAI API key not configured'}
-        
-        # Default system prompt if not provided
-        if system_prompt is None:
-            system_prompt = 'You are an expert SEO content writer. Always respond with valid JSON when requested. Never wrap JSON in markdown code blocks.'
-        
-        actual_model = model or self.default_model
-        logger.info(f"OpenAI API call: model={actual_model}, max_tokens={max_tokens}")
-        
-        try:
-            response = requests.post(
-                'https://api.openai.com/v1/chat/completions',
-                headers={
-                    'Authorization': f'Bearer {self.openai_key}',
-                    'Content-Type': 'application/json'
-                },
-                json={
-                    'model': actual_model,
-                    'messages': [
-                        {'role': 'system', 'content': system_prompt},
-                        {'role': 'user', 'content': prompt}
-                    ],
-                    'max_tokens': max_tokens,
-                    'temperature': temperature
-                },
-                timeout=180  # 3 minutes for long content generation
-            )
-            
-            logger.info(f"OpenAI API response status: {response.status_code}")
-            
-            if response.status_code == 429:
-                return {'error': 'Rate limit exceeded (429). Please wait a minute and try again.'}
-            
-            if response.status_code != 200:
-                error_text = response.text[:500]
-                logger.error(f"OpenAI API error response: {error_text}")
-                return {'error': f'OpenAI API error ({response.status_code}): {error_text}'}
-            
-            data = response.json()
-            
-            # Check for API errors in response
-            if 'error' in data:
-                error_msg = data['error'].get('message', str(data['error']))
-                logger.error(f"OpenAI API returned error: {error_msg}")
-                return {'error': f'OpenAI API error: {error_msg}'}
-            
-            # Check for valid response structure
-            if 'choices' not in data or len(data['choices']) == 0:
-                logger.error(f"OpenAI API returned no choices: {data}")
-                return {'error': 'OpenAI API returned empty response'}
-            
-            content = data['choices'][0].get('message', {}).get('content', '')
-            
-            # Check finish reason
-            finish_reason = data['choices'][0].get('finish_reason', '')
-            if finish_reason == 'length':
-                logger.warning(f"OpenAI response was truncated (finish_reason=length)")
-            
-            # Log content length for debugging
-            logger.info(f"OpenAI API success: content length={len(content)}, finish_reason={finish_reason}")
-            
-            if not content or len(content) < 50:
-                logger.error(f"OpenAI returned very short content: '{content[:100]}'")
-                return {'error': 'OpenAI returned empty or very short content. Try again.'}
-            
-            return {
-                'content': content,
-                'usage': data.get('usage', {}),
-                'finish_reason': finish_reason
-            }
-            
-        except requests.exceptions.Timeout:
-            logger.error("OpenAI API timeout after 180 seconds")
-            return {'error': 'Request timed out after 180 seconds. Try a shorter word count or try again.'}
-        except requests.RequestException as e:
-            error_detail = str(e)
-            if hasattr(e, 'response') and e.response is not None:
-                try:
-                    error_detail = e.response.json().get('error', {}).get('message', str(e))
-                except Exception:
-                    error_detail = e.response.text[:200]
-            logger.error(f"OpenAI API request error: {error_detail}")
-            return {'error': f'OpenAI API error: {error_detail}'}
-        except Exception as e:
-            logger.error(f"OpenAI API unexpected error: {e}")
-            return {'error': f'Unexpected error calling OpenAI: {str(e)}'}
+    # _call_openai removed — all content generation uses Claude exclusively
     
     def _call_anthropic(self, prompt: str, max_tokens: int = 2000, system_prompt: str = None, model: str = None, temperature: float = 0.7) -> Dict[str, Any]:
         """Call Anthropic Claude API (primary engine)"""
@@ -1528,34 +1392,35 @@ REMEMBER: Body must have {word_count}+ words AND at least 3 internal <a href> li
         
         agent = agent_service.get_agent(agent_name)
         if not agent:
-            logger.warning(f"Agent '{agent_name}' not found, using default behavior")
-            return self._call_openai(user_input, max_tokens=1000)
-        
+            logger.warning(f"Agent '{agent_name}' not found, using default Claude call")
+            return self._call_anthropic(user_input, max_tokens=2000)
+
         # Get system prompt with variable substitution
         system_prompt = agent.system_prompt
         if variables:
             for key, value in variables.items():
                 system_prompt = system_prompt.replace(f'{{{key}}}', str(value))
-        
-        # Override model for speed on Render free tier
-        fast_model = self.default_model  # claude-sonnet-4
-        fast_tokens = min(agent.max_tokens, 1000)  # Cap at 1000
-        
-        logger.info(f"Using agent '{agent_name}' with model {fast_model} (override)")
-        
-        # Always use OpenAI with fast model
-        return self._call_openai(
+
+        # Use Claude with a generous token limit for content generation
+        # Cap at 8000 to allow full pages/blogs; min 2000 for short agents
+        fast_tokens = max(min(agent.max_tokens, 8000), 2000)
+
+        logger.info(f"Using agent '{agent_name}' with Claude (tokens={fast_tokens})")
+
+        # Claude only — no OpenAI fallback
+        return self._call_with_retry(
             prompt=user_input,
             max_tokens=fast_tokens,
             system_prompt=system_prompt,
-            model=fast_model,
             temperature=agent.temperature
         )
     
     def generate_raw(self, prompt: str, max_tokens: int = 2000, model: str = None) -> str:
-        """Generate raw text response (for simple prompts)"""
+        """Generate raw text response (for simple prompts) — Claude only"""
         self._rate_limit_delay()
-        result = self._call_openai(prompt, max_tokens, model=model)
+        # Ignore any non-Claude model strings passed in (e.g. legacy gpt-4o-mini calls)
+        claude_model = model if model and model.startswith('claude') else None
+        result = self._call_anthropic(prompt, max_tokens, model=claude_model)
         return result.get('content', '')
     
     def generate_raw_with_agent(

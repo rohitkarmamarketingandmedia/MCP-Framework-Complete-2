@@ -2513,7 +2513,7 @@
                                 <p class="text-xs text-gray-500">Users → Profile → Application Passwords</p>
                             </div>
 
-                            <!-- SEMrush / OpenAI Status -->
+                            <!-- Claude / SEMrush Status -->
                             <div class="p-4 bg-white/5 rounded-xl border border-white/10">
                                 <div class="flex items-center gap-3 mb-3">
                                     <div class="w-10 h-10 rounded-lg bg-purple-500/20 flex items-center justify-center">
@@ -2526,8 +2526,8 @@
                                 </div>
                                 <div class="space-y-2 text-sm">
                                     <div class="flex justify-between">
-                                        <span class="text-gray-400">OpenAI (Content)</span>
-                                        <span id="openaiStatusTop" class="text-gray-400">Checking...</span>
+                                        <span class="text-gray-400">Claude (Content)</span>
+                                        <span id="claudeStatusTop" class="text-gray-400">Checking...</span>
                                     </div>
                                     <div class="flex justify-between">
                                         <span class="text-gray-400">SEMrush (Rankings)</span>
@@ -3032,7 +3032,7 @@
                                     </div>
                                 </div>
 
-                                <!-- OpenAI -->
+                                <!-- Claude AI -->
                                 <div class="p-4 bg-white/5 rounded-xl border border-white/10">
                                     <div class="flex items-center gap-3 mb-3">
                                         <div
@@ -3040,13 +3040,13 @@
                                             <i class="fas fa-brain text-emerald-400"></i>
                                         </div>
                                         <div>
-                                            <h4 class="font-medium text-white">OpenAI</h4>
-                                            <p id="openaiStatus" class="text-xs text-gray-400">Server-side config</p>
+                                            <h4 class="font-medium text-white">Claude AI</h4>
+                                            <p id="claudeStatus" class="text-xs text-gray-400">Server-side config</p>
                                         </div>
                                     </div>
                                     <div class="text-xs text-gray-400 p-2 bg-white/5 rounded-lg">
                                         <i class="fas fa-server mr-1"></i> Configured via environment variable
-                                        <code class="text-purple-400 ml-1">OPENAI_API_KEY</code>
+                                        <code class="text-purple-400 ml-1">ANTHROPIC_API_KEY</code>
                                     </div>
                                 </div>
                             </div>
@@ -5664,6 +5664,23 @@
 
         async function loadClient(clientId) {
             if (!clientId) return;
+
+            // Clear rankings data immediately when switching clients to prevent stale data showing
+            rankingsData = null;
+            const rankingsTable = document.getElementById('rankingsTable');
+            if (rankingsTable) rankingsTable.innerHTML = '<tr><td colspan="5" class="py-8 text-center text-gray-600"><i class="fas fa-spinner fa-spin mr-2"></i>Loading rankings...</td></tr>';
+            const rankAvgEl = document.getElementById('rankAvgPosition');
+            const rankTop3El = document.getElementById('rankTop3');
+            const rankTop10El = document.getElementById('rankTop10');
+            const rankTrafficEl = document.getElementById('rankTrafficValue');
+            const rankChangeEl = document.getElementById('rankPositionChange');
+            if (rankAvgEl) rankAvgEl.textContent = '#--';
+            if (rankTop3El) rankTop3El.textContent = '0';
+            if (rankTop10El) rankTop10El.textContent = '0';
+            if (rankTrafficEl) rankTrafficEl.textContent = '$0';
+            if (rankChangeEl) rankChangeEl.textContent = '-- vs last check';
+            // Remove any demo/error notices from previous client
+            document.getElementById('rankingsDemoNotice')?.remove();
 
             try {
                 // Load client details
@@ -10730,11 +10747,11 @@
                 if (response.ok) {
                     const data = await response.json();
 
-                    // OpenAI
-                    const openaiEl = document.getElementById('openaiStatusTop');
-                    if (openaiEl) {
-                        openaiEl.textContent = data.openai_configured ? '✓ Ready' : '✗ Missing';
-                        openaiEl.className = data.openai_configured ? 'text-green-400' : 'text-red-400';
+                    // Claude AI
+                    const claudeEl = document.getElementById('claudeStatusTop');
+                    if (claudeEl) {
+                        claudeEl.textContent = data.anthropic_configured ? '✓ Ready' : '✗ Missing';
+                        claudeEl.className = data.anthropic_configured ? 'text-green-400' : 'text-red-400';
                     }
 
                     // SEMrush
@@ -10849,16 +10866,16 @@
                 if (response.ok) {
                     const data = await response.json();
 
-                    const openaiStatus = document.getElementById('openaiStatus');
+                    const claudeStatus = document.getElementById('claudeStatus');
                     const semrushStatus = document.getElementById('semrushStatus');
 
-                    if (openaiStatus) {
-                        if (data.openai_configured) {
-                            openaiStatus.textContent = '✓ Configured';
-                            openaiStatus.className = 'text-xs text-green-400';
+                    if (claudeStatus) {
+                        if (data.anthropic_configured) {
+                            claudeStatus.textContent = '✓ Configured';
+                            claudeStatus.className = 'text-xs text-green-400';
                         } else {
-                            openaiStatus.textContent = '✗ Not configured';
-                            openaiStatus.className = 'text-xs text-red-400';
+                            claudeStatus.textContent = '✗ Not configured';
+                            claudeStatus.className = 'text-xs text-red-400';
                         }
                     }
 
@@ -11879,7 +11896,7 @@
         }
 
         function generatePreviewTags(keyword, city, industry) {
-            // Generate preview tags that will be created in WordPress
+            // Generate preview tags — EVERY tag must include city/location name for local SEO
             const tags = [];
 
             // Title case helper
@@ -11895,40 +11912,58 @@
                 }).join(' ');
             };
 
-            // Add primary keyword
+            // Ensure every tag includes the city name
+            const ensureCity = (tag) => {
+                if (!city) return tag;
+                if (tag.toLowerCase().includes(city.toLowerCase())) return tag;
+                return `${tag} ${city}`;
+            };
+
+            // Extract core service from keyword (strip "in City", "near City" etc.)
+            const coreService = keyword ? keyword.split(/\s+(?:in|near|for|around)\s+/i)[0].trim() : '';
+
+            // 1. Primary keyword + city
             if (keyword) {
-                tags.push(titleCase(keyword));
+                tags.push(titleCase(ensureCity(keyword)));
             }
 
-            // Add city
-            if (city) {
-                tags.push(titleCase(city));
+            // 2. City + keyword (reversed)
+            if (city && coreService) {
+                tags.push(titleCase(`${city} ${coreService}`));
+            }
 
-                // Add keyword + city combinations
-                if (keyword) {
-                    const service = keyword.toLowerCase().split(' in ')[0].split(' near ')[0].trim();
-                    if (service) {
-                        tags.push(titleCase(`${service} ${city}`));
-                        tags.push(titleCase(`${city} ${service}`));
-                    }
+            // 3. Industry + city
+            if (industry && city) {
+                tags.push(titleCase(`${industry} in ${city}`));
+            }
+
+            // 4. Best [service] in [city]
+            if (coreService && city) {
+                tags.push(titleCase(`Best ${coreService} in ${city}`));
+            }
+
+            // 5. Local [industry] in [city]
+            if (city) {
+                tags.push(titleCase(`Local ${industry || 'Services'} in ${city}`));
+            }
+
+            // 6. Industry-specific tags — all include city
+            const ind = (industry || '').toLowerCase();
+            if (city) {
+                if (ind.includes('dent')) {
+                    tags.push(titleCase(`Dental Care ${city}`), titleCase(`Oral Health ${city}`));
+                } else if (ind.includes('hvac') || ind.includes('air')) {
+                    tags.push(titleCase(`Air Conditioning ${city}`), titleCase(`HVAC ${city}`));
+                } else if (ind.includes('plumb')) {
+                    tags.push(titleCase(`Plumbing Services ${city}`));
+                } else if (ind.includes('roof')) {
+                    tags.push(titleCase(`Roofing ${city}`), titleCase(`Roof Repair ${city}`));
+                } else if (ind.includes('law')) {
+                    tags.push(titleCase(`Legal Services ${city}`));
                 }
             }
 
-            // Add industry-based tags
-            const ind = (industry || '').toLowerCase();
-            if (ind.includes('dent')) {
-                tags.push('Dental Care', 'Oral Health');
-            } else if (ind.includes('hvac') || ind.includes('air')) {
-                tags.push('Air Conditioning', 'HVAC');
-            } else if (ind.includes('plumb')) {
-                tags.push('Plumbing Services');
-            } else if (ind.includes('roof')) {
-                tags.push('Roofing', 'Roof Repair');
-            } else if (ind.includes('law')) {
-                tags.push('Legal Services');
-            }
-
-            // Remove duplicates and limit
+            // Remove duplicates and limit to 8
             return [...new Set(tags)].slice(0, 8);
         }
 
@@ -15244,7 +15279,7 @@
                         console.error(`Social generation failed (${platform}):`, result.error || 'Unknown error');
                         // Show error to user
                         if (result.error && result.error.includes('API key')) {
-                            alert(`⚠️ ${platform.toUpperCase()}: OpenAI API key not configured. Please add OPENAI_API_KEY to your environment.`);
+                            alert(`⚠️ ${platform.toUpperCase()}: Anthropic API key not configured. Please add ANTHROPIC_API_KEY to your environment.`);
                         }
                     }
                 } catch (error) {

@@ -56,7 +56,7 @@ def update_agent(current_user, agent_id):
     {
         "system_prompt": "Updated prompt...",
         "temperature": 0.7,
-        "model": "gpt-4o-mini",
+        "model": "claude-haiku-4-5-20251001",
         "change_note": "Made the tone more friendly"
     }
     """

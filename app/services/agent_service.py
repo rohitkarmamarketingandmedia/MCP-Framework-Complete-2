@@ -46,7 +46,7 @@ Format your response as JSON:
     "keywords_used": ["list", "of", "keywords"]
 }''',
         'output_format': '{"title": "string", "meta_description": "string", "content": "string (HTML)", "word_count": "number", "keywords_used": "array"}',
-        'model': 'gpt-4o-mini',
+        'model': 'claude-haiku-4-5-20251001',
         'temperature': 0.7,
         'max_tokens': 4000,
         'tools_allowed': '[]'
@@ -79,7 +79,7 @@ Format your response as JSON:
     "follow_up_recommended": true/false
 }''',
         'output_format': '{"response": "string", "sentiment": "positive|negative|neutral", "tone_used": "string", "follow_up_recommended": "boolean"}',
-        'model': 'gpt-4o-mini',
+        'model': 'claude-haiku-4-5-20251001',
         'temperature': 0.6,
         'max_tokens': 500,
         'tools_allowed': '[]'
@@ -118,7 +118,7 @@ Format your response as JSON:
     "summary": "Overall analysis summary"
 }''',
         'output_format': '{"top_opportunities": "array", "quick_wins": "array", "content_gaps": "array", "summary": "string"}',
-        'model': 'gpt-4o-mini',
+        'model': 'claude-haiku-4-5-20251001',
         'temperature': 0.3,
         'max_tokens': 2000,
         'tools_allowed': '[]'
@@ -154,7 +154,7 @@ Format your response as JSON:
     "priority_actions": ["top 3-5 recommended actions"]
 }''',
         'output_format': '{"competitors_analyzed": "array", "key_insights": "array", "content_opportunities": "array", "competitive_advantages": "array", "threats": "array", "priority_actions": "array"}',
-        'model': 'gpt-4o-mini',
+        'model': 'claude-haiku-4-5-20251001',
         'temperature': 0.4,
         'max_tokens': 2500,
         'tools_allowed': '[]'
@@ -188,7 +188,7 @@ Format your response as JSON:
     "engagement_hook": "what makes this engaging"
 }''',
         'output_format': '{"post": "string", "hashtags": "array", "call_to_action": "string", "best_posting_time": "string", "engagement_hook": "string"}',
-        'model': 'gpt-4o-mini',
+        'model': 'claude-haiku-4-5-20251001',
         'temperature': 0.8,
         'max_tokens': 800,
         'tools_allowed': '[]'
@@ -228,7 +228,7 @@ Format your response as JSON:
     "schema_data": {"@type": "Service", ...}
 }''',
         'output_format': '{"title": "string", "meta_description": "string", "h1": "string", "content": "string (HTML)", "faqs": "array", "schema_data": "object"}',
-        'model': 'gpt-4o-mini',
+        'model': 'claude-haiku-4-5-20251001',
         'temperature': 0.6,
         'max_tokens': 3000,
         'tools_allowed': '[]'
@@ -263,7 +263,7 @@ Format your response as JSON:
     "strategy_notes": "Overall strategic recommendations"
 }''',
         'output_format': '{"business_summary": "string", "primary_keywords": "array", "secondary_keywords": "array", "competitors": "array", "content_priorities": "array", "quick_wins": "array", "strategy_notes": "string"}',
-        'model': 'gpt-4o-mini',
+        'model': 'claude-haiku-4-5-20251001',
         'temperature': 0.5,
         'max_tokens': 2000,
         'tools_allowed': '[]'
@@ -275,7 +275,6 @@ class AgentService:
     """Service for managing AI agent configurations"""
     
     def __init__(self):
-        self.openai_key = os.getenv('OPENAI_API_KEY')
         self.anthropic_key = os.getenv('ANTHROPIC_API_KEY')
     
     def initialize_default_agents(self) -> int:
@@ -494,26 +493,17 @@ class AgentService:
             for key, value in variables.items():
                 prompt = prompt.replace(f'{{{key}}}', str(value))
         
-        # Determine which API to use based on model
-        model = agent.model.lower()
-        
+        # Always use Claude — OpenAI not used
+        claude_model = agent.model if agent.model and 'claude' in agent.model.lower() else 'claude-haiku-4-5-20251001'
+
         try:
-            if 'claude' in model or 'anthropic' in model:
-                result = self._call_anthropic(
-                    prompt=prompt,
-                    user_input=test_input,
-                    model=agent.model,
-                    temperature=agent.temperature,
-                    max_tokens=agent.max_tokens
-                )
-            else:
-                result = self._call_openai(
-                    prompt=prompt,
-                    user_input=test_input,
-                    model=agent.model,
-                    temperature=agent.temperature,
-                    max_tokens=agent.max_tokens
-                )
+            result = self._call_anthropic(
+                prompt=prompt,
+                user_input=test_input,
+                model=claude_model,
+                temperature=agent.temperature,
+                max_tokens=agent.max_tokens
+            )
             
             # Try to parse as JSON
             output = result
@@ -543,38 +533,13 @@ class AgentService:
                 'agent': agent.name
             }
     
-    def _call_openai(
-        self,
-        prompt: str,
-        user_input: str,
-        model: str = 'gpt-4o-mini',
-        temperature: float = 0.7,
-        max_tokens: int = 2000
-    ) -> str:
-        """Call OpenAI API"""
-        if not self.openai_key:
-            raise ValueError("OPENAI_API_KEY not configured")
-        
-        import openai
-        client = openai.OpenAI(api_key=self.openai_key)
-        
-        response = client.chat.completions.create(
-            model=model,
-            messages=[
-                {"role": "system", "content": prompt},
-                {"role": "user", "content": user_input}
-            ],
-            temperature=temperature,
-            max_tokens=max_tokens
-        )
-        
-        return response.choices[0].message.content
-    
+    # _call_openai removed — all agents use Claude exclusively
+
     def _call_anthropic(
         self,
         prompt: str,
         user_input: str,
-        model: str = 'claude-3-haiku-20240307',
+        model: str = 'claude-haiku-4-5-20251001',
         temperature: float = 0.7,
         max_tokens: int = 2000
     ) -> str:

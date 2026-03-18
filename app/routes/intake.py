@@ -358,11 +358,11 @@ def full_pipeline(current_user):
         response['steps'].append('generate_content')
         
         # Check if AI is configured before trying to generate
-        if not ai_service.openai_key and not ai_service.anthropic_key:
-            response['errors'].append('No AI API key configured (OPENAI_API_KEY or ANTHROPIC_API_KEY required)')
+        if not ai_service.anthropic_key:
+            response['errors'].append('ANTHROPIC_API_KEY not configured — required for all AI content generation')
             return jsonify({
                 'success': False,
-                'error': 'No AI API key configured. Set OPENAI_API_KEY or ANTHROPIC_API_KEY in Render environment variables.',
+                'error': 'ANTHROPIC_API_KEY not configured. Set it in Render environment variables.',
                 'client': response.get('client'),
                 'steps': response['steps'],
                 'errors': response['errors']

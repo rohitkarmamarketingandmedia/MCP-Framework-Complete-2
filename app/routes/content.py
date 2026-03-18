@@ -25,7 +25,8 @@ data_service = DataService()
 
 def _generate_blog_tags(keyword, city='', industry='', client_name=''):
     """
-    Auto-generate 5 Title Case tags for a blog post, including city name.
+    Auto-generate 5 Title Case tags for a blog post.
+    EVERY tag must include the location/city name for local SEO.
     Returns a list of strings.
     """
     def title_case(s):
@@ -42,53 +43,67 @@ def _generate_blog_tags(keyword, city='', industry='', client_name=''):
                 result.append(w.lower())
         return ' '.join(result)
 
+    def ensure_city(tag_text):
+        """Ensure every tag includes the city name for local SEO"""
+        if not city:
+            return tag_text
+        if city.lower() in tag_text.lower():
+            return tag_text
+        return f"{tag_text} {city}"
+
     tags = []
     city = (city or '').strip()
     keyword = (keyword or '').strip()
     industry = (industry or '').strip()
-    
-    # Check if keyword already contains the city name (avoid "Keyword Venice Venice")
+
+    # Check if keyword already contains the city name
     keyword_has_city = city and city.lower() in keyword.lower()
 
-    # 1. Primary keyword with city (only append city if not already in keyword)
-    if keyword and city and not keyword_has_city:
-        tags.append(title_case(f"{keyword} {city}"))
-    elif keyword:
-        tags.append(title_case(keyword))
+    # Extract the core service from keyword (strip location parts like "in City", "near City")
+    import re
+    core_service = keyword
+    if keyword:
+        core_service = re.split(r'\s+(?:in|near|for|around)\s+', keyword, flags=re.IGNORECASE)[0].strip()
+        # Also strip trailing city name if present
+        if city and city.lower() in core_service.lower():
+            core_service = re.sub(re.escape(city), '', core_service, flags=re.IGNORECASE).strip()
+            core_service = re.sub(r'\s+', ' ', core_service).strip()
+        # Strip trailing prepositions left over from stripping
+        core_service = re.sub(r'\s+(in|near|for|around|at|of)$', '', core_service, flags=re.IGNORECASE).strip()
 
-    # 2. City + keyword (reversed, only if city not already in keyword)
-    if city and keyword and not keyword_has_city:
-        tags.append(title_case(f"{city} {keyword}"))
-    elif city and keyword and keyword_has_city:
-        # Keyword already has city, just add the keyword as-is
-        kw_tag = title_case(keyword)
-        if kw_tag not in tags:
-            tags.append(kw_tag)
+    # 1. Primary keyword + city
+    if keyword:
+        tags.append(title_case(ensure_city(keyword)))
 
-    # 3. City name alone
-    if city:
-        tags.append(title_case(city))
+    # 2. City + core service (reversed order)
+    if city and core_service:
+        tags.append(title_case(f"{city} {core_service}"))
 
-    # 4. Industry + city
+    # 3. Industry + city
     if industry and city:
-        tags.append(title_case(f"{industry} {city}"))
+        tags.append(title_case(f"{industry} in {city}"))
     elif industry:
         tags.append(title_case(industry))
 
-    # 5. Keyword alone (if different from tag 1)
-    if keyword:
-        kw_tag = title_case(keyword)
-        if kw_tag not in tags:
-            tags.append(kw_tag)
+    # 4. Best [service] in [city]
+    if core_service and city:
+        best_tag = title_case(f"Best {core_service} in {city}")
+        if best_tag not in tags:
+            tags.append(best_tag)
 
-    # Fill to 5 with sensible defaults
+    # 5. Local services tag with city
+    if city:
+        local_tag = title_case(f"Local {industry} in {city}" if industry else f"Local Services in {city}")
+        if local_tag not in tags:
+            tags.append(local_tag)
+
+    # Fill to 5 with city-inclusive defaults
     fillers = []
     if city:
         fillers += [
-            title_case(f"Local {industry} {city}" if industry else f"Local Services {city}"),
-            title_case(f"Best {keyword}" if keyword else f"Best {industry}"),
-            title_case(f"{city} Services"),
-            title_case(f"Professional {industry}" if industry else "Professional Services"),
+            title_case(f"{city} {industry}" if industry else f"{city} Services"),
+            title_case(f"Professional {industry} {city}" if industry else f"Professional Services {city}"),
+            title_case(f"{city} Expert {industry}" if industry else f"{city} Expert Services"),
         ]
     else:
         fillers += [
@@ -203,65 +218,48 @@ def _cleanup_old_tasks():
 def check_ai_config(current_user):
     """Check if AI is configured properly"""
     import os
-    openai_key = os.environ.get('OPENAI_API_KEY', '')
-    
+    anthropic_key = os.environ.get('ANTHROPIC_API_KEY', '')
+
     return jsonify({
-        'openai_configured': bool(openai_key),
-        'openai_key_prefix': openai_key[:10] + '...' if openai_key else 'NOT SET',
+        'claude_configured': bool(anthropic_key),
+        'claude_key_prefix': anthropic_key[:10] + '...' if anthropic_key else 'NOT SET',
         'can_generate': current_user.can_generate_content,
         'user_role': str(current_user.role)
     })
 
 
 @content_bp.route('/test-ai', methods=['POST'])
-@token_required  
+@token_required
 def test_ai_generation(current_user):
-    """Quick test to verify AI is working"""
+    """Quick test to verify Claude AI is working"""
     import os
     import time
-    
-    openai_key = os.environ.get('OPENAI_API_KEY', '')
-    if not openai_key:
-        return jsonify({'error': 'OPENAI_API_KEY not set'}), 500
-    
+
+    anthropic_key = os.environ.get('ANTHROPIC_API_KEY', '')
+    if not anthropic_key:
+        return jsonify({'error': 'ANTHROPIC_API_KEY not set'}), 500
+
     start_time = time.time()
-    
+
     try:
-        import requests
-        response = requests.post(
-            'https://api.openai.com/v1/chat/completions',
-            headers={
-                'Authorization': f'Bearer {openai_key}',
-                'Content-Type': 'application/json'
-            },
-            json={
-                'model': 'gpt-3.5-turbo',
-                'messages': [{'role': 'user', 'content': 'Say "AI is working" in exactly 3 words'}],
-                'max_tokens': 20
-            },
-            timeout=30
+        import anthropic
+        client = anthropic.Anthropic(api_key=anthropic_key)
+        response = client.messages.create(
+            model='claude-haiku-4-5-20251001',
+            max_tokens=20,
+            messages=[{'role': 'user', 'content': 'Say "AI is working" in exactly 3 words'}]
         )
-        
+
         elapsed = time.time() - start_time
-        
-        if response.status_code == 200:
-            data = response.json()
-            return jsonify({
-                'success': True,
-                'response': data['choices'][0]['message']['content'],
-                'elapsed_seconds': round(elapsed, 2),
-                'model': 'gpt-3.5-turbo'
-            })
-        else:
-            return jsonify({
-                'success': False,
-                'error': f'API returned {response.status_code}',
-                'details': response.text[:500],
-                'elapsed_seconds': round(elapsed, 2)
-            }), 500
-            
-    except requests.exceptions.Timeout:
-        return jsonify({'error': 'OpenAI API timeout after 30 seconds'}), 500
+        return jsonify({
+            'success': True,
+            'response': response.content[0].text,
+            'elapsed_seconds': round(elapsed, 2),
+            'model': 'claude-haiku-4-5-20251001'
+        })
+
+    except anthropic.AuthenticationError:
+        return jsonify({'error': 'ANTHROPIC_API_KEY is invalid or expired'}), 500
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -1947,7 +1945,7 @@ def publish_to_wordpress(current_user, content_id):
                     result.append(word_lower)
             return ' '.join(result)
         
-        # Build tags - ensure at least 5 tags with city name, proper Title Case
+        # Build tags — EVERY tag must include city/location name for local SEO
         tags = []
         # Use target_city from blog post if available, otherwise fall back to client.geo
         city = ''
@@ -1958,59 +1956,75 @@ def publish_to_wordpress(current_user, content_id):
             city = client.geo.split(',')[0].strip()
             logger.info(f"Using geo from client: {city}")
         city = title_case(city)  # Ensure city is Title Case
-        
-        # Start with primary keyword (Title Case)
+
+        def ensure_city_in_tag(tag_text):
+            """Ensure every tag includes the city name"""
+            if not city:
+                return tag_text
+            if city.lower() in tag_text.lower():
+                return tag_text
+            return f"{tag_text} {city}"
+
+        # Extract core service from keyword
+        service = ''
         if content.primary_keyword:
-            tags.append(title_case(content.primary_keyword))
-        
-        # Add city-based tags
-        if city:
-            tags.append(city)
-            if content.primary_keyword:
-                # Extract service from keyword (e.g., "teeth whitening in Tampa" -> "teeth whitening")
-                service = content.primary_keyword.lower()
-                for loc_word in [' in ', ' near ', ' for ', city.lower()]:
+            service = content.primary_keyword.lower()
+            for loc_word in [' in ', ' near ', ' for ', city.lower() if city else '']:
+                if loc_word:
                     service = service.split(loc_word)[0].strip()
-                if service:
-                    tags.append(title_case(f"{service} {city}"))
-                    tags.append(title_case(f"{city} {service}"))
-        
-        # Add secondary keywords (Title Case)
+
+        # 1. Primary keyword + city
+        if content.primary_keyword:
+            tags.append(title_case(ensure_city_in_tag(content.primary_keyword)))
+
+        # 2. City + service (reversed)
+        if city and service:
+            tags.append(title_case(f"{city} {service}"))
+
+        # 3. Best [service] in [city]
+        if service and city:
+            tags.append(title_case(f"Best {service} in {city}"))
+
+        # 4. Add secondary keywords — each with city
         if content.secondary_keywords:
             try:
                 keywords = json.loads(content.secondary_keywords) if isinstance(content.secondary_keywords, str) else content.secondary_keywords
                 if keywords:
-                    for kw in keywords[:8]:
+                    for kw in keywords[:5]:
                         if kw:
-                            kw_title = title_case(kw)
-                            if kw_title not in tags:
-                                tags.append(kw_title)
+                            kw_tag = title_case(ensure_city_in_tag(kw))
+                            if kw_tag not in tags and len(tags) < 10:
+                                tags.append(kw_tag)
             except (json.JSONDecodeError, TypeError):
                 pass
-        
-        # Add industry-based tags (Title Case)
+
+        # 5. Industry-based tags — ALL include city
         industry = client.industry.lower() if client.industry else ''
-        if 'dent' in industry:
-            extra_tags = [f'Dentist {city}', f'{city} Dental', 'Dental Care', 'Oral Health']
-        elif 'hvac' in industry or 'air' in industry:
-            extra_tags = [f'HVAC {city}', f'{city} AC Repair', 'Air Conditioning', 'Heating']
-        elif 'plumb' in industry:
-            extra_tags = [f'Plumber {city}', f'{city} Plumbing', 'Plumbing Services', 'Drain Cleaning']
-        elif 'roof' in industry:
-            extra_tags = [f'Roofer {city}', f'{city} Roofing', 'Roof Repair', 'Roofing Contractor']
-        elif 'law' in industry or 'legal' in industry:
-            extra_tags = [f'Lawyer {city}', f'{city} Attorney', 'Legal Services', 'Law Firm']
+        if city:
+            if 'dent' in industry:
+                extra_tags = [f'Dentist {city}', f'{city} Dental', f'Dental Care {city}', f'Oral Health {city}']
+            elif 'hvac' in industry or 'air' in industry:
+                extra_tags = [f'HVAC {city}', f'{city} AC Repair', f'Air Conditioning {city}', f'Heating {city}']
+            elif 'plumb' in industry:
+                extra_tags = [f'Plumber {city}', f'{city} Plumbing', f'Plumbing Services {city}']
+            elif 'roof' in industry:
+                extra_tags = [f'Roofer {city}', f'{city} Roofing', f'Roof Repair {city}']
+            elif 'law' in industry or 'legal' in industry:
+                extra_tags = [f'Lawyer {city}', f'{city} Attorney', f'Legal Services {city}']
+            else:
+                extra_tags = [f'{city} Services', f'Local Business {city}', f'Professional Services {city}']
         else:
-            extra_tags = [f'{city} Services', 'Local Business', 'Professional Services']
-        
+            extra_tags = []
+
         for tag in extra_tags:
             if tag and tag not in tags and len(tags) < 10:
                 tags.append(tag)
-        
-        # Ensure minimum 5 tags
-        if len(tags) < 5:
-            generic_tags = [city, f'Local {city}', client.company_name or '', 'Professional', 'Services']
-            for tag in generic_tags:
+
+        # Ensure minimum 5 tags — all with city
+        if len(tags) < 5 and city:
+            filler_tags = [f'Local {city}', f'{city} Expert Services', f'Professional {industry} {city}' if industry else f'Professional Services {city}']
+            for tag in filler_tags:
+                tag = title_case(tag)
                 if tag and tag not in tags and len(tags) < 5:
                     tags.append(tag)
         
@@ -2408,7 +2422,7 @@ Return the COMPLETE refined article as JSON with these exact keys:
 
 Return ONLY valid JSON. No markdown code blocks. No commentary."""
 
-        result = ai_service.generate_raw(refine_prompt, max_tokens=8000, model='gpt-4o-mini')
+        result = ai_service.generate_raw(refine_prompt, max_tokens=8000)
         
         # Check for empty response
         if not result or not result.strip():

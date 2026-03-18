@@ -1511,7 +1511,7 @@ class DBAgentConfig(db.Model):
     output_example: Mapped[Optional[str]] = mapped_column(Text, nullable=True)  # Example output
     
     # Model settings
-    model: Mapped[str] = mapped_column(String(100), default='gpt-4o-mini')
+    model: Mapped[str] = mapped_column(String(100), default='claude-haiku-4-5-20251001')
     temperature: Mapped[float] = mapped_column(db.Float, default=0.7)
     max_tokens: Mapped[int] = mapped_column(Integer, default=2000)
     

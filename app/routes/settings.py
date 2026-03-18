@@ -590,7 +590,6 @@ def get_integrations_status(current_user):
     import os
     
     return jsonify({
-        'openai_configured': bool(os.environ.get('OPENAI_API_KEY')),
         'anthropic_configured': bool(os.environ.get('ANTHROPIC_API_KEY')),
         'semrush_configured': bool(os.environ.get('SEMRUSH_API_KEY')),
         'callrail_configured': bool(os.environ.get('CALLRAIL_API_KEY')),
@@ -621,10 +620,10 @@ def get_system_status(current_user):
     # Check each integration
     integrations = {
         'ai_content': {
-            'name': 'AI Content Generation',
-            'status': 'ready' if os.environ.get('OPENAI_API_KEY') else 'not_configured',
-            'required_env': ['OPENAI_API_KEY'],
-            'features': ['Blog generation', 'Social posts', 'Chatbot', 'Image generation']
+            'name': 'AI Content Generation (Claude)',
+            'status': 'ready' if os.environ.get('ANTHROPIC_API_KEY') else 'not_configured',
+            'required_env': ['ANTHROPIC_API_KEY'],
+            'features': ['Blog generation', 'Social posts', 'Chatbot', 'Service pages', 'FAQ generation']
         },
         'rankings': {
             'name': 'Keyword Rankings',
@@ -657,9 +656,9 @@ def get_system_status(current_user):
             'features': ['Facebook posting', 'Instagram posting', 'GBP posting']
         },
         'images': {
-            'name': 'AI Image Generation',
+            'name': 'AI Image Generation (DALL-E)',
             'status': 'ready' if os.environ.get('OPENAI_API_KEY') else 'not_configured',
-            'required_env': ['OPENAI_API_KEY (DALL-E)', 'STABILITY_API_KEY (optional)', 'UNSPLASH_ACCESS_KEY (optional)'],
+            'required_env': ['OPENAI_API_KEY (DALL-E only)', 'STABILITY_API_KEY (optional)', 'UNSPLASH_ACCESS_KEY (optional)'],
             'features': ['Blog headers', 'Social images', 'Custom prompts']
         }
     }
@@ -678,8 +677,8 @@ def get_system_status(current_user):
             'percentage': round((ready_count / total_count) * 100)
         },
         'quick_start': {
-            'minimum_required': ['OPENAI_API_KEY', 'ADMIN_EMAIL', 'ADMIN_PASSWORD'],
-            'recommended': ['OPENAI_API_KEY', 'SEMRUSH_API_KEY', 'SENDGRID_API_KEY']
+            'minimum_required': ['ANTHROPIC_API_KEY', 'ADMIN_EMAIL', 'ADMIN_PASSWORD'],
+            'recommended': ['ANTHROPIC_API_KEY', 'SEMRUSH_API_KEY', 'SENDGRID_API_KEY']
         }
     })
 

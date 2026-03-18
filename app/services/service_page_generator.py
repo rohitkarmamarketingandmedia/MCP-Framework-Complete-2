@@ -266,6 +266,7 @@ class ServicePageGenerator:
     def _generate_with_ai(self, context: Dict) -> Dict:
         """Generate service page content using AI agent config"""
         # Build user input with all context
+        target_words = context.get('word_count', 1200)
         user_input = f"""Generate a service page for:
 
 BUSINESS INFO:
@@ -278,14 +279,17 @@ BUSINESS INFO:
 SERVICE: {context['service']}
 PRIMARY KEYWORD: {context['primary_keyword']}
 TONE: {context.get('tone', 'professional')}
+TARGET WORD COUNT: {target_words} words (body_content MUST be at least {target_words} words)
 
 Requirements:
 - Start headline with the primary keyword or service name
 - Include location naturally in content
 - Focus on benefits and outcomes, not features
 - Include specific trust signals (years in business, licenses, guarantees)
-- Make the content scannable with short paragraphs
-- Include 3 FAQs relevant to the service
+- Make the content scannable with clear paragraphs
+- body_content MUST be full HTML with multiple sections totaling AT LEAST {target_words} words
+- Include {context.get('include_faq', True) and 3 or 0} FAQs in the body if FAQs are requested
+- Do NOT write short stubs — write a complete, thorough page
 - Return ONLY valid JSON"""
 
         try:
@@ -315,6 +319,7 @@ Requirements:
         """Generate location page content using AI agent config"""
         services_list = ', '.join(context.get('services', []))
         
+        target_words = context.get('word_count', 1200)
         user_input = f"""Generate a location-focused landing page:
 
 BUSINESS INFO:
@@ -327,8 +332,10 @@ BUSINESS INFO:
 TARGET LOCATION: {context['location']}
 PRIMARY KEYWORD: {context['primary_keyword']}
 TONE: {context.get('tone', 'professional')}
+TARGET WORD COUNT: {target_words} words (body_content MUST be at least {target_words} words)
 
 Generate location-specific content emphasizing local service and expertise.
+body_content must be full HTML with multiple detailed sections totaling AT LEAST {target_words} words.
 Return ONLY valid JSON."""
 
         try:

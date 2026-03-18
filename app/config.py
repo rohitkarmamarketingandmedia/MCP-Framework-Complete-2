@@ -47,13 +47,13 @@ class BaseConfig:
     }
     
     # API Keys
-    OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY', '')
     ANTHROPIC_API_KEY = os.environ.get('ANTHROPIC_API_KEY', '')
+    OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY', '')  # Only used for DALL-E image generation
     SEMRUSH_API_KEY = os.environ.get('SEMRUSH_API_KEY', '')
-    
-    # AI Model Settings
+
+    # AI Model Settings — Claude only for all content generation
     DEFAULT_AI_MODEL = os.environ.get('DEFAULT_AI_MODEL', 'claude-sonnet-4-20250514')
-    FALLBACK_AI_MODEL = os.environ.get('FALLBACK_AI_MODEL', 'gpt-4o-mini')
+    FAST_AI_MODEL = os.environ.get('FAST_AI_MODEL', 'claude-haiku-4-5-20251001')
     
     # WordPress
     WP_BASE_URL = os.environ.get('WP_BASE_URL', '')
