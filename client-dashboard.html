@@ -5086,6 +5086,7 @@
                                         <option value="5">5 per week (daily weekdays)</option>
                                     </select>
                                 </div>
+
                                 <div>
                                     <label class="block text-sm text-gray-400 mb-1">Generation Time (UTC)</label>
                                     <select id="scheduleHour" class="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white focus:border-orange-500">
@@ -5144,10 +5145,11 @@
                                     <span id="scheduleLastKeyword" class="text-gray-300">--</span>
                                 </div>
                             </div>
-                            <button onclick="saveContentSchedule()" class="w-full py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg text-sm font-medium transition">
-                                <i class="fas fa-save mr-1"></i>Save Schedule Settings
-                            </button>
                         </div>
+                        <!-- Save button always visible so disabling the toggle can be saved -->
+                        <button onclick="saveContentSchedule()" class="w-full mt-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg text-sm font-medium transition">
+                            <i class="fas fa-save mr-1"></i>Save Schedule Settings
+                        </button>
                     </div>
 
                     <!-- SEO Keywords Section -->
