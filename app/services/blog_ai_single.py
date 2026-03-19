@@ -1210,9 +1210,12 @@ OUTPUT RULES:
         
         if custom_faqs:
             # Use actual questions from call intelligence
+            # CRITICAL: escape quotes/special chars so the JSON template stays valid
             faq_templates = []
             for q in custom_faqs[:faq_count]:
-                faq_templates.append(f'{{"question": "{q}", "answer": "60-80 word detailed answer based on your expertise"}}')
+                # Sanitize: remove/replace chars that would break the JSON string literal in the prompt
+                q_safe = q.replace('\\', '').replace('"', "'").replace('\n', ' ').replace('\r', ' ').strip()
+                faq_templates.append(f'{{"question": "{q_safe}", "answer": "60-80 word detailed answer based on your expertise"}}')
             # Fill remaining with generic templates if needed
             generic_templates = [
                 f'{{"question": "What is the cost of [service] in {req.city}?", "answer": "60-80 word answer"}}',
@@ -1240,10 +1243,12 @@ OUTPUT RULES:
         # Build custom FAQ instruction for prompt
         custom_faq_instruction = ''
         if custom_faqs:
+            # Sanitize questions to prevent prompt injection or broken formatting
+            safe_questions = [q.replace('\n', ' ').replace('\r', ' ').strip() for q in custom_faqs[:faq_count] if q and len(q.strip()) > 5]
             custom_faq_instruction = f"""
 CUSTOM FAQ QUESTIONS FROM REAL CUSTOMER CALLS (MANDATORY):
 The following questions were asked by REAL CUSTOMERS on phone calls. You MUST use these exact questions (or very close paraphrases) as your FAQ questions. Answer them as {req.company_name} would:
-{chr(10).join(f'- {q}' for q in custom_faqs[:faq_count])}
+{chr(10).join(f'- {q}' for q in safe_questions)}
 """
 
         return f"""Generate a long-form SEO blog post using the following inputs:

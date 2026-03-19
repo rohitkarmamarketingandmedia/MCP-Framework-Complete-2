@@ -783,11 +783,12 @@ def sync_reviews(current_user):
         debug_info['place_id'] = place_id
         debug_info['steps'].append(f'Using Place ID: {place_id}')
         
-        # Fetch Place Details with reviews
+        # Fetch Place Details with reviews — sort by newest so we always get the latest
         details_url = 'https://maps.googleapis.com/maps/api/place/details/json'
         details_resp = http_requests.get(details_url, params={
             'place_id': place_id,
             'fields': 'reviews,rating,user_ratings_total,name',
+            'reviews_sort': 'newest',   # Return the most recent reviews first
             'key': api_key
         }, timeout=10)
         
@@ -815,34 +816,66 @@ def sync_reviews(current_user):
         synced_count = 0
         skipped_count = 0
         
+        from sqlalchemy import and_
         for gr in google_reviews:
             author = gr.get('author_name', 'Anonymous')
             rating = gr.get('rating', 5)
             text = gr.get('text', '')
             time_val = gr.get('time', 0)
-            
-            # Check for duplicates by reviewer name + rating + approximate date
-            from sqlalchemy import and_
-            existing = DBReview.query.filter(
-                and_(
-                    DBReview.client_id == client_id,
-                    DBReview.platform == 'google',
-                    DBReview.reviewer_name == author,
-                    DBReview.rating == rating
-                )
-            ).first()
-            
+            review_date = datetime.utcfromtimestamp(time_val) if time_val else datetime.utcnow()
+
+            # Primary duplicate check: match by reviewer name + review text prefix (most reliable)
+            # This allows the same reviewer to leave a second review later, and avoids
+            # skipping new reviews just because the person previously left a different one.
+            text_prefix = text[:100].strip() if text else ''
+            existing = None
+
+            if text_prefix:
+                # Try to find by name + text snippet first (most accurate)
+                all_by_name = DBReview.query.filter(
+                    and_(
+                        DBReview.client_id == client_id,
+                        DBReview.platform == 'google',
+                        DBReview.reviewer_name == author
+                    )
+                ).all()
+                for candidate in all_by_name:
+                    candidate_prefix = (candidate.review_text or '')[:100].strip()
+                    if candidate_prefix == text_prefix:
+                        existing = candidate
+                        break
+            else:
+                # No text — fall back to name + rating + approximate date (within 2 days)
+                all_by_name_rating = DBReview.query.filter(
+                    and_(
+                        DBReview.client_id == client_id,
+                        DBReview.platform == 'google',
+                        DBReview.reviewer_name == author,
+                        DBReview.rating == rating
+                    )
+                ).all()
+                for candidate in all_by_name_rating:
+                    if candidate.review_date:
+                        diff = abs((candidate.review_date - review_date).total_seconds())
+                        if diff < 172800:  # within 48 hours
+                            existing = candidate
+                            break
+
             if existing:
-                # Update text if changed
+                # Keep review_date up to date and update text if changed
+                updated = False
                 if text and existing.review_text != text:
                     existing.review_text = text
+                    updated = True
+                if time_val and existing.review_date != review_date:
+                    existing.review_date = review_date
+                    updated = True
+                if updated:
                     db.session.commit()
                 skipped_count += 1
                 continue
             
             # Create new review
-            review_date = datetime.utcfromtimestamp(time_val) if time_val else datetime.utcnow()
-            
             review = DBReview(
                 id=str(uuid.uuid4())[:8],
                 client_id=client_id,

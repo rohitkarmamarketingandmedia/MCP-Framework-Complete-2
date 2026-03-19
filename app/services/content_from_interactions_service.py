@@ -130,7 +130,7 @@ Answer:"""
         
         try:
             # Use AI service
-            response = self.ai_service.generate_text(prompt, max_tokens=200)
+            response = self.ai_service.generate_raw(prompt, max_tokens=400)
             return response.strip()
         except Exception as e:
             logger.warning(f"AI FAQ generation failed: {e}")
@@ -303,36 +303,36 @@ Answer:"""
         
         questions_text = "\n".join([f"- {q}" for q in questions[:10]])
         
-        prompt = f"""You are an expert content writer for {client.business_name}, a {client.industry} company in {client.geo}.
+        geo = client.geo or ''
+        prompt = f"""You are an expert SEO content writer for {client.business_name}, a {client.industry} company in {geo}.
 
-Write a comprehensive, SEO-optimized blog post that answers these REAL questions from customers:
+Write a comprehensive, SEO-optimized blog post (minimum 1800 words) that answers these REAL customer questions:
 
 {questions_text}
 
 Topic: {topic}
 
 Requirements:
-1. Title must include the primary keyword AND {client.geo}
-2. Start with an engaging introduction (no H1)
-3. Each H2 heading must start with the keyword + {client.geo}
-4. Answer each question thoroughly in its own section
-5. Include practical tips and actionable advice
-6. Add internal linking opportunities (mark with [INTERNAL LINK: topic])
-7. Minimum 1800 words
-8. End with a strong call-to-action mentioning {client.business_name}
-9. Conversational but professional tone
-10. Include a "Key Takeaways" section before the conclusion
+1. Title: include the primary keyword AND location ({geo}) — max 70 characters
+2. Start with an engaging 200-word introduction that naturally includes the primary keyword
+3. H2 headings: varied and descriptive — include the keyword or location naturally in at least 2-3 H2s, but do NOT start EVERY H2 with the same phrase
+4. Answer each customer question thoroughly (150-200 words per question)
+5. Include practical, actionable advice specific to {geo} customers
+6. Add a "Key Takeaways" section before the conclusion
+7. End with a strong call-to-action mentioning {client.business_name}
+8. Conversational yet professional tone — write like a knowledgeable local expert
+9. Use proper HTML: <h2>, <h3>, <p>, <ul>, <li> tags for formatting
 
 Format the response as:
 TITLE: [Your title here]
-META: [Meta description under 160 chars]
-PRIMARY_KEYWORD: [Main keyword]
+META: [Meta description 150-160 chars — include keyword and specific benefit]
+PRIMARY_KEYWORD: [Main 2-4 word keyword phrase]
 CONTENT:
-[Your blog content with proper H2 headings in markdown]
+[Full HTML blog content with H2/H3 headings, paragraphs, and lists]
 """
-        
+
         try:
-            response = self.ai_service.generate_text(prompt, max_tokens=3000)
+            response = self.ai_service.generate_raw(prompt, max_tokens=6000)
             return self._parse_blog_response(response, client)
         except Exception as e:
             logger.error(f"Blog generation failed: {e}")
@@ -367,13 +367,19 @@ CONTENT:
                 content_lines.append(line)
         
         content = '\n'.join(content_lines).strip()
-        
+
+        # Strip HTML tags for accurate word count
+        import re as _re
+        text_only = _re.sub(r'<[^>]+>', ' ', content)
+        text_only = _re.sub(r'\s+', ' ', text_only).strip()
+        word_count = len(text_only.split())
+
         return {
             'title': title or f"Customer Questions Answered | {client.business_name}",
             'meta_description': meta[:160] if meta else f"Get answers to common {client.industry} questions in {client.geo}.",
             'primary_keyword': keyword or client.industry,
             'content': content,
-            'word_count': len(content.split()),
+            'word_count': word_count,
             'seo_score': 80,  # Base score for AI-generated content
             'source': 'customer_questions'
         }

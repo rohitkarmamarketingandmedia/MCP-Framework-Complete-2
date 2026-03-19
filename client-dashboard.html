@@ -872,7 +872,7 @@
                             <i class="fas fa-user-plus text-white text-2xl"></i>
                         </div>
                         <div class="text-4xl font-bold text-white mb-1" id="overview-leads">--</div>
-                        <div class="text-sm text-gray-400 mb-3">New Leads</div>
+                        <div class="text-sm text-gray-400 mb-3">New Leads <span class="text-xs text-gray-500">(last 30 days)</span></div>
                         <div class="flex items-center justify-center gap-1 text-emerald-400 text-sm" id="leads-change">
                             <span>--</span>
                         </div>
@@ -3141,7 +3141,7 @@
                                 </div>
                                 <div class="text-center p-3 glass rounded-xl cursor-pointer hover:ring-1 hover:ring-green-500/30 transition" onclick="showTab('leads')">
                                     <p id="chatbotLeads" class="text-2xl font-bold text-green-400">0</p>
-                                    <p class="text-xs text-gray-400">Leads Captured</p>
+                                    <p class="text-xs text-gray-400">Leads Captured <span class="text-gray-500">(all time)</span></p>
                                 </div>
                                 <div class="text-center p-3 glass rounded-xl">
                                     <p id="chatbotRating" class="text-2xl font-bold text-yellow-400">--</p>
@@ -3623,7 +3623,7 @@
                 <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
                     <div class="glass rounded-xl p-4 text-center cursor-pointer hover:ring-1 hover:ring-white/20 transition" onclick="filterLeads('all')">
                         <p class="text-3xl font-bold text-white" id="leadsTotal">0</p>
-                        <p class="text-sm text-gray-400">Total Leads</p>
+                        <p class="text-sm text-gray-400">Total Leads <span id="leadsPeriodLabel" class="text-xs text-gray-500">(last 30 days)</span></p>
                     </div>
                     <div class="glass rounded-xl p-4 text-center cursor-pointer hover:ring-1 hover:ring-green-500/30 transition" onclick="filterLeads('call')">
                         <p class="text-3xl font-bold text-green-400" id="leadsCalls">0</p>
@@ -6409,16 +6409,14 @@
                     });
                     if (leadsResponse.ok) {
                         const leadsData = await leadsResponse.json();
-                        // Count leads from this month
-                        const now = new Date();
-                        const thisMonth = now.getMonth();
-                        const thisYear = now.getFullYear();
+                        // Count leads from the last 30 days (rolling window — matches Leads tab default)
+                        const cutoff = new Date();
+                        cutoff.setDate(cutoff.getDate() - 30);
                         const allLeads = leadsData.leads || [];
                         leads = allLeads.filter(l => {
                             const leadDate = new Date(l.created_at);
-                            return leadDate.getMonth() === thisMonth && leadDate.getFullYear() === thisYear;
+                            return leadDate >= cutoff;
                         }).length;
-                        // Show 0 if no leads this month
                     }
                 } catch (e) {
                     console.error('Error fetching leads:', e);
@@ -7917,6 +7915,10 @@
                 const db = b.date ? new Date(b.date) : new Date(0);
                 return db - da;
             });
+
+            // Update period label to match current filter
+            const periodEl = document.getElementById('leadsPeriodLabel');
+            if (periodEl) periodEl.textContent = days === 0 ? '(all time)' : `(last ${days} days)`;
 
             // Update stats
             document.getElementById('leadsTotal').textContent = allLeads.length;
@@ -16116,6 +16118,9 @@
                     completed++;
                     progressCount.textContent = `${completed} / ${totalItems}`;
                     progressBar.style.width = totalItems > 0 ? `${(completed / totalItems) * 100}%` : '100%';
+
+                    // Pace social post generation to avoid Claude API rate limits
+                    await new Promise(resolve => setTimeout(resolve, 5000));
                 }
             }
 
