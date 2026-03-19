@@ -5688,8 +5688,36 @@
                 });
 
                 if (clients.length > 0) {
-                    selector.value = clients[0].id;
-                    loadClient(clients[0].id);
+                    // --- Deep-link support: honour ?id= and ?blog= URL params ---
+                    const urlParams = new URLSearchParams(window.location.search);
+                    const deepClientId = urlParams.get('id');
+                    const deepBlogId   = urlParams.get('blog');
+
+                    // Pick the target client — URL param takes priority over default first client
+                    const targetClient = deepClientId && clients.find(c => c.id === deepClientId)
+                        ? deepClientId
+                        : clients[0].id;
+
+                    selector.value = targetClient;
+                    await loadClient(targetClient);
+
+                    // After client + blogs are loaded, open the deep-linked blog post
+                    if (deepBlogId) {
+                        // Clean the URL so refreshing doesn't re-open the modal
+                        window.history.replaceState({}, document.title, window.location.pathname);
+                        showTab('blogs');
+                        // Small delay to let renderBlogs() paint before opening modal
+                        setTimeout(() => {
+                            if (allBlogs.find(b => b.id === deepBlogId)) {
+                                openBlogModal(deepBlogId);
+                            } else {
+                                showToast('Blog post not found', 'warning');
+                            }
+                        }, 300);
+                    } else if (deepClientId) {
+                        // Client was specified but no blog — just clean the URL
+                        window.history.replaceState({}, document.title, window.location.pathname);
+                    }
                 }
             } catch (e) {
                 console.error('Failed to load clients:', e);
