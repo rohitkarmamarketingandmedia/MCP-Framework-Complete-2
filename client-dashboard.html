@@ -878,14 +878,14 @@
                         </div>
                     </div>
 
-                    <!-- Calls This Month -->
+                    <!-- Calls (last 30 days) -->
                     <div class="glass rounded-2xl p-6 text-center cursor-pointer hover:ring-2 hover:ring-purple-500/30 transition" onclick="showTab('calls')">
                         <div
                             class="w-16 h-16 rounded-2xl bg-gradient-to-br from-purple-500 to-violet-600 flex items-center justify-center mx-auto mb-4">
                             <i class="fas fa-phone text-white text-2xl"></i>
                         </div>
                         <div class="text-4xl font-bold text-white mb-1" id="overview-calls">--</div>
-                        <div class="text-sm text-gray-400 mb-3">Phone Calls <span class="text-xs text-gray-500">(this month)</span></div>
+                        <div class="text-sm text-gray-400 mb-3">Phone Calls <span class="text-xs text-gray-500">(last 30 days)</span></div>
                         <div class="w-full bg-slate-700 rounded-full h-2 mb-1">
                             <div id="answer-rate-bar" class="bg-emerald-500 h-2 rounded-full progress-bar-animated"
                                 style="width: 0%"></div>
@@ -3934,9 +3934,9 @@
                             </div>
                         </div>
                         <select id="callDaysFilter" onchange="loadCalls()" class="bg-white/10 border border-white/20 rounded-lg text-white text-sm px-3 py-2 focus:outline-none">
-                            <option value="30">Last 30 days</option>
+                            <option value="30" selected>Last 30 days</option>
                             <option value="60">Last 60 days</option>
-                            <option value="90" selected>Last 90 days</option>
+                            <option value="90">Last 90 days</option>
                         </select>
                     </div>
                     <div id="callsList" class="space-y-3">
@@ -6431,13 +6431,13 @@
                     });
                     if (callsResponse.ok) {
                         const callsData = await callsResponse.json();
-                        const now = new Date();
-                        const thisMonth = now.getMonth();
-                        const thisYear = now.getFullYear();
+                        // Rolling 30-day window — matches the Calls tab default filter
+                        const callsCutoff = new Date();
+                        callsCutoff.setDate(callsCutoff.getDate() - 30);
                         const allCalls = callsData.calls || callsData.data || [];
                         calls = allCalls.filter(c => {
                             const callDate = new Date(c.created_at || c.start_time || c.date);
-                            return callDate.getMonth() === thisMonth && callDate.getFullYear() === thisYear;
+                            return callDate >= callsCutoff;
                         }).length;
                     }
                 } catch (e) {
@@ -9089,7 +9089,7 @@
             const container = document.getElementById('callsList');
             if (!container) return;
 
-            const days = document.getElementById('callDaysFilter')?.value || 90;
+            const days = document.getElementById('callDaysFilter')?.value || 30;
             container.innerHTML = '<div class="text-center py-8"><i class="fas fa-spinner fa-spin text-2xl text-green-400"></i><p class="text-gray-400 mt-2">Loading calls...</p></div>';
 
             try {
