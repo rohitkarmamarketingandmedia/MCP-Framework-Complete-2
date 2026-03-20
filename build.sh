@@ -45,6 +45,48 @@ if not found:
     print('    The system will attempt to download fonts at runtime.')
 "
 
+# Install Chromium for ADA Accessibility Scanner (headless browser)
+echo ""
+echo "🌐 Installing Chromium for ADA scanner..."
+if command -v apt-get &> /dev/null; then
+    apt-get install -y --no-install-recommends \
+        chromium \
+        chromium-driver \
+        libnss3 \
+        libatk-bridge2.0-0 \
+        libdrm2 \
+        libxkbcommon0 \
+        libgbm1 \
+        libasound2 \
+        libxshmfence1 \
+        || true
+
+    # Verify installation
+    if command -v chromium &> /dev/null; then
+        echo "  ✓ Chromium installed: $(chromium --version 2>/dev/null || echo 'version check failed')"
+    elif command -v chromium-browser &> /dev/null; then
+        echo "  ✓ Chromium installed: $(chromium-browser --version 2>/dev/null || echo 'version check failed')"
+    else
+        echo "  ⚠ Chromium binary not found in PATH, trying alternative names..."
+        # On some systems it's at a different path
+        for p in /usr/bin/chromium /usr/bin/chromium-browser /snap/bin/chromium; do
+            if [ -f "$p" ]; then
+                echo "  ✓ Found at $p"
+                break
+            fi
+        done
+    fi
+
+    if command -v chromedriver &> /dev/null; then
+        echo "  ✓ ChromeDriver installed: $(chromedriver --version 2>/dev/null || echo 'version check failed')"
+    else
+        echo "  ⚠ ChromeDriver not found — ADA scanner will fall back to plain HTTP fetch"
+    fi
+else
+    echo "  ⚠ apt-get not available, Chromium not installed"
+    echo "    ADA scanner will use plain HTTP fetch (may not render JS-heavy sites)"
+fi
+
 # Install dependencies
 echo ""
 echo "📦 Installing dependencies..."

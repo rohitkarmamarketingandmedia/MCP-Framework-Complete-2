@@ -19923,8 +19923,17 @@
             document.getElementById('a11yPassedCount').textContent = summary.passed;
             document.getElementById('a11yFailedCount').textContent = summary.failed;
             document.getElementById('a11yNACount').textContent = summary.not_applicable;
-            document.getElementById('a11yScanDate').textContent = results.scanned_at ? 'Scanned: ' + new Date(results.scanned_at).toLocaleString() : '';
-            
+            var scanDateText = results.scanned_at ? 'Scanned: ' + new Date(results.scanned_at).toLocaleString() : '';
+            // Show fetch method info if available
+            if (results.fetch_info) {
+                var fi = results.fetch_info;
+                scanDateText += ' | Fetched via ' + fi.method + ' (' + fi.html_length + ' chars)';
+                if (!fi.has_title_tag || !fi.has_body) {
+                    scanDateText += ' ⚠️ Page may need JS rendering';
+                }
+            }
+            document.getElementById('a11yScanDate').textContent = scanDateText;
+
             // Store checks for filtering
             _a11yChecks = results.checks || [];
             
