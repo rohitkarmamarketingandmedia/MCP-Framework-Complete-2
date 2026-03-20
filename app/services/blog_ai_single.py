@@ -1906,8 +1906,62 @@ OUTPUT JSON:"""
         body = re.sub(r'<p>\s*</p>', '', body)
         body = re.sub(r'<p>\s+', '<p>', body)
         body = re.sub(r'\s+</p>', '</p>', body)
-        
+
+        # Auto-link phone numbers and emails that aren't already inside <a> tags
+        body = self._auto_link_phone_email(body)
+
         return body.strip()
+
+    def _auto_link_phone_email(self, html: str) -> str:
+        """Auto-link phone numbers and email addresses that aren't already inside <a> tags."""
+        import re as _re
+
+        # ---- Phone numbers ----
+        # Matches common US formats: (941) 326-5982, 941-326-5982, 941.326.5982, 9413265982, +1-941-326-5982
+        phone_pattern = r'(\+?1[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}'
+
+        def _link_phone(match):
+            full = match.group(0)
+            # Strip to digits only for the tel: href
+            digits = _re.sub(r'\D', '', full)
+            # Normalise to 10-digit (drop leading 1 if 11 digits)
+            if len(digits) == 11 and digits.startswith('1'):
+                digits = digits[1:]
+            if len(digits) != 10:
+                return full  # not a valid US phone, leave as-is
+            return f'<a href="tel:+1{digits}">{full}</a>'
+
+        # ---- Email addresses ----
+        email_pattern = r'[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}'
+
+        def _link_email(match):
+            addr = match.group(0)
+            return f'<a href="mailto:{addr}">{addr}</a>'
+
+        # Split HTML into tags vs text so we only touch text nodes
+        # and skip anything already inside an <a> tag.
+        parts = _re.split(r'(<[^>]+>)', html)
+        inside_a = 0
+        result = []
+        for part in parts:
+            if part.startswith('<'):
+                lower = part.lower()
+                if lower.startswith('<a ') or lower.startswith('<a>'):
+                    inside_a += 1
+                elif lower.startswith('</a'):
+                    inside_a = max(0, inside_a - 1)
+                result.append(part)
+            else:
+                if inside_a > 0:
+                    # Inside an <a> tag already — don't touch
+                    result.append(part)
+                else:
+                    # Replace phones first, then emails
+                    linked = _re.sub(phone_pattern, _link_phone, part)
+                    linked = _re.sub(email_pattern, _link_email, linked)
+                    result.append(linked)
+
+        return ''.join(result)
 
     def _word_count(self, html: str) -> int:
         """Count words in HTML content"""
