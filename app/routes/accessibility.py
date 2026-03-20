@@ -132,19 +132,30 @@ def scan_website(current_user, client_id):
     
     try:
         logger.info(f"Scanning accessibility for {url} (client: {client_id})")
-        
-        # Fetch the page
+
+        # Fetch the page with a realistic browser User-Agent to avoid bot blocks
         headers = {
-            'User-Agent': 'Mozilla/5.0 (compatible; MCPAccessibilityScanner/1.0)'
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+            'Accept-Language': 'en-US,en;q=0.9',
+            'Accept-Encoding': 'gzip, deflate, br',
+            'Connection': 'keep-alive',
+            'Upgrade-Insecure-Requests': '1',
         }
         response = requests.get(url, headers=headers, timeout=30, allow_redirects=True)
         response.raise_for_status()
         html = response.text
 
-        # Check if we got a real page (not a bot challenge or redirect)
-        if len(html) < 500 or '<body' not in html.lower():
-            logger.warning(f"Received very short or invalid HTML from {url} ({len(html)} chars)")
-            return jsonify({'error': 'Website returned an incomplete page (possible bot protection). Try again in a moment.'}), 400
+        # Check if we got a real page — be lenient since many valid pages are small
+        # Only reject if truly empty or clearly a Cloudflare/bot challenge page
+        html_lower = html.lower()
+        is_challenge = (
+            ('cf-browser-verification' in html_lower or 'cf-challenge' in html_lower or 'cf_chl_opt' in html_lower) and
+            len(html) < 5000
+        )
+        if len(html) < 100 or is_challenge:
+            logger.warning(f"Received bot challenge or empty page from {url} ({len(html)} chars)")
+            return jsonify({'error': 'Website returned a bot challenge page. The site may be using Cloudflare or similar protection.'}), 400
 
         # Run the scanner
         scanner = get_accessibility_scanner()
