@@ -6,7 +6,9 @@ from flask import Blueprint, request, jsonify
 from datetime import datetime
 import json
 import logging
-import requests
+import requests as http_requests
+import subprocess
+import sys
 
 from app.database import db
 from app.models.db_models import DBClient
@@ -14,6 +16,55 @@ from app.routes.auth import token_required, optional_token
 from app.services.accessibility_scanner import get_accessibility_scanner
 
 logger = logging.getLogger(__name__)
+
+
+def _fetch_rendered_html(url: str, timeout: int = 30) -> str:
+    """
+    Fetch a URL and return fully-rendered HTML (after JavaScript execution).
+    Uses Playwright (headless Chromium) if available, falls back to requests.
+    """
+    # Try Playwright first — renders JavaScript like a real browser
+    try:
+        from playwright.sync_api import sync_playwright
+        logger.info(f"Using Playwright to render {url}")
+        with sync_playwright() as p:
+            browser = p.chromium.launch(headless=True, args=['--no-sandbox', '--disable-setuid-sandbox'])
+            context = browser.new_context(
+                user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+                viewport={'width': 1280, 'height': 720},
+                locale='en-US',
+            )
+            page = context.new_page()
+            try:
+                page.goto(url, wait_until='networkidle', timeout=timeout * 1000)
+            except Exception:
+                # networkidle can be flaky; fall back to domcontentloaded
+                try:
+                    page.goto(url, wait_until='domcontentloaded', timeout=timeout * 1000)
+                    page.wait_for_timeout(3000)  # give JS 3 extra seconds
+                except Exception:
+                    pass
+            html = page.content()
+            browser.close()
+            logger.info(f"Playwright rendered {len(html)} chars for {url}")
+            return html
+    except ImportError:
+        logger.info("Playwright not installed — falling back to requests")
+    except Exception as e:
+        logger.warning(f"Playwright failed for {url}: {e} — falling back to requests")
+
+    # Fallback: plain HTTP fetch (won't execute JavaScript)
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.9',
+        'Accept-Encoding': 'gzip, deflate, br',
+        'Connection': 'keep-alive',
+        'Upgrade-Insecure-Requests': '1',
+    }
+    response = http_requests.get(url, headers=headers, timeout=timeout, allow_redirects=True)
+    response.raise_for_status()
+    return response.text
 
 accessibility_bp = Blueprint('accessibility', __name__, url_prefix='/api/accessibility')
 
@@ -133,21 +184,10 @@ def scan_website(current_user, client_id):
     try:
         logger.info(f"Scanning accessibility for {url} (client: {client_id})")
 
-        # Fetch the page with a realistic browser User-Agent to avoid bot blocks
-        headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-            'Accept-Language': 'en-US,en;q=0.9',
-            'Accept-Encoding': 'gzip, deflate, br',
-            'Connection': 'keep-alive',
-            'Upgrade-Insecure-Requests': '1',
-        }
-        response = requests.get(url, headers=headers, timeout=30, allow_redirects=True)
-        response.raise_for_status()
-        html = response.text
+        # Fetch the fully-rendered page (Playwright if available, else requests)
+        html = _fetch_rendered_html(url, timeout=30)
 
-        # Check if we got a real page — be lenient since many valid pages are small
-        # Only reject if truly empty or clearly a Cloudflare/bot challenge page
+        # Check if we got a real page
         html_lower = html.lower()
         is_challenge = (
             ('cf-browser-verification' in html_lower or 'cf-challenge' in html_lower or 'cf_chl_opt' in html_lower) and
@@ -174,7 +214,7 @@ def scan_website(current_user, client_id):
             'results': results
         })
     
-    except requests.RequestException as e:
+    except http_requests.RequestException as e:
         logger.error(f"Failed to fetch {url}: {e}")
         return jsonify({'error': f'Could not fetch website: {str(e)}'}), 400
     except Exception as e:
