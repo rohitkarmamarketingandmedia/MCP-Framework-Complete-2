@@ -566,7 +566,7 @@ Example for HVAC business:
         # Parse geo from settings
         geo_parts = geo.split(',') if geo else ['', '']
         settings_city = geo_parts[0].strip() if len(geo_parts) > 0 else ''
-        state = geo_parts[1].strip() if len(geo_parts) > 1 else 'FL'
+        state = geo_parts[1].strip() if len(geo_parts) > 1 else ''
         
         # USE THE CITY FROM KEYWORD if present, otherwise use settings
         if keyword_city:

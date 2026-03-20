@@ -318,7 +318,7 @@ def _generate_blog_background(task_id, app, client_id, keyword, word_count, incl
             geo = client.geo or ''
             geo_parts = geo.split(',') if geo else ['', '']
             city = geo_parts[0].strip() if len(geo_parts) > 0 else ''
-            state = geo_parts[1].strip() if len(geo_parts) > 1 else 'FL'
+            state = geo_parts[1].strip() if len(geo_parts) > 1 else ''
             
             # Build internal links list
             internal_links = []
@@ -527,7 +527,7 @@ def generate_blog_sync(current_user):
         geo = client.geo or ''
         geo_parts = geo.split(',') if geo else ['', '']
         city = selected_city or (geo_parts[0].strip() if len(geo_parts) > 0 else '')
-        state = geo_parts[1].strip() if len(geo_parts) > 1 else 'FL'
+        state = geo_parts[1].strip() if len(geo_parts) > 1 else ''
         
         logger.info(f"[SYNC] Using city: {city} (selected: {selected_city}, default: {geo_parts[0] if geo_parts else 'N/A'})")
         
@@ -909,7 +909,7 @@ def generate_content(current_user):
     geo = data.get('geo', '')
     geo_parts = geo.split(',') if geo else ['', '']
     city = geo_parts[0].strip() if len(geo_parts) > 0 else ''
-    state = geo_parts[1].strip() if len(geo_parts) > 1 else 'FL'
+    state = geo_parts[1].strip() if len(geo_parts) > 1 else ''
     
     # Build internal links list for BlogAISingle
     blog_internal_links = []
@@ -1097,7 +1097,7 @@ def bulk_generate(current_user):
     geo = client.geo or ''
     geo_parts = geo.split(',') if geo else ['', '']
     city = geo_parts[0].strip() if len(geo_parts) > 0 else ''
-    state = geo_parts[1].strip() if len(geo_parts) > 1 else 'FL'
+    state = geo_parts[1].strip() if len(geo_parts) > 1 else ''
     
     # Build internal links list for BlogAISingle
     blog_internal_links = []

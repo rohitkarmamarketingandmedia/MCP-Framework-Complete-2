@@ -748,6 +748,36 @@
         }
 
         // ==========================================
+        // TOAST NOTIFICATIONS
+        // ==========================================
+        function showToast(message, type = 'info') {
+            const colors = {
+                success: 'bg-green-600',
+                error: 'bg-red-600',
+                warning: 'bg-yellow-600',
+                info: 'bg-blue-600'
+            };
+            const icons = {
+                success: 'fa-check-circle',
+                error: 'fa-exclamation-circle',
+                warning: 'fa-exclamation-triangle',
+                info: 'fa-info-circle'
+            };
+
+            const toast = document.createElement('div');
+            toast.className = `fixed top-4 right-4 z-[9999] ${colors[type] || colors.info} text-white px-5 py-3 rounded-xl shadow-2xl flex items-center gap-3 text-sm max-w-md animate-fade-in`;
+            toast.innerHTML = `<i class="fas ${icons[type] || icons.info}"></i><span>${escapeHtml(message)}</span>`;
+            document.body.appendChild(toast);
+
+            setTimeout(() => {
+                toast.style.transition = 'opacity 0.5s, transform 0.5s';
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateY(-10px)';
+                setTimeout(() => toast.remove(), 500);
+            }, 4000);
+        }
+
+        // ==========================================
         // AUTH
         // ==========================================
         async function doLogin() {
@@ -1546,11 +1576,8 @@
                     }
                     if (tab === 'competitorCompare') populateCompareData();
                     if (tab === 'contentChanges') {
-                        // Clear content changes and show message
-                        const container = document.getElementById('contentChangesList');
-                        if (container) {
-                            container.innerHTML = '<div class="text-center py-8 text-gray-500">Click "Scan Now" to check for competitor content changes</div>';
-                        }
+                        // Auto-scan for content changes
+                        scanForChanges();
                     }
                     break;
                 }

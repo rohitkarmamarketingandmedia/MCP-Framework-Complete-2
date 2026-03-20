@@ -1735,6 +1735,11 @@ def get_content_changes(current_user, client_id):
     
     changes = []
 
+    # Allow configurable lookback window (default 90 days)
+    days_back = request.args.get('days', 90, type=int)
+    if days_back > 365:
+        days_back = 365
+
     # Non-content page patterns — these are structural site pages, not blog/content updates
     non_content_patterns = [
         '/about', '/contact', '/gallery', '/book-online', '/booking',
@@ -1746,11 +1751,17 @@ def get_content_changes(current_user, client_id):
     ]
 
     for competitor in competitors:
-        # Get pages discovered in last 7 days
+        # Get all competitor pages (within lookback window)
         recent_pages = DBCompetitorPage.query.filter(
             DBCompetitorPage.competitor_id == competitor.id,
-            DBCompetitorPage.discovered_at >= datetime.utcnow() - timedelta(days=7)
-        ).order_by(DBCompetitorPage.discovered_at.desc()).limit(30).all()
+            DBCompetitorPage.discovered_at >= datetime.utcnow() - timedelta(days=days_back)
+        ).order_by(DBCompetitorPage.discovered_at.desc()).limit(50).all()
+
+        # If no recent pages, get ALL pages for this competitor (they may have been crawled long ago)
+        if not recent_pages:
+            recent_pages = DBCompetitorPage.query.filter(
+                DBCompetitorPage.competitor_id == competitor.id
+            ).order_by(DBCompetitorPage.discovered_at.desc()).limit(50).all()
 
         for page in recent_pages:
             url_lower = (page.url or '').lower().rstrip('/')
