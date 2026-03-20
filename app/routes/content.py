@@ -1462,10 +1462,8 @@ def update_content(current_user, content_id):
     if new_status == 'approved' and old_status != 'approved':
         try:
             from app.services.notification_service import get_notification_service
-            from app.models.db_models import DBUser, DBClient
-            import logging
-            logger = logging.getLogger(__name__)
-            
+            from app.models.db_models import DBUser
+
             notification_service = get_notification_service()
             admins = DBUser.query.filter_by(role='admin', is_active=True).all()
             client = DBClient.query.get(content.client_id)
