@@ -510,11 +510,17 @@ def crawl_competitor(current_user, competitor_id):
             # Determine page type from URL
             url_lower = page_url.lower()
             
+            # Build a readable title from URL path if no title was extracted
+            if not title:
+                path_parts = [p for p in page_url.rstrip('/').split('/') if p and not p.startswith('http')]
+                slug = path_parts[-1] if path_parts else ''
+                title = slug.replace('-', ' ').replace('_', ' ').strip().title() if slug else ''
+
             page = DBCompetitorPage(
                 competitor_id=competitor_id,
                 client_id=competitor.client_id,
                 url=page_url,
-                title=title or page_url.split('/')[-1].replace('-', ' ').replace('_', ' ').title(),
+                title=title or page_url,
                 content_hash=content.get('content_hash', ''),
                 word_count=word_count,
                 h1=content.get('h1', ''),
@@ -1728,31 +1734,92 @@ def get_content_changes(current_user, client_id):
     ).all()
     
     changes = []
-    
+
+    # Non-content page patterns — these are structural site pages, not blog/content updates
+    non_content_patterns = [
+        '/about', '/contact', '/gallery', '/book-online', '/booking',
+        '/privacy', '/terms', '/sitemap', '/login', '/register',
+        '/careers', '/team', '/staff', '/faq', '/testimonials',
+        '/reviews', '/directions', '/map', '/forms', '/patient-forms',
+        '/new-patient', '/insurance', '/financing', '/specials', '/offers',
+        '/before-after'
+    ]
+
     for competitor in competitors:
         # Get pages discovered in last 7 days
         recent_pages = DBCompetitorPage.query.filter(
             DBCompetitorPage.competitor_id == competitor.id,
             DBCompetitorPage.discovered_at >= datetime.utcnow() - timedelta(days=7)
-        ).order_by(DBCompetitorPage.discovered_at.desc()).limit(10).all()
-        
+        ).order_by(DBCompetitorPage.discovered_at.desc()).limit(30).all()
+
         for page in recent_pages:
+            url_lower = (page.url or '').lower().rstrip('/')
+            title = page.title or ''
+
+            # Fix pages with no useful title — derive from URL and update DB
+            if not title or title == page.url or title == 'Untitled':
+                path_parts = [p for p in url_lower.split('/') if p and not p.startswith('http')]
+                slug = path_parts[-1] if path_parts else ''
+                title = slug.replace('-', ' ').replace('_', ' ').strip().title() if slug else 'Untitled'
+                # Persist the derived title so it's fixed for future loads
+                if title != 'Untitled' and page.title != title:
+                    try:
+                        page.title = title
+                        db.session.commit()
+                    except Exception:
+                        db.session.rollback()
+
+            # Categorize: blog/content vs service page vs structural page
+            is_blog = '/blog' in url_lower or '/post' in url_lower or '/article' in url_lower or '/news' in url_lower
+            is_service = any(x in url_lower for x in ['/service', '/treatment', '/procedure', '/dentistry', '/dental'])
+            is_structural = any(url_lower.endswith(p) or (p + '/') in url_lower for p in non_content_patterns)
+
+            # Determine change type label
+            if is_blog:
+                change_type = 'new_page'
+            elif is_service:
+                change_type = 'new_page'
+            elif is_structural:
+                change_type = 'content_update'  # Structural pages are less noteworthy
+            else:
+                change_type = 'new_page'
+
+            # Determine page category for display
+            if is_blog:
+                category = 'Blog Post'
+            elif is_service:
+                category = 'Service Page'
+            elif is_structural:
+                category = 'Site Page'
+            else:
+                category = 'Page'
+
             changes.append({
-                'type': 'new_page',
+                'type': change_type,
+                'category': category,
                 'competitor': competitor.domain or '',
                 'competitor_id': competitor.id,
                 'url': page.url or '',
-                'title': page.title or 'Untitled',
+                'title': title,
                 'word_count': page.word_count or 0,
-                'detected_at': page.discovered_at.isoformat() if page.discovered_at else None
+                'detected_at': page.discovered_at.isoformat() if page.discovered_at else None,
+                'is_blog': is_blog,
+                'is_service': is_service,
+                'is_structural': is_structural
             })
-    
-    # Sort by detected_at descending
+
+    # Sort: blog posts first, then service pages, then structural; within each group by date
+    changes.sort(key=lambda x: (
+        0 if x.get('is_blog') else 1 if x.get('is_service') else 2,
+        -(x.get('detected_at') or '')[::-1] if x.get('detected_at') else ''
+    ))
+    # Fallback: sort by date descending
     changes.sort(key=lambda x: x.get('detected_at') or '', reverse=True)
-    
+
     return jsonify({
         'client_id': client_id,
-        'changes': changes[:20],  # Limit to 20 most recent
+        'changes': changes[:30],
+        'total': len(changes),
         'scanned_at': datetime.utcnow().isoformat()
     })
 

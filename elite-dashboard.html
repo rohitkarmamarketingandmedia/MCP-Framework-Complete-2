@@ -2746,26 +2746,84 @@
         // generateSampleChanges removed — using real data from competitor-dashboard API
         
         
+        // Content Changes state
+        let contentChangesState = {
+            all: [],
+            filter: 'all', // 'all', 'blog', 'service', 'structural'
+            page: 1,
+            perPage: 10
+        };
+
         function renderContentChanges(changes) {
             const container = document.getElementById('contentChangesList');
-            
+
             if (changes.length === 0) {
                 container.innerHTML = '<div class="text-center py-8 text-gray-500"><i class="fas fa-check-circle text-4xl text-green-400 mb-3 block"></i><p>No content changes or gaps detected</p><p class="text-xs mt-1">Crawl competitors or click Compare tab for content gap analysis</p></div>';
                 return;
             }
-            
-            container.innerHTML = changes.map(change => {
+
+            contentChangesState.all = changes;
+            contentChangesState.page = 1;
+            renderContentChangesPage();
+        }
+
+        function filterContentChanges(filter) {
+            contentChangesState.filter = filter;
+            contentChangesState.page = 1;
+            renderContentChangesPage();
+        }
+
+        function changeContentChangesPage(delta) {
+            const filtered = getFilteredChanges();
+            const totalPages = Math.ceil(filtered.length / contentChangesState.perPage);
+            const newPage = contentChangesState.page + delta;
+            if (newPage >= 1 && newPage <= totalPages) {
+                contentChangesState.page = newPage;
+                renderContentChangesPage();
+            }
+        }
+
+        function getFilteredChanges() {
+            const { all, filter } = contentChangesState;
+            if (filter === 'all') return all;
+            if (filter === 'blog') return all.filter(c => c.is_blog);
+            if (filter === 'service') return all.filter(c => c.is_service);
+            if (filter === 'structural') return all.filter(c => c.is_structural);
+            return all;
+        }
+
+        function renderContentChangesPage() {
+            const container = document.getElementById('contentChangesList');
+            const { filter, page, perPage } = contentChangesState;
+            const filtered = getFilteredChanges();
+            const totalPages = Math.ceil(filtered.length / perPage);
+            const pageItems = filtered.slice((page - 1) * perPage, page * perPage);
+
+            // Count by category
+            const blogCount = contentChangesState.all.filter(c => c.is_blog).length;
+            const serviceCount = contentChangesState.all.filter(c => c.is_service).length;
+            const structuralCount = contentChangesState.all.filter(c => c.is_structural).length;
+
+            let html = `<div class="flex flex-wrap gap-2 mb-4">
+                <button onclick="filterContentChanges('all')" class="px-3 py-1 rounded-full text-xs ${filter === 'all' ? 'bg-cyan-500/30 text-cyan-400 font-bold' : 'glass text-gray-400 hover:text-white'}">All (${contentChangesState.all.length})</button>
+                ${blogCount ? `<button onclick="filterContentChanges('blog')" class="px-3 py-1 rounded-full text-xs ${filter === 'blog' ? 'bg-green-500/30 text-green-400 font-bold' : 'glass text-gray-400 hover:text-white'}">Blog Posts (${blogCount})</button>` : ''}
+                ${serviceCount ? `<button onclick="filterContentChanges('service')" class="px-3 py-1 rounded-full text-xs ${filter === 'service' ? 'bg-blue-500/30 text-blue-400 font-bold' : 'glass text-gray-400 hover:text-white'}">Service Pages (${serviceCount})</button>` : ''}
+                ${structuralCount ? `<button onclick="filterContentChanges('structural')" class="px-3 py-1 rounded-full text-xs ${filter === 'structural' ? 'bg-yellow-500/30 text-yellow-400 font-bold' : 'glass text-gray-400 hover:text-white'}">Site Pages (${structuralCount})</button>` : ''}
+            </div>`;
+
+            html += pageItems.map(change => {
                 const typeMap = {
                     'new_page': { icon: 'fa-plus-circle text-green-400', label: 'New Page', bg: 'bg-green-500/20' },
-                    'content_update': { icon: 'fa-edit text-yellow-400', label: 'Updated', bg: 'bg-yellow-500/20' },
+                    'content_update': { icon: 'fa-edit text-yellow-400', label: 'Site Page', bg: 'bg-yellow-500/20' },
                     'content_gap': { icon: 'fa-lightbulb text-orange-400', label: 'Content Gap', bg: 'bg-orange-500/20' }
                 };
                 const t = typeMap[change.type] || typeMap['new_page'];
+                const category = change.category || '';
                 const timeAgo = change.detected_at ? getTimeAgo(change.detected_at) : '';
                 const safeUrl = escapeHtml(change.url || '');
                 const safeTitle = escapeHtml(change.title || 'Untitled');
                 const safeCompetitor = escapeHtml(change.competitor || '');
-                
+
                 return `
                     <div class="glass rounded-xl p-4 hover:bg-white/5 transition">
                         <div class="flex items-start gap-3">
@@ -2775,11 +2833,12 @@
                             <div class="flex-1 min-w-0">
                                 <div class="flex items-center gap-2 mb-1">
                                     <span class="text-xs px-2 py-0.5 ${t.bg} ${t.icon.split(' ')[1]} rounded">${t.label}</span>
+                                    ${category ? `<span class="text-[10px] text-gray-500 bg-white/5 px-1.5 py-0.5 rounded">${category}</span>` : ''}
                                     ${timeAgo ? `<span class="text-xs text-gray-500">${timeAgo}</span>` : ''}
                                 </div>
                                 <p class="text-white font-medium truncate">${safeTitle}</p>
                                 <p class="text-gray-400 text-sm">${safeCompetitor}</p>
-                                ${change.type === 'content_update' ? 
+                                ${change.type === 'content_update' ?
                                     `<p class="text-xs text-gray-500 mt-1">Word count: ${change.old_word_count || 0} → ${change.new_word_count || 0} <span class="text-green-400">(+${(change.new_word_count || 0) - (change.old_word_count || 0)})</span></p>` :
                                     change.word_count ? `<p class="text-xs text-gray-500 mt-1">${change.word_count} words</p>` : ''
                                 }
@@ -2791,6 +2850,23 @@
                     </div>
                 `;
             }).join('');
+
+            // Pagination
+            if (totalPages > 1) {
+                html += `
+                    <div class="flex items-center justify-between pt-4 border-t border-white/10 mt-2">
+                        <button onclick="changeContentChangesPage(-1)" class="px-3 py-1.5 glass rounded-lg text-sm ${page === 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-white/10'}" ${page === 1 ? 'disabled' : ''}>
+                            <i class="fas fa-chevron-left mr-1"></i>Prev
+                        </button>
+                        <span class="text-sm text-gray-400">Page ${page} of ${totalPages} <span class="text-gray-600">(${filtered.length} items)</span></span>
+                        <button onclick="changeContentChangesPage(1)" class="px-3 py-1.5 glass rounded-lg text-sm ${page === totalPages ? 'opacity-50 cursor-not-allowed' : 'hover:bg-white/10'}" ${page === totalPages ? 'disabled' : ''}>
+                            Next<i class="fas fa-chevron-right ml-1"></i>
+                        </button>
+                    </div>
+                `;
+            }
+
+            container.innerHTML = html;
         }
         
         function getTimeAgo(dateStr) {
@@ -2806,8 +2882,123 @@
             return date.toLocaleDateString();
         }
         
-        function respondToChange(url) {
-            alert(`Creating counter-content for:\n${url}\n\nThis will analyze the page and generate a competing article.`);
+        async function respondToChange(url) {
+            if (!currentClient || !currentClientId) {
+                showToast('Please select a client first', 'warning');
+                return;
+            }
+
+            // Find the change data for this URL to get title/keyword
+            const change = contentChangesState.all.find(c => c.url === url) || {};
+            const pageTitle = change.title || '';
+
+            // Derive a keyword from the page title or URL
+            let keyword = '';
+            if (pageTitle && pageTitle !== 'Untitled') {
+                keyword = pageTitle
+                    .replace(/\s*[-|–—]\s*.+$/, '')
+                    .replace(/\s{2,}/g, ' ')
+                    .trim()
+                    .toLowerCase();
+            }
+            if (!keyword) {
+                const urlPath = url.replace(/https?:\/\/[^/]+/, '').replace(/\/$/, '');
+                const slug = urlPath.split('/').pop() || '';
+                keyword = slug.replace(/-/g, ' ').replace(/_/g, ' ').trim();
+            }
+            if (!keyword) {
+                keyword = prompt('Enter a target keyword for the counter-content:');
+                if (!keyword) return;
+            }
+
+            // Add client geo to keyword if not already present
+            const clientGeo = currentClient.geo || '';
+            const geoCity = clientGeo.split(',')[0].trim();
+            if (geoCity && !keyword.toLowerCase().includes(geoCity.toLowerCase())) {
+                keyword = `${keyword} ${geoCity}`;
+            }
+
+            const confirmed = confirm(
+                `Generate counter-content?\n\n` +
+                `Competitor page: ${url}\n` +
+                `Target keyword: "${keyword}"\n` +
+                `Client: ${currentClient.business_name}\n\n` +
+                `This will create a new SEO-optimized blog post.`
+            );
+            if (!confirmed) return;
+
+            showToast(`Generating counter-content for "${keyword}"...`, 'info');
+
+            try {
+                const res = await fetch(`${API_URL}/api/content/blog/generate-async`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${AUTH_TOKEN}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        client_id: currentClientId,
+                        keyword: keyword,
+                        word_count: 1500,
+                        include_faq: true,
+                        faq_count: 5
+                    })
+                });
+
+                if (!res.ok) {
+                    const err = await res.json();
+                    throw new Error(err.error || 'Failed to start generation');
+                }
+
+                const data = await res.json();
+                const taskId = data.task_id;
+                if (!taskId) throw new Error('No task ID returned');
+
+                showToast('Blog generation started! This takes 30-60 seconds...', 'success');
+                pollBlogGeneration(taskId, keyword);
+
+            } catch (e) {
+                console.error('Counter-content generation error:', e);
+                showToast('Error: ' + e.message, 'error');
+            }
+        }
+
+        async function pollBlogGeneration(taskId, keyword) {
+            const maxAttempts = 60;
+            let attempts = 0;
+
+            const poll = async () => {
+                attempts++;
+                try {
+                    const res = await fetch(`${API_URL}/api/content/blog/task/${taskId}`, {
+                        headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
+                    });
+                    const data = await res.json();
+
+                    if (data.status === 'complete' || data.status === 'completed') {
+                        showToast(`Counter-content for "${keyword}" is ready! Check Content Queue.`, 'success');
+                        loadContentQueue();
+                        return;
+                    }
+
+                    if (data.status === 'error' || data.status === 'failed') {
+                        showToast(`Generation failed: ${data.error || 'Unknown error'}`, 'error');
+                        return;
+                    }
+
+                    if (attempts < maxAttempts) {
+                        setTimeout(poll, 5000);
+                    } else {
+                        showToast('Generation is taking longer than expected. Check Content Queue later.', 'warning');
+                    }
+                } catch (e) {
+                    if (attempts < maxAttempts) {
+                        setTimeout(poll, 5000);
+                    }
+                }
+            };
+
+            setTimeout(poll, 5000);
         }
     </script>
 </body>
