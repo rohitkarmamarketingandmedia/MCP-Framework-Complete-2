@@ -18,10 +18,11 @@ from app.services.accessibility_scanner import get_accessibility_scanner
 logger = logging.getLogger(__name__)
 
 
-def _fetch_rendered_html(url: str, timeout: int = 30) -> str:
+def _fetch_rendered_html(url: str, timeout: int = 30) -> dict:
     """
     Fetch a URL and return fully-rendered HTML (after JavaScript execution).
     Uses Playwright (headless Chromium) if available, falls back to requests.
+    Returns dict with 'html', 'method', 'final_url', 'status_code'.
     """
     # Try Playwright first — renders JavaScript like a real browser
     try:
@@ -45,26 +46,34 @@ def _fetch_rendered_html(url: str, timeout: int = 30) -> str:
                 except Exception:
                     pass
             html = page.content()
+            final_url = page.url
             browser.close()
             logger.info(f"Playwright rendered {len(html)} chars for {url}")
-            return html
+            return {'html': html, 'method': 'playwright', 'final_url': final_url, 'status_code': 200}
     except ImportError:
         logger.info("Playwright not installed — falling back to requests")
     except Exception as e:
         logger.warning(f"Playwright failed for {url}: {e} — falling back to requests")
 
     # Fallback: plain HTTP fetch (won't execute JavaScript)
+    # NOTE: Do NOT include 'br' (brotli) in Accept-Encoding — requests can't decode it
     headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
         'Accept-Language': 'en-US,en;q=0.9',
-        'Accept-Encoding': 'gzip, deflate, br',
+        'Accept-Encoding': 'gzip, deflate',
         'Connection': 'keep-alive',
         'Upgrade-Insecure-Requests': '1',
     }
-    response = http_requests.get(url, headers=headers, timeout=timeout, allow_redirects=True)
+    session = http_requests.Session()
+    response = session.get(url, headers=headers, timeout=timeout, allow_redirects=True)
     response.raise_for_status()
-    return response.text
+    # Force proper encoding detection
+    if response.encoding and response.encoding.lower() == 'iso-8859-1' and 'charset' not in response.headers.get('Content-Type', ''):
+        response.encoding = response.apparent_encoding or 'utf-8'
+    html = response.text
+    logger.info(f"requests fetched {len(html)} chars for {url} (status={response.status_code}, encoding={response.encoding}, final_url={response.url})")
+    return {'html': html, 'method': 'requests', 'final_url': str(response.url), 'status_code': response.status_code}
 
 accessibility_bp = Blueprint('accessibility', __name__, url_prefix='/api/accessibility')
 
@@ -185,7 +194,12 @@ def scan_website(current_user, client_id):
         logger.info(f"Scanning accessibility for {url} (client: {client_id})")
 
         # Fetch the fully-rendered page (Playwright if available, else requests)
-        html = _fetch_rendered_html(url, timeout=30)
+        fetch_result = _fetch_rendered_html(url, timeout=30)
+        html = fetch_result['html']
+        fetch_method = fetch_result['method']
+        final_url = fetch_result.get('final_url', url)
+
+        logger.info(f"Fetched {len(html)} chars via {fetch_method} from {final_url}")
 
         # Check if we got a real page
         html_lower = html.lower()
@@ -197,18 +211,33 @@ def scan_website(current_user, client_id):
             logger.warning(f"Received bot challenge or empty page from {url} ({len(html)} chars)")
             return jsonify({'error': 'Website returned a bot challenge page. The site may be using Cloudflare or similar protection.'}), 400
 
+        # Log first 500 chars of HTML for debugging
+        logger.info(f"HTML preview for {url}: {html[:500]}")
+
         # Run the scanner
         scanner = get_accessibility_scanner()
         results = scanner.scan_html(html, url)
-        
+
+        # Add fetch diagnostics to results
+        results['fetch_info'] = {
+            'method': fetch_method,
+            'html_length': len(html),
+            'final_url': final_url,
+            'has_doctype': '<!doctype' in html_lower[:100],
+            'has_html_tag': '<html' in html_lower,
+            'has_head': '<head' in html_lower,
+            'has_body': '<body' in html_lower,
+            'has_title_tag': '<title' in html_lower,
+        }
+
         # Save results
         config = _get_client_a11y_config(client)
         config['last_scan'] = results
         config['last_scan_date'] = datetime.utcnow().isoformat()
         _save_client_a11y_config(client, config)
-        
-        logger.info(f"Scan complete for {url}: score={results['summary']['score']}")
-        
+
+        logger.info(f"Scan complete for {url}: score={results['summary']['score']}, method={fetch_method}, html_len={len(html)}")
+
         return jsonify({
             'message': 'Scan complete',
             'results': results
@@ -220,6 +249,51 @@ def scan_website(current_user, client_id):
     except Exception as e:
         logger.error(f"Scan failed for {url}: {e}")
         return jsonify({'error': f'Scan failed: {str(e)}'}), 500
+
+
+@accessibility_bp.route('/debug-fetch', methods=['POST'])
+@token_required
+def debug_fetch(current_user):
+    """Debug endpoint: shows what HTML the server fetches for a URL"""
+    data = request.get_json(silent=True) or {}
+    url = data.get('url', '')
+    if not url:
+        return jsonify({'error': 'No URL provided'}), 400
+    if not url.startswith('http'):
+        url = 'https://' + url
+
+    try:
+        fetch_result = _fetch_rendered_html(url, timeout=30)
+        html = fetch_result['html']
+        html_lower = html.lower()
+
+        # Count key elements
+        import re
+        return jsonify({
+            'url': url,
+            'final_url': fetch_result.get('final_url', url),
+            'method': fetch_result['method'],
+            'status_code': fetch_result.get('status_code'),
+            'html_length': len(html),
+            'html_preview_first_1000': html[:1000],
+            'html_preview_last_500': html[-500:] if len(html) > 500 else html,
+            'has_doctype': '<!doctype' in html_lower[:100],
+            'has_html_tag': '<html' in html_lower,
+            'has_head': '<head' in html_lower,
+            'has_body': '<body' in html_lower,
+            'has_title': bool(re.search(r'<title[^>]*>.+?</title>', html, re.I | re.S)),
+            'title_content': (re.search(r'<title[^>]*>(.*?)</title>', html, re.I | re.S).group(1).strip() if re.search(r'<title[^>]*>(.*?)</title>', html, re.I | re.S) else 'NOT FOUND'),
+            'count_h1': len(re.findall(r'<h1\b', html, re.I)),
+            'count_h2': len(re.findall(r'<h2\b', html, re.I)),
+            'count_img': len(re.findall(r'<img\b', html, re.I)),
+            'count_a': len(re.findall(r'<a\b', html, re.I)),
+            'count_nav': len(re.findall(r'<nav\b', html, re.I)),
+            'count_main': len(re.findall(r'<main\b', html, re.I)),
+            'count_footer': len(re.findall(r'<footer\b', html, re.I)),
+        })
+    except Exception as e:
+        logger.error(f"Debug fetch failed for {url}: {e}")
+        return jsonify({'error': str(e)}), 500
 
 
 @accessibility_bp.route('/report/<client_id>', methods=['GET'])
