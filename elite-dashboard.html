@@ -2941,8 +2941,13 @@
             // Add client geo to keyword ONLY if keyword doesn't already contain any known city
             const clientGeo = currentClient.geo || '';
             const geoCity = clientGeo.split(',')[0].trim();
-            const serviceCities = (currentClient.service_cities || '').split(',').map(c => c.trim().toLowerCase()).filter(Boolean);
-            const serviceAreas = (currentClient.service_areas || '').split(',').map(c => c.trim().toLowerCase()).filter(Boolean);
+            // service_cities and service_areas come from API as arrays
+            const serviceCities = Array.isArray(currentClient.service_cities)
+                ? currentClient.service_cities.map(c => c.trim().toLowerCase())
+                : (currentClient.service_cities || '').split(',').map(c => c.trim().toLowerCase());
+            const serviceAreas = Array.isArray(currentClient.service_areas)
+                ? currentClient.service_areas.map(c => c.trim().toLowerCase())
+                : (currentClient.service_areas || '').split(',').map(c => c.trim().toLowerCase());
             const allKnownCities = [...serviceCities, ...serviceAreas, geoCity.toLowerCase()].filter(Boolean);
             const kwLower = keyword.toLowerCase();
             const alreadyHasCity = allKnownCities.some(city => city && kwLower.includes(city));
