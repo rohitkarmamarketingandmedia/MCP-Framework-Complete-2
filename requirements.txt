@@ -49,11 +49,10 @@ sendgrid>=6.10.0
 # SMS Notifications (optional)
 twilio>=8.10.0
 
-# ADA Accessibility Scanner (headless browser for JS-rendered pages)
-# Install ONE of these + browser: pip install selenium && apt install chromium-chromedriver
-# OR: pip install playwright && playwright install chromium
-selenium>=4.15.0
-playwright>=1.40.0
+# ADA Accessibility Scanner (optional headless browser for JS-rendered pages)
+# Only install if you also install Chromium: apt-get install chromium chromium-driver
+# selenium>=4.15.0
+# playwright>=1.40.0
 
 # Testing
 pytest>=7.4.0
