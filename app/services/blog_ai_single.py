@@ -39,6 +39,8 @@ class BlogRequest:
     blog_url: str = ""  # URL for blog page
     custom_faqs: Optional[List[str]] = None  # Custom FAQ questions from call intelligence
     verify_content: bool = True  # Run web-search fact-check after generation
+    service_cities: Optional[List[str]] = None  # Client's service cities (for city detection in keywords)
+    service_areas: Optional[List[str]] = None  # Client's service areas
 
 
 class BlogAISingle:
@@ -801,12 +803,30 @@ Return ONLY valid JSON (no markdown):
         import re
         keyword_lower = req.keyword.lower()
         keyword_city = None
-        
-        # First check KNOWN_CITIES
-        for city in self.KNOWN_CITIES:
-            if city in keyword_lower:
+
+        # First check client-specific service cities and service areas (highest priority)
+        client_cities = []
+        if req.service_cities:
+            client_cities.extend([c.strip().lower() for c in req.service_cities if c.strip()])
+        if req.service_areas:
+            client_cities.extend([c.strip().lower() for c in req.service_areas if c.strip()])
+        # Also add the settings city itself
+        if req.city:
+            client_cities.append(req.city.strip().lower())
+
+        # Check client cities first (sorted longest first to match multi-word cities like "Gull Lake" before "Gull")
+        for city in sorted(client_cities, key=len, reverse=True):
+            if city and city in keyword_lower:
                 keyword_city = city.title()
+                logger.info(f"Detected city '{keyword_city}' from client service cities/areas")
                 break
+
+        # Then check KNOWN_CITIES if not found
+        if not keyword_city:
+            for city in self.KNOWN_CITIES:
+                if city in keyword_lower:
+                    keyword_city = city.title()
+                    break
         
         # If not found in known cities, try to extract from "in [City]" pattern at end
         if not keyword_city:

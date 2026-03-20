@@ -329,6 +329,14 @@ def _generate_blog_background(task_id, app, client_id, keyword, word_count, incl
                         url = f"https://{client.website_url.rstrip('/')}/{url.lstrip('/')}" if client.website_url else url
                     internal_links.append({'url': url, 'title': page['title']})
             
+            # Parse client service cities and areas for city detection
+            client_service_cities = []
+            client_service_areas = []
+            if hasattr(client, 'service_cities') and client.service_cities:
+                client_service_cities = [c.strip() for c in client.service_cities.split(',') if c.strip()]
+            if hasattr(client, 'service_areas') and client.service_areas:
+                client_service_areas = [c.strip() for c in client.service_areas.split(',') if c.strip()]
+
             # Use BlogAISingle - same as sync endpoint
             blog_gen = get_blog_ai_single()
             blog_request = BlogRequest(
@@ -342,9 +350,11 @@ def _generate_blog_background(task_id, app, client_id, keyword, word_count, incl
                 contact_url=contact_url or '',
                 target_words=word_count,
                 faq_count=faq_count if include_faq else 0,
-                internal_links=internal_links
+                internal_links=internal_links,
+                service_cities=client_service_cities,
+                service_areas=client_service_areas
             )
-            
+
             result = blog_gen.generate(blog_request)
             
             logger.info(f"[TASK {task_id}] BlogAISingle returned. Word count: {result.get('word_count', 0)}")
@@ -653,6 +663,10 @@ def generate_blog_sync(current_user):
         
         logger.info(f"[SYNC] Contact URL: {contact_url}, Blog URL: {blog_url_base}")
         
+        # Parse client service cities and areas for city detection
+        _svc_cities = [c.strip() for c in (getattr(client, 'service_cities', '') or '').split(',') if c.strip()]
+        _svc_areas = [c.strip() for c in (getattr(client, 'service_areas', '') or '').split(',') if c.strip()]
+
         # Generate blog with new robust generator
         blog_request = BlogRequest(
             keyword=keyword,
@@ -667,7 +681,9 @@ def generate_blog_sync(current_user):
             faq_count=faq_count,
             contact_url=contact_url,
             blog_url=blog_url_base,
-            custom_faqs=custom_faqs
+            custom_faqs=custom_faqs,
+            service_cities=_svc_cities,
+            service_areas=_svc_areas
         )
         
         result = blog_gen.generate(blog_request)
@@ -922,7 +938,10 @@ def generate_content(current_user):
     
     # Use BlogAISingle for generation (handles city deduplication)
     from app.services.blog_ai_single import get_blog_ai_single, BlogRequest
-    
+
+    _svc_cities2 = [c.strip() for c in (getattr(client, 'service_cities', '') or '').split(',') if c.strip()]
+    _svc_areas2 = [c.strip() for c in (getattr(client, 'service_areas', '') or '').split(',') if c.strip()]
+
     blog_gen = get_blog_ai_single()
     blog_request = BlogRequest(
         keyword=data['keyword'],
@@ -935,7 +954,9 @@ def generate_content(current_user):
         contact_url=contact_url or '',
         target_words=data.get('word_count', current_app.config['DEFAULT_BLOG_WORD_COUNT']),
         faq_count=data.get('faq_count', 5) if data.get('include_faq', True) else 0,
-        internal_links=blog_internal_links
+        internal_links=blog_internal_links,
+        service_cities=_svc_cities2,
+        service_areas=_svc_areas2
     )
     
     result = blog_gen.generate(blog_request)
@@ -1099,6 +1120,9 @@ def bulk_generate(current_user):
     city = geo_parts[0].strip() if len(geo_parts) > 0 else ''
     state = geo_parts[1].strip() if len(geo_parts) > 1 else ''
     
+    _bulk_svc_cities = [c.strip() for c in (getattr(client, 'service_cities', '') or '').split(',') if c.strip()]
+    _bulk_svc_areas = [c.strip() for c in (getattr(client, 'service_areas', '') or '').split(',') if c.strip()]
+
     # Build internal links list for BlogAISingle
     blog_internal_links = []
     for page in service_pages[:6]:
@@ -1132,7 +1156,9 @@ def bulk_generate(current_user):
                 contact_url=contact_url or '',
                 target_words=topic.get('word_count', current_app.config.get('DEFAULT_BLOG_WORD_COUNT', 1200)),
                 faq_count=topic.get('faq_count', 5),
-                internal_links=blog_internal_links
+                internal_links=blog_internal_links,
+                service_cities=_bulk_svc_cities,
+                service_areas=_bulk_svc_areas
             )
             
             logger.info(f"[BULK] BlogRequest created, calling generate...")

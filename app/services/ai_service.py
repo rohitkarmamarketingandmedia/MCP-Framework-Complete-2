@@ -546,7 +546,7 @@ Example for HVAC business:
                     result.append(word.lower())
             return ' '.join(result)
         
-        # Known Florida cities to detect in keyword
+        # Known cities to detect in keyword (includes common Florida cities)
         known_cities = [
             'sarasota', 'port charlotte', 'fort myers', 'naples', 'tampa', 'orlando',
             'jacksonville', 'miami', 'bradenton', 'venice', 'punta gorda', 'north port',
@@ -554,11 +554,16 @@ Example for HVAC business:
             'arcadia', 'nokomis', 'osprey', 'lakewood ranch', 'palmetto', 'ellenton',
             'parrish', 'ruskin', 'sun city center', 'apollo beach', 'brandon', 'riverview'
         ]
-        
-        # Check if keyword already contains a city name
+
+        # Also add the geo city and any service areas from the geo string
+        geo_city_lower = (geo.split(',')[0].strip().lower() if geo else '')
+        if geo_city_lower and geo_city_lower not in known_cities:
+            known_cities.append(geo_city_lower)
+
+        # Check if keyword already contains a city name (check longest first for multi-word cities)
         keyword_lower = keyword.lower()
         keyword_city = None
-        for test_city in known_cities:
+        for test_city in sorted(known_cities, key=len, reverse=True):
             if test_city in keyword_lower:
                 keyword_city = test_city.title()
                 break
