@@ -866,6 +866,49 @@ Return ONLY valid JSON (no markdown):
             # e.g., "Bridges Sarasota Sarasota" -> "Bridges Sarasota"
             req.keyword = self._deduplicate_city_in_keyword(req.keyword, keyword_city)
     
+    def _deduplicate_city_in_text(self, text: str, city: str) -> str:
+        """Remove duplicate city name from any text (title, h1, heading, meta_title).
+
+        Examples:
+            'For Dentist Sarasota in Sarasota' -> 'For Dentist Sarasota'
+            'Dental Care Sarasota - Sarasota Services' -> 'Dental Care Sarasota - Services'
+            'Expert Sarasota Dentist Sarasota FL' -> 'Expert Sarasota Dentist FL'
+        """
+        import re
+        if not text or not city:
+            return text
+
+        city_pattern = re.compile(re.escape(city), re.IGNORECASE)
+        matches = city_pattern.findall(text)
+
+        if len(matches) <= 1:
+            return text
+
+        # Keep the first occurrence, remove subsequent ones
+        first_found = False
+        def replacer(match):
+            nonlocal first_found
+            if not first_found:
+                first_found = True
+                return match.group(0)  # Keep first
+            return ''  # Remove duplicates
+
+        result = city_pattern.sub(replacer, text)
+        # Clean up spacing and separators
+        result = re.sub(r'\s{2,}', ' ', result)
+        result = re.sub(r'\s*[\-\|]\s*\b', ' - ', result)  # Fix separator spacing
+        result = re.sub(r'\s*[\-\|]\s*$', '', result)  # Trailing separator
+        result = re.sub(r'^\s*[\-\|]\s*', '', result)  # Leading separator
+        result = re.sub(r'\s+([,\.])', r'\1', result)  # Space before comma/period
+        result = re.sub(r'\bin\s*$', '', result)  # Trailing "in" with no city
+        result = re.sub(r'\bfor\s*$', '', result, flags=re.IGNORECASE)  # Trailing "for"
+        result = re.sub(r'\s{2,}', ' ', result)
+        result = result.strip()
+
+        if result != text:
+            logger.info(f"Deduplicated city in text: '{text}' -> '{result}'")
+        return result
+
     def _deduplicate_city_in_keyword(self, keyword: str, city: str) -> str:
         """Remove duplicate city names from keyword"""
         import re
@@ -2319,6 +2362,42 @@ No markdown. No commentary. Just the JSON object."""
         result["h1"] = self._title_case(result.get("h1", ""))
         logger.info(f"Title case enforced: title='{result['title']}' h1='{result['h1']}'")
 
+        # === QUALITY FIX: Remove duplicate city names from title, h1, meta_title, and headings ===
+        city_name = req.city or ''
+        if city_name:
+            result["title"] = self._deduplicate_city_in_text(result.get("title", ""), city_name)
+            result["h1"] = self._deduplicate_city_in_text(result.get("h1", ""), city_name)
+            result["meta_title"] = self._deduplicate_city_in_text(result.get("meta_title", ""), city_name)
+
+        # === QUALITY FIX: Replace generic/vague titles ===
+        title_check = result.get("title", "").lower()
+        generic_patterns = [
+            'your area', 'our area', 'the area', 'your city', 'our city',
+            'your region', 'local area', '[city]', '[location]'
+        ]
+        if any(gp in title_check for gp in generic_patterns):
+            # Replace generic location references with actual city
+            for gp in generic_patterns:
+                if gp in title_check:
+                    replacement = city_name if city_name else ''
+                    result["title"] = re.sub(re.escape(gp), replacement, result["title"], flags=re.IGNORECASE).strip()
+                    result["h1"] = re.sub(re.escape(gp), replacement, result["h1"], flags=re.IGNORECASE).strip()
+                    result["meta_title"] = re.sub(re.escape(gp), replacement, result["meta_title"], flags=re.IGNORECASE).strip()
+            logger.info(f"Fixed generic title: '{title_check}' -> '{result['title']}'")
+
+        # === QUALITY FIX: Deduplicate city in body headings (H2/H3) ===
+        if city_name:
+            body_text = result.get("body", "")
+            # Find all h2/h3 headings and deduplicate city in each
+            def dedup_heading_city(match):
+                tag = match.group(1)
+                content = match.group(2)
+                close_tag = match.group(3)
+                fixed = self._deduplicate_city_in_text(content, city_name)
+                return f'<{tag}>{fixed}<{close_tag}>'
+            body_text = re.sub(r'<(h[23][^>]*)>(.*?)<(/h[23])>', dedup_heading_city, body_text, flags=re.IGNORECASE)
+            result["body"] = body_text
+
         # Fix meta description - only override if AI-generated one is bad
         meta_desc = result.get("meta_description", "").strip()
         ai_desc_is_good = (
@@ -2388,9 +2467,27 @@ No markdown. No commentary. Just the JSON object."""
             
             result["body"] = body
 
-        # Ensure city is in H2/H3 headings
+        # === QUALITY FIX: Replace generic location references in body ===
         body = result.get("body", "")
-        
+        if city_name:
+            generic_body_replacements = {
+                'your area': city_name,
+                'our area': city_name,
+                'the area': f'the {city_name} area',
+                'your city': city_name,
+                'our city': city_name,
+                'your region': f'the {city_name} region',
+                'local area': f'{city_name} area',
+                '[city]': city_name,
+                '[location]': city_name,
+            }
+            for pattern, replacement in generic_body_replacements.items():
+                body = re.sub(re.escape(pattern), replacement, body, flags=re.IGNORECASE)
+
+        # Ensure city is in H2/H3 headings
+        result["body"] = body
+        body = result.get("body", "")
+
         # Check if keyword already contains city - if so, DON'T inject more city references
         keyword_lower = req.keyword.lower()
         city_lower = req.city.lower() if req.city else ''
