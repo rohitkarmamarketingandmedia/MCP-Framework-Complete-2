@@ -1808,12 +1808,7 @@ def get_content_changes(current_user, client_id):
                 'is_structural': is_structural
             })
 
-    # Sort: blog posts first, then service pages, then structural; within each group by date
-    changes.sort(key=lambda x: (
-        0 if x.get('is_blog') else 1 if x.get('is_service') else 2,
-        -(x.get('detected_at') or '')[::-1] if x.get('detected_at') else ''
-    ))
-    # Fallback: sort by date descending
+    # Sort by date descending (newest first)
     changes.sort(key=lambda x: x.get('detected_at') or '', reverse=True)
 
     return jsonify({
@@ -2008,15 +2003,41 @@ def get_competitor_dashboard(current_user, client_id):
         except Exception:
             comp_pages = []
         
-        # Get competitor rankings — use DB cached data, NOT live SEMrush API
-        # This avoids burning 200+ API units per competitor per page load
+        # Get competitor rankings
         comp_ranks = {}
-        try:
-            comp_domain = rank_tracking_service._clean_domain(comp.domain)
-            
-            # Try DB rank history for this competitor (stored from previous explicit checks)
-            # Competitors don't have their own rank history in DB, so use SEMrush ONLY on explicit refresh
-            if force_refresh and api_key:
+        comp_domain = rank_tracking_service._clean_domain(comp.domain)
+
+        # STEP 1: Try loading from DB cache (rank_history with competitor ID)
+        if not force_refresh:
+            try:
+                from sqlalchemy import func as sa_func
+                comp_subq = db.session.query(
+                    DBRankHistory.keyword,
+                    sa_func.max(DBRankHistory.checked_at).label('latest')
+                ).filter(
+                    DBRankHistory.client_id == comp.id
+                ).group_by(DBRankHistory.keyword).subquery()
+
+                comp_latest = db.session.query(DBRankHistory).join(
+                    comp_subq,
+                    db.and_(
+                        DBRankHistory.keyword == comp_subq.c.keyword,
+                        DBRankHistory.checked_at == comp_subq.c.latest,
+                        DBRankHistory.client_id == comp.id
+                    )
+                ).all()
+
+                for rank in comp_latest:
+                    if rank.keyword and rank.position:
+                        comp_ranks[rank.keyword.lower()] = rank.position
+                if comp_ranks:
+                    logger.info(f"Competitor {comp_domain}: {len(comp_ranks)} ranked keywords (from DB cache)")
+            except Exception as e:
+                logger.warning(f"Error loading cached competitor rankings: {e}")
+
+        # STEP 2: Fetch fresh from SEMrush on explicit refresh
+        if force_refresh and api_key:
+            try:
                 comp_params = {
                     'type': 'domain_organic',
                     'key': api_key,
@@ -2028,6 +2049,7 @@ def get_competitor_dashboard(current_user, client_id):
                 }
                 comp_resp = http_requests.get(rank_tracking_service.base_url, params=comp_params, timeout=10)
                 if comp_resp.status_code == 200 and not comp_resp.text.startswith('ERROR'):
+                    comp_ranks = {}  # Reset — fresh data replaces cache
                     comp_lines = comp_resp.text.strip().split('\n')
                     for line in comp_lines[1:]:
                         parts = line.split(';')
@@ -2040,10 +2062,34 @@ def get_competitor_dashboard(current_user, client_id):
                             if pos:
                                 comp_ranks[kw] = pos
                     logger.info(f"Competitor {comp_domain}: {len(comp_ranks)} ranked keywords (fresh)")
+
+                    # SAVE to DB so data persists on next normal load
+                    try:
+                        # Clear old competitor rank history
+                        DBRankHistory.query.filter_by(client_id=comp.id).delete(synchronize_session=False)
+                        # Save fresh rankings
+                        for kw, pos in comp_ranks.items():
+                            rank_entry = DBRankHistory(
+                                client_id=comp.id,
+                                keyword=kw,
+                                position=pos,
+                                previous_position=None,
+                                change=0,
+                                url='',
+                                search_volume=0,
+                                device='desktop'
+                            )
+                            db.session.add(rank_entry)
+                        db.session.commit()
+                        logger.info(f"Saved {len(comp_ranks)} competitor rankings to DB for {comp_domain}")
+                    except Exception as save_err:
+                        db.session.rollback()
+                        logger.warning(f"Failed to save competitor rankings: {save_err}")
+
                 elif comp_resp.text.startswith('ERROR'):
                     logger.warning(f"SEMrush error for competitor {comp_domain}: {comp_resp.text[:100]}")
-        except Exception as e:
-            logger.warning(f"Error fetching competitor {comp.domain} rankings: {e}")
+            except Exception as e:
+                logger.warning(f"Error fetching competitor {comp.domain} rankings: {e}")
         
         # Count content by category
         blog_count = len([p for p in comp_pages if '/blog' in (p.url or '').lower()])
