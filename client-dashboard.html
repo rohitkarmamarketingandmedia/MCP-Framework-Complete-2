@@ -5691,7 +5691,7 @@
                     // --- Deep-link support: honour ?id= and ?blog= URL params ---
                     const urlParams = new URLSearchParams(window.location.search);
                     const deepClientId = urlParams.get('id');
-                    const deepBlogId   = urlParams.get('blog');
+                    const deepBlogId   = urlParams.get('blog') || (urlParams.get('view') === 'content' ? urlParams.get('post') : null);
 
                     // Pick the target client — URL param takes priority over default first client
                     const targetClient = deepClientId && clients.find(c => c.id === deepClientId)
