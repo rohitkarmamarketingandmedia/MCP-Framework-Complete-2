@@ -14,7 +14,7 @@ from app.services.ai_service import AIService
 from app.services.seo_service import SEOService
 from app.services.db_service import DataService
 from app.services.seo_scoring_engine import seo_scoring_engine
-from app.models.db_models import DBBlogPost, DBSocialPost, ContentStatus
+from app.models.db_models import DBBlogPost, DBSocialPost, DBClient, ContentStatus
 import json
 
 content_bp = Blueprint('content', __name__)
@@ -1358,10 +1358,31 @@ def manual_create_blog(current_user):
     import re as re2
     plain_text = re2.sub(r'<[^>]+>', '', body)
     blog_post.excerpt = plain_text[:160].strip()
-    
+
+    # Calculate SEO score if there's actual content
+    if body and len(body) > 100:
+        try:
+            client = DBClient.query.get(client_id)
+            location = client.geo if client else ''
+            kw = blog_post.primary_keyword or ''
+            seo_result = seo_scoring_engine.score_content(
+                content={
+                    'title': title or '',
+                    'meta_title': blog_post.meta_title or title or '',
+                    'meta_description': blog_post.meta_description or '',
+                    'h1': title or '',
+                    'body': body
+                },
+                target_keyword=kw,
+                location=location
+            )
+            blog_post.seo_score = seo_result.get('total_score', 0)
+        except Exception as e:
+            logger.warning(f"SEO scoring failed for manual post: {e}")
+
     # Save
     data_service.save_blog_post(blog_post)
-    
+
     return jsonify(blog_post.to_dict()), 201
 
 
@@ -1412,8 +1433,30 @@ def update_content(current_user, content_id):
         else:
             content.scheduled_for = None
     
+    # Recalculate SEO score if body or title changed
+    if 'body' in data or 'title' in data or 'meta_title' in data or 'meta_description' in data:
+        try:
+            client = DBClient.query.get(content.client_id) if hasattr(content, 'client_id') else None
+            location = client.geo if client else ''
+            kw = content.primary_keyword or ''
+            seo_result = seo_scoring_engine.score_content(
+                content={
+                    'title': content.title or '',
+                    'meta_title': content.meta_title or '',
+                    'meta_description': content.meta_description or '',
+                    'h1': content.title or '',
+                    'body': content.body or ''
+                },
+                target_keyword=kw,
+                location=location
+            )
+            content.seo_score = seo_result.get('total_score', 0)
+            logger.info(f"Recalculated SEO score for {content_id}: {content.seo_score}")
+        except Exception as e:
+            logger.warning(f"SEO score recalculation failed for {content_id}: {e}")
+
     data_service.save_blog_post(content)
-    
+
     # Send notification if status changed to approved
     new_status = data.get('status', '')
     if new_status == 'approved' and old_status != 'approved':
@@ -1661,14 +1704,42 @@ def update_blog_post(current_user, blog_id):
         if field in data:
             setattr(blog, field, data[field])
             updated_fields.append(field)
-    
+
+    # Recalculate word count if body changed
+    if 'body' in data:
+        blog.word_count = len((data['body'] or '').split())
+
+    # Recalculate SEO score if content fields changed
+    content_changed = any(f in updated_fields for f in ['body', 'title', 'meta_title', 'meta_description', 'primary_keyword'])
+    if content_changed and blog.body and len(blog.body) > 100:
+        try:
+            client = DBClient.query.get(blog.client_id)
+            location = client.geo if client else ''
+            kw = blog.primary_keyword or ''
+            seo_result = seo_scoring_engine.score_content(
+                content={
+                    'title': blog.title or '',
+                    'meta_title': blog.meta_title or '',
+                    'meta_description': blog.meta_description or '',
+                    'h1': blog.title or '',
+                    'body': blog.body or ''
+                },
+                target_keyword=kw,
+                location=location
+            )
+            blog.seo_score = seo_result.get('total_score', 0)
+            logger.info(f"Recalculated SEO score for blog {blog_id}: {blog.seo_score}")
+        except Exception as e:
+            logger.warning(f"SEO score recalculation failed for blog {blog_id}: {e}")
+
     if updated_fields:
         db.session.commit()
-    
+
     return jsonify({
         'success': True,
         'id': blog.id,
         'updated_fields': updated_fields,
+        'seo_score': blog.seo_score,
         'blog': blog.to_dict()
     })
 
