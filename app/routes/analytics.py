@@ -159,9 +159,13 @@ def get_traffic(current_user, client_id):
         return jsonify({'error': 'Client not found'}), 404
     
     # Check if GA4 is configured (need both property ID AND credentials)
-    property_id = getattr(client, 'ga4_property_id', None) or current_app.config.get('GA4_PROPERTY_ID')
+    client_property_id = getattr(client, 'ga4_property_id', None)
+    global_property_id = current_app.config.get('GA4_PROPERTY_ID')
+    property_id = client_property_id or global_property_id
     credentials_configured = bool(os.environ.get('GA4_CREDENTIALS_JSON'))
     is_configured = bool(property_id)
+
+    logger.info(f"GA4 check for client {client_id}: client_property={client_property_id}, global_property={global_property_id}, credentials={credentials_configured}")
     
     if not is_configured:
         return jsonify({
@@ -184,13 +188,16 @@ def get_traffic(current_user, client_id):
             'message': 'GA4 Property ID saved. Server needs GA4_CREDENTIALS_JSON environment variable with a Google Service Account to fetch data.'
         })
     
+    # Flag if using global fallback (data may not be accurate for this client)
+    using_fallback = not client_property_id and bool(global_property_id)
+
     try:
         traffic = analytics_service.get_detailed_traffic(
             property_id=property_id,
             start_date=start_date,
             end_date=end_date
         )
-        
+
         # Aggregate totals from channels if available
         channels = traffic.get('channels', [])
         total_sessions = sum(c.get('sessions', 0) for c in channels)
@@ -233,6 +240,9 @@ def get_traffic(current_user, client_id):
             logger.warning(f"Could not fetch GSC search terms: {e}")
             gsc_error = str(e)
         
+        # Check if mock data was returned (means GA4 client failed to initialize)
+        is_mock = bool(traffic.get('note'))
+
         return jsonify({
             'configured': True,
             'client_id': client_id,
@@ -247,13 +257,30 @@ def get_traffic(current_user, client_id):
             'search_terms': search_terms,
             'search_terms_error': gsc_error if not search_terms else None,
             'channels': channels,
-            'metrics': traffic
+            'metrics': traffic,
+            'using_fallback_property': using_fallback,
+            'property_id_used': property_id,
+            'is_mock_data': is_mock,
+            'ga4_error': 'GA4 credentials could not be loaded. Check GA4_CREDENTIALS_JSON format.' if is_mock else None
         })
     except Exception as e:
-        logger.error(f"GA4 fetch error: {e}")
+        logger.error(f"GA4 fetch error for client {client_id} (property={property_id}): {e}")
+        error_msg = str(e)
+
+        # Provide user-friendly error messages
+        if 'permission' in error_msg.lower() or '403' in error_msg:
+            friendly_error = f'Service account does not have access to GA4 property {property_id}. Grant Viewer access in GA4 Admin → Property Access Management.'
+        elif 'not found' in error_msg.lower() or '404' in error_msg:
+            friendly_error = f'GA4 property {property_id} not found. Verify the Property ID in Settings → Integrations.'
+        elif 'invalid' in error_msg.lower():
+            friendly_error = f'Invalid GA4 Property ID: {property_id}. It should be a numeric ID (e.g., 123456789).'
+        else:
+            friendly_error = f'Error fetching GA4 data: {error_msg}'
+
         return jsonify({
             'configured': True,
-            'error': str(e),
+            'ga4_error': friendly_error,
+            'property_id_used': property_id,
             'sessions': 0,
             'users': 0,
             'pageviews': 0,
