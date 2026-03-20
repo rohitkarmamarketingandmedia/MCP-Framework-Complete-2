@@ -1091,7 +1091,7 @@
                             <button onclick="event.stopPropagation(); dismissQueuePost('${item.id}')" class="absolute top-2 right-2 p-1 text-gray-600 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity" title="Remove from queue">
                                 <i class="fas fa-times text-xs"></i>
                             </button>
-                            <div class="cursor-pointer" onclick="window.location.href='/client?view=content&post=${item.id}'">
+                            <div class="cursor-pointer" onclick="window.location.href='/client?id=${item.client_id || currentClientId}&view=content&post=${item.id}'">
                                 <div class="flex items-start justify-between mb-2">
                                     <span class="px-2 py-1 bg-${statusColor}-500/20 text-${statusColor}-400 rounded text-xs">
                                         <i class="fas fa-edit mr-1"></i>${statusLabel}
