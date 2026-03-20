@@ -211,6 +211,13 @@ class DataService:
             except Exception:
                 pass  # Table may not exist yet on older deployments
 
+            # Clean up any content queue items that reference this blog post
+            try:
+                from app.models.db_models import DBContentQueue
+                DBContentQueue.query.filter_by(published_blog_id=post_id).delete(synchronize_session=False)
+            except Exception:
+                pass  # Table may not exist yet on older deployments
+
             db.session.delete(post)
             try:
                 db.session.commit()

@@ -833,15 +833,34 @@ def get_content_queue(current_user):
         return jsonify({'error': 'Access denied'}), 403
     
     query = DBContentQueue.query.filter_by(client_id=client_id)
-    
+
     if status != 'all':
         query = query.filter_by(status=status)
-    
+
     items = query.order_by(DBContentQueue.created_at.desc()).limit(50).all()
-    
+
+    # Filter out orphaned queue items whose published blog was deleted
+    valid_items = []
+    orphan_ids = []
+    for item in items:
+        if item.published_blog_id:
+            blog = DBBlogPost.query.get(item.published_blog_id)
+            if not blog:
+                orphan_ids.append(item.id)
+                continue
+        valid_items.append(item)
+
+    # Auto-cleanup orphaned queue items in background
+    if orphan_ids:
+        try:
+            DBContentQueue.query.filter(DBContentQueue.id.in_(orphan_ids)).delete(synchronize_session=False)
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
+
     return jsonify({
         'client_id': client_id,
-        'queue': [item.to_dict() for item in items]
+        'queue': [item.to_dict() for item in valid_items]
     })
 
 

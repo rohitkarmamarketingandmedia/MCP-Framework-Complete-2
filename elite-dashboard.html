@@ -1023,10 +1023,12 @@
                 
                 // API returns 'content' not 'posts' - check both for compatibility
                 const allPosts = draftsData.content || draftsData.posts || [];
-                
+
                 // Filter for draft and review status (content that needs attention)
-                contentQueueData.posts = allPosts.filter(p => 
-                    p.status === 'draft' || p.status === 'review'
+                // Also exclude any posts with empty/missing body (orphaned placeholders)
+                contentQueueData.posts = allPosts.filter(p =>
+                    (p.status === 'draft' || p.status === 'review') &&
+                    p.id && p.title
                 );
                 
                 // Reset to page 1 when loading new data
@@ -1083,40 +1085,50 @@
                 if (item.itemType === 'post') {
                     const statusColor = item.status === 'review' ? 'yellow' : 'blue';
                     const statusLabel = item.status === 'review' ? 'Review' : 'Draft';
-                    
+
                     html += `
-                        <div class="glass-card rounded-xl p-4 queue-item cursor-pointer hover:bg-white/5" onclick="window.location.href='/client?view=content&post=${item.id}'">
-                            <div class="flex items-start justify-between mb-2">
-                                <span class="px-2 py-1 bg-${statusColor}-500/20 text-${statusColor}-400 rounded text-xs">
-                                    <i class="fas fa-edit mr-1"></i>${statusLabel}
-                                </span>
-                                <span class="text-green-400 text-sm font-bold">SEO: ${item.seo_score || '--'}</span>
-                            </div>
-                            <h3 class="font-medium mb-1 line-clamp-2">${escapeHtml(item.title || 'Untitled')}</h3>
-                            <div class="flex items-center justify-between text-xs text-gray-400">
-                                <span><i class="fas fa-key mr-1"></i>${escapeHtml(item.primary_keyword || 'N/A')}</span>
-                                <span>${item.word_count || 0} words</span>
+                        <div class="glass-card rounded-xl p-4 queue-item hover:bg-white/5 relative group">
+                            <button onclick="event.stopPropagation(); dismissQueuePost('${item.id}')" class="absolute top-2 right-2 p-1 text-gray-600 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity" title="Remove from queue">
+                                <i class="fas fa-times text-xs"></i>
+                            </button>
+                            <div class="cursor-pointer" onclick="window.location.href='/client?view=content&post=${item.id}'">
+                                <div class="flex items-start justify-between mb-2">
+                                    <span class="px-2 py-1 bg-${statusColor}-500/20 text-${statusColor}-400 rounded text-xs">
+                                        <i class="fas fa-edit mr-1"></i>${statusLabel}
+                                    </span>
+                                    <span class="text-green-400 text-sm font-bold">SEO: ${item.seo_score || '--'}</span>
+                                </div>
+                                <h3 class="font-medium mb-1 line-clamp-2">${escapeHtml(item.title || 'Untitled')}</h3>
+                                <div class="flex items-center justify-between text-xs text-gray-400">
+                                    <span><i class="fas fa-key mr-1"></i>${escapeHtml(item.primary_keyword || 'N/A')}</span>
+                                    <span>${item.word_count || 0} words</span>
+                                </div>
                             </div>
                         </div>
                     `;
                 } else {
                     // Queue item (from competitor monitoring)
                     html += `
-                        <div class="glass-card rounded-xl p-4 queue-item cursor-pointer hover:bg-white/5" onclick="showContent('${item.id}')">
-                            <div class="flex items-start justify-between mb-2">
-                                <span class="px-2 py-1 bg-purple-500/20 text-purple-400 rounded text-xs">
-                                    ${item.trigger_type === 'competitor_post' ? 'Counter-Content' : item.trigger_type}
-                                </span>
-                                <div class="flex items-center gap-2">
-                                    <span class="text-green-400 text-sm font-bold">${item.our_seo_score}</span>
-                                    <span class="text-gray-500">vs</span>
-                                    <span class="text-orange-400 text-sm">${item.competitor_seo_score}</span>
+                        <div class="glass-card rounded-xl p-4 queue-item hover:bg-white/5 relative group">
+                            <button onclick="event.stopPropagation(); dismissQueueItem('${item.id}')" class="absolute top-2 right-2 p-1 text-gray-600 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity" title="Remove from queue">
+                                <i class="fas fa-times text-xs"></i>
+                            </button>
+                            <div class="cursor-pointer" onclick="showContent('${item.id}')">
+                                <div class="flex items-start justify-between mb-2">
+                                    <span class="px-2 py-1 bg-purple-500/20 text-purple-400 rounded text-xs">
+                                        ${item.trigger_type === 'competitor_post' ? 'Counter-Content' : item.trigger_type}
+                                    </span>
+                                    <div class="flex items-center gap-2">
+                                        <span class="text-green-400 text-sm font-bold">${item.our_seo_score}</span>
+                                        <span class="text-gray-500">vs</span>
+                                        <span class="text-orange-400 text-sm">${item.competitor_seo_score}</span>
+                                    </div>
                                 </div>
-                            </div>
-                            <h3 class="font-medium mb-1 line-clamp-2">${escapeHtml(item.title || 'Untitled')}</h3>
-                            <div class="flex items-center justify-between text-xs text-gray-400">
-                                <span><i class="fas fa-key mr-1"></i>${escapeHtml(item.primary_keyword || 'N/A')}</span>
-                                <span>${item.word_count || 0} words</span>
+                                <h3 class="font-medium mb-1 line-clamp-2">${escapeHtml(item.title || 'Untitled')}</h3>
+                                <div class="flex items-center justify-between text-xs text-gray-400">
+                                    <span><i class="fas fa-key mr-1"></i>${escapeHtml(item.primary_keyword || 'N/A')}</span>
+                                    <span>${item.word_count || 0} words</span>
+                                </div>
                             </div>
                         </div>
                     `;
@@ -1150,6 +1162,51 @@
             container.innerHTML = html;
         }
         
+        // Dismiss a blog post from the queue (deletes the post)
+        async function dismissQueuePost(postId) {
+            if (!confirm('Remove this post from the queue? This will delete the draft.')) return;
+            try {
+                const res = await fetch(`${API_URL}/api/content/${postId}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
+                });
+                if (res.ok) {
+                    contentQueueData.posts = contentQueueData.posts.filter(p => p.id !== postId);
+                    const totalPending = contentQueueData.queue.length + contentQueueData.posts.length;
+                    document.getElementById('queueCount').textContent = `${totalPending} pending`;
+                    renderContentQueuePage();
+                    showToast('Post removed from queue', 'success');
+                } else {
+                    showToast('Failed to remove post', 'error');
+                }
+            } catch (e) {
+                showToast('Error: ' + e.message, 'error');
+            }
+        }
+
+        // Dismiss a monitoring queue item (rejects it)
+        async function dismissQueueItem(itemId) {
+            if (!confirm('Remove this item from the queue?')) return;
+            try {
+                const res = await fetch(`${API_URL}/api/monitoring/queue/${itemId}/reject`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${AUTH_TOKEN}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ reason: 'Dismissed from elite dashboard' })
+                });
+                if (res.ok) {
+                    contentQueueData.queue = contentQueueData.queue.filter(q => q.id !== itemId);
+                    const totalPending = contentQueueData.queue.length + contentQueueData.posts.length;
+                    document.getElementById('queueCount').textContent = `${totalPending} pending`;
+                    renderContentQueuePage();
+                    showToast('Item removed from queue', 'success');
+                } else {
+                    showToast('Failed to remove item', 'error');
+                }
+            } catch (e) {
+                showToast('Error: ' + e.message, 'error');
+            }
+        }
+
         function changeQueuePage(delta) {
             const { posts, queue, itemsPerPage } = contentQueueData;
             const totalItems = posts.length + queue.length;
