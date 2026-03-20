@@ -2939,20 +2939,29 @@
             }
 
             // Add client geo to keyword ONLY if keyword doesn't already contain any known city
-            const clientGeo = currentClient.geo || '';
-            const geoCity = clientGeo.split(',')[0].trim();
-            // service_cities and service_areas come from API as arrays
-            const serviceCities = Array.isArray(currentClient.service_cities)
-                ? currentClient.service_cities.map(c => c.trim().toLowerCase())
-                : (currentClient.service_cities || '').split(',').map(c => c.trim().toLowerCase());
-            const serviceAreas = Array.isArray(currentClient.service_areas)
-                ? currentClient.service_areas.map(c => c.trim().toLowerCase())
-                : (currentClient.service_areas || '').split(',').map(c => c.trim().toLowerCase());
-            const allKnownCities = [...serviceCities, ...serviceAreas, geoCity.toLowerCase()].filter(Boolean);
-            const kwLower = keyword.toLowerCase();
-            const alreadyHasCity = allKnownCities.some(city => city && kwLower.includes(city));
-            if (geoCity && !alreadyHasCity) {
-                keyword = `${keyword} ${geoCity}`;
+            try {
+                const clientGeo = currentClient.geo || '';
+                const geoCity = clientGeo.split(',')[0].trim();
+                let allCities = [];
+                const sc = currentClient.service_cities;
+                const sa = currentClient.service_areas;
+                if (sc && Array.isArray(sc)) { allCities = allCities.concat(sc); }
+                else if (sc && typeof sc === 'string') { allCities = allCities.concat(sc.split(',')); }
+                if (sa && Array.isArray(sa)) { allCities = allCities.concat(sa); }
+                else if (sa && typeof sa === 'string') { allCities = allCities.concat(sa.split(',')); }
+                if (geoCity) { allCities.push(geoCity); }
+                allCities = allCities.map(function(c) { return String(c).trim().toLowerCase(); }).filter(Boolean);
+                const kwLower = keyword.toLowerCase();
+                const alreadyHasCity = allCities.some(function(city) { return kwLower.includes(city); });
+                if (geoCity && !alreadyHasCity) {
+                    keyword = keyword + ' ' + geoCity;
+                }
+            } catch(cityErr) {
+                console.warn('City check failed, using simple fallback:', cityErr);
+                const geoCity2 = (currentClient.geo || '').split(',')[0].trim();
+                if (geoCity2 && !keyword.toLowerCase().includes(geoCity2.toLowerCase())) {
+                    keyword = keyword + ' ' + geoCity2;
+                }
             }
 
             const confirmed = confirm(

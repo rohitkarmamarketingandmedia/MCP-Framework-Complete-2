@@ -148,12 +148,22 @@ def create_app(config_name=None):
     @app.route('/client-dashboard')
     @app.route('/client')  # Alias
     def client_dashboard():
-        return send_from_directory(root_dir, 'client-dashboard.html')
+        from flask import make_response
+        response = make_response(send_from_directory(root_dir, 'client-dashboard.html'))
+        response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+        response.headers['Pragma'] = 'no-cache'
+        response.headers['Expires'] = '0'
+        return response
     
     # Serve elite monitoring dashboard (SEO Command Center)
     @app.route('/elite')
     def elite_dashboard():
-        return send_from_directory(root_dir, 'elite-dashboard.html')
+        from flask import make_response
+        response = make_response(send_from_directory(root_dir, 'elite-dashboard.html'))
+        response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+        response.headers['Pragma'] = 'no-cache'
+        response.headers['Expires'] = '0'
+        return response
     
     # Serve agency command center (master dashboard)
     @app.route('/agency')
