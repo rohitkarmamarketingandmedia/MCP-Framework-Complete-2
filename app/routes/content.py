@@ -3019,21 +3019,25 @@ def smart_paste(current_user):
 def _parse_content_package(text: str) -> dict:
     """
     Parse a free-form content package into structured fields.
-    Handles various formats from AI content tools — labeled sections,
-    multi-line blocks, markdown headers, numbered deliverables, etc.
+
+    STRATEGY: Extract labeled metadata fields first, then treat the remaining
+    large block of text as the blog body. This works regardless of format.
     """
     result = {}
     text = text.strip()
     lines = text.split('\n')
 
-    # ---- STEP 1: Single-line labeled fields (case insensitive) ----
+    # Track which line ranges are "consumed" by metadata extraction
+    consumed_lines = set()
+
+    # ---- STEP 1: Single-line labeled fields ----
     label_patterns = {
         'meta_title': r'(?:meta\s*title|seo\s*title|page\s*title|title\s*tag)\s*[:\-–—=]\s*(.+)',
         'meta_description': r'(?:meta\s*desc(?:ription)?|seo\s*desc(?:ription)?)\s*[:\-–—=]\s*(.+)',
-        'slug': r'(?:slug|url\s*slug|permalink|url)\s*[:\-–—=]\s*[/]?(.+)',
+        'slug': r'(?:slug|url\s*slug|permalink)\s*[:\-–—=]\s*[/]?(.+)',
         'primary_keyword': r'(?:primary\s*keyword|target\s*keyword|focus\s*keyword|main\s*keyword)\s*[:\-–—=]\s*(.+)',
-        'title': r'(?:blog\s*title|post\s*title|h1|headline|article\s*title)\s*[:\-–—=]\s*(.+)',
-        'excerpt': r'(?:excerpt|summary)\s*[:\-–—=]\s*(.+)',
+        'title': r'(?:blog\s*title|post\s*title|h1\b|headline|article\s*title)\s*[:\-–—=]\s*(.+)',
+        'excerpt': r'(?:excerpt)\s*[:\-–—=]\s*(.+)',
     }
 
     for field, pattern in label_patterns.items():
@@ -3042,6 +3046,11 @@ def _parse_content_package(text: str) -> dict:
             val = m.group(1).strip().strip('"\'')
             if val:
                 result[field] = val
+                # Mark this line as consumed
+                for i, line in enumerate(lines):
+                    if m.group(0).strip() in line:
+                        consumed_lines.add(i)
+                        break
 
     # ---- STEP 2: Secondary keywords ----
     sec_kw_match = re.search(
@@ -3049,80 +3058,61 @@ def _parse_content_package(text: str) -> dict:
         text, re.IGNORECASE
     )
     if sec_kw_match:
-        kw_text = sec_kw_match.group(1).strip()
-        result['secondary_keywords'] = [k.strip().strip('"\'') for k in re.split(r'[,;|]', kw_text) if k.strip()]
+        result['secondary_keywords'] = [k.strip().strip('"\'') for k in re.split(r'[,;|]', sec_kw_match.group(1).strip()) if k.strip()]
+        for i, line in enumerate(lines):
+            if sec_kw_match.group(0).strip() in line:
+                consumed_lines.add(i)
+                break
 
-    # ---- STEP 3: Tags (single-line or multi-line bullet list) ----
+    # ---- STEP 3: Tags ----
     tags_match = re.search(
         r'(?:tags?|categories|wordpress\s*tags?|post\s*tags?|suggested\s*tags?)\s*[:\-–—=]\s*(.+)',
         text, re.IGNORECASE
     )
     if tags_match:
-        tags_text = tags_match.group(1).strip()
-        result['tags'] = [t.strip().strip('"\'#') for t in re.split(r'[,;|]', tags_text) if t.strip()]
+        result['tags'] = [t.strip().strip('"\'#') for t in re.split(r'[,;|]', tags_match.group(1).strip()) if t.strip()]
+        for i, line in enumerate(lines):
+            if tags_match.group(0).strip() in line:
+                consumed_lines.add(i)
+                break
 
-    # Also try multi-line tag list
-    if not result.get('tags'):
-        tags_section = re.search(
-            r'(?:tags?|wordpress\s*tags?)\s*[:\-–—=]?\s*\n((?:\s*[-•*·✓✔]\s*.+\n?)+)',
-            text, re.IGNORECASE
-        )
-        if tags_section:
-            result['tags'] = [
-                re.sub(r'^[-•*·✓✔\s]+', '', line).strip().strip('"\'#')
-                for line in tags_section.group(1).split('\n')
-                if line.strip()
-            ]
-
-    # ---- STEP 4: Internal links — multiple patterns ----
+    # ---- STEP 4: Internal links ----
     internal_links = []
 
-    # Pattern A: "anchor text" → URL  or  anchor text → URL  (arrow)
-    for m in re.finditer(r'["\']?([^"\'→\n]{3,80}?)["\']?\s*[→⟶➜>]+\s*(https?://\S+)', text):
-        anchor, url = m.group(1).strip(), m.group(2).strip().rstrip(')')
-        if anchor and not re.match(r'^https?://', anchor):
-            internal_links.append({'text': anchor, 'url': url})
-
-    # Pattern B: [anchor text](URL) — markdown links
+    # Markdown links: [anchor](URL)
     for m in re.finditer(r'\[([^\]]+)\]\((https?://\S+?)\)', text):
         anchor, url = m.group(1).strip(), m.group(2).strip()
         if not any(l['url'] == url for l in internal_links):
             internal_links.append({'text': anchor, 'url': url})
 
-    # Pattern C: URL (anchor text) or URL — anchor text
+    # Arrow format: anchor → URL
+    for m in re.finditer(r'["\']?([^"\'→\n]{3,80}?)["\']?\s*[→⟶➜>]+\s*(https?://\S+)', text):
+        anchor, url = m.group(1).strip(), m.group(2).strip().rstrip(')')
+        if anchor and not re.match(r'^https?://', anchor) and not any(l['url'] == url for l in internal_links):
+            internal_links.append({'text': anchor, 'url': url})
+
+    # URL (anchor) format
     for m in re.finditer(r'(https?://\S+)\s*[\(–—\-:]\s*([^)\n]{3,80})', text):
         url, anchor = m.group(1).strip().rstrip(')'), m.group(2).strip().rstrip(')')
         if not any(l['url'] == url for l in internal_links):
             internal_links.append({'text': anchor, 'url': url})
 
-    # Pattern D: Lines with URLs under an "Internal Links" / "Linking" header section
-    il_section = re.search(
-        r'(?:internal\s*link(?:ing|s)?|link(?:ing)?\s*(?:strategy|targets?|suggestions?|recommendations?))\s*[:\-–—=]?\s*\n((?:.*\n?)*?)(?:\n\s*\n|\n(?=[A-Z][a-z]+\s*[:\-–—=])|\Z)',
-        text, re.IGNORECASE
-    )
-    if il_section:
-        for line in il_section.group(1).split('\n'):
-            line = line.strip().lstrip('•-*·→✓✔0123456789.) ')
-            url_match = re.search(r'(https?://\S+)', line)
-            if url_match:
-                url = url_match.group(1).strip().rstrip(')')
-                anchor = re.sub(r'https?://\S+', '', line).strip(' -–—:→•*·"\'()[]')
-                if not any(l['url'] == url for l in internal_links):
-                    internal_links.append({'text': anchor or url, 'url': url})
-
-    # Pattern E: Any remaining URLs on their own lines
-    if not internal_links:
-        for line in lines:
-            line = line.strip()
-            url_match = re.match(r'^[-•*·→\s]*(https?://\S+)\s*$', line)
-            if url_match:
-                url = url_match.group(1).strip()
-                internal_links.append({'text': url, 'url': url})
-
     if internal_links:
         result['internal_links'] = internal_links
 
-    # ---- STEP 5: Schema markup — JSON-LD block ----
+    # ---- STEP 5: Target city ----
+    city_match = re.search(
+        r'(?:target\s*city|service\s*area)\s*[:\-–—=]\s*(.+)',
+        text, re.IGNORECASE
+    )
+    if city_match:
+        result['target_city'] = city_match.group(1).strip().strip('"\'')
+        for i, line in enumerate(lines):
+            if city_match.group(0).strip() in line:
+                consumed_lines.add(i)
+                break
+
+    # ---- STEP 6: Schema markup ----
     schema_match = re.search(r'(?:schema|json-?ld|structured\s*data)\s*[:\-–—=]?\s*\n?\s*(\{[\s\S]*?\})\s*(?:\n\n|\Z)', text, re.IGNORECASE)
     if schema_match:
         try:
@@ -3130,103 +3120,106 @@ def _parse_content_package(text: str) -> dict:
         except json.JSONDecodeError:
             pass
 
-    # ---- STEP 6: Body / article content ----
-    # Strategy: Try multiple approaches to find the article body.
+    # ---- STEP 7: BODY — the main strategy ----
+    # Instead of pattern-matching the body, we SUBTRACT metadata and
+    # section headers, then whatever remains is the article content.
 
-    body_text = ''
-
-    # 6a: Explicit "Body" / "Content" / "Article" / "Blog Post" header
-    body_section = re.search(
-        r'(?:body|full\s*(?:article|blog|content|text)|blog\s*(?:body|content|text|post|article)|article\s*(?:body|content|text)|post\s*content)\s*[:\-–—=]?\s*\n([\s\S]+?)(?:\n\s*(?:internal\s*link|schema|json-?ld|tags?|categor|seo\s*score|word\s*count|deliverable|---)\s*[:\-–—=]|\Z)',
-        text, re.IGNORECASE
+    # Lines that are metadata labels or section headers (not body content)
+    metadata_line_re = re.compile(
+        r'^\s*(?:'
+        r'meta\s*(?:title|desc)|seo\s*(?:title|desc|score)|'
+        r'slug|permalink|url\s*slug|'
+        r'(?:primary|target|focus|main|secondary|related|lsi|supporting|additional)\s*keyword|'
+        r'tags?[:\-–—=]|wordpress\s*tags?|categories[:\-–—=]|'
+        r'internal\s*link|linking\s*(?:strategy|instruction|note)|'
+        r'schema\s*(?:markup)?|json-?ld|structured\s*data|'
+        r'word\s*count|target\s*(?:city|length)|service\s*area|'
+        r'deliverable\s*(?:#?\s*\d+)?[:\-–—=\s]|'
+        r'seo\s*(?:score|projection|checklist)|'
+        r'(?:blog|post|article)\s*title[:\-–—=]|'
+        r'h1[:\-–—=]|headline[:\-–—=]|'
+        r'excerpt[:\-–—=]|summary[:\-–—=]|'
+        r'author[:\-–—=]|last\s*updated[:\-–—=]|publish\s*date|'
+        r'cta[:\-–—=]|call\s*to\s*action|'
+        r'featured\s*image|'
+        r'[-=]{3,}|[*]{3,}'  # horizontal rules
+        r')',
+        re.IGNORECASE
     )
-    if body_section:
-        body_text = body_section.group(1).strip()
 
-    # 6b: "DELIVERABLE" section that contains the article (common AI content format)
-    if not body_text:
-        deliverable_match = re.search(
-            r'(?:deliverable\s*(?:#?\s*\d+)?[:\-–—=\s]*(?:blog|article|content|full|post)[^\n]*)\s*\n([\s\S]+?)(?:\n\s*deliverable\s*(?:#?\s*\d+)|$)',
-            text, re.IGNORECASE
-        )
-        if deliverable_match:
-            body_text = deliverable_match.group(1).strip()
+    # Also mark lines that are part of internal linking instructions
+    linking_instruction_re = re.compile(
+        r'^\s*[•\-\*·]\s*"[^"]+"\s*to\s*/|'  # • "keyword" to /path/
+        r'^\s*[•\-\*·]\s*link\s+to\s|'         # • Link to ...
+        r'^\s*anchor\s*text[:\-–—=]|'
+        r'^\s*(?:link|anchor)\s*(?:#?\d+)[:\-–—=]',
+        re.IGNORECASE
+    )
 
-    # 6c: Look for HTML content blocks (<h1>, <h2>, <p>, etc.)
-    if not body_text:
-        html_match = re.search(r'(<(?:h[1-6]|p|div|article|section)\b[\s\S]{100,})', text, re.IGNORECASE)
-        if html_match:
-            body_text = html_match.group(1).strip()
+    # Build body from non-metadata lines
+    body_lines = []
+    in_metadata_section = False
 
-    # 6d: Look for markdown-structured content (## headings followed by paragraphs)
-    if not body_text:
-        md_blocks = re.findall(r'(#{1,3}\s+.+\n(?:(?!#{1,3}\s).*\n?)*)', text)
-        if md_blocks and len(md_blocks) >= 2:
-            # Found multiple markdown sections — this is likely the article
-            full_md = '\n'.join(md_blocks)
-            if len(full_md) > 200:
-                body_text = full_md.strip()
+    for i, line in enumerate(lines):
+        stripped = line.strip()
 
-    # 6e: FALLBACK — find the longest continuous block of text (paragraphs)
-    #     that isn't just labeled metadata fields
-    if not body_text:
-        # Split text into blocks separated by double newlines
-        blocks = re.split(r'\n\s*\n', text)
-        # Filter out short blocks, lines that look like metadata labels, and URL-only lines
-        meta_label_re = re.compile(
-            r'^(?:meta\s*(?:title|desc)|slug|permalink|tags?|keyword|categor|schema|json-?ld|internal\s*link|seo\s*(?:score|title)|word\s*count|target\s*(?:city|keyword)|deliverable|---)',
-            re.IGNORECASE
-        )
-        content_blocks = []
-        for block in blocks:
-            block = block.strip()
-            if len(block) < 80:
-                continue
-            first_line = block.split('\n')[0].strip()
-            if meta_label_re.match(first_line):
-                continue
-            if re.match(r'^https?://', first_line) and '\n' not in block:
-                continue
-            content_blocks.append(block)
+        # Skip empty lines but preserve them as paragraph breaks
+        if not stripped:
+            if body_lines and body_lines[-1] != '':
+                body_lines.append('')
+            in_metadata_section = False
+            continue
 
-        if content_blocks:
-            # Pick the longest block, or join all content blocks if there are multiple
-            longest = max(content_blocks, key=len)
-            if len(longest) > 300:
-                # If the longest block is much bigger than others, it's the article
-                body_text = longest
-            elif len(content_blocks) >= 2:
-                # Multiple substantial blocks — join them as the article
-                combined = '\n\n'.join(content_blocks)
-                if len(combined) > 300:
-                    body_text = combined
+        # Skip consumed lines (already extracted as metadata)
+        if i in consumed_lines:
+            in_metadata_section = True
+            continue
 
-    # Store body if we found something substantial
-    if body_text and len(body_text) > 50:
-        # Convert markdown to basic HTML if it contains markdown headings
+        # Skip metadata label lines
+        if metadata_line_re.match(stripped):
+            in_metadata_section = True
+            continue
+
+        # Skip linking instruction lines
+        if linking_instruction_re.match(stripped):
+            in_metadata_section = True
+            continue
+
+        # Skip lines that are just a URL
+        if re.match(r'^https?://\S+\s*$', stripped):
+            continue
+
+        # Skip single-line values right after a metadata label
+        if in_metadata_section and len(stripped) < 150 and not re.match(r'^#{1,6}\s+', stripped):
+            in_metadata_section = False
+            continue
+
+        in_metadata_section = False
+        body_lines.append(line)
+
+    # Clean up: strip leading/trailing empty lines
+    while body_lines and not body_lines[0].strip():
+        body_lines.pop(0)
+    while body_lines and not body_lines[-1].strip():
+        body_lines.pop()
+
+    body_text = '\n'.join(body_lines).strip()
+
+    # Only use as body if it's substantial (more than just a sentence or two)
+    if len(body_text) > 100:
+        # Convert markdown headings to HTML
         if re.search(r'^#{1,6}\s+', body_text, re.MULTILINE):
             body_text = _markdown_to_html(body_text)
         result['body'] = body_text
 
-    # ---- STEP 7: Target city ----
-    city_match = re.search(
-        r'(?:target\s*city|city|location|geo|service\s*area)\s*[:\-–—=]\s*(.+)',
-        text, re.IGNORECASE
-    )
-    if city_match:
-        result['target_city'] = city_match.group(1).strip().strip('"\'')
+    logger.info(f"Smart-paste parser: consumed {len(consumed_lines)} metadata lines, body candidate {len(body_text)} chars from {len(lines)} total lines")
 
-    # ---- STEP 8: Word count target ----
-    wc_match = re.search(r'(?:word\s*count|length|target\s*length)\s*[:\-–—=]\s*(\d[\d,]+)', text, re.IGNORECASE)
-    if wc_match:
-        result['target_word_count'] = wc_match.group(1).replace(',', '')
-
-    # ---- STEP 9: Fallback title from first non-empty line ----
+    # ---- STEP 8: Fallback title ----
     if not result.get('title') and not result.get('meta_title'):
         for line in lines:
-            line = line.strip().lstrip('#').strip()
-            if line and len(line) < 200 and not line.startswith('http') and not re.match(r'^[-•*·]', line):
-                result['title'] = line
+            clean = line.strip().lstrip('#').strip()
+            if clean and len(clean) < 200 and not clean.startswith('http') and not re.match(r'^[-•*·]', clean):
+                result['title'] = clean
                 break
 
     return result
