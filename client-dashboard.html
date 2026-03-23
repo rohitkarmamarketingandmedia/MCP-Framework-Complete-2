@@ -573,6 +573,23 @@
         </div>
     </div>
 
+    <!-- Loading Overlay -->
+    <div id="loadingOverlay" class="hidden fixed inset-0 bg-slate-950/95 z-[100] flex items-center justify-center">
+        <div class="text-center">
+            <div class="relative mb-6">
+                <div class="w-16 h-16 border-4 border-purple-500/30 rounded-full animate-spin" style="border-top-color: #a855f7;"></div>
+                <div class="absolute inset-0 flex items-center justify-center">
+                    <i class="fas fa-chart-line text-purple-400 text-lg"></i>
+                </div>
+            </div>
+            <h3 class="text-white text-lg font-semibold mb-2" id="loadingTitle">Loading Dashboard</h3>
+            <p class="text-gray-400 text-sm" id="loadingSubtext">Fetching client data...</p>
+            <div class="mt-4 w-48 mx-auto bg-white/10 rounded-full h-1.5 overflow-hidden">
+                <div id="loadingBar" class="bg-gradient-to-r from-purple-500 to-pink-500 h-full rounded-full transition-all duration-500" style="width: 10%"></div>
+            </div>
+        </div>
+    </div>
+
     <!-- Main Dashboard -->
     <div id="dashboard" class="hidden">
         <!-- Navigation Bar -->
@@ -3904,10 +3921,10 @@
                 <!-- Action Buttons Bar -->
                 <div class="glass rounded-xl p-4 mb-6">
                     <div class="flex flex-wrap gap-3">
-                        <button onclick="generateFAQFromCalls()" class="px-4 py-2 bg-gradient-to-r from-yellow-600 to-amber-600 text-white rounded-lg text-sm font-medium hover:opacity-90 transition">
+                        <button onclick="generateFAQFromCalls()" id="btnGenFAQ" class="px-4 py-2 bg-gradient-to-r from-yellow-600 to-amber-600 text-white rounded-lg text-sm font-medium hover:opacity-90 transition">
                             <i class="fas fa-question-circle mr-2"></i>Generate FAQ from Calls
                         </button>
-                        <button onclick="generateBlogFromCalls()" class="px-4 py-2 bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-lg text-sm font-medium hover:opacity-90 transition">
+                        <button onclick="generateBlogFromCalls()" id="btnBlogFromCalls" class="px-4 py-2 bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-lg text-sm font-medium hover:opacity-90 transition">
                             <i class="fas fa-pen mr-2"></i>Create Blog from Questions
                         </button>
                         <button onclick="updateChatbotFromCalls()" class="px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg text-sm font-medium hover:opacity-90 transition">
@@ -3916,6 +3933,46 @@
                         <button onclick="refreshCallData()" class="px-4 py-2 glass text-white rounded-lg text-sm font-medium hover:bg-white/10 transition ml-auto">
                             <i class="fas fa-sync-alt mr-2"></i>Refresh Data
                         </button>
+                    </div>
+                </div>
+
+                <!-- FAQ Results Panel (hidden by default) -->
+                <div id="callFaqResultsPanel" class="hidden glass rounded-2xl p-6 mb-6 border border-amber-500/30">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-lg font-bold text-white">
+                            <i class="fas fa-question-circle mr-2 text-amber-400"></i>Generated FAQ from Customer Calls
+                        </h3>
+                        <div class="flex gap-2">
+                            <button onclick="copyFAQToClipboard()" class="px-3 py-1.5 bg-white/10 text-white rounded-lg text-xs hover:bg-white/20 transition" title="Copy FAQ as text">
+                                <i class="fas fa-copy mr-1"></i>Copy
+                            </button>
+                            <button onclick="useFAQForBlog()" class="px-3 py-1.5 bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-lg text-xs hover:opacity-90 transition">
+                                <i class="fas fa-pen mr-1"></i>Use in Blog
+                            </button>
+                            <button onclick="closeFAQPanel()" class="px-2 py-1.5 text-gray-400 hover:text-white text-xs transition">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div id="callFaqResultsList" class="space-y-3"></div>
+                    <p class="text-xs text-gray-500 mt-3"><i class="fas fa-info-circle mr-1"></i>These FAQs were extracted from real customer call transcripts. Click "Use in Blog" to generate a blog post with these questions.</p>
+                </div>
+
+                <!-- Blog from Calls Progress Panel (hidden by default) -->
+                <div id="blogFromCallsPanel" class="hidden glass rounded-2xl p-6 mb-6 border border-blue-500/30">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-lg font-bold text-white">
+                            <i class="fas fa-pen mr-2 text-blue-400"></i>Creating Blog from Customer Questions
+                        </h3>
+                        <button onclick="document.getElementById('blogFromCallsPanel').classList.add('hidden')" class="px-2 py-1.5 text-gray-400 hover:text-white text-xs transition">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                    <div id="blogFromCallsContent">
+                        <div class="flex items-center gap-3 text-gray-300">
+                            <div class="w-5 h-5 border-2 border-blue-400 border-t-transparent rounded-full animate-spin"></div>
+                            <span>Analyzing call transcripts and generating blog post...</span>
+                        </div>
                     </div>
                 </div>
 
@@ -5511,25 +5568,32 @@
         // AUTO-LOGIN ON PAGE LOAD (if saved token exists)
         // ==========================================
         if (AUTH_TOKEN) {
+            // Show loading overlay immediately
+            document.getElementById('loadingOverlay').classList.remove('hidden');
+            document.getElementById('authModal')?.classList.add('hidden');
+
             // Validate the saved token by making a lightweight API call
             fetch(`${API_URL}/api/clients/`, {
                 headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
             }).then(res => {
                 if (res.ok) {
                     // Token is still valid — skip login modal and load dashboard
-                    document.getElementById('authModal')?.classList.add('hidden');
                     document.getElementById('dashboard')?.classList.remove('hidden');
                     applyRoleNav();
                     loadClients();
                 } else {
                     // Token expired or invalid — clear it and show login
+                    document.getElementById('loadingOverlay').classList.add('hidden');
+                    document.getElementById('authModal')?.classList.remove('hidden');
                     localStorage.removeItem('mcp_auth_token');
                     localStorage.removeItem('mcp_user_role');
                     AUTH_TOKEN = '';
                     USER_ROLE = '';
                 }
             }).catch(() => {
-                // Network error — don't clear token, just show login
+                // Network error — hide loading, show login
+                document.getElementById('loadingOverlay').classList.add('hidden');
+                document.getElementById('authModal')?.classList.remove('hidden');
             });
         }
 
@@ -5812,6 +5876,7 @@
                     localStorage.setItem('mcp_user_email', email);
                     document.getElementById('authModal').classList.add('hidden');
                     document.getElementById('dashboard').classList.remove('hidden');
+                    document.getElementById('loadingOverlay').classList.remove('hidden');
                     applyRoleNav();
                     loadClients();
                 } else {
@@ -5827,8 +5892,32 @@
         // ==========================================
         // DATA LOADING
         // ==========================================
+        function updateLoadingProgress(percent, text) {
+            var bar = document.getElementById('loadingBar');
+            var subtext = document.getElementById('loadingSubtext');
+            if (bar) bar.style.width = percent + '%';
+            if (subtext && text) subtext.textContent = text;
+        }
+
+        function hideLoadingOverlay() {
+            var overlay = document.getElementById('loadingOverlay');
+            if (overlay) {
+                updateLoadingProgress(100, 'Ready!');
+                setTimeout(function() {
+                    overlay.style.transition = 'opacity 0.3s';
+                    overlay.style.opacity = '0';
+                    setTimeout(function() {
+                        overlay.classList.add('hidden');
+                        overlay.style.opacity = '';
+                        overlay.style.transition = '';
+                    }, 300);
+                }, 200);
+            }
+        }
+
         async function loadClients() {
             try {
+                updateLoadingProgress(20, 'Loading clients...');
                 const res = await fetch(`${API_URL}/api/clients/`, {
                     headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
                 });
@@ -5971,6 +6060,7 @@
 
             try {
                 // Load client details
+                updateLoadingProgress(40, 'Loading client details...');
                 const clientRes = await fetch(`${API_URL}/api/clients/${clientId}`, {
                     headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
                 });
@@ -6017,6 +6107,7 @@
                 document.getElementById('clientMeta').textContent = `${currentClient.industry || ''} • ${currentClient.geo || ''}`;
 
                 // Load blogs
+                updateLoadingProgress(60, 'Loading blog posts...');
                 const blogsRes = await fetch(`${API_URL}/api/content/client/${clientId}`, {
                     headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
                 });
@@ -6028,6 +6119,7 @@
                 }
 
                 // Load social
+                updateLoadingProgress(75, 'Loading social posts...');
                 const socialRes = await fetch(`${API_URL}/api/social/client/${clientId}`, {
                     headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
                 });
@@ -6039,10 +6131,14 @@
                 }
 
                 // Update stats
+                updateLoadingProgress(90, 'Rendering dashboard...');
                 updateStats();
                 renderBlogs();
                 renderSocial();
                 renderSEO();
+
+                // Hide loading overlay — dashboard is ready
+                hideLoadingOverlay();
 
                 // Load overview data (with error handling)
                 try { loadOverviewData(); } catch (e) { console.error('loadOverviewData error:', e); }
@@ -6072,6 +6168,7 @@
             } catch (e) {
                 console.error('Failed to load client:', e);
                 showToast('Failed to load client data', 'error');
+                hideLoadingOverlay();
             }
         }
 
@@ -9590,7 +9687,11 @@
 
         async function generateFAQFromCalls() {
             if (!currentClient) return;
-            showToast('Generating FAQ from call data...', 'info');
+
+            var btn = document.getElementById('btnGenFAQ');
+            btn.disabled = true;
+            btn.innerHTML = '<div class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin inline-block mr-2"></div>Generating...';
+
             try {
                 const res = await fetch(`${API_URL}/api/intelligence/report/${currentClient.id}?days=90`, {
                     headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
@@ -9600,7 +9701,6 @@
                     const rawQuestions = (report.combined_insights?.top_questions || []).slice(0, 20).map(q => typeof q === 'string' ? q : q.question || '').filter(q => q);
                     const questions = filterMeaningfulQuestions(rawQuestions).slice(0, 10);
                     if (questions.length === 0) {
-                        // Give a specific reason why no questions were found
                         const callCount = report.call_count || 0;
                         const transcriptCount = report.calls_with_transcripts || 0;
                         if (callCount > 0 && transcriptCount === 0) {
@@ -9612,21 +9712,61 @@
                         }
                         return;
                     }
-                    // Store questions globally so generateBlog() can use them
+                    // Store questions globally
                     window._callFaqQuestions = questions;
-                    
-                    showTab('generate');
-                    setTimeout(() => {
-                        const topicEl = document.getElementById('blogTopic');
-                        if (topicEl) topicEl.value = '';
-                        // Show a visual indicator that FAQs are loaded
-                        showCallFaqBanner(questions);
-                        showToast(`${questions.length} real customer questions loaded — select a keyword and click Generate`, 'success');
-                    }, 300);
+
+                    // Show FAQ results right here on the Call Intel tab
+                    var panel = document.getElementById('callFaqResultsPanel');
+                    var listEl = document.getElementById('callFaqResultsList');
+                    listEl.innerHTML = questions.map(function(q, i) {
+                        return '<div class="p-3 bg-white/5 rounded-lg border border-white/10">' +
+                            '<div class="flex items-start gap-3">' +
+                                '<span class="flex-shrink-0 w-6 h-6 bg-amber-500/20 text-amber-400 rounded-full flex items-center justify-center text-xs font-bold">' + (i + 1) + '</span>' +
+                                '<div class="flex-1">' +
+                                    '<p class="text-sm text-white">' + q + '</p>' +
+                                '</div>' +
+                            '</div>' +
+                        '</div>';
+                    }).join('');
+                    panel.classList.remove('hidden');
+                    panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+                    showToast(questions.length + ' FAQ questions extracted from customer calls', 'success');
                 }
             } catch(e) {
                 showToast('Error: ' + e.message, 'error');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-question-circle mr-2"></i>Generate FAQ from Calls';
             }
+        }
+
+        function closeFAQPanel() {
+            document.getElementById('callFaqResultsPanel').classList.add('hidden');
+        }
+
+        function copyFAQToClipboard() {
+            var questions = window._callFaqQuestions || [];
+            if (!questions.length) { showToast('No FAQ to copy', 'warning'); return; }
+            var text = 'Frequently Asked Questions\n\n' + questions.map(function(q, i) {
+                return (i + 1) + '. ' + q;
+            }).join('\n');
+            navigator.clipboard.writeText(text).then(function() {
+                showToast('FAQ copied to clipboard!', 'success');
+            });
+        }
+
+        function useFAQForBlog() {
+            // Switch to Generate tab with the FAQ questions pre-loaded
+            if (!window._callFaqQuestions || !window._callFaqQuestions.length) {
+                showToast('No FAQ questions loaded', 'warning');
+                return;
+            }
+            showTab('generate');
+            setTimeout(function() {
+                showCallFaqBanner(window._callFaqQuestions);
+                showToast('FAQ questions loaded — select a keyword and click Generate to create a blog post with these questions', 'success');
+            }, 300);
         }
 
         function showCallFaqBanner(questions) {
@@ -9705,48 +9845,118 @@
 
         async function generateBlogFromCalls() {
             if (!currentClient) return;
-            showToast('Finding blog topics from calls...', 'info');
+
+            var btn = document.getElementById('btnBlogFromCalls');
+            btn.disabled = true;
+            btn.innerHTML = '<div class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin inline-block mr-2"></div>Analyzing...';
+
+            // Show the progress panel
+            var panel = document.getElementById('blogFromCallsPanel');
+            var content = document.getElementById('blogFromCallsContent');
+            content.innerHTML = '<div class="flex items-center gap-3 text-gray-300"><div class="w-5 h-5 border-2 border-blue-400 border-t-transparent rounded-full animate-spin"></div><span>Step 1/3: Fetching call transcripts and extracting questions...</span></div>';
+            panel.classList.remove('hidden');
+            panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
             try {
+                // Step 1: Get call intelligence
                 const res = await fetch(`${API_URL}/api/intelligence/report/${currentClient.id}?days=90`, {
                     headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
                 });
-                if (res.ok) {
-                    const report = await res.json();
-                    const rawQuestions = (report.combined_insights?.top_questions || []).slice(0, 20).map(q => typeof q === 'string' ? q : q.question || '').filter(q => q);
-                    const questions = filterMeaningfulQuestions(rawQuestions).slice(0, 10);
-                    const opps = report.content_opportunities || [];
+                if (!res.ok) throw new Error('Failed to load call data');
 
-                    // Store questions for FAQ use
-                    window._callFaqQuestions = questions;
-                    
-                    // Build a blog topic from the questions
-                    const topQuestions = questions.slice(0, 3);
-                    let topic = '';
-                    if (opps.length > 0) {
-                        topic = opps[0].title || opps[0].topic || '';
-                    }
-                    if (!topic && topQuestions.length > 0) {
-                        // Extract a keyword-like topic from questions
-                        topic = topQuestions[0].replace(/^(do you|can you|how do|what is|is there|do i|how much|when|where|why)\s+/i, '').replace(/\?$/, '');
-                    }
+                const report = await res.json();
+                const rawQuestions = (report.combined_insights?.top_questions || []).slice(0, 20).map(q => typeof q === 'string' ? q : q.question || '').filter(q => q);
+                const questions = filterMeaningfulQuestions(rawQuestions).slice(0, 10);
+                const opps = report.content_opportunities || [];
 
-                    // Always extract a short SEO keyword from potentially long titles
-                    if (topic) {
-                        topic = _extractKeywordFromTopic(topic);
-                    }
-
-                    showTab('generate');
-                    setTimeout(() => {
-                        if (topic) {
-                            const customKeyword = document.getElementById('customBlogKeyword');
-                            if (customKeyword) customKeyword.value = topic;
-                        }
-                        showCallFaqBanner(questions);
-                        showToast(`Blog topic + ${questions.length} FAQ questions loaded from calls`, 'success');
-                    }, 300);
+                if (questions.length === 0) {
+                    content.innerHTML = '<div class="p-4 bg-amber-500/10 border border-amber-500/30 rounded-lg"><p class="text-amber-300"><i class="fas fa-exclamation-triangle mr-2"></i>No meaningful customer questions found in call transcripts. Make sure CallRail is connected and call recording/transcription is enabled.</p></div>';
+                    return;
                 }
+
+                // Store questions for FAQ
+                window._callFaqQuestions = questions;
+
+                // Step 2: Determine keyword
+                content.innerHTML = '<div class="space-y-3">' +
+                    '<div class="flex items-center gap-3 text-green-400"><i class="fas fa-check-circle"></i><span>Found ' + questions.length + ' customer questions</span></div>' +
+                    '<div class="flex items-center gap-3 text-gray-300"><div class="w-5 h-5 border-2 border-blue-400 border-t-transparent rounded-full animate-spin"></div><span>Step 2/3: Determining blog topic from questions...</span></div>' +
+                '</div>';
+
+                let topic = '';
+                if (opps.length > 0) {
+                    topic = opps[0].title || opps[0].topic || '';
+                }
+                if (!topic && questions.length > 0) {
+                    topic = questions[0].replace(/^(do you|can you|how do|what is|is there|do i|how much|when|where|why)\s+/i, '').replace(/\?$/, '');
+                }
+                if (topic) {
+                    topic = _extractKeywordFromTopic(topic);
+                }
+
+                if (!topic) {
+                    // Fall back to first primary keyword
+                    topic = (currentClient.primary_keywords && currentClient.primary_keywords[0]) || currentClient.industry || '';
+                }
+
+                // Step 3: Generate the blog
+                content.innerHTML = '<div class="space-y-3">' +
+                    '<div class="flex items-center gap-3 text-green-400"><i class="fas fa-check-circle"></i><span>Found ' + questions.length + ' customer questions</span></div>' +
+                    '<div class="flex items-center gap-3 text-green-400"><i class="fas fa-check-circle"></i><span>Blog topic: <strong>"' + topic + '"</strong></span></div>' +
+                    '<div class="flex items-center gap-3 text-gray-300"><div class="w-5 h-5 border-2 border-blue-400 border-t-transparent rounded-full animate-spin"></div><span>Step 3/3: Generating blog post with FAQ section (30-60 seconds)...</span></div>' +
+                '</div>';
+
+                const blogRes = await fetch('/api/content/blog/generate-sync', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + AUTH_TOKEN
+                    },
+                    body: JSON.stringify({
+                        client_id: currentClient.id,
+                        keyword: topic,
+                        word_count: 1500,
+                        include_faq: true,
+                        faq_count: Math.min(questions.length, 7),
+                        city: currentClient.geo || '',
+                        custom_faqs: questions
+                    })
+                });
+
+                let result;
+                const responseText = await blogRes.text();
+                try { result = JSON.parse(responseText); } catch(e) { throw new Error('Invalid response from AI service'); }
+
+                if (!blogRes.ok) throw new Error(result.error || 'Blog generation failed');
+
+                // Success - show result
+                var blogData = result.blog || result;
+                var blogTitle = blogData.title || topic;
+                var blogId = blogData.id || '';
+
+                // Add to blog list
+                if (blogData && blogData.id) {
+                    allBlogs.unshift(blogData);
+                    renderBlogs();
+                }
+
+                content.innerHTML = '<div class="space-y-3">' +
+                    '<div class="flex items-center gap-3 text-green-400"><i class="fas fa-check-circle"></i><span>Found ' + questions.length + ' customer questions</span></div>' +
+                    '<div class="flex items-center gap-3 text-green-400"><i class="fas fa-check-circle"></i><span>Blog topic: <strong>"' + topic + '"</strong></span></div>' +
+                    '<div class="flex items-center gap-3 text-green-400"><i class="fas fa-check-circle"></i><span>Blog post created: <strong>"' + blogTitle + '"</strong></span></div>' +
+                    '<div class="flex gap-3 mt-3">' +
+                        (blogId ? '<button onclick="showTab(\'blogs\'); setTimeout(function(){ openBlogModal(\'' + blogId + '\'); }, 300);" class="px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg text-sm font-medium hover:opacity-90 transition"><i class="fas fa-eye mr-2"></i>View Blog Post</button>' : '') +
+                        '<button onclick="document.getElementById(\'blogFromCallsPanel\').classList.add(\'hidden\')" class="px-4 py-2 glass text-white rounded-lg text-sm font-medium hover:bg-white/10 transition">Close</button>' +
+                    '</div>' +
+                '</div>';
+
+                showToast('Blog post created from customer call questions!', 'success');
             } catch(e) {
+                content.innerHTML = '<div class="p-4 bg-red-500/10 border border-red-500/30 rounded-lg"><p class="text-red-300"><i class="fas fa-exclamation-triangle mr-2"></i>' + e.message + '</p><button onclick="document.getElementById(\'blogFromCallsPanel\').classList.add(\'hidden\')" class="mt-3 px-3 py-1.5 glass text-white rounded-lg text-xs hover:bg-white/10 transition">Close</button></div>';
                 showToast('Error: ' + e.message, 'error');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-pen mr-2"></i>Create Blog from Questions';
             }
         }
 
