@@ -4766,9 +4766,22 @@
                 <div class="p-6 space-y-4">
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-2">Paste your content package below</label>
-                        <textarea id="smartPasteText" rows="12"
-                            placeholder="Paste your content package here...&#10;&#10;Example format:&#10;Meta Title: Best AC Repair in Sarasota | Your Company&#10;Meta Description: Professional AC repair services...&#10;Slug: best-ac-repair-sarasota&#10;Primary Keyword: ac repair sarasota&#10;Secondary Keywords: hvac repair, air conditioning fix&#10;Tags: AC Repair, HVAC, Sarasota&#10;Internal Links:&#10;  AC Services → https://yoursite.com/ac-services&#10;  Contact Us → https://yoursite.com/contact"
+                        <div class="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-2 text-sm text-amber-800">
+                            <i class="fas fa-info-circle mr-1"></i>
+                            <strong>Paste your FULL content package</strong> including the blog article text. If your AI tool generates multiple deliverables, make sure to include the one with the actual article/blog body, not just the SEO tags or score projections.
+                        </div>
+                        <textarea id="smartPasteText" rows="14"
+                            placeholder="Paste your FULL content package here (all deliverables)...&#10;&#10;The parser will auto-detect:&#10;  - Meta Title, Meta Description, Slug&#10;  - Primary/Secondary Keywords, Tags&#10;  - Internal Links&#10;  - Blog article body (REQUIRED)&#10;&#10;Make sure to include the actual blog article text.&#10;Just pasting SEO tags or score data won't create a proper post."
                             class="w-full px-4 py-3 border border-gray-300 rounded-xl text-gray-800 placeholder-gray-400 focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200 resize-none font-mono text-sm"></textarea>
+                    </div>
+                    <div id="smartPasteWarning" class="hidden bg-red-50 border border-red-300 rounded-xl p-4">
+                        <div class="flex items-start gap-2">
+                            <i class="fas fa-exclamation-triangle text-red-500 mt-0.5"></i>
+                            <div>
+                                <p class="font-semibold text-red-700" id="smartPasteWarningTitle">No article body detected</p>
+                                <p class="text-sm text-red-600 mt-1" id="smartPasteWarningText">Your paste contains SEO metadata but no blog article content. Please paste the full content package including the article text (usually Deliverable 1 from your AI tool).</p>
+                            </div>
+                        </div>
                     </div>
                     <div class="flex items-center gap-3">
                         <label class="flex items-center gap-2 text-sm text-gray-600">
@@ -14661,6 +14674,31 @@
 
                 var parsed = data.debug || {};
                 var previewHtml = '';
+                var warningEl = document.getElementById('smartPasteWarning');
+
+                // Check for body warnings
+                var bodyWarning = data.body_warning;
+                var hasBody = data.has_body;
+                var bodyLen = data.body_length || 0;
+
+                if (!hasBody || bodyWarning === 'no_body' || bodyWarning === 'too_short') {
+                    warningEl.classList.remove('hidden');
+                    document.getElementById('smartPasteWarningTitle').textContent = 'No article body detected!';
+                    document.getElementById('smartPasteWarningText').textContent =
+                        'Your paste contains SEO metadata but no blog article content. It looks like you may have pasted only the SEO tags or score projections. Please paste the FULL content package including the actual blog article text (usually the largest deliverable from your AI tool).';
+                } else if (bodyWarning === 'keyword_list') {
+                    warningEl.classList.remove('hidden');
+                    document.getElementById('smartPasteWarningTitle').textContent = 'Body looks like a keyword list, not an article';
+                    document.getElementById('smartPasteWarningText').textContent =
+                        'The detected body content appears to be a list of SEO keywords/tags (' + bodyLen + ' chars), not an actual blog article. Please include the full article text in your paste.';
+                } else if (bodyLen < 500) {
+                    warningEl.classList.remove('hidden');
+                    document.getElementById('smartPasteWarningTitle').textContent = 'Article body seems very short';
+                    document.getElementById('smartPasteWarningText').textContent =
+                        'Only ' + bodyLen + ' characters of body content detected. A typical blog post is 1000+ words. Make sure you pasted the complete article.';
+                } else {
+                    warningEl.classList.add('hidden');
+                }
 
                 var fieldLabels = {
                     meta_title: 'Meta Title', meta_description: 'Meta Description',
@@ -14672,6 +14710,7 @@
                 };
 
                 for (var key in parsed) {
+                    if (key === 'body_warning') continue;
                     var label = fieldLabels[key] || key;
                     var val = parsed[key];
                     if (Array.isArray(val)) {
@@ -14681,7 +14720,19 @@
                             val = val.join(', ');
                         }
                     }
-                    previewHtml += '<div class="flex gap-2"><span class="font-semibold text-gray-500 min-w-[140px]">' + label + ':</span><span>' + val + '</span></div>';
+                    var statusIcon = '';
+                    if (key === 'body') {
+                        if (!hasBody || bodyWarning) {
+                            statusIcon = '<i class="fas fa-exclamation-triangle text-red-500 ml-1"></i>';
+                        } else {
+                            statusIcon = '<i class="fas fa-check-circle text-green-500 ml-1"></i>';
+                        }
+                    }
+                    previewHtml += '<div class="flex gap-2"><span class="font-semibold text-gray-500 min-w-[140px]">' + label + statusIcon + ':</span><span>' + val + '</span></div>';
+                }
+
+                if (!hasBody) {
+                    previewHtml += '<div class="flex gap-2"><span class="font-semibold text-red-500 min-w-[140px]">Body Content <i class="fas fa-times-circle"></i>:</span><span class="text-red-500">NOT FOUND — paste the full blog article</span></div>';
                 }
 
                 if (!previewHtml) {
@@ -14803,6 +14854,19 @@
                 return;
             }
 
+            // Quick client-side check: if paste is very short or has no paragraph-like content, warn
+            var wordCount = text.split(/\s+/).length;
+            var hasLongParagraph = text.split('\n').some(function(line) { return line.trim().split(/\s+/).length > 30; });
+            if (wordCount < 200 && !hasLongParagraph) {
+                var proceed = confirm(
+                    'WARNING: Your pasted content is only ' + wordCount + ' words and doesn\'t appear to contain a full blog article.\n\n' +
+                    'A proper blog post typically needs 800+ words of article text.\n\n' +
+                    'Make sure you\'ve pasted ALL deliverables from your AI tool, including the one with the actual blog article body.\n\n' +
+                    'Click OK to create anyway, or Cancel to go back and paste more content.'
+                );
+                if (!proceed) return;
+            }
+
             var btn = document.getElementById('btnSmartPaste');
             btn.disabled = true;
             btn.innerHTML = '<div class="spinner w-5 h-5 mr-2"></div>Creating...';
@@ -14830,7 +14894,17 @@
 
                 closeSmartPasteModal();
                 var bodyLen = data.blog ? (data.blog.body || '').length : 0;
-                showToast('Blog created! ' + (data.parsed_fields || []).length + ' fields parsed, body: ' + bodyLen + ' chars', 'success');
+                var bodyWarn = data.body_warning;
+
+                if (bodyWarn === 'no_body' || bodyWarn === 'too_short') {
+                    showToast('Blog created but NO article body was found! Edit the post to add your article content, or re-paste with the full content package.', 'error');
+                } else if (bodyWarn === 'keyword_list') {
+                    showToast('Blog created but the body appears to be SEO keywords, not article text. You may want to edit and paste the actual article.', 'error');
+                } else if (bodyLen < 500) {
+                    showToast('Blog created with a very short body (' + bodyLen + ' chars). You may want to add more article content.', 'error');
+                } else {
+                    showToast('Blog created! ' + (data.parsed_fields || []).length + ' fields parsed, body: ' + bodyLen + ' chars', 'success');
+                }
 
                 // Add to local list and open the blog
                 if (data.blog) {

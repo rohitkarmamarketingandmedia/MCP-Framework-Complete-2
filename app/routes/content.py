@@ -2923,6 +2923,7 @@ def smart_paste(current_user):
             'parsed_fields': list(parsed.keys()),
             'has_body': 'body' in parsed,
             'body_length': len(parsed.get('body', '')),
+            'body_warning': parsed.get('body_warning'),
             'debug': debug_info,
             'paste_length': len(paste_text),
             'paste_newlines': paste_text.count('\n'),
@@ -3026,6 +3027,7 @@ def smart_paste(current_user):
             'parsed_fields': list(parsed.keys()),
             'parsed_body_len': len(parsed.get('body', '')),
             'saved_body_len': len(blog.body or ''),
+            'body_warning': parsed.get('body_warning'),
             'blog': blog_dict
         }), 201
 
@@ -3258,12 +3260,29 @@ def _parse_content_package(text: str) -> dict:
 
     # Only use as body if it's substantial
     if len(body_text) > 100:
-        # Convert markdown headings to HTML
-        if re.search(r'^#{1,6}\s+', body_text, re.MULTILINE):
-            body_text = _markdown_to_html(body_text)
-        result['body'] = body_text
+        # Check if this looks like a keyword list rather than article prose
+        body_word_count = len(body_text.split())
+        avg_line_len = len(body_text) / max(1, body_text.count('\n') + 1)
+        comma_density = body_text.count(',') / max(1, body_word_count)
+
+        # Keyword lists: short lines, lots of commas, few sentences
+        sentence_count = len(re.findall(r'[.!?]\s', body_text))
+        is_keyword_list = (
+            comma_density > 0.15 and sentence_count < 3 and body_word_count < 100
+        )
+
+        if is_keyword_list:
+            logger.warning(f"Smart-paste: body looks like keyword list, not article. Words={body_word_count}, commas={body_text.count(',')}, sentences={sentence_count}")
+            result['body'] = body_text
+            result['body_warning'] = 'keyword_list'
+        else:
+            # Convert markdown headings to HTML
+            if re.search(r'^#{1,6}\s+', body_text, re.MULTILINE):
+                body_text = _markdown_to_html(body_text)
+            result['body'] = body_text
     else:
         logger.warning(f"Smart-paste: body too short ({len(body_text)} chars), not using. First 200: {repr(body_text[:200])}")
+        result['body_warning'] = 'no_body' if len(body_text) < 10 else 'too_short'
 
     # ---- STEP 8: Fallback title ----
     if not result.get('title') and not result.get('meta_title'):
