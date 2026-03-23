@@ -14634,14 +14634,71 @@
             document.body.style.overflow = '';
         }
 
-        function previewSmartPaste() {
+        async function previewSmartPaste() {
             var text = document.getElementById('smartPasteText').value.trim();
             if (!text) {
                 showToast('Please paste your content package first', 'error');
                 return;
             }
 
-            // Client-side preview of parsed fields
+            // Use server-side preview for accurate parsing
+            var btn = document.getElementById('btnSmartPastePreview');
+            btn.disabled = true;
+            btn.innerHTML = '<div class="spinner w-4 h-4 mr-1 inline-block"></div>Parsing...';
+
+            try {
+                var res = await fetch(API_URL + '/api/content/smart-paste', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + AUTH_TOKEN },
+                    body: JSON.stringify({
+                        client_id: currentClient.id,
+                        paste_text: text,
+                        preview_only: true
+                    })
+                });
+                var data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Preview failed');
+
+                var parsed = data.debug || {};
+                var previewHtml = '';
+
+                var fieldLabels = {
+                    meta_title: 'Meta Title', meta_description: 'Meta Description',
+                    slug: 'Slug', primary_keyword: 'Primary Keyword',
+                    secondary_keywords: 'Secondary Keywords', tags: 'Tags',
+                    title: 'Blog Title', excerpt: 'Excerpt',
+                    internal_links: 'Internal Links', target_city: 'Target City',
+                    body: 'Body Content'
+                };
+
+                for (var key in parsed) {
+                    var label = fieldLabels[key] || key;
+                    var val = parsed[key];
+                    if (Array.isArray(val)) {
+                        if (key === 'internal_links') {
+                            val = val.map(function(l) { return '<span class="text-blue-600">' + (l.text || l.url) + '</span> → ' + l.url; }).join('<br>');
+                        } else {
+                            val = val.join(', ');
+                        }
+                    }
+                    previewHtml += '<div class="flex gap-2"><span class="font-semibold text-gray-500 min-w-[140px]">' + label + ':</span><span>' + val + '</span></div>';
+                }
+
+                if (!previewHtml) {
+                    previewHtml = '<p class="text-red-500">Could not parse any fields. Try using labeled format like "Meta Title: ..."</p>';
+                    previewHtml += '<p class="text-gray-400 text-xs mt-2">Paste length: ' + (data.paste_length || 0) + ' chars</p>';
+                }
+
+                document.getElementById('smartPastePreviewContent').innerHTML = previewHtml;
+                document.getElementById('smartPastePreviewBox').classList.remove('hidden');
+            } catch (error) {
+                showToast('Preview error: ' + error.message, 'error');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-eye mr-1"></i>Preview';
+            }
+            return; // Skip the old client-side parsing below
+            // --- Old client-side parsing (kept as fallback) ---
             var parsed = parseContentPackagePreview(text);
             var previewHtml = '';
 

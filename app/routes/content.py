@@ -2897,8 +2897,28 @@ def smart_paste(current_user):
         return jsonify({'error': 'Access denied'}), 403
 
     # ---- Parse the pasted content package ----
+    # If preview_only=true, just return parsed fields without creating/updating
+    preview_only = data.get('preview_only', False)
+
     parsed = _parse_content_package(paste_text)
     logger.info(f"Smart-paste parsed fields: {list(parsed.keys())} | body_len={len(parsed.get('body',''))} | links={len(parsed.get('internal_links',[]))} | paste_len={len(paste_text)}")
+
+    if preview_only:
+        # Return debug info — what was parsed and first 200 chars of body
+        debug_info = {}
+        for k, v in parsed.items():
+            if k == 'body':
+                debug_info[k] = f"({len(v)} chars) {v[:200]}..."
+            elif isinstance(v, list):
+                debug_info[k] = v
+            else:
+                debug_info[k] = v
+        return jsonify({
+            'parsed_fields': list(parsed.keys()),
+            'debug': debug_info,
+            'paste_length': len(paste_text),
+            'paste_first_500': paste_text[:500]
+        })
 
     if blog_id:
         # Update existing blog post with parsed fields
