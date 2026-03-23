@@ -14818,13 +14818,23 @@
                 });
 
                 var data = await res.json();
+                console.log('[SmartPaste] Full API response:', JSON.stringify({
+                    parsed_fields: data.parsed_fields,
+                    parsed_body_len: data.parsed_body_len,
+                    saved_body_len: data.saved_body_len,
+                    blog_body_len: data.blog ? (data.blog.body || '').length : 0,
+                    blog_word_count: data.blog ? data.blog.word_count : 0,
+                    blog_id: data.blog ? data.blog.id : null
+                }));
                 if (!res.ok) throw new Error(data.error || 'Smart paste failed');
 
                 closeSmartPasteModal();
-                showToast('Blog post created from ' + (data.parsed_fields || []).length + ' parsed fields!', 'success');
+                var bodyLen = data.blog ? (data.blog.body || '').length : 0;
+                showToast('Blog created! ' + (data.parsed_fields || []).length + ' fields parsed, body: ' + bodyLen + ' chars', 'success');
 
                 // Add to local list and open the blog
                 if (data.blog) {
+                    console.log('[SmartPaste] Blog body first 200 chars:', (data.blog.body || '').substring(0, 200));
                     allBlogs.unshift(data.blog);
                     renderBlogs();
                     openBlogModal(data.blog.id);

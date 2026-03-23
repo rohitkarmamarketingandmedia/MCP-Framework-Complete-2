@@ -2900,6 +2900,11 @@ def smart_paste(current_user):
     # If preview_only=true, just return parsed fields without creating/updating
     preview_only = data.get('preview_only', False)
 
+    # Log the raw paste for debugging (v3 parser — subtract metadata approach)
+    line_count = paste_text.count('\n')
+    logger.info(f"Smart-paste v3 received: {len(paste_text)} chars, {line_count} newlines")
+    logger.info(f"Smart-paste first 300 chars: {repr(paste_text[:300])}")
+
     parsed = _parse_content_package(paste_text)
     logger.info(f"Smart-paste parsed fields: {list(parsed.keys())} | body_len={len(parsed.get('body',''))} | links={len(parsed.get('internal_links',[]))} | paste_len={len(paste_text)}")
 
@@ -2908,15 +2913,19 @@ def smart_paste(current_user):
         debug_info = {}
         for k, v in parsed.items():
             if k == 'body':
-                debug_info[k] = f"({len(v)} chars) {v[:200]}..."
+                debug_info[k] = f"({len(v)} chars) {v[:300]}..."
             elif isinstance(v, list):
                 debug_info[k] = v
             else:
                 debug_info[k] = v
         return jsonify({
+            'parser_version': 'v3-subtract-metadata',
             'parsed_fields': list(parsed.keys()),
+            'has_body': 'body' in parsed,
+            'body_length': len(parsed.get('body', '')),
             'debug': debug_info,
             'paste_length': len(paste_text),
+            'paste_newlines': paste_text.count('\n'),
             'paste_first_500': paste_text[:500]
         })
 
@@ -3007,12 +3016,17 @@ def smart_paste(current_user):
                 logger.warning(f"SEO scoring failed for smart-paste post: {e}")
 
         data_service.save_blog_post(blog)
-        logger.info(f"Smart-paste created blog {blog.id} for client {client_id}")
+        logger.info(f"Smart-paste created blog {blog.id} for client {client_id} | body_len_on_blog={len(blog.body or '')} | word_count={blog.word_count}")
+
+        blog_dict = blog.to_dict()
+        logger.info(f"Smart-paste blog.to_dict body_len={len(blog_dict.get('body',''))} | word_count={blog_dict.get('word_count',0)}")
 
         return jsonify({
             'message': 'Blog post created from pasted content',
             'parsed_fields': list(parsed.keys()),
-            'blog': blog.to_dict()
+            'parsed_body_len': len(parsed.get('body', '')),
+            'saved_body_len': len(blog.body or ''),
+            'blog': blog_dict
         }), 201
 
 
@@ -3156,48 +3170,80 @@ def _parse_content_package(text: str) -> dict:
         re.IGNORECASE
     )
 
-    # Build body from non-metadata lines
-    body_lines = []
-    in_metadata_section = False
+    # Build body: collect ALL lines, mark each as 'meta' or 'body'
+    line_classifications = []  # list of (line_text, 'meta'|'body'|'empty')
 
     for i, line in enumerate(lines):
         stripped = line.strip()
 
-        # Skip empty lines but preserve them as paragraph breaks
         if not stripped:
-            if body_lines and body_lines[-1] != '':
-                body_lines.append('')
-            in_metadata_section = False
+            line_classifications.append((line, 'empty'))
             continue
 
-        # Skip consumed lines (already extracted as metadata)
+        # Consumed by metadata extraction in steps 1-5
         if i in consumed_lines:
-            in_metadata_section = True
+            line_classifications.append((line, 'meta'))
             continue
 
-        # Skip metadata label lines
+        # Metadata label lines
         if metadata_line_re.match(stripped):
-            in_metadata_section = True
+            line_classifications.append((line, 'meta'))
             continue
 
-        # Skip linking instruction lines
+        # Linking instruction lines
         if linking_instruction_re.match(stripped):
-            in_metadata_section = True
+            line_classifications.append((line, 'meta'))
             continue
 
-        # Skip lines that are just a URL
+        # Lines that are just a URL
         if re.match(r'^https?://\S+\s*$', stripped):
+            line_classifications.append((line, 'meta'))
             continue
 
-        # Skip single-line values right after a metadata label
-        if in_metadata_section and len(stripped) < 150 and not re.match(r'^#{1,6}\s+', stripped):
-            in_metadata_section = False
-            continue
+        # Everything else is potential body content
+        line_classifications.append((line, 'body'))
 
-        in_metadata_section = False
-        body_lines.append(line)
+    # Now find the longest contiguous run of body+empty lines
+    # This is the article content
+    best_start = -1
+    best_end = -1
+    best_len = 0
+    cur_start = -1
+    cur_body_chars = 0
 
-    # Clean up: strip leading/trailing empty lines
+    for i, (line, cls) in enumerate(line_classifications):
+        if cls in ('body', 'empty'):
+            if cur_start == -1:
+                cur_start = i
+                cur_body_chars = 0
+            if cls == 'body':
+                cur_body_chars += len(line.strip())
+        else:
+            # Meta line breaks the run
+            if cur_start != -1 and cur_body_chars > best_len:
+                best_start = cur_start
+                best_end = i
+                best_len = cur_body_chars
+            cur_start = -1
+            cur_body_chars = 0
+
+    # Check the last run
+    if cur_start != -1 and cur_body_chars > best_len:
+        best_start = cur_start
+        best_end = len(line_classifications)
+        best_len = cur_body_chars
+
+    body_lines = []
+    if best_start >= 0:
+        for i in range(best_start, best_end):
+            line_text, cls = line_classifications[i]
+            if cls == 'empty':
+                if body_lines and body_lines[-1] != '':
+                    body_lines.append('')
+            else:
+                body_lines.append(line_text)
+
+    # Clean up leading/trailing empty
     while body_lines and not body_lines[0].strip():
         body_lines.pop(0)
     while body_lines and not body_lines[-1].strip():
@@ -3205,14 +3251,19 @@ def _parse_content_package(text: str) -> dict:
 
     body_text = '\n'.join(body_lines).strip()
 
-    # Only use as body if it's substantial (more than just a sentence or two)
+    # Count how many lines were classified as each type
+    meta_count = sum(1 for _, c in line_classifications if c == 'meta')
+    body_count = sum(1 for _, c in line_classifications if c == 'body')
+    logger.info(f"Smart-paste parser: {len(lines)} lines total, {meta_count} meta, {body_count} body, {len(consumed_lines)} consumed | best run: {best_start}-{best_end} ({best_len} chars)")
+
+    # Only use as body if it's substantial
     if len(body_text) > 100:
         # Convert markdown headings to HTML
         if re.search(r'^#{1,6}\s+', body_text, re.MULTILINE):
             body_text = _markdown_to_html(body_text)
         result['body'] = body_text
-
-    logger.info(f"Smart-paste parser: consumed {len(consumed_lines)} metadata lines, body candidate {len(body_text)} chars from {len(lines)} total lines")
+    else:
+        logger.warning(f"Smart-paste: body too short ({len(body_text)} chars), not using. First 200: {repr(body_text[:200])}")
 
     # ---- STEP 8: Fallback title ----
     if not result.get('title') and not result.get('meta_title'):
