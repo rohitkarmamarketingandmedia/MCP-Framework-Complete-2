@@ -2898,6 +2898,7 @@ def smart_paste(current_user):
 
     # ---- Parse the pasted content package ----
     parsed = _parse_content_package(paste_text)
+    logger.info(f"Smart-paste parsed fields: {list(parsed.keys())} | body_len={len(parsed.get('body',''))} | links={len(parsed.get('internal_links',[]))} | paste_len={len(paste_text)}")
 
     if blog_id:
         # Update existing blog post with parsed fields
@@ -3110,21 +3111,82 @@ def _parse_content_package(text: str) -> dict:
             pass
 
     # ---- STEP 6: Body / article content ----
-    # Look for a "Body" or "Content" or "Article" section with multi-line content
+    # Strategy: Try multiple approaches to find the article body.
+
+    body_text = ''
+
+    # 6a: Explicit "Body" / "Content" / "Article" / "Blog Post" header
     body_section = re.search(
-        r'(?:body|content|article|blog\s*(?:body|content|text)|full\s*(?:article|content|text)|post\s*content)\s*[:\-–—=]?\s*\n([\s\S]+?)(?:\n\s*(?:internal\s*link|schema|json-?ld|tags?|categor|seo\s*score|word\s*count|deliverable|---)\s*[:\-–—=]|\Z)',
+        r'(?:body|full\s*(?:article|blog|content|text)|blog\s*(?:body|content|text|post|article)|article\s*(?:body|content|text)|post\s*content)\s*[:\-–—=]?\s*\n([\s\S]+?)(?:\n\s*(?:internal\s*link|schema|json-?ld|tags?|categor|seo\s*score|word\s*count|deliverable|---)\s*[:\-–—=]|\Z)',
         text, re.IGNORECASE
     )
     if body_section:
         body_text = body_section.group(1).strip()
-        if len(body_text) > 50:
-            result['body'] = body_text
 
-    # If no explicit body section found, look for HTML content blocks
-    if not result.get('body'):
-        html_match = re.search(r'(<(?:h[1-6]|p|div|article|section)\b[\s\S]{50,})', text, re.IGNORECASE)
+    # 6b: "DELIVERABLE" section that contains the article (common AI content format)
+    if not body_text:
+        deliverable_match = re.search(
+            r'(?:deliverable\s*(?:#?\s*\d+)?[:\-–—=\s]*(?:blog|article|content|full|post)[^\n]*)\s*\n([\s\S]+?)(?:\n\s*deliverable\s*(?:#?\s*\d+)|$)',
+            text, re.IGNORECASE
+        )
+        if deliverable_match:
+            body_text = deliverable_match.group(1).strip()
+
+    # 6c: Look for HTML content blocks (<h1>, <h2>, <p>, etc.)
+    if not body_text:
+        html_match = re.search(r'(<(?:h[1-6]|p|div|article|section)\b[\s\S]{100,})', text, re.IGNORECASE)
         if html_match:
-            result['body'] = html_match.group(1).strip()
+            body_text = html_match.group(1).strip()
+
+    # 6d: Look for markdown-structured content (## headings followed by paragraphs)
+    if not body_text:
+        md_blocks = re.findall(r'(#{1,3}\s+.+\n(?:(?!#{1,3}\s).*\n?)*)', text)
+        if md_blocks and len(md_blocks) >= 2:
+            # Found multiple markdown sections — this is likely the article
+            full_md = '\n'.join(md_blocks)
+            if len(full_md) > 200:
+                body_text = full_md.strip()
+
+    # 6e: FALLBACK — find the longest continuous block of text (paragraphs)
+    #     that isn't just labeled metadata fields
+    if not body_text:
+        # Split text into blocks separated by double newlines
+        blocks = re.split(r'\n\s*\n', text)
+        # Filter out short blocks, lines that look like metadata labels, and URL-only lines
+        meta_label_re = re.compile(
+            r'^(?:meta\s*(?:title|desc)|slug|permalink|tags?|keyword|categor|schema|json-?ld|internal\s*link|seo\s*(?:score|title)|word\s*count|target\s*(?:city|keyword)|deliverable|---)',
+            re.IGNORECASE
+        )
+        content_blocks = []
+        for block in blocks:
+            block = block.strip()
+            if len(block) < 80:
+                continue
+            first_line = block.split('\n')[0].strip()
+            if meta_label_re.match(first_line):
+                continue
+            if re.match(r'^https?://', first_line) and '\n' not in block:
+                continue
+            content_blocks.append(block)
+
+        if content_blocks:
+            # Pick the longest block, or join all content blocks if there are multiple
+            longest = max(content_blocks, key=len)
+            if len(longest) > 300:
+                # If the longest block is much bigger than others, it's the article
+                body_text = longest
+            elif len(content_blocks) >= 2:
+                # Multiple substantial blocks — join them as the article
+                combined = '\n\n'.join(content_blocks)
+                if len(combined) > 300:
+                    body_text = combined
+
+    # Store body if we found something substantial
+    if body_text and len(body_text) > 50:
+        # Convert markdown to basic HTML if it contains markdown headings
+        if re.search(r'^#{1,6}\s+', body_text, re.MULTILINE):
+            body_text = _markdown_to_html(body_text)
+        result['body'] = body_text
 
     # ---- STEP 7: Target city ----
     city_match = re.search(
@@ -3148,6 +3210,69 @@ def _parse_content_package(text: str) -> dict:
                 break
 
     return result
+
+
+def _markdown_to_html(md_text: str) -> str:
+    """Convert basic markdown to HTML for blog body content."""
+    html_lines = []
+    in_list = False
+
+    for line in md_text.split('\n'):
+        stripped = line.strip()
+
+        # Headings
+        h_match = re.match(r'^(#{1,6})\s+(.+)', stripped)
+        if h_match:
+            if in_list:
+                html_lines.append('</ul>')
+                in_list = False
+            level = len(h_match.group(1))
+            html_lines.append(f'<h{level}>{h_match.group(2).strip()}</h{level}>')
+            continue
+
+        # Bold + italic
+        stripped = re.sub(r'\*\*\*(.+?)\*\*\*', r'<strong><em>\1</em></strong>', stripped)
+        stripped = re.sub(r'\*\*(.+?)\*\*', r'<strong>\1</strong>', stripped)
+        stripped = re.sub(r'\*(.+?)\*', r'<em>\1</em>', stripped)
+
+        # Links [text](url)
+        stripped = re.sub(r'\[([^\]]+)\]\((https?://[^)]+)\)', r'<a href="\2">\1</a>', stripped)
+
+        # Unordered list items
+        li_match = re.match(r'^[-*•·]\s+(.+)', stripped)
+        if li_match:
+            if not in_list:
+                html_lines.append('<ul>')
+                in_list = True
+            html_lines.append(f'<li>{li_match.group(1)}</li>')
+            continue
+
+        # Ordered list items
+        oli_match = re.match(r'^\d+[.)]\s+(.+)', stripped)
+        if oli_match:
+            if not in_list:
+                html_lines.append('<ul>')
+                in_list = True
+            html_lines.append(f'<li>{oli_match.group(1)}</li>')
+            continue
+
+        # Close list if we hit a non-list line
+        if in_list and stripped:
+            html_lines.append('</ul>')
+            in_list = False
+
+        # Empty line = paragraph break
+        if not stripped:
+            html_lines.append('')
+            continue
+
+        # Regular paragraph
+        html_lines.append(f'<p>{stripped}</p>')
+
+    if in_list:
+        html_lines.append('</ul>')
+
+    return '\n'.join(html_lines)
 
 
 # ==========================================
