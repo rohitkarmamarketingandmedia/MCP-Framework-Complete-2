@@ -66,6 +66,19 @@ def create_app(config_name=None):
         with app.app_context():
             from app.database import db
             db.create_all()
+
+            # --- Lightweight column migrations (idempotent) ---
+            from sqlalchemy import text, inspect
+            try:
+                inspector = inspect(db.engine)
+                if 'blog_posts' in inspector.get_table_names():
+                    bp_cols = [col['name'] for col in inspector.get_columns('blog_posts')]
+                    if 'notes' not in bp_cols:
+                        db.session.execute(text("ALTER TABLE blog_posts ADD COLUMN notes TEXT DEFAULT '[]'"))
+                        db.session.commit()
+                        logger.info("Migration: added 'notes' column to blog_posts")
+            except Exception as mig_err:
+                logger.warning(f"Column migration check: {mig_err}")
     except Exception as e:
         logger.warning(f"Could not initialize intelligence models: {e}")
     
