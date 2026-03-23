@@ -14650,7 +14650,8 @@
                 slug: 'Slug', primary_keyword: 'Primary Keyword',
                 secondary_keywords: 'Secondary Keywords', tags: 'Tags',
                 title: 'Blog Title', excerpt: 'Excerpt',
-                internal_links: 'Internal Links'
+                internal_links: 'Internal Links', target_city: 'Target City',
+                body: 'Body Content'
             };
 
             for (var key in parsed) {
@@ -14677,12 +14678,13 @@
         function parseContentPackagePreview(text) {
             var result = {};
             var patterns = {
-                meta_title: /(?:meta\s*title|seo\s*title|page\s*title)\s*[:\-–—]\s*(.+)/i,
-                meta_description: /(?:meta\s*desc(?:ription)?|seo\s*desc(?:ription)?)\s*[:\-–—]\s*(.+)/i,
-                slug: /(?:slug|url\s*slug|permalink)\s*[:\-–—]\s*(.+)/i,
-                primary_keyword: /(?:primary\s*keyword|target\s*keyword|focus\s*keyword|main\s*keyword)\s*[:\-–—]\s*(.+)/i,
-                title: /(?:blog\s*title|post\s*title|h1|headline)\s*[:\-–—]\s*(.+)/i,
-                excerpt: /(?:excerpt|summary)\s*[:\-–—]\s*(.+)/i
+                meta_title: /(?:meta\s*title|seo\s*title|page\s*title|title\s*tag)\s*[:\-–—=]\s*(.+)/i,
+                meta_description: /(?:meta\s*desc(?:ription)?|seo\s*desc(?:ription)?)\s*[:\-–—=]\s*(.+)/i,
+                slug: /(?:slug|url\s*slug|permalink|url)\s*[:\-–—=]\s*[/]?(.+)/i,
+                primary_keyword: /(?:primary\s*keyword|target\s*keyword|focus\s*keyword|main\s*keyword)\s*[:\-–—=]\s*(.+)/i,
+                title: /(?:blog\s*title|post\s*title|h1|headline|article\s*title)\s*[:\-–—=]\s*(.+)/i,
+                excerpt: /(?:excerpt|summary)\s*[:\-–—=]\s*(.+)/i,
+                target_city: /(?:target\s*city|city|location|geo|service\s*area)\s*[:\-–—=]\s*(.+)/i
             };
 
             for (var field in patterns) {
@@ -14690,23 +14692,49 @@
                 if (m) result[field] = m[1].trim().replace(/^["']|["']$/g, '');
             }
 
-            var secMatch = text.match(/(?:secondary\s*keywords?|related\s*keywords?|lsi\s*keywords?)\s*[:\-–—]\s*(.+)/i);
+            var secMatch = text.match(/(?:secondary\s*keywords?|related\s*keywords?|lsi\s*keywords?|additional\s*keywords?)\s*[:\-–—=]\s*(.+)/i);
             if (secMatch) {
                 result.secondary_keywords = secMatch[1].split(/[,;|]/).map(function(s) { return s.trim(); }).filter(Boolean);
             }
 
-            var tagsMatch = text.match(/(?:tags?|categories|wordpress\s*tags?)\s*[:\-–—]\s*(.+)/i);
+            var tagsMatch = text.match(/(?:tags?|categories|wordpress\s*tags?|post\s*tags?|suggested\s*tags?)\s*[:\-–—=]\s*(.+)/i);
             if (tagsMatch) {
                 result.tags = tagsMatch[1].split(/[,;|]/).map(function(s) { return s.trim().replace(/^#/, ''); }).filter(Boolean);
             }
 
-            // Internal links
+            // Internal links — multiple patterns
             var links = [];
-            var linkMatches = text.matchAll(/["']?([^"'→\-\n]+?)["']?\s*[→\->]+\s*(https?:\/\/\S+)/gi);
-            for (var match of linkMatches) {
-                links.push({ text: match[1].trim(), url: match[2].trim() });
+
+            // Arrow format: anchor → URL
+            var arrowMatches = text.matchAll(/["']?([^"'→\n]{3,80}?)["']?\s*[→⟶➜>]+\s*(https?:\/\/\S+)/gi);
+            for (var match of arrowMatches) {
+                links.push({ text: match[1].trim(), url: match[2].trim().replace(/\)$/, '') });
             }
+
+            // Markdown: [anchor](URL)
+            var mdMatches = text.matchAll(/\[([^\]]+)\]\((https?:\/\/\S+?)\)/gi);
+            for (var match of mdMatches) {
+                if (!links.some(function(l) { return l.url === match[2].trim(); })) {
+                    links.push({ text: match[1].trim(), url: match[2].trim() });
+                }
+            }
+
+            // URL (anchor) or URL — anchor
+            var urlFirstMatches = text.matchAll(/(https?:\/\/\S+)\s*[\(–—\-:]\s*([^)\n]{3,80})/gi);
+            for (var match of urlFirstMatches) {
+                var u = match[1].trim().replace(/\)$/, '');
+                if (!links.some(function(l) { return l.url === u; })) {
+                    links.push({ text: match[2].trim().replace(/\)$/, ''), url: u });
+                }
+            }
+
             if (links.length) result.internal_links = links;
+
+            // Check for body/content section
+            var bodyMatch = text.match(/(?:body|content|article|blog\s*(?:body|content)|full\s*(?:article|content)|post\s*content)\s*[:\-–—=]?\s*\n([\s\S]+?)(?:\n\s*(?:internal\s*link|schema|tags?|seo\s*score|word\s*count|---)\s*[:\-–—=]|\s*$)/i);
+            if (bodyMatch && bodyMatch[1].trim().length > 50) {
+                result.body = '(' + bodyMatch[1].trim().length + ' characters)';
+            }
 
             return result;
         }

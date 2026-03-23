@@ -2930,6 +2930,8 @@ def smart_paste(current_user):
             blog.word_count = len(parsed['body'].split())
         if parsed.get('excerpt'):
             blog.excerpt = parsed['excerpt']
+        if parsed.get('target_city'):
+            blog.target_city = parsed['target_city']
 
         blog.updated_at = datetime.utcnow()
         from app.database import db as _db
@@ -2955,6 +2957,8 @@ def smart_paste(current_user):
         blog.tags = json.dumps(parsed.get('tags', []))
         blog.internal_links = json.dumps(parsed.get('internal_links', []))
         blog.schema_markup = json.dumps(parsed.get('schema_markup')) if parsed.get('schema_markup') else None
+        if parsed.get('target_city'):
+            blog.target_city = parsed['target_city']
         blog.excerpt = parsed.get('excerpt', '')
         if not blog.excerpt and blog.body:
             plain = re.sub(r'<[^>]+>', '', blog.body)
@@ -2994,19 +2998,21 @@ def smart_paste(current_user):
 def _parse_content_package(text: str) -> dict:
     """
     Parse a free-form content package into structured fields.
-    Handles various formats — looks for labeled sections.
+    Handles various formats from AI content tools — labeled sections,
+    multi-line blocks, markdown headers, numbered deliverables, etc.
     """
     result = {}
     text = text.strip()
+    lines = text.split('\n')
 
-    # Common label patterns (case insensitive)
+    # ---- STEP 1: Single-line labeled fields (case insensitive) ----
     label_patterns = {
-        'meta_title': r'(?:meta\s*title|seo\s*title|page\s*title)\s*[:\-–—]\s*(.+)',
-        'meta_description': r'(?:meta\s*desc(?:ription)?|seo\s*desc(?:ription)?)\s*[:\-–—]\s*(.+)',
-        'slug': r'(?:slug|url\s*slug|permalink)\s*[:\-–—]\s*(.+)',
-        'primary_keyword': r'(?:primary\s*keyword|target\s*keyword|focus\s*keyword|main\s*keyword)\s*[:\-–—]\s*(.+)',
-        'title': r'(?:blog\s*title|post\s*title|h1|headline)\s*[:\-–—]\s*(.+)',
-        'excerpt': r'(?:excerpt|summary|description)\s*[:\-–—]\s*(.+)',
+        'meta_title': r'(?:meta\s*title|seo\s*title|page\s*title|title\s*tag)\s*[:\-–—=]\s*(.+)',
+        'meta_description': r'(?:meta\s*desc(?:ription)?|seo\s*desc(?:ription)?)\s*[:\-–—=]\s*(.+)',
+        'slug': r'(?:slug|url\s*slug|permalink|url)\s*[:\-–—=]\s*[/]?(.+)',
+        'primary_keyword': r'(?:primary\s*keyword|target\s*keyword|focus\s*keyword|main\s*keyword)\s*[:\-–—=]\s*(.+)',
+        'title': r'(?:blog\s*title|post\s*title|h1|headline|article\s*title)\s*[:\-–—=]\s*(.+)',
+        'excerpt': r'(?:excerpt|summary)\s*[:\-–—=]\s*(.+)',
     }
 
     for field, pattern in label_patterns.items():
@@ -3016,74 +3022,130 @@ def _parse_content_package(text: str) -> dict:
             if val:
                 result[field] = val
 
-    # Secondary keywords — look for comma-separated list after label
+    # ---- STEP 2: Secondary keywords ----
     sec_kw_match = re.search(
-        r'(?:secondary\s*keywords?|related\s*keywords?|lsi\s*keywords?|supporting\s*keywords?)\s*[:\-–—]\s*(.+)',
+        r'(?:secondary\s*keywords?|related\s*keywords?|lsi\s*keywords?|supporting\s*keywords?|additional\s*keywords?)\s*[:\-–—=]\s*(.+)',
         text, re.IGNORECASE
     )
     if sec_kw_match:
         kw_text = sec_kw_match.group(1).strip()
         result['secondary_keywords'] = [k.strip().strip('"\'') for k in re.split(r'[,;|]', kw_text) if k.strip()]
 
-    # Tags
+    # ---- STEP 3: Tags (single-line or multi-line bullet list) ----
     tags_match = re.search(
-        r'(?:tags?|categories|wordpress\s*tags?|post\s*tags?)\s*[:\-–—]\s*(.+)',
+        r'(?:tags?|categories|wordpress\s*tags?|post\s*tags?|suggested\s*tags?)\s*[:\-–—=]\s*(.+)',
         text, re.IGNORECASE
     )
     if tags_match:
         tags_text = tags_match.group(1).strip()
         result['tags'] = [t.strip().strip('"\'#') for t in re.split(r'[,;|]', tags_text) if t.strip()]
 
-    # Internal links — look for URLs with optional anchor text
+    # Also try multi-line tag list
+    if not result.get('tags'):
+        tags_section = re.search(
+            r'(?:tags?|wordpress\s*tags?)\s*[:\-–—=]?\s*\n((?:\s*[-•*·✓✔]\s*.+\n?)+)',
+            text, re.IGNORECASE
+        )
+        if tags_section:
+            result['tags'] = [
+                re.sub(r'^[-•*·✓✔\s]+', '', line).strip().strip('"\'#')
+                for line in tags_section.group(1).split('\n')
+                if line.strip()
+            ]
+
+    # ---- STEP 4: Internal links — multiple patterns ----
     internal_links = []
-    # Pattern 1: "anchor text" → URL  or  anchor text - URL
-    link_pattern1 = re.findall(
-        r'["\']?([^"\'→\-\n]+?)["\']?\s*[→\-–—>]+\s*(https?://\S+)',
-        text, re.IGNORECASE
-    )
-    for anchor, url in link_pattern1:
-        internal_links.append({'text': anchor.strip(), 'url': url.strip()})
 
-    # Pattern 2: URL (anchor text) or URL — anchor text
-    link_pattern2 = re.findall(
-        r'(https?://\S+)\s*[\(–—\-]\s*([^)\n]+)',
-        text, re.IGNORECASE
-    )
-    for url, anchor in link_pattern2:
-        if not any(l['url'] == url.strip() for l in internal_links):
-            internal_links.append({'text': anchor.strip().rstrip(')'), 'url': url.strip()})
+    # Pattern A: "anchor text" → URL  or  anchor text → URL  (arrow)
+    for m in re.finditer(r'["\']?([^"\'→\n]{3,80}?)["\']?\s*[→⟶➜>]+\s*(https?://\S+)', text):
+        anchor, url = m.group(1).strip(), m.group(2).strip().rstrip(')')
+        if anchor and not re.match(r'^https?://', anchor):
+            internal_links.append({'text': anchor, 'url': url})
 
-    # Pattern 3: plain URLs on lines under an "Internal Links" header
+    # Pattern B: [anchor text](URL) — markdown links
+    for m in re.finditer(r'\[([^\]]+)\]\((https?://\S+?)\)', text):
+        anchor, url = m.group(1).strip(), m.group(2).strip()
+        if not any(l['url'] == url for l in internal_links):
+            internal_links.append({'text': anchor, 'url': url})
+
+    # Pattern C: URL (anchor text) or URL — anchor text
+    for m in re.finditer(r'(https?://\S+)\s*[\(–—\-:]\s*([^)\n]{3,80})', text):
+        url, anchor = m.group(1).strip().rstrip(')'), m.group(2).strip().rstrip(')')
+        if not any(l['url'] == url for l in internal_links):
+            internal_links.append({'text': anchor, 'url': url})
+
+    # Pattern D: Lines with URLs under an "Internal Links" / "Linking" header section
     il_section = re.search(
-        r'(?:internal\s*links?|linking\s*strategy|link\s*targets?)\s*[:\-–—]?\s*\n((?:.*\n?)*?)(?:\n\n|\Z)',
+        r'(?:internal\s*link(?:ing|s)?|link(?:ing)?\s*(?:strategy|targets?|suggestions?|recommendations?))\s*[:\-–—=]?\s*\n((?:.*\n?)*?)(?:\n\s*\n|\n(?=[A-Z][a-z]+\s*[:\-–—=])|\Z)',
         text, re.IGNORECASE
     )
     if il_section:
         for line in il_section.group(1).split('\n'):
-            line = line.strip().lstrip('•-*·→ ')
+            line = line.strip().lstrip('•-*·→✓✔0123456789.) ')
             url_match = re.search(r'(https?://\S+)', line)
             if url_match:
-                url = url_match.group(1).strip()
-                anchor = re.sub(r'https?://\S+', '', line).strip(' -–—:→•*·')
+                url = url_match.group(1).strip().rstrip(')')
+                anchor = re.sub(r'https?://\S+', '', line).strip(' -–—:→•*·"\'()[]')
                 if not any(l['url'] == url for l in internal_links):
                     internal_links.append({'text': anchor or url, 'url': url})
+
+    # Pattern E: Any remaining URLs on their own lines
+    if not internal_links:
+        for line in lines:
+            line = line.strip()
+            url_match = re.match(r'^[-•*·→\s]*(https?://\S+)\s*$', line)
+            if url_match:
+                url = url_match.group(1).strip()
+                internal_links.append({'text': url, 'url': url})
 
     if internal_links:
         result['internal_links'] = internal_links
 
-    # Schema markup — look for JSON-LD block
-    schema_match = re.search(r'(?:schema|json-?ld|structured\s*data)\s*[:\-–—]?\s*\n?\s*(\{[\s\S]*?\})\s*(?:\n\n|\Z)', text, re.IGNORECASE)
+    # ---- STEP 5: Schema markup — JSON-LD block ----
+    schema_match = re.search(r'(?:schema|json-?ld|structured\s*data)\s*[:\-–—=]?\s*\n?\s*(\{[\s\S]*?\})\s*(?:\n\n|\Z)', text, re.IGNORECASE)
     if schema_match:
         try:
             result['schema_markup'] = json.loads(schema_match.group(1))
         except json.JSONDecodeError:
             pass
 
-    # If we found nothing from labels, try to extract a title from the first line
+    # ---- STEP 6: Body / article content ----
+    # Look for a "Body" or "Content" or "Article" section with multi-line content
+    body_section = re.search(
+        r'(?:body|content|article|blog\s*(?:body|content|text)|full\s*(?:article|content|text)|post\s*content)\s*[:\-–—=]?\s*\n([\s\S]+?)(?:\n\s*(?:internal\s*link|schema|json-?ld|tags?|categor|seo\s*score|word\s*count|deliverable|---)\s*[:\-–—=]|\Z)',
+        text, re.IGNORECASE
+    )
+    if body_section:
+        body_text = body_section.group(1).strip()
+        if len(body_text) > 50:
+            result['body'] = body_text
+
+    # If no explicit body section found, look for HTML content blocks
+    if not result.get('body'):
+        html_match = re.search(r'(<(?:h[1-6]|p|div|article|section)\b[\s\S]{50,})', text, re.IGNORECASE)
+        if html_match:
+            result['body'] = html_match.group(1).strip()
+
+    # ---- STEP 7: Target city ----
+    city_match = re.search(
+        r'(?:target\s*city|city|location|geo|service\s*area)\s*[:\-–—=]\s*(.+)',
+        text, re.IGNORECASE
+    )
+    if city_match:
+        result['target_city'] = city_match.group(1).strip().strip('"\'')
+
+    # ---- STEP 8: Word count target ----
+    wc_match = re.search(r'(?:word\s*count|length|target\s*length)\s*[:\-–—=]\s*(\d[\d,]+)', text, re.IGNORECASE)
+    if wc_match:
+        result['target_word_count'] = wc_match.group(1).replace(',', '')
+
+    # ---- STEP 9: Fallback title from first non-empty line ----
     if not result.get('title') and not result.get('meta_title'):
-        first_line = text.split('\n')[0].strip()
-        if len(first_line) < 200 and not first_line.startswith('http'):
-            result['title'] = first_line
+        for line in lines:
+            line = line.strip().lstrip('#').strip()
+            if line and len(line) < 200 and not line.startswith('http') and not re.match(r'^[-•*·]', line):
+                result['title'] = line
+                break
 
     return result
 
