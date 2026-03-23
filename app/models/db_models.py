@@ -494,7 +494,11 @@ class DBBlogPost(db.Model):
     client_status: Mapped[Optional[str]] = mapped_column(String(30), nullable=True)  # None, 'pending_review', 'client_edited', 'client_approved'
     client_reviewed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     auto_generated: Mapped[bool] = mapped_column(Boolean, default=False)  # True if created by scheduler
-    
+
+    # Notes system — JSON array of {type, text, created_at, author}
+    # type: 'internal' | 'from_client' | 'for_client'
+    notes: Mapped[str] = mapped_column(Text, default='[]')
+
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
@@ -557,6 +561,7 @@ class DBBlogPost(db.Model):
             'client_status': self.client_status,
             'client_reviewed_at': self.client_reviewed_at.isoformat() if self.client_reviewed_at else None,
             'auto_generated': self.auto_generated,
+            'notes': safe_json_loads(self.notes, []),
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None
         }

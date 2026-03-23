@@ -2864,3 +2864,430 @@ def get_content_calendar_summary(current_user):
             for b in stale_drafts
         ]
     })
+
+
+# ==========================================
+# Smart Paste — parse externally-created blog content packages
+# ==========================================
+
+@content_bp.route('/smart-paste', methods=['POST'])
+@token_required
+def smart_paste(current_user):
+    """
+    Parse a pasted blog content package and create/update a blog post.
+    Accepts free-form text with sections like META TITLE, SLUG, TAGS, INTERNAL LINKS, etc.
+    Returns parsed fields so the frontend can review before saving.
+
+    POST /api/content/smart-paste
+    Body: { client_id, paste_text, blog_id? (optional — update existing) }
+    """
+    if not current_user.can_generate_content:
+        return jsonify({'error': 'Permission denied'}), 403
+
+    data = request.get_json(silent=True) or {}
+    client_id = data.get('client_id')
+    paste_text = data.get('paste_text', '').strip()
+    blog_id = data.get('blog_id')  # optional: update existing post
+
+    if not client_id:
+        return jsonify({'error': 'client_id is required'}), 400
+    if not paste_text:
+        return jsonify({'error': 'paste_text is required'}), 400
+    if not current_user.has_access_to_client(client_id):
+        return jsonify({'error': 'Access denied'}), 403
+
+    # ---- Parse the pasted content package ----
+    parsed = _parse_content_package(paste_text)
+
+    if blog_id:
+        # Update existing blog post with parsed fields
+        blog = DBBlogPost.query.get(blog_id)
+        if not blog:
+            return jsonify({'error': 'Blog post not found'}), 404
+        if blog.client_id != client_id:
+            return jsonify({'error': 'Blog does not belong to this client'}), 403
+
+        if parsed.get('meta_title'):
+            blog.meta_title = parsed['meta_title'][:500]
+        if parsed.get('meta_description'):
+            blog.meta_description = parsed['meta_description'][:500]
+        if parsed.get('slug'):
+            blog.slug = parsed['slug']
+        if parsed.get('primary_keyword'):
+            blog.primary_keyword = parsed['primary_keyword']
+        if parsed.get('secondary_keywords'):
+            blog.secondary_keywords = json.dumps(parsed['secondary_keywords'])
+        if parsed.get('tags'):
+            blog.tags = json.dumps(parsed['tags'])
+        if parsed.get('internal_links'):
+            blog.internal_links = json.dumps(parsed['internal_links'])
+        if parsed.get('schema_markup'):
+            blog.schema_markup = json.dumps(parsed['schema_markup'])
+        if parsed.get('title'):
+            blog.title = parsed['title'][:500]
+        if parsed.get('body'):
+            blog.body = parsed['body']
+            blog.word_count = len(parsed['body'].split())
+        if parsed.get('excerpt'):
+            blog.excerpt = parsed['excerpt']
+
+        blog.updated_at = datetime.utcnow()
+        from app.database import db as _db
+        _db.session.commit()
+        logger.info(f"Smart-paste updated blog {blog_id} with fields: {list(parsed.keys())}")
+
+        return jsonify({
+            'message': 'Blog post updated from pasted content',
+            'parsed_fields': list(parsed.keys()),
+            'blog': blog.to_dict()
+        })
+    else:
+        # Create new blog post from parsed content
+        title = parsed.get('title') or parsed.get('meta_title') or 'Untitled (from paste)'
+        blog = DBBlogPost(client_id=client_id, title=title[:500])
+        blog.body = parsed.get('body', '')
+        blog.word_count = len(blog.body.split()) if blog.body else 0
+        blog.meta_title = (parsed.get('meta_title') or title)[:500]
+        blog.meta_description = (parsed.get('meta_description') or '')[:500]
+        blog.slug = parsed.get('slug') or re.sub(r'[^a-z0-9]+', '-', title.lower()).strip('-')
+        blog.primary_keyword = parsed.get('primary_keyword', '')
+        blog.secondary_keywords = json.dumps(parsed.get('secondary_keywords', []))
+        blog.tags = json.dumps(parsed.get('tags', []))
+        blog.internal_links = json.dumps(parsed.get('internal_links', []))
+        blog.schema_markup = json.dumps(parsed.get('schema_markup')) if parsed.get('schema_markup') else None
+        blog.excerpt = parsed.get('excerpt', '')
+        if not blog.excerpt and blog.body:
+            plain = re.sub(r'<[^>]+>', '', blog.body)
+            blog.excerpt = plain[:160].strip()
+        blog.status = 'draft'
+
+        # Calculate SEO score
+        if blog.body and len(blog.body) > 100:
+            try:
+                client = DBClient.query.get(client_id)
+                location = client.geo if client else ''
+                seo_result = seo_scoring_engine.score_content(
+                    content={
+                        'title': blog.title or '',
+                        'meta_title': blog.meta_title or '',
+                        'meta_description': blog.meta_description or '',
+                        'h1': blog.title or '',
+                        'body': blog.body
+                    },
+                    target_keyword=blog.primary_keyword or '',
+                    location=location
+                )
+                blog.seo_score = seo_result.get('total_score', 0)
+            except Exception as e:
+                logger.warning(f"SEO scoring failed for smart-paste post: {e}")
+
+        data_service.save_blog_post(blog)
+        logger.info(f"Smart-paste created blog {blog.id} for client {client_id}")
+
+        return jsonify({
+            'message': 'Blog post created from pasted content',
+            'parsed_fields': list(parsed.keys()),
+            'blog': blog.to_dict()
+        }), 201
+
+
+def _parse_content_package(text: str) -> dict:
+    """
+    Parse a free-form content package into structured fields.
+    Handles various formats — looks for labeled sections.
+    """
+    result = {}
+    text = text.strip()
+
+    # Common label patterns (case insensitive)
+    label_patterns = {
+        'meta_title': r'(?:meta\s*title|seo\s*title|page\s*title)\s*[:\-–—]\s*(.+)',
+        'meta_description': r'(?:meta\s*desc(?:ription)?|seo\s*desc(?:ription)?)\s*[:\-–—]\s*(.+)',
+        'slug': r'(?:slug|url\s*slug|permalink)\s*[:\-–—]\s*(.+)',
+        'primary_keyword': r'(?:primary\s*keyword|target\s*keyword|focus\s*keyword|main\s*keyword)\s*[:\-–—]\s*(.+)',
+        'title': r'(?:blog\s*title|post\s*title|h1|headline)\s*[:\-–—]\s*(.+)',
+        'excerpt': r'(?:excerpt|summary|description)\s*[:\-–—]\s*(.+)',
+    }
+
+    for field, pattern in label_patterns.items():
+        m = re.search(pattern, text, re.IGNORECASE)
+        if m:
+            val = m.group(1).strip().strip('"\'')
+            if val:
+                result[field] = val
+
+    # Secondary keywords — look for comma-separated list after label
+    sec_kw_match = re.search(
+        r'(?:secondary\s*keywords?|related\s*keywords?|lsi\s*keywords?|supporting\s*keywords?)\s*[:\-–—]\s*(.+)',
+        text, re.IGNORECASE
+    )
+    if sec_kw_match:
+        kw_text = sec_kw_match.group(1).strip()
+        result['secondary_keywords'] = [k.strip().strip('"\'') for k in re.split(r'[,;|]', kw_text) if k.strip()]
+
+    # Tags
+    tags_match = re.search(
+        r'(?:tags?|categories|wordpress\s*tags?|post\s*tags?)\s*[:\-–—]\s*(.+)',
+        text, re.IGNORECASE
+    )
+    if tags_match:
+        tags_text = tags_match.group(1).strip()
+        result['tags'] = [t.strip().strip('"\'#') for t in re.split(r'[,;|]', tags_text) if t.strip()]
+
+    # Internal links — look for URLs with optional anchor text
+    internal_links = []
+    # Pattern 1: "anchor text" → URL  or  anchor text - URL
+    link_pattern1 = re.findall(
+        r'["\']?([^"\'→\-\n]+?)["\']?\s*[→\-–—>]+\s*(https?://\S+)',
+        text, re.IGNORECASE
+    )
+    for anchor, url in link_pattern1:
+        internal_links.append({'text': anchor.strip(), 'url': url.strip()})
+
+    # Pattern 2: URL (anchor text) or URL — anchor text
+    link_pattern2 = re.findall(
+        r'(https?://\S+)\s*[\(–—\-]\s*([^)\n]+)',
+        text, re.IGNORECASE
+    )
+    for url, anchor in link_pattern2:
+        if not any(l['url'] == url.strip() for l in internal_links):
+            internal_links.append({'text': anchor.strip().rstrip(')'), 'url': url.strip()})
+
+    # Pattern 3: plain URLs on lines under an "Internal Links" header
+    il_section = re.search(
+        r'(?:internal\s*links?|linking\s*strategy|link\s*targets?)\s*[:\-–—]?\s*\n((?:.*\n?)*?)(?:\n\n|\Z)',
+        text, re.IGNORECASE
+    )
+    if il_section:
+        for line in il_section.group(1).split('\n'):
+            line = line.strip().lstrip('•-*·→ ')
+            url_match = re.search(r'(https?://\S+)', line)
+            if url_match:
+                url = url_match.group(1).strip()
+                anchor = re.sub(r'https?://\S+', '', line).strip(' -–—:→•*·')
+                if not any(l['url'] == url for l in internal_links):
+                    internal_links.append({'text': anchor or url, 'url': url})
+
+    if internal_links:
+        result['internal_links'] = internal_links
+
+    # Schema markup — look for JSON-LD block
+    schema_match = re.search(r'(?:schema|json-?ld|structured\s*data)\s*[:\-–—]?\s*\n?\s*(\{[\s\S]*?\})\s*(?:\n\n|\Z)', text, re.IGNORECASE)
+    if schema_match:
+        try:
+            result['schema_markup'] = json.loads(schema_match.group(1))
+        except json.JSONDecodeError:
+            pass
+
+    # If we found nothing from labels, try to extract a title from the first line
+    if not result.get('title') and not result.get('meta_title'):
+        first_line = text.split('\n')[0].strip()
+        if len(first_line) < 200 and not first_line.startswith('http'):
+            result['title'] = first_line
+
+    return result
+
+
+# ==========================================
+# Competitor Gap Analysis
+# ==========================================
+
+@content_bp.route('/gap-analysis', methods=['POST'])
+@token_required
+def competitor_gap_analysis(current_user):
+    """
+    Run AI-powered competitor content gap analysis.
+    Takes client's site and competitor URLs, returns topic suggestions.
+
+    POST /api/content/gap-analysis
+    Body: { client_id, my_site, competitor_urls: [...], num_topics: 5 }
+    """
+    if not current_user.can_generate_content:
+        return jsonify({'error': 'Permission denied'}), 403
+
+    data = request.get_json(silent=True) or {}
+    client_id = data.get('client_id')
+    my_site = data.get('my_site', '').strip()
+    competitor_urls = data.get('competitor_urls', [])
+    num_topics = data.get('num_topics', 5)
+
+    if not client_id:
+        return jsonify({'error': 'client_id is required'}), 400
+    if not current_user.has_access_to_client(client_id):
+        return jsonify({'error': 'Access denied'}), 403
+
+    client = DBClient.query.get(client_id)
+    if not client:
+        return jsonify({'error': 'Client not found'}), 404
+
+    if not my_site:
+        my_site = client.website_url or ''
+    if not my_site:
+        return jsonify({'error': 'No website URL configured for this client'}), 400
+
+    if not competitor_urls:
+        try:
+            competitor_urls = json.loads(client.competitors) if client.competitors else []
+        except (json.JSONDecodeError, TypeError):
+            competitor_urls = []
+
+    if not competitor_urls:
+        return jsonify({'error': 'No competitor URLs provided and none configured in client settings'}), 400
+
+    # Build the AI prompt
+    competitors_list = '\n'.join(f'  - {url}' for url in competitor_urls[:5])
+    industry = client.industry or 'general'
+    geo = client.geo or ''
+
+    prompt = f"""You are an expert SEO content strategist. Analyze the following websites and identify content gaps.
+
+MY CLIENT'S WEBSITE: {my_site}
+INDUSTRY: {industry}
+LOCATION: {geo}
+
+COMPETITOR WEBSITES:
+{competitors_list}
+
+TASK: Scan these competitor sites. What content are they covering that my client is NOT? Find the content gaps and suggest exactly {num_topics} blog topics my client should cover to be more helpful and rank better.
+
+For each topic, provide:
+1. **Topic Title** — a specific, SEO-optimized blog title
+2. **Target Keyword** — the primary keyword to target
+3. **Why It Matters** — 1-2 sentences on the gap and opportunity
+4. **Estimated Search Volume** — low/medium/high
+5. **Difficulty** — easy/medium/hard
+
+Return your response as a JSON array of objects with keys: title, keyword, reason, search_volume, difficulty
+Wrap the JSON in ```json ... ``` tags."""
+
+    try:
+        ai_service = AIService()
+        response = ai_service.generate_text(prompt, max_tokens=2000)
+
+        # Parse JSON from response
+        topics = []
+        json_match = re.search(r'```json\s*([\s\S]*?)\s*```', response)
+        if json_match:
+            try:
+                topics = json.loads(json_match.group(1))
+            except json.JSONDecodeError:
+                pass
+
+        if not topics:
+            # Try parsing the whole response as JSON
+            try:
+                topics = json.loads(response)
+            except json.JSONDecodeError:
+                # Return raw text as fallback
+                return jsonify({
+                    'message': 'Gap analysis complete (raw)',
+                    'raw_response': response,
+                    'topics': []
+                })
+
+        return jsonify({
+            'message': f'Found {len(topics)} content gap topics',
+            'my_site': my_site,
+            'competitors': competitor_urls[:5],
+            'topics': topics
+        })
+
+    except Exception as e:
+        logger.error(f"Gap analysis failed: {e}", exc_info=True)
+        return jsonify({'error': f'Gap analysis failed: {str(e)}'}), 500
+
+
+# ==========================================
+# Notes System — internal / from client / for client
+# ==========================================
+
+@content_bp.route('/blog/<blog_id>/notes', methods=['GET'])
+@token_required
+def get_blog_notes(current_user, blog_id):
+    """Get all notes for a blog post"""
+    blog = DBBlogPost.query.get(blog_id)
+    if not blog:
+        return jsonify({'error': 'Blog post not found'}), 404
+    if not current_user.has_access_to_client(blog.client_id):
+        return jsonify({'error': 'Access denied'}), 403
+
+    try:
+        notes = json.loads(blog.notes) if blog.notes else []
+    except (json.JSONDecodeError, TypeError):
+        notes = []
+
+    return jsonify({'notes': notes, 'blog_id': blog_id})
+
+
+@content_bp.route('/blog/<blog_id>/notes', methods=['POST'])
+@token_required
+def add_blog_note(current_user, blog_id):
+    """
+    Add a note to a blog post.
+    Body: { type: 'internal'|'from_client'|'for_client', text: '...' }
+    """
+    blog = DBBlogPost.query.get(blog_id)
+    if not blog:
+        return jsonify({'error': 'Blog post not found'}), 404
+    if not current_user.has_access_to_client(blog.client_id):
+        return jsonify({'error': 'Access denied'}), 403
+
+    data = request.get_json(silent=True) or {}
+    note_type = data.get('type', 'internal')
+    note_text = data.get('text', '').strip()
+
+    if note_type not in ('internal', 'from_client', 'for_client'):
+        return jsonify({'error': 'Invalid note type. Must be internal, from_client, or for_client'}), 400
+    if not note_text:
+        return jsonify({'error': 'Note text is required'}), 400
+
+    try:
+        notes = json.loads(blog.notes) if blog.notes else []
+    except (json.JSONDecodeError, TypeError):
+        notes = []
+
+    new_note = {
+        'id': f"note_{uuid.uuid4().hex[:8]}",
+        'type': note_type,
+        'text': note_text,
+        'author': current_user.name or current_user.email,
+        'created_at': datetime.utcnow().isoformat()
+    }
+    notes.append(new_note)
+    blog.notes = json.dumps(notes)
+    blog.updated_at = datetime.utcnow()
+
+    from app.database import db as _db
+    _db.session.commit()
+
+    return jsonify({'message': 'Note added', 'note': new_note, 'notes': notes}), 201
+
+
+@content_bp.route('/blog/<blog_id>/notes/<note_id>', methods=['DELETE'])
+@token_required
+def delete_blog_note(current_user, blog_id, note_id):
+    """Delete a note from a blog post"""
+    blog = DBBlogPost.query.get(blog_id)
+    if not blog:
+        return jsonify({'error': 'Blog post not found'}), 404
+    if not current_user.has_access_to_client(blog.client_id):
+        return jsonify({'error': 'Access denied'}), 403
+
+    try:
+        notes = json.loads(blog.notes) if blog.notes else []
+    except (json.JSONDecodeError, TypeError):
+        notes = []
+
+    original_len = len(notes)
+    notes = [n for n in notes if n.get('id') != note_id]
+
+    if len(notes) == original_len:
+        return jsonify({'error': 'Note not found'}), 404
+
+    blog.notes = json.dumps(notes)
+    blog.updated_at = datetime.utcnow()
+
+    from app.database import db as _db
+    _db.session.commit()
+
+    return jsonify({'message': 'Note deleted', 'notes': notes})

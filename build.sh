@@ -118,7 +118,15 @@ with app.app_context():
             db.session.execute(text('ALTER TABLE clients ADD COLUMN service_pages TEXT DEFAULT \"[]\"'))
             db.session.commit()
             print('  ✓ Added service_pages column')
-    
+
+    # Add notes column to blog_posts table if missing
+    if 'blog_posts' in inspector.get_table_names():
+        bp_cols = [col['name'] for col in inspector.get_columns('blog_posts')]
+        if 'notes' not in bp_cols:
+            db.session.execute(text('ALTER TABLE blog_posts ADD COLUMN notes TEXT DEFAULT \"[]\"'))
+            db.session.commit()
+            print('  ✓ Added notes column to blog_posts')
+
     print('  ✓ Database migration complete')
 "
 

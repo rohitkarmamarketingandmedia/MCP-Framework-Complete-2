@@ -1501,6 +1501,55 @@
                         </div>
                     </div>
                 </div>
+
+                <!-- Competitor Gap Analysis -->
+                <div class="glass rounded-2xl p-6 md:col-span-2 mt-6">
+                    <div class="flex items-center gap-3 mb-6">
+                        <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-red-500 to-orange-600 flex items-center justify-center">
+                            <i class="fas fa-crosshairs text-white text-xl"></i>
+                        </div>
+                        <div>
+                            <h3 class="text-lg font-bold text-white">Competitor Content Gap Analysis</h3>
+                            <p class="text-sm text-gray-400">Find what your competitors cover that you don't — get topic ideas</p>
+                        </div>
+                    </div>
+
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-300 mb-2">Your Website</label>
+                            <input type="text" id="gapMySite" placeholder="https://www.yoursite.com"
+                                class="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-purple-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-300 mb-2">Competitor URLs (one per line)</label>
+                            <textarea id="gapCompetitors" rows="3"
+                                placeholder="https://competitor1.com&#10;https://competitor2.com&#10;https://competitor3.com"
+                                class="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 resize-none"></textarea>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-300 mb-2">Number of Topics</label>
+                            <select id="gapNumTopics"
+                                class="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white focus:outline-none focus:border-purple-500">
+                                <option value="3">3 topics</option>
+                                <option value="5" selected>5 topics</option>
+                                <option value="10">10 topics</option>
+                            </select>
+                        </div>
+                        <button onclick="runGapAnalysis()" id="btnGapAnalysis"
+                            class="w-full py-4 bg-gradient-to-r from-red-600 to-orange-600 rounded-xl text-white font-bold hover:opacity-90 transition flex items-center justify-center gap-2">
+                            <i class="fas fa-crosshairs"></i> Find Content Gaps
+                        </button>
+                    </div>
+
+                    <div id="gapProgress" class="hidden mt-4 p-4 bg-white/5 rounded-xl">
+                        <div class="flex items-center gap-3">
+                            <div class="spinner w-6 h-6"></div>
+                            <span class="text-gray-300">Analyzing competitor content...</span>
+                        </div>
+                    </div>
+
+                    <div id="gapResults" class="hidden mt-6 space-y-3"></div>
+                </div>
             </div>
 
             <!-- Blogs Panel -->
@@ -1529,6 +1578,11 @@
                     <button onclick="openCreateBlogModal()"
                         class="px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white rounded-lg text-sm font-medium transition whitespace-nowrap">
                         <i class="fas fa-plus mr-1"></i>Create Post
+                    </button>
+                    <button onclick="openSmartPasteModal()"
+                        class="px-4 py-2 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white rounded-lg text-sm font-medium transition whitespace-nowrap"
+                        title="Paste a content package (meta, slug, tags, links) to create a post">
+                        <i class="fas fa-paste mr-1"></i>Smart Paste
                     </button>
                 </div>
 
@@ -4579,6 +4633,39 @@
                             </button>
                         </div>
                     </div>
+
+                    <!-- Notes Panel -->
+                    <div id="notesPanel" class="mt-8 border-t pt-6">
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="text-lg font-bold text-gray-800 flex items-center gap-2">
+                                <i class="fas fa-sticky-note text-amber-500"></i>
+                                Notes
+                                <span id="notesBadge" class="px-2 py-0.5 bg-amber-100 text-amber-700 rounded-full text-xs font-semibold hidden">0</span>
+                            </h3>
+                            <div class="flex gap-1">
+                                <button onclick="filterNotes('all')" id="notesFilterAll" class="px-2 py-1 text-xs rounded bg-gray-200 text-gray-700 font-medium">All</button>
+                                <button onclick="filterNotes('internal')" id="notesFilterInternal" class="px-2 py-1 text-xs rounded bg-gray-100 text-gray-500">Internal</button>
+                                <button onclick="filterNotes('from_client')" id="notesFilterFromClient" class="px-2 py-1 text-xs rounded bg-gray-100 text-gray-500">From Client</button>
+                                <button onclick="filterNotes('for_client')" id="notesFilterForClient" class="px-2 py-1 text-xs rounded bg-gray-100 text-gray-500">For Client</button>
+                            </div>
+                        </div>
+                        <div id="notesList" class="space-y-2 mb-4 max-h-64 overflow-y-auto"></div>
+                        <!-- Add note form -->
+                        <div class="flex gap-2 items-start">
+                            <select id="noteTypeSelect" class="px-2 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-300 bg-white">
+                                <option value="internal">Internal</option>
+                                <option value="from_client">From Client</option>
+                                <option value="for_client">For Client</option>
+                            </select>
+                            <input type="text" id="noteTextInput" placeholder="Add a note..."
+                                class="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-300"
+                                onkeydown="if(event.key==='Enter') addBlogNote()">
+                            <button onclick="addBlogNote()"
+                                class="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-sm font-medium transition">
+                                <i class="fas fa-plus mr-1"></i>Add
+                            </button>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Footer - View mode -->
@@ -4650,6 +4737,57 @@
                         <button onclick="saveBlogEdits()"
                             class="px-6 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-lg text-sm font-medium hover:opacity-90 transition">
                             <i class="fas fa-save mr-1"></i>Save Changes
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Smart Paste Modal -->
+    <div id="smartPasteModal" class="hidden fixed inset-0 bg-black/90 z-[55] overflow-y-auto"
+        onclick="if(event.target === this) closeSmartPasteModal()">
+        <div class="max-w-3xl mx-auto py-8 px-4">
+            <div class="bg-white rounded-2xl shadow-2xl overflow-hidden fade-in" onclick="event.stopPropagation()">
+                <div class="bg-gradient-to-r from-amber-500 to-orange-600 p-6">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-3">
+                            <i class="fas fa-paste text-white text-2xl"></i>
+                            <div>
+                                <h2 class="text-xl font-bold text-white">Smart Paste</h2>
+                                <p class="text-white/80 text-sm">Paste a content package — meta, slug, tags, links — and we'll parse it</p>
+                            </div>
+                        </div>
+                        <button onclick="closeSmartPasteModal()" class="p-2 hover:bg-white/20 rounded-lg transition">
+                            <i class="fas fa-times text-white text-xl"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="p-6 space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Paste your content package below</label>
+                        <textarea id="smartPasteText" rows="12"
+                            placeholder="Paste your content package here...&#10;&#10;Example format:&#10;Meta Title: Best AC Repair in Sarasota | Your Company&#10;Meta Description: Professional AC repair services...&#10;Slug: best-ac-repair-sarasota&#10;Primary Keyword: ac repair sarasota&#10;Secondary Keywords: hvac repair, air conditioning fix&#10;Tags: AC Repair, HVAC, Sarasota&#10;Internal Links:&#10;  AC Services → https://yoursite.com/ac-services&#10;  Contact Us → https://yoursite.com/contact"
+                            class="w-full px-4 py-3 border border-gray-300 rounded-xl text-gray-800 placeholder-gray-400 focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200 resize-none font-mono text-sm"></textarea>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <label class="flex items-center gap-2 text-sm text-gray-600">
+                            <input type="checkbox" id="smartPastePreview" checked class="w-4 h-4 text-amber-600 rounded">
+                            Preview parsed fields before creating
+                        </label>
+                    </div>
+                    <div id="smartPastePreviewBox" class="hidden bg-gray-50 border border-gray-200 rounded-xl p-4">
+                        <h4 class="text-sm font-bold text-gray-600 mb-3">Parsed Fields Preview</h4>
+                        <div id="smartPastePreviewContent" class="text-sm text-gray-700 space-y-2"></div>
+                    </div>
+                    <div class="flex gap-3">
+                        <button onclick="previewSmartPaste()" id="btnSmartPastePreview"
+                            class="flex-1 py-3 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-xl font-medium transition">
+                            <i class="fas fa-eye mr-1"></i>Preview
+                        </button>
+                        <button onclick="submitSmartPaste()" id="btnSmartPaste"
+                            class="flex-1 py-3 bg-gradient-to-r from-amber-500 to-orange-600 text-white rounded-xl font-bold hover:opacity-90 transition">
+                            <i class="fas fa-paste mr-1"></i>Create Blog Post
                         </button>
                     </div>
                 </div>
@@ -5898,6 +6036,16 @@
 
                 // Load image library (with error handling)
                 try { loadImageLibrary(); } catch (e) { console.error('loadImageLibrary error:', e); }
+
+                // Pre-fill gap analysis fields
+                try {
+                    var gapMySite = document.getElementById('gapMySite');
+                    if (gapMySite && currentClient.website_url) gapMySite.value = currentClient.website_url;
+                    var gapCompetitors = document.getElementById('gapCompetitors');
+                    if (gapCompetitors && currentClient.competitors && Array.isArray(currentClient.competitors)) {
+                        gapCompetitors.value = currentClient.competitors.filter(function(c) { return c && c.startsWith('http'); }).join('\n');
+                    }
+                } catch(e) { console.error('Gap analysis prefill error:', e); }
 
                 // Load integrations settings (with error handling)
                 try { loadIntegrations(); } catch (e) { console.error('loadIntegrations error:', e); }
@@ -12535,6 +12683,9 @@
                 topScheduleBtn.classList.add('hidden');
             }
 
+            // Load notes
+            loadBlogNotes(currentBlog);
+
             document.getElementById('blogModal').classList.remove('hidden');
             document.body.style.overflow = 'hidden';
         }
@@ -14459,6 +14610,372 @@
 
             } catch (error) {
                 console.error('Delete error:', error);
+                showToast('Error: ' + error.message, 'error');
+            }
+        }
+
+        // ==========================================
+        // SMART PASTE
+        // ==========================================
+
+        function openSmartPasteModal() {
+            if (!currentClient) {
+                alert('Please select a client first');
+                return;
+            }
+            document.getElementById('smartPasteText').value = '';
+            document.getElementById('smartPastePreviewBox').classList.add('hidden');
+            document.getElementById('smartPasteModal').classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeSmartPasteModal() {
+            document.getElementById('smartPasteModal').classList.add('hidden');
+            document.body.style.overflow = '';
+        }
+
+        function previewSmartPaste() {
+            var text = document.getElementById('smartPasteText').value.trim();
+            if (!text) {
+                showToast('Please paste your content package first', 'error');
+                return;
+            }
+
+            // Client-side preview of parsed fields
+            var parsed = parseContentPackagePreview(text);
+            var previewHtml = '';
+
+            var fieldLabels = {
+                meta_title: 'Meta Title', meta_description: 'Meta Description',
+                slug: 'Slug', primary_keyword: 'Primary Keyword',
+                secondary_keywords: 'Secondary Keywords', tags: 'Tags',
+                title: 'Blog Title', excerpt: 'Excerpt',
+                internal_links: 'Internal Links'
+            };
+
+            for (var key in parsed) {
+                var label = fieldLabels[key] || key;
+                var val = parsed[key];
+                if (Array.isArray(val)) {
+                    if (key === 'internal_links') {
+                        val = val.map(function(l) { return '<span class="text-blue-600">' + (l.text || l.url) + '</span> → ' + l.url; }).join('<br>');
+                    } else {
+                        val = val.join(', ');
+                    }
+                }
+                previewHtml += '<div class="flex gap-2"><span class="font-semibold text-gray-500 min-w-[140px]">' + label + ':</span><span>' + val + '</span></div>';
+            }
+
+            if (!previewHtml) {
+                previewHtml = '<p class="text-gray-500">Could not parse any fields. Try using labeled format like "Meta Title: ..."</p>';
+            }
+
+            document.getElementById('smartPastePreviewContent').innerHTML = previewHtml;
+            document.getElementById('smartPastePreviewBox').classList.remove('hidden');
+        }
+
+        function parseContentPackagePreview(text) {
+            var result = {};
+            var patterns = {
+                meta_title: /(?:meta\s*title|seo\s*title|page\s*title)\s*[:\-–—]\s*(.+)/i,
+                meta_description: /(?:meta\s*desc(?:ription)?|seo\s*desc(?:ription)?)\s*[:\-–—]\s*(.+)/i,
+                slug: /(?:slug|url\s*slug|permalink)\s*[:\-–—]\s*(.+)/i,
+                primary_keyword: /(?:primary\s*keyword|target\s*keyword|focus\s*keyword|main\s*keyword)\s*[:\-–—]\s*(.+)/i,
+                title: /(?:blog\s*title|post\s*title|h1|headline)\s*[:\-–—]\s*(.+)/i,
+                excerpt: /(?:excerpt|summary)\s*[:\-–—]\s*(.+)/i
+            };
+
+            for (var field in patterns) {
+                var m = text.match(patterns[field]);
+                if (m) result[field] = m[1].trim().replace(/^["']|["']$/g, '');
+            }
+
+            var secMatch = text.match(/(?:secondary\s*keywords?|related\s*keywords?|lsi\s*keywords?)\s*[:\-–—]\s*(.+)/i);
+            if (secMatch) {
+                result.secondary_keywords = secMatch[1].split(/[,;|]/).map(function(s) { return s.trim(); }).filter(Boolean);
+            }
+
+            var tagsMatch = text.match(/(?:tags?|categories|wordpress\s*tags?)\s*[:\-–—]\s*(.+)/i);
+            if (tagsMatch) {
+                result.tags = tagsMatch[1].split(/[,;|]/).map(function(s) { return s.trim().replace(/^#/, ''); }).filter(Boolean);
+            }
+
+            // Internal links
+            var links = [];
+            var linkMatches = text.matchAll(/["']?([^"'→\-\n]+?)["']?\s*[→\->]+\s*(https?:\/\/\S+)/gi);
+            for (var match of linkMatches) {
+                links.push({ text: match[1].trim(), url: match[2].trim() });
+            }
+            if (links.length) result.internal_links = links;
+
+            return result;
+        }
+
+        async function submitSmartPaste() {
+            var text = document.getElementById('smartPasteText').value.trim();
+            if (!text) {
+                showToast('Please paste your content package first', 'error');
+                return;
+            }
+
+            var btn = document.getElementById('btnSmartPaste');
+            btn.disabled = true;
+            btn.innerHTML = '<div class="spinner w-5 h-5 mr-2"></div>Creating...';
+
+            try {
+                var res = await fetch(API_URL + '/api/content/smart-paste', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + AUTH_TOKEN },
+                    body: JSON.stringify({
+                        client_id: currentClient.id,
+                        paste_text: text
+                    })
+                });
+
+                var data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Smart paste failed');
+
+                closeSmartPasteModal();
+                showToast('Blog post created from ' + (data.parsed_fields || []).length + ' parsed fields!', 'success');
+
+                // Add to local list and open the blog
+                if (data.blog) {
+                    allBlogs.unshift(data.blog);
+                    renderBlogs();
+                    openBlogModal(data.blog.id);
+                }
+            } catch (error) {
+                showToast('Error: ' + error.message, 'error');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-paste mr-1"></i>Create Blog Post';
+            }
+        }
+
+        // ==========================================
+        // COMPETITOR GAP ANALYSIS
+        // ==========================================
+
+        async function runGapAnalysis() {
+            if (!currentClient) {
+                alert('Please select a client first');
+                return;
+            }
+
+            var mySite = document.getElementById('gapMySite').value.trim() || (currentClient.website_url || '');
+            var competitorText = document.getElementById('gapCompetitors').value.trim();
+            var numTopics = parseInt(document.getElementById('gapNumTopics').value) || 5;
+
+            var competitorUrls = competitorText ? competitorText.split('\n').map(function(u) { return u.trim(); }).filter(Boolean) : [];
+
+            if (!mySite && !competitorUrls.length) {
+                showToast('Please enter your website and at least one competitor URL', 'error');
+                return;
+            }
+
+            var btn = document.getElementById('btnGapAnalysis');
+            btn.disabled = true;
+            btn.innerHTML = '<div class="spinner w-5 h-5 mr-2"></div>Analyzing...';
+            document.getElementById('gapProgress').classList.remove('hidden');
+            document.getElementById('gapResults').classList.add('hidden');
+
+            try {
+                var res = await fetch(API_URL + '/api/content/gap-analysis', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + AUTH_TOKEN },
+                    body: JSON.stringify({
+                        client_id: currentClient.id,
+                        my_site: mySite,
+                        competitor_urls: competitorUrls,
+                        num_topics: numTopics
+                    })
+                });
+
+                var data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Gap analysis failed');
+
+                renderGapResults(data);
+            } catch (error) {
+                showToast('Error: ' + error.message, 'error');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-crosshairs"></i> Find Content Gaps';
+                document.getElementById('gapProgress').classList.add('hidden');
+            }
+        }
+
+        function renderGapResults(data) {
+            var container = document.getElementById('gapResults');
+            var topics = data.topics || [];
+
+            if (!topics.length && data.raw_response) {
+                container.innerHTML = '<div class="bg-white/10 rounded-xl p-4 text-gray-300 text-sm whitespace-pre-wrap">' + data.raw_response.substring(0, 2000) + '</div>';
+                container.classList.remove('hidden');
+                return;
+            }
+
+            if (!topics.length) {
+                container.innerHTML = '<p class="text-gray-400 text-center py-4">No topics found. Try different competitor URLs.</p>';
+                container.classList.remove('hidden');
+                return;
+            }
+
+            var html = '<h4 class="text-white font-bold mb-3"><i class="fas fa-lightbulb text-yellow-400 mr-2"></i>' + topics.length + ' Content Gap Topics Found</h4>';
+
+            topics.forEach(function(topic, i) {
+                var volColor = topic.search_volume === 'high' ? 'text-green-400' : topic.search_volume === 'medium' ? 'text-yellow-400' : 'text-gray-400';
+                var diffColor = topic.difficulty === 'easy' ? 'text-green-400' : topic.difficulty === 'medium' ? 'text-yellow-400' : 'text-red-400';
+
+                html += '<div class="bg-white/5 border border-white/10 rounded-xl p-4">';
+                html += '<div class="flex items-start justify-between gap-3 mb-2">';
+                html += '<h5 class="text-white font-semibold">' + (i + 1) + '. ' + (topic.title || 'Untitled') + '</h5>';
+                html += '<button onclick="generateBlogFromGap(\'' + (topic.keyword || topic.title || '').replace(/'/g, "\\'") + '\')" class="px-3 py-1 bg-green-500/80 hover:bg-green-500 text-white rounded-lg text-xs font-medium whitespace-nowrap transition"><i class="fas fa-magic mr-1"></i>Generate</button>';
+                html += '</div>';
+                html += '<div class="flex gap-3 mb-2 text-xs">';
+                html += '<span class="text-gray-400">Keyword: <span class="text-purple-300">' + (topic.keyword || 'N/A') + '</span></span>';
+                html += '<span class="' + volColor + '">Vol: ' + (topic.search_volume || 'N/A') + '</span>';
+                html += '<span class="' + diffColor + '">Diff: ' + (topic.difficulty || 'N/A') + '</span>';
+                html += '</div>';
+                html += '<p class="text-gray-400 text-sm">' + (topic.reason || '') + '</p>';
+                html += '</div>';
+            });
+
+            container.innerHTML = html;
+            container.classList.remove('hidden');
+        }
+
+        function generateBlogFromGap(keyword) {
+            // Pre-fill the blog generation form with this keyword and switch to it
+            var customKeyword = document.getElementById('customBlogKeyword');
+            if (customKeyword) customKeyword.value = keyword;
+            showToast('Keyword "' + keyword + '" loaded! Click Generate Blog Post.', 'success');
+            // Scroll to the blog generation form
+            var genPanel = document.getElementById('panel-generate');
+            if (genPanel) {
+                genPanel.scrollTo({ top: 0, behavior: 'smooth' });
+            }
+        }
+
+        // ==========================================
+        // NOTES SYSTEM
+        // ==========================================
+
+        var currentNotesFilter = 'all';
+
+        function loadBlogNotes(blog) {
+            var notes = blog.notes || [];
+            var badge = document.getElementById('notesBadge');
+            if (notes.length > 0) {
+                badge.textContent = notes.length;
+                badge.classList.remove('hidden');
+            } else {
+                badge.classList.add('hidden');
+            }
+            renderNotesList(notes);
+        }
+
+        function renderNotesList(notes) {
+            var container = document.getElementById('notesList');
+            var filtered = currentNotesFilter === 'all' ? notes : notes.filter(function(n) { return n.type === currentNotesFilter; });
+
+            if (!filtered.length) {
+                container.innerHTML = '<p class="text-gray-400 text-sm text-center py-3">No notes yet</p>';
+                return;
+            }
+
+            var typeIcons = {
+                internal: { icon: 'fas fa-lock', color: 'bg-gray-100 text-gray-700', label: 'Internal' },
+                from_client: { icon: 'fas fa-user', color: 'bg-blue-100 text-blue-700', label: 'From Client' },
+                for_client: { icon: 'fas fa-paper-plane', color: 'bg-green-100 text-green-700', label: 'For Client' }
+            };
+
+            container.innerHTML = filtered.map(function(note) {
+                var info = typeIcons[note.type] || typeIcons.internal;
+                var dateStr = note.created_at ? new Date(note.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
+                return '<div class="flex items-start gap-3 p-3 bg-gray-50 rounded-lg group">' +
+                    '<span class="px-2 py-0.5 ' + info.color + ' rounded text-xs font-medium whitespace-nowrap mt-0.5"><i class="' + info.icon + ' mr-1"></i>' + info.label + '</span>' +
+                    '<div class="flex-1 min-w-0">' +
+                    '<p class="text-sm text-gray-800">' + (note.text || '') + '</p>' +
+                    '<p class="text-xs text-gray-400 mt-1">' + (note.author || '') + (dateStr ? ' · ' + dateStr : '') + '</p>' +
+                    '</div>' +
+                    '<button onclick="deleteBlogNote(\'' + note.id + '\')" class="opacity-0 group-hover:opacity-100 p-1 text-red-400 hover:text-red-600 transition" title="Delete note"><i class="fas fa-times text-xs"></i></button>' +
+                    '</div>';
+            }).join('');
+        }
+
+        function filterNotes(type) {
+            currentNotesFilter = type;
+
+            // Update filter button styles
+            ['all', 'internal', 'from_client', 'for_client'].forEach(function(t) {
+                var btnId = 'notesFilter' + (t === 'all' ? 'All' : t === 'from_client' ? 'FromClient' : t === 'for_client' ? 'ForClient' : 'Internal');
+                var btn = document.getElementById(btnId);
+                if (btn) {
+                    if (t === type) {
+                        btn.className = 'px-2 py-1 text-xs rounded bg-gray-200 text-gray-700 font-medium';
+                    } else {
+                        btn.className = 'px-2 py-1 text-xs rounded bg-gray-100 text-gray-500';
+                    }
+                }
+            });
+
+            if (currentBlog) {
+                renderNotesList(currentBlog.notes || []);
+            }
+        }
+
+        async function addBlogNote() {
+            if (!currentBlog) return;
+
+            var noteType = document.getElementById('noteTypeSelect').value;
+            var noteText = document.getElementById('noteTextInput').value.trim();
+
+            if (!noteText) {
+                showToast('Please enter note text', 'error');
+                return;
+            }
+
+            try {
+                var res = await fetch(API_URL + '/api/content/blog/' + currentBlog.id + '/notes', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + AUTH_TOKEN },
+                    body: JSON.stringify({ type: noteType, text: noteText })
+                });
+
+                var data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Failed to add note');
+
+                // Update local data
+                currentBlog.notes = data.notes || [];
+                var blogIdx = allBlogs.findIndex(function(b) { return b.id === currentBlog.id; });
+                if (blogIdx >= 0) allBlogs[blogIdx].notes = currentBlog.notes;
+
+                document.getElementById('noteTextInput').value = '';
+                loadBlogNotes(currentBlog);
+                showToast('Note added', 'success');
+            } catch (error) {
+                showToast('Error: ' + error.message, 'error');
+            }
+        }
+
+        async function deleteBlogNote(noteId) {
+            if (!currentBlog) return;
+
+            try {
+                var res = await fetch(API_URL + '/api/content/blog/' + currentBlog.id + '/notes/' + noteId, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': 'Bearer ' + AUTH_TOKEN }
+                });
+
+                var data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Failed to delete note');
+
+                currentBlog.notes = data.notes || [];
+                var blogIdx = allBlogs.findIndex(function(b) { return b.id === currentBlog.id; });
+                if (blogIdx >= 0) allBlogs[blogIdx].notes = currentBlog.notes;
+
+                loadBlogNotes(currentBlog);
+            } catch (error) {
                 showToast('Error: ' + error.message, 'error');
             }
         }
