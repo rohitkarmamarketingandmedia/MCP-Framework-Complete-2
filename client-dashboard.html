@@ -8153,7 +8153,9 @@
 
             try {
                 // Fetch DB leads (forms, chatbot, manual)
-                const leadsRes = await fetch(`${API_URL}/api/leads/?client_id=${currentClient.id}`, {
+                // Use higher limit for All Time so no records are truncated
+                const dbLeadsLimit = days === 0 ? 1000 : 500;
+                const leadsRes = await fetch(`${API_URL}/api/leads/?client_id=${currentClient.id}&limit=${dbLeadsLimit}`, {
                     headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
                 });
                 if (leadsRes.ok) {

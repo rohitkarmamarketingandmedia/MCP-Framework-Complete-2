@@ -396,34 +396,47 @@ class CallRailService:
         Returns formatted call data for UI display
         """
         from datetime import datetime, timedelta
-        
-        # Calculate date range - use last N days instead of 'this_month'
-        end_date = datetime.now().strftime('%Y-%m-%d')
-        start_date = (datetime.now() - timedelta(days=days)).strftime('%Y-%m-%d')
-        
+
         effective_account = account_id or self.account_id
-        logger.info(f"CallRail get_recent_calls: company={company_id}, account={effective_account}, date_range={start_date} to {end_date}")
-        
+
+        # days=0 means "All Time" — use CallRail's all_time preset, no start/end date
+        if days == 0:
+            call_start_date = None
+            call_end_date = None
+            call_date_range = 'all_time'
+        else:
+            call_end_date = datetime.now().strftime('%Y-%m-%d')
+            call_start_date = (datetime.now() - timedelta(days=days)).strftime('%Y-%m-%d')
+            call_date_range = None  # will be ignored since start/end are set
+
+        logger.info(f"CallRail get_recent_calls: company={company_id}, account={effective_account}, "
+                    f"days={days}, start={call_start_date}, end={call_end_date}, range={call_date_range}")
+
+        # Use max page size for all_time to capture as many calls as possible
+        effective_limit = 250 if days == 0 else limit
+
         # First try with transcript fields (Conversation Intelligence)
         transcript_fields = ['transcription', 'keywords', 'call_highlights']
         result = self.get_calls(
             company_id=company_id,
             account_id=account_id,
-            start_date=start_date,
-            end_date=end_date,
-            per_page=limit,
+            start_date=call_start_date,
+            end_date=call_end_date,
+            date_range=call_date_range or 'this_month',
+            per_page=effective_limit,
             fields=transcript_fields
         )
-        
+
         # If transcript fields caused error, retry without them
         if result.get('error') and '400' in str(result.get('error')):
             logger.info("CallRail: Transcript fields not available, retrying without them")
             result = self.get_calls(
                 company_id=company_id,
                 account_id=account_id,
-                start_date=start_date,
-                end_date=end_date,
-                per_page=limit,
+                start_date=call_start_date,
+                end_date=call_end_date,
+                date_range=call_date_range or 'this_month',
+                per_page=effective_limit,
                 fields=None
             )
         

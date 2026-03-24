@@ -112,14 +112,17 @@ def get_leads(current_user):
     
     try:
         # Full query with all fields needed for the leads display
+        # Accept a limit param; cap at 1000 to prevent abuse; default 500
+        req_limit = request.args.get('limit', 500, type=int)
+        safe_limit = max(1, min(req_limit, 1000))
         from sqlalchemy import text
         result = db.session.execute(
-            text("""SELECT id, name, email, phone, source, status, created_at, 
-                    message, source_detail, service_requested, 
+            text("""SELECT id, name, email, phone, source, status, created_at,
+                    message, source_detail, service_requested,
                     notes, estimated_value, landing_page
-                    FROM leads WHERE client_id = :cid 
-                    ORDER BY created_at DESC LIMIT 200"""),
-            {'cid': client_id}
+                    FROM leads WHERE client_id = :cid
+                    ORDER BY created_at DESC LIMIT :lim"""),
+            {'cid': client_id, 'lim': safe_limit}
         )
         
         leads = []
