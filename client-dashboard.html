@@ -8219,12 +8219,7 @@
                 }
             } catch(e) { console.error('Error loading calls:', e); }
 
-            // Filter by source
-            if (sourceFilter) {
-                allLeads = allLeads.filter(l => l.type === sourceFilter);
-            }
-
-            // Filter by date range
+            // Filter by date range (apply before stats so counts reflect selected period)
             const cutoff = new Date();
             cutoff.setDate(cutoff.getDate() - days);
             allLeads = allLeads.filter(l => {
@@ -8232,18 +8227,8 @@
                 try { return new Date(l.date) >= cutoff; } catch(e) { return true; }
             });
 
-            // Sort by date descending
-            allLeads.sort((a, b) => {
-                const da = a.date ? new Date(a.date) : new Date(0);
-                const db = b.date ? new Date(b.date) : new Date(0);
-                return db - da;
-            });
-
-            // Update period label to match current filter
-            const periodEl = document.getElementById('leadsPeriodLabel');
-            if (periodEl) periodEl.textContent = days === 0 ? '(all time)' : `(last ${days} days)`;
-
-            // Update stats
+            // ---- Compute stats from ALL lead types within the date range ----
+            // (must happen before source filter so each counter is always accurate)
             const callLeads  = allLeads.filter(l => l.type === 'call');
             const formLeads  = allLeads.filter(l => l.type === 'form');
             const chatLeads  = allLeads.filter(l => l.type === 'chat');
@@ -8266,6 +8251,22 @@
 
             document.getElementById('leadsBooked').textContent = allLeads.filter(l => l.booked || l.status === 'qualified').length;
             document.getElementById('leadsWon').textContent    = allLeads.filter(l => l.status === 'won' || l.status === 'converted').length;
+
+            // ---- Now apply source filter for the displayed list only ----
+            if (sourceFilter) {
+                allLeads = allLeads.filter(l => l.type === sourceFilter);
+            }
+
+            // Update period label to match current filter
+            const periodEl = document.getElementById('leadsPeriodLabel');
+            if (periodEl) periodEl.textContent = days === 0 ? '(all time)' : `(last ${days} days)`;
+
+            // Sort by date descending
+            allLeads.sort((a, b) => {
+                const da = a.date ? new Date(a.date) : new Date(0);
+                const db = b.date ? new Date(b.date) : new Date(0);
+                return db - da;
+            });
 
             if (allLeads.length === 0) {
                 container.innerHTML = `
