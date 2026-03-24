@@ -3771,6 +3771,7 @@
                                 <option value="7">Last 7 days</option>
                                 <option value="30" selected>Last 30 days</option>
                                 <option value="90">Last 90 days</option>
+                                <option value="0">All Time</option>
                             </select>
                         </div>
                     </div>
@@ -8220,12 +8221,15 @@
             } catch(e) { console.error('Error loading calls:', e); }
 
             // Filter by date range (apply before stats so counts reflect selected period)
-            const cutoff = new Date();
-            cutoff.setDate(cutoff.getDate() - days);
-            allLeads = allLeads.filter(l => {
-                if (!l.date) return true;
-                try { return new Date(l.date) >= cutoff; } catch(e) { return true; }
-            });
+            // days === 0 means "All Time" — skip date filtering entirely
+            if (days > 0) {
+                const cutoff = new Date();
+                cutoff.setDate(cutoff.getDate() - days);
+                allLeads = allLeads.filter(l => {
+                    if (!l.date) return true;
+                    try { return new Date(l.date) >= cutoff; } catch(e) { return true; }
+                });
+            }
 
             // ---- Compute stats from ALL lead types within the date range ----
             // (must happen before source filter so each counter is always accurate)
