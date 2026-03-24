@@ -8244,14 +8244,28 @@
             if (periodEl) periodEl.textContent = days === 0 ? '(all time)' : `(last ${days} days)`;
 
             // Update stats
+            const callLeads  = allLeads.filter(l => l.type === 'call');
+            const formLeads  = allLeads.filter(l => l.type === 'form');
+            const chatLeads  = allLeads.filter(l => l.type === 'chat');
+
             document.getElementById('leadsTotal').textContent = allLeads.length;
-            document.getElementById('leadsCalls').textContent = allLeads.filter(l => l.type === 'call').length;
-            document.getElementById('leadsForms').textContent = allLeads.filter(l => l.type === 'form').length;
-            document.getElementById('leadsChat').textContent = allLeads.filter(l => l.type === 'chat').length;
-            document.getElementById('leadsGood').textContent = allLeads.filter(l => l.lead_quality === 'good' || l.lead_quality === 'hot').length;
-            document.getElementById('leadsNew').textContent = allLeads.filter(l => l.status === 'new' || (!l.status && l.type !== 'call')).length;
-            document.getElementById('leadsBooked').textContent = allLeads.filter(l => l.booked).length;
-            document.getElementById('leadsWon').textContent = allLeads.filter(l => l.status === 'won').length;
+            document.getElementById('leadsCalls').textContent = callLeads.length;
+            document.getElementById('leadsForms').textContent = formLeads.length;
+            document.getElementById('leadsChat').textContent  = chatLeads.length;
+
+            // Good leads: calls answered >2 min, OR form/chat with good/hot/won quality
+            document.getElementById('leadsGood').textContent = allLeads.filter(l =>
+                l.lead_quality === 'good' || l.lead_quality === 'hot' || l.status === 'won'
+            ).length;
+
+            // New (Uncontacted): form/chat with status 'new', PLUS answered calls not yet contacted
+            document.getElementById('leadsNew').textContent = allLeads.filter(l => {
+                if (l.type === 'call') return l.answered && !l.booked;
+                return l.status === 'new' || !l.status;
+            }).length;
+
+            document.getElementById('leadsBooked').textContent = allLeads.filter(l => l.booked || l.status === 'qualified').length;
+            document.getElementById('leadsWon').textContent    = allLeads.filter(l => l.status === 'won' || l.status === 'converted').length;
 
             if (allLeads.length === 0) {
                 container.innerHTML = `

@@ -226,11 +226,16 @@ def send_blog_to_client(current_user, blog_id):
     
     db.session.commit()
     
-    # Build review URL
+    # Build review URL — prefer custom domain over Render auto-URL
     import os
-    base_url = os.environ.get('BASE_URL', '') or os.environ.get('APP_URL', '') or os.environ.get('RENDER_EXTERNAL_URL', '')
-    if not base_url:
-        base_url = request.host_url.rstrip('/')
+    base_url = (
+        os.environ.get('BASE_URL', '')
+        or os.environ.get('APP_URL', '')
+        or os.environ.get('CUSTOM_DOMAIN', '')
+        or 'https://mcp.karmamarketingandmedia.com'
+    )
+    # Strip trailing slash
+    base_url = base_url.rstrip('/')
     review_url = f"{base_url}/review/{blog.review_token}"
     
     # Build and send email
