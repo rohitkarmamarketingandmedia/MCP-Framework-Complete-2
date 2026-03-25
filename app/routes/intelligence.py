@@ -488,40 +488,67 @@ RULES for content_recommendations (return 3-5):
 - Format: "Blog: [title idea]" or "FAQ: [topic]"
 """
 
-    try:
-        import anthropic
-        ai_client = anthropic.Anthropic()
-        response = ai_client.messages.create(
-            model="claude-sonnet-4-20250514",
-            max_tokens=2000,
-            temperature=0.3,
-            system="You are a business intelligence analyst. Return ONLY valid JSON, no markdown.",
-            messages=[{"role": "user", "content": prompt}],
-        )
-        text = "".join(b.text for b in response.content if hasattr(b, 'text')).strip()
+    import anthropic as _anthropic
+    import time as _time
 
-        # Parse — handle possible markdown wrapping
-        text = text.replace('```json', '').replace('```', '').strip()
-        result = _json.loads(text)
+    # Try Sonnet first, fall back to Haiku if Sonnet is overloaded (529)
+    model_sequence = [
+        "claude-sonnet-4-20250514",
+        "claude-haiku-4-5-20251001",
+    ]
 
-        # Preserve any fields we don't replace
-        refined = dict(raw_insights)
-        refined['top_questions'] = result.get('top_questions', raw_insights.get('top_questions', []))
-        refined['top_pain_points'] = result.get('top_pain_points', raw_insights.get('top_pain_points', []))
-        refined['top_keywords'] = result.get('top_keywords', raw_insights.get('top_keywords', []))
-        refined['services_requested'] = result.get('services_requested', raw_insights.get('services_requested', []))
-        refined['content_recommendations'] = result.get('content_recommendations', [])
-        refined['executive_summary'] = result.get('executive_summary', '')
-        refined['ai_refined'] = True
+    ai_client = _anthropic.Anthropic()
 
-        # Cache
-        _AI_INSIGHT_CACHE[client_id] = {'ts': time.time(), 'data': refined}
-        logger.info(f"AI insight refinement complete: {len(refined['top_questions'])} questions, {len(refined['top_pain_points'])} pain points")
-        return refined
+    for model in model_sequence:
+        last_error = None
+        for attempt in range(3):
+            try:
+                response = ai_client.messages.create(
+                    model=model,
+                    max_tokens=2000,
+                    temperature=0.3,
+                    system="You are a business intelligence analyst. Return ONLY valid JSON, no markdown.",
+                    messages=[{"role": "user", "content": prompt}],
+                )
+                text = "".join(b.text for b in response.content if hasattr(b, 'text')).strip()
 
-    except Exception as e:
-        logger.error(f"AI insight refinement error: {e}")
-        return None
+                # Parse — handle possible markdown wrapping
+                text = text.replace('```json', '').replace('```', '').strip()
+                result = _json.loads(text)
+
+                # Preserve any fields we don't replace
+                refined = dict(raw_insights)
+                refined['top_questions']          = result.get('top_questions',          raw_insights.get('top_questions', []))
+                refined['top_pain_points']        = result.get('top_pain_points',        raw_insights.get('top_pain_points', []))
+                refined['top_keywords']           = result.get('top_keywords',           raw_insights.get('top_keywords', []))
+                refined['services_requested']     = result.get('services_requested',     raw_insights.get('services_requested', []))
+                refined['content_recommendations']= result.get('content_recommendations', [])
+                refined['executive_summary']      = result.get('executive_summary', '')
+                refined['ai_refined']             = True
+                refined['ai_model']               = model
+
+                # Cache result
+                _AI_INSIGHT_CACHE[client_id] = {'ts': _time.time(), 'data': refined}
+                logger.info(f"AI insight refinement complete ({model}): {len(refined['top_questions'])} questions, {len(refined['top_pain_points'])} pain points")
+                return refined
+
+            except Exception as e:
+                last_error = e
+                err_str = str(e)
+                # 529 = API overloaded — back off and retry
+                if '529' in err_str or 'overloaded' in err_str.lower():
+                    wait = (attempt + 1) * 1.5
+                    logger.warning(f"Claude {model} overloaded (attempt {attempt+1}/3), retrying in {wait}s…")
+                    _time.sleep(wait)
+                    continue
+                # Any other error — don't retry, try next model
+                logger.warning(f"Claude {model} error (non-retriable): {e}")
+                break
+
+        logger.warning(f"All attempts failed for {model}, last error: {last_error}")
+
+    logger.error(f"AI insight refinement failed on all models")
+    return None
 
 
 def _generate_metadata_insights(calls: List[Dict]) -> Dict:

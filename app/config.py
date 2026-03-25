@@ -82,8 +82,16 @@ class BaseConfig:
     RATE_LIMIT_ENABLED = os.environ.get('RATE_LIMIT_ENABLED', 'true').lower() == 'true'
     RATE_LIMIT_PER_MINUTE = int(os.environ.get('RATE_LIMIT_PER_MINUTE', '60'))
     
-    # JWT Auth
-    JWT_SECRET_KEY = os.environ.get('JWT_SECRET_KEY', SECRET_KEY)
+    # JWT Auth — key must be ≥ 32 bytes for HS256 (RFC 7518 §3.2)
+    _jwt_raw = os.environ.get('JWT_SECRET_KEY', SECRET_KEY)
+    # Pad short keys to at least 32 bytes so PyJWT doesn't emit InsecureKeyLengthWarning
+    JWT_SECRET_KEY = _jwt_raw if len(_jwt_raw.encode()) >= 32 else (_jwt_raw + ('x' * (32 - len(_jwt_raw.encode()))))
+    if len(_jwt_raw.encode()) < 32 and _is_production:
+        import warnings
+        warnings.warn(
+            f"JWT_SECRET_KEY is only {len(_jwt_raw.encode())} bytes — set a random 32+ character "
+            "JWT_SECRET_KEY env var in Render to silence this warning and improve security."
+        )
     JWT_ACCESS_TOKEN_EXPIRES = timedelta(hours=int(os.environ.get('JWT_EXPIRES_HOURS', '24')))
 
 
