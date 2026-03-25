@@ -1721,9 +1721,8 @@
                             </thead>
                             <tbody id="competitorInsightsTable">
                                 <tr>
-                                    <td colspan="4" class="text-center py-6 text-gray-500">
-                                        <i class="fas fa-chart-line text-3xl mb-2 block"></i>
-                                        Loading competitor insights...
+                                    <td colspan="4" class="text-center py-6 text-gray-400">
+                                        <i class="fas fa-spinner fa-spin mr-2"></i>Loading keyword rankings...
                                     </td>
                                 </tr>
                             </tbody>
@@ -7872,7 +7871,13 @@
                 }
             }
 
-            // Load competitor insights
+            // Ensure rankingsData is populated before rendering the keyword table.
+            // loadCachedRankings() sets rankingsData from DB — no SEMrush API units consumed.
+            if (!rankingsData) {
+                await loadCachedRankings();
+            }
+
+            // Load competitor insights (uses rankingsData when available)
             loadCompetitorInsights();
         }
 
@@ -8051,82 +8056,141 @@
             const tableEl = document.getElementById('competitorInsightsTable');
             if (!tableEl) return;
 
-            const hasCompetitors = currentClient.competitors && currentClient.competitors.length > 0;
-
-            // Update header and title based on whether competitors are configured
+            // Fix table headers
             const headerEl = tableEl.closest('table')?.querySelector('thead tr');
             const sectionTitle = tableEl.closest('.glass')?.querySelector('h3');
-            
-            // Always set headers to Position/Volume/Change
             if (headerEl) {
                 headerEl.innerHTML = `
                     <th class="text-left py-3">Keyword</th>
                     <th class="text-center py-3">Position</th>
                     <th class="text-center py-3">Volume</th>
-                    <th class="text-center py-3" title="Position change since last ranking check">Change</th>
+                    <th class="text-center py-3" title="Change since last check">Change</th>
                 `;
             }
             if (sectionTitle) {
                 sectionTitle.innerHTML = '<i class="fas fa-chart-line mr-2 text-cyan-400"></i>Top Keyword Rankings';
             }
 
+            // Spinner while loading
+            tableEl.innerHTML = '<tr><td colspan="4" class="text-center py-6 text-gray-400"><i class="fas fa-spinner fa-spin mr-2"></i>Loading keyword rankings...</td></tr>';
+
+            // Add "Full Rankings" shortcut once
+            const sectionHeader = tableEl.closest('.glass')?.querySelector('.flex.items-center.justify-between');
+            if (sectionHeader && !sectionHeader.querySelector('.rankings-btn')) {
+                const btn = document.createElement('button');
+                btn.className = 'rankings-btn text-xs px-3 py-1 bg-cyan-500/20 text-cyan-400 hover:bg-cyan-500/30 rounded-lg transition';
+                btn.innerHTML = '<i class="fas fa-trophy mr-1"></i>Full Rankings';
+                btn.onclick = () => showTab('rankings');
+                sectionHeader.appendChild(btn);
+            }
+
             try {
                 let keywords = [];
 
-                // Use cached rankings from DB (doesn't call SEMrush API, saves units)
-                const response = await fetch(`${API_URL}/api/monitoring/rankings/latest?client_id=${currentClient.id}&device=desktop`, {
-                    headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
-                });
-                if (response.ok) {
-                    const data = await response.json();
-                    keywords = data.keywords || [];
+                // ── Priority 1: use rankingsData already loaded by the Rankings tab ──
+                if (rankingsData && rankingsData.keywords && rankingsData.keywords.length > 0) {
+                    keywords = rankingsData.keywords;
                 }
 
-                // If no cached results, try top-keywords (domain-wide)
-                if (keywords.length === 0 || keywords.every(kw => !kw.position)) {
-                    const topRes = await fetch(`${API_URL}/api/monitoring/top-keywords?client_id=${currentClient.id}&limit=10`, {
-                        headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
-                    });
-                    if (topRes.ok) {
-                        const topData = await topRes.json();
-                        if (topData.keywords && topData.keywords.length > 0) {
-                            keywords = topData.keywords;
+                // ── Priority 2: fetch cached rankings from DB (no SEMrush API units) ──
+                if (keywords.length === 0) {
+                    try {
+                        const res = await fetch(`${API_URL}/api/monitoring/rankings/latest?client_id=${currentClient.id}&device=desktop`, {
+                            headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
+                        });
+                        if (res.ok) {
+                            const data = await res.json();
+                            if (data.keywords && data.keywords.length > 0) {
+                                keywords = data.keywords;
+                                // Populate global so Rankings tab shares the same data
+                                rankingsData = data;
+                            }
                         }
-                    }
+                    } catch(e) { /* silent */ }
+                }
+
+                // ── Priority 3: domain top-keywords (may call SEMrush if no DB data) ──
+                if (keywords.length === 0 || keywords.every(kw => !kw.position)) {
+                    const savedPartial = keywords.length > 0 ? keywords : null;
+                    try {
+                        const topRes = await fetch(`${API_URL}/api/monitoring/top-keywords?client_id=${currentClient.id}&limit=10`, {
+                            headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
+                        });
+                        if (topRes.ok) {
+                            const topData = await topRes.json();
+                            if (topData.keywords && topData.keywords.length > 0) {
+                                keywords = topData.keywords;
+                            } else if (savedPartial) {
+                                keywords = savedPartial; // restore unranked DB keywords
+                            }
+                        }
+                    } catch(e) { if (savedPartial) keywords = savedPartial; }
+                }
+
+                // ── Priority 4: fall back to client's configured keywords ──
+                if (keywords.length === 0) {
+                    const allKws = [
+                        ...(currentClient.primary_keywords || []),
+                        ...(currentClient.secondary_keywords || [])
+                    ];
+                    keywords = allKws.map(kw => ({ keyword: kw, position: null, search_volume: null, change: 0 }));
                 }
 
                 if (keywords.length === 0) {
-                    tableEl.innerHTML = '<tr><td colspan="4" class="text-center py-6 text-gray-500">No ranking data yet.</td></tr>';
+                    tableEl.innerHTML = `
+                        <tr><td colspan="4" class="text-center py-8 text-gray-500">
+                            <i class="fas fa-search text-2xl mb-2 block opacity-40"></i>
+                            No keywords configured yet.<br>
+                            <button onclick="showEditClient()" class="mt-2 text-xs text-purple-400 hover:text-purple-300">
+                                <i class="fas fa-plus mr-1"></i>Add keywords in Settings
+                            </button>
+                        </td></tr>`;
                     return;
                 }
 
-                // Sort by position (ranked first, then unranked)
+                // Sort: ranked keywords first (ascending position), then unranked alphabetically
                 keywords.sort((a, b) => {
-                    if (!a.position && !b.position) return 0;
+                    if (!a.position && !b.position) return (a.keyword || '').localeCompare(b.keyword || '');
                     if (!a.position) return 1;
                     if (!b.position) return -1;
                     return a.position - b.position;
                 });
 
-                // Check if all changes are 0 (first scan — no previous data)
-                const allNoChange = keywords.every(kw => !kw.change);
+                const hasAnyPosition = keywords.some(kw => kw.position);
 
                 tableEl.innerHTML = keywords.slice(0, 10).map(kw => {
                     const change = kw.change || 0;
                     const changeColor = change > 0 ? 'text-green-400' : change < 0 ? 'text-red-400' : 'text-gray-500';
-                    const changeIcon = change > 0 ? '▲' : change < 0 ? '▼' : '';
-                    const changeText = change !== 0 ? `${changeIcon} ${Math.abs(change)}` : (allNoChange ? '<span class="text-blue-400 text-xs">New</span>' : '–');
-                    const posColor = kw.position && kw.position <= 3 ? 'text-yellow-400 font-bold' : kw.position && kw.position <= 10 ? 'text-green-400' : kw.position && kw.position <= 20 ? 'text-blue-400' : 'text-gray-400';
+                    const changeIcon  = change > 0 ? '▲' : change < 0 ? '▼' : '';
+                    const changeText  = change !== 0
+                        ? `${changeIcon} ${Math.abs(change)}`
+                        : (hasAnyPosition ? '–' : '<span class="text-blue-400 text-xs">Pending</span>');
+                    const posColor = !kw.position ? 'text-gray-500'
+                        : kw.position <= 3  ? 'text-yellow-400 font-bold'
+                        : kw.position <= 10 ? 'text-green-400'
+                        : kw.position <= 20 ? 'text-blue-400'
+                        : 'text-gray-400';
 
                     return `
-                        <tr class="border-b border-white/5">
-                            <td class="py-3 text-white">${kw.keyword}</td>
-                            <td class="py-3 text-center ${posColor}">${kw.position ? '#' + kw.position : '–'}</td>
+                        <tr class="border-b border-white/5 hover:bg-white/5 transition">
+                            <td class="py-3 text-white text-sm">${kw.keyword}</td>
+                            <td class="py-3 text-center ${posColor} font-medium">${kw.position ? '#' + kw.position : '–'}</td>
                             <td class="py-3 text-center text-gray-400">${kw.search_volume ? kw.search_volume.toLocaleString() : '–'}</td>
-                            <td class="py-3 text-center ${changeColor}">${changeText}</td>
-                        </tr>
-                    `;
+                            <td class="py-3 text-center ${changeColor} text-xs">${changeText}</td>
+                        </tr>`;
                 }).join('');
+
+                // If no positions yet, show a one-click prompt to run the ranking check
+                if (!hasAnyPosition) {
+                    tableEl.innerHTML += `
+                        <tr><td colspan="4" class="text-center py-3 text-gray-600 text-xs border-t border-white/5">
+                            No position data yet —
+                            <button onclick="showTab('rankings')" class="text-cyan-400 hover:text-cyan-300 ml-1">
+                                <i class="fas fa-sync-alt mr-1"></i>Run ranking check
+                            </button>
+                        </td></tr>`;
+                }
+
             } catch (error) {
                 console.error('Competitor insights error:', error);
                 tableEl.innerHTML = '<tr><td colspan="4" class="text-center py-6 text-gray-500">Could not load rankings.</td></tr>';
