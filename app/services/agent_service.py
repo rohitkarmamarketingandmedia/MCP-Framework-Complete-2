@@ -548,7 +548,7 @@ class AgentService:
             raise ValueError("ANTHROPIC_API_KEY not configured")
         
         import anthropic
-        client = anthropic.Anthropic(api_key=self.anthropic_key)
+        client = anthropic.Anthropic(api_key=self.anthropic_key, max_retries=0)
         
         response = client.messages.create(
             model=model,

@@ -76,7 +76,7 @@ class BlogAISingle:
 
     def __init__(self, api_key: str = None, model_primary: str = "claude-sonnet-4-20250514", model_fallback: str = "claude-haiku-4-5-20251001"):
         self.api_key = api_key or os.environ.get("ANTHROPIC_API_KEY", "")
-        self.client = anthropic.Anthropic(api_key=self.api_key) if self.api_key else None
+        self.client = anthropic.Anthropic(api_key=self.api_key, max_retries=0) if self.api_key else None  # service handles all retries
         self.model_primary = model_primary
         self.model_fallback = model_fallback
         self._settings_city = ""

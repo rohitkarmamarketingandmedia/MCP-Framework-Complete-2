@@ -1321,7 +1321,7 @@ REMEMBER: Body must have {word_count}+ words AND at least 3 internal <a href> li
         
         try:
             import anthropic as _anthropic
-            client = _anthropic.Anthropic(api_key=self.anthropic_key)
+            client = _anthropic.Anthropic(api_key=self.anthropic_key, max_retries=0)  # _call_with_retry handles all retries
             
             response = client.messages.create(
                 model=actual_model,

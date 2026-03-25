@@ -250,7 +250,7 @@ If asked about something outside MCP, politely redirect to MCP-related help or s
 
             start_time = time.time()
 
-            client = anthropic.AsyncAnthropic(api_key=self.anthropic_api_key)
+            client = anthropic.AsyncAnthropic(api_key=self.anthropic_api_key, max_retries=0)
             response = await client.messages.create(
                 model=self.model,
                 max_tokens=max_tokens,
@@ -301,7 +301,7 @@ If asked about something outside MCP, politely redirect to MCP-related help or s
 
             start_time = time.time()
 
-            client = anthropic.Anthropic(api_key=self.anthropic_api_key)
+            client = anthropic.Anthropic(api_key=self.anthropic_api_key, max_retries=0)
             response = client.messages.create(
                 model=self.model,
                 max_tokens=max_tokens,

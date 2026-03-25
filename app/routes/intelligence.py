@@ -491,63 +491,71 @@ RULES for content_recommendations (return 3-5):
     import anthropic as _anthropic
     import time as _time
 
-    # Try Sonnet first, fall back to Haiku if Sonnet is overloaded (529)
+    # Haiku first (faster, lower-load), Sonnet as quality upgrade if Haiku fails.
+    # max_retries=0 disables the SDK's own retry loop so we control all backoff
+    # ourselves — prevents the double-retry storm seen in logs.
     model_sequence = [
-        "claude-sonnet-4-20250514",
-        "claude-haiku-4-5-20251001",
+        ("claude-haiku-4-5-20251001",  1500),   # Haiku — 3 attempts, 2s/4s/6s backoff
+        ("claude-sonnet-4-20250514",   2000),   # Sonnet — 2 attempts, 3s/6s backoff
     ]
 
-    ai_client = _anthropic.Anthropic()
+    ai_client = _anthropic.Anthropic(max_retries=0)  # we handle all retries manually
 
-    for model in model_sequence:
+    for model, max_tok in model_sequence:
+        max_attempts = 3 if 'haiku' in model else 2
         last_error = None
-        for attempt in range(3):
+
+        for attempt in range(max_attempts):
             try:
                 response = ai_client.messages.create(
                     model=model,
-                    max_tokens=2000,
+                    max_tokens=max_tok,
                     temperature=0.3,
                     system="You are a business intelligence analyst. Return ONLY valid JSON, no markdown.",
                     messages=[{"role": "user", "content": prompt}],
                 )
                 text = "".join(b.text for b in response.content if hasattr(b, 'text')).strip()
 
-                # Parse — handle possible markdown wrapping
+                # Strip possible markdown fences
                 text = text.replace('```json', '').replace('```', '').strip()
                 result = _json.loads(text)
 
-                # Preserve any fields we don't replace
                 refined = dict(raw_insights)
-                refined['top_questions']          = result.get('top_questions',          raw_insights.get('top_questions', []))
-                refined['top_pain_points']        = result.get('top_pain_points',        raw_insights.get('top_pain_points', []))
-                refined['top_keywords']           = result.get('top_keywords',           raw_insights.get('top_keywords', []))
-                refined['services_requested']     = result.get('services_requested',     raw_insights.get('services_requested', []))
-                refined['content_recommendations']= result.get('content_recommendations', [])
-                refined['executive_summary']      = result.get('executive_summary', '')
-                refined['ai_refined']             = True
-                refined['ai_model']               = model
+                refined['top_questions']           = result.get('top_questions',           raw_insights.get('top_questions', []))
+                refined['top_pain_points']         = result.get('top_pain_points',         raw_insights.get('top_pain_points', []))
+                refined['top_keywords']            = result.get('top_keywords',            raw_insights.get('top_keywords', []))
+                refined['services_requested']      = result.get('services_requested',      raw_insights.get('services_requested', []))
+                refined['content_recommendations'] = result.get('content_recommendations', [])
+                refined['executive_summary']       = result.get('executive_summary', '')
+                refined['ai_refined'] = True
+                refined['ai_model']   = model
 
-                # Cache result
                 _AI_INSIGHT_CACHE[client_id] = {'ts': _time.time(), 'data': refined}
-                logger.info(f"AI insight refinement complete ({model}): {len(refined['top_questions'])} questions, {len(refined['top_pain_points'])} pain points")
+                logger.info(f"AI insight refinement complete ({model}, attempt {attempt+1}): "
+                            f"{len(refined['top_questions'])} questions, {len(refined['top_pain_points'])} pain points")
                 return refined
 
             except Exception as e:
                 last_error = e
                 err_str = str(e)
-                # 529 = API overloaded — back off and retry
-                if '529' in err_str or 'overloaded' in err_str.lower():
-                    wait = (attempt + 1) * 1.5
-                    logger.warning(f"Claude {model} overloaded (attempt {attempt+1}/3), retrying in {wait}s…")
+                is_overloaded = '529' in err_str or 'overloaded' in err_str.lower()
+                is_rate_limit  = '429' in err_str or 'rate' in err_str.lower()
+
+                if is_overloaded or is_rate_limit:
+                    # Exponential backoff: 2s, 4s, 6s
+                    wait = (attempt + 1) * 2.0
+                    logger.warning(f"Claude {model} {'overloaded' if is_overloaded else 'rate-limited'} "
+                                   f"(attempt {attempt+1}/{max_attempts}), waiting {wait}s…")
                     _time.sleep(wait)
                     continue
-                # Any other error — don't retry, try next model
-                logger.warning(f"Claude {model} error (non-retriable): {e}")
+
+                # Non-retriable error (auth, bad request, etc.) — skip to next model
+                logger.warning(f"Claude {model} non-retriable error: {e}")
                 break
 
-        logger.warning(f"All attempts failed for {model}, last error: {last_error}")
+        logger.warning(f"Claude {model} exhausted all {max_attempts} attempts, last error: {last_error}")
 
-    logger.error(f"AI insight refinement failed on all models")
+    logger.error("AI insight refinement failed on all models — returning raw insights")
     return None
 
 

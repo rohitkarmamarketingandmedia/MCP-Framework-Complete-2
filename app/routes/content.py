@@ -267,7 +267,7 @@ def test_ai_generation(current_user):
 
     try:
         import anthropic
-        client = anthropic.Anthropic(api_key=anthropic_key)
+        client = anthropic.Anthropic(api_key=anthropic_key, max_retries=0)
         response = client.messages.create(
             model='claude-haiku-4-5-20251001',
             max_tokens=20,
