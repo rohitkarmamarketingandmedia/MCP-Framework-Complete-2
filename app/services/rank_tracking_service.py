@@ -906,9 +906,10 @@ class RankTrackingService:
         if result.get('error') and not result.get('demo_mode'):
             return result
 
-        # Skip saving demo data
+        # API returned an error (bad key, expired subscription, rate limit, etc.)
         if result.get('demo_mode'):
-            return {'error': 'SEMrush API not configured — cannot save real data', 'checked': 0}
+            actual_error = result.get('message') or result.get('error') or 'SEMrush API error'
+            return {'error': actual_error, 'checked': 0, 'semrush_error': True}
 
         # Save each keyword position as a snapshot with device dimension
         now = datetime.utcnow()

@@ -6761,8 +6761,10 @@
                 }
             }
 
-            // Animate all stats with either API data or fallbacks
-            animateNumber('overview-leads', 0, leads, 1500);
+            // "New Leads" on Overview should match "Total Leads" on the Leads tab,
+            // which combines DB leads (forms + chat) AND CallRail phone calls.
+            const totalLeads = leads + calls;
+            animateNumber('overview-leads', 0, totalLeads, 1500);
             // Only set overview-calls from analytics if we actually got a non-zero value.
             // If calls === 0, leave it as '--' for loadCallIntelligence() to populate from
             // the intelligence API (which has the authoritative call count from CallRail).
