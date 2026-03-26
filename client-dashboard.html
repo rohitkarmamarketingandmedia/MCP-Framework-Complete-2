@@ -6151,10 +6151,48 @@
                 try {
                     var gapMySite = document.getElementById('gapMySite');
                     if (gapMySite && currentClient.website_url) gapMySite.value = currentClient.website_url;
-                    var gapCompetitors = document.getElementById('gapCompetitors');
-                    if (gapCompetitors && currentClient.competitors && Array.isArray(currentClient.competitors)) {
-                        gapCompetitors.value = currentClient.competitors.filter(function(c) { return c && c.startsWith('http'); }).join('\n');
-                    }
+
+                    // Auto-fill competitor URLs from all available sources
+                    (async function prefillCompetitors() {
+                        var gapCompetitors = document.getElementById('gapCompetitors');
+                        if (!gapCompetitors) return;
+                        var compUrls = [];
+
+                        // 1. Try currentClient.competitors array (may be domains or URLs)
+                        if (currentClient.competitors && Array.isArray(currentClient.competitors)) {
+                            currentClient.competitors.forEach(function(c) {
+                                if (!c) return;
+                                c = c.trim();
+                                if (c.startsWith('http')) {
+                                    compUrls.push(c);
+                                } else if (c.includes('.')) {
+                                    compUrls.push('https://' + c.replace(/^www\./, ''));
+                                }
+                            });
+                        }
+
+                        // 2. Fetch from DBCompetitor table (Competitors tab data) if still empty
+                        if (compUrls.length === 0) {
+                            try {
+                                var cRes = await fetch(`${API_URL}/api/monitoring/competitors?client_id=${currentClient.id}`, {
+                                    headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
+                                });
+                                if (cRes.ok) {
+                                    var cData = await cRes.json();
+                                    (cData.competitors || []).forEach(function(comp) {
+                                        var d = (comp.domain || '').trim();
+                                        if (d) {
+                                            compUrls.push(d.startsWith('http') ? d : 'https://' + d);
+                                        }
+                                    });
+                                }
+                            } catch(e) { console.error('Error fetching DBCompetitors for gap:', e); }
+                        }
+
+                        if (compUrls.length > 0) {
+                            gapCompetitors.value = compUrls.join('\n');
+                        }
+                    })();
                 } catch(e) { console.error('Gap analysis prefill error:', e); }
 
                 // Load integrations settings (with error handling)

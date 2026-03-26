@@ -3432,7 +3432,7 @@ Wrap the JSON in ```json ... ``` tags."""
 
     try:
         ai_service = AIService()
-        response = ai_service.generate_text(prompt, max_tokens=2000)
+        response = ai_service.generate_raw(prompt, max_tokens=2000)
 
         # Parse JSON from response
         topics = []
