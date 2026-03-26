@@ -641,46 +641,54 @@ CITY: {city}, {state}
 {links_text}
 
 REQUIRED ARTICLE STRUCTURE:
-Write each section with the specified word count:
+Write each section with the specified word count.
+CRITICAL: At least 3 of your H2 headings MUST contain the keyword "{primary_keyword}" (or its core words) naturally.
+Example good headings: "Benefits of {primary_keyword}", "How {primary_keyword} Works", "Cost of {primary_keyword} in {city}"
+Example bad headings: "Benefits", "Our Process", "Pricing" (these are too generic and hurt SEO score)
 
-## Introduction (250 words)
-Write 250 words introducing {primary_keyword} services in {city}. Explain why residents need this service.
+<h2>Your Guide to {primary_keyword} in {city}</h2> (250 words)
+Write 250 words introducing {primary_keyword} services in {city}. Use the keyword "{primary_keyword}" naturally within the first 2 sentences.
 
-## Benefits (300 words)  
-Write 300 words covering 3 key benefits:
-- Benefit 1: [Title] - 100 words explanation
-- Benefit 2: [Title] - 100 words explanation  
-- Benefit 3: [Title] - 100 words explanation
+<h2>Top Benefits of {primary_keyword}</h2> (300 words)
+Write 300 words covering 3 key benefits, each as an H3 subheading:
+- <h3>Benefit 1 related to {primary_keyword}</h3> - 100 words
+- <h3>Benefit 2 related to {primary_keyword}</h3> - 100 words
+- <h3>Benefit 3 related to {primary_keyword}</h3> - 100 words
 
-## Our Process (200 words)
-Write 200 words explaining how {business_name} handles {primary_keyword}. Include internal links here.
+<h2>How {business_name} Handles {primary_keyword}</h2> (200 words)
+Write 200 words explaining the process. Include internal links here.
 
-## Pricing and Cost Factors (200 words)
+<h2>{primary_keyword} Cost and Pricing Factors</h2> (200 words)
 Write 200 words about what affects pricing for {primary_keyword} in {city}.
 
-## Why Choose {business_name} (200 words)
+<h2>Why Choose {business_name} for {primary_keyword}</h2> (200 words)
 Write 200 words about why {business_name} is the best choice. Include contact information and internal links.
 
-## Frequently Asked Questions (200 words)
+<h2>Frequently Asked Questions About {primary_keyword}</h2> (200 words)
 Write 5 Q&A pairs about {primary_keyword}.
 
-## Get Started Today (150 words)
+<h2>Get Started with {primary_keyword} Today</h2> (150 words)
 Write 150 words with a strong call-to-action. Include phone and email.
 
 TOTAL: {word_count}+ words
 
-**CRITICAL REQUIREMENTS:**
-1. Word count: {word_count}+ words minimum
-2. Location: Use ONLY {city}, {state} - no other cities
-3. INTERNAL LINKS: Insert at least 3 links using <a href="URL">anchor text</a> format
-   Example: {links_html_examples if links_html_examples else 'Check out our <a href="/services">other services</a>'}
-4. Meta description: 150-160 characters
+**CRITICAL SEO REQUIREMENTS (each one affects the score):**
+1. WORD COUNT: {word_count}+ words minimum
+2. KEYWORD IN HEADINGS: At least 3 of your H2/H3 headings must contain "{primary_keyword}" or its core words
+3. KEYWORD IN FIRST 100 WORDS: Use "{primary_keyword}" in the very first paragraph
+4. KEYWORD DENSITY: Use "{primary_keyword}" naturally 8-15 times throughout the article (target 1-2% density)
+5. INTERNAL LINKS: Insert at least 5 links using <a href="URL">anchor text</a> format. Spread them across multiple sections.
+   {('Links to use: ' + links_html_examples) if links_html_examples else 'Use links like: <a href="/services">our services</a>, <a href="/contact">contact us</a>'}
+6. META TITLE: 55-60 characters, must contain "{primary_keyword}" — e.g. "{primary_keyword} | {business_name}"
+7. META DESCRIPTION: 150-160 characters, must contain "{primary_keyword}"
+8. HEADINGS: Use at least 5 H2 tags and 3 H3 tags in the body
+9. Location: Use ONLY {city}, {state} - no other cities
 
 Return ONLY valid JSON:
-{{"meta_title": "{primary_keyword} | Expert Service | {business_name}",
-"meta_description": "Professional {primary_keyword.lower()} in {city}. {business_name} provides expert service. Call today for a free estimate.",
+{{"meta_title": "[55-60 chars, must include {primary_keyword}]",
+"meta_description": "[150-160 chars, must include {primary_keyword.lower()}]",
 "h1": "{primary_keyword} - Trusted {city} Experts | {business_name}",
-"body": "<h2>Introduction</h2><p>... include <a href='URL'>links</a> ...</p>...",
+"body": "<h2>Your Guide to {primary_keyword} in {city}</h2><p>... include <a href='URL'>links</a> ...</p>...",
 "faq_items": [
   {{"question": "How much does {primary_keyword.lower()} cost in {city}?", "answer": "Costs vary by project. Contact {business_name} at {phone or 'our office'} for a free estimate."}},
   {{"question": "How long does {primary_keyword.lower()} take?", "answer": "Most jobs take 1-3 days. {business_name} provides accurate timelines during consultation."}},
@@ -692,7 +700,7 @@ Return ONLY valid JSON:
 "cta": {{"company_name": "{business_name}", "phone": "{phone or ''}", "email": "{email or ''}"}}
 }}
 
-REMEMBER: Body must have {word_count}+ words AND at least 3 internal <a href> links!"""
+REMEMBER: Body must have {word_count}+ words, at least 5 internal <a href> links, and keyword "{primary_keyword}" in 3+ headings!"""
     
     def _get_related_posts(self, client_id: str, current_keyword: str, limit: int = 6) -> List[Dict]:
         """
