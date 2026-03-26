@@ -6700,23 +6700,19 @@
 
         async function loadOverviewStats() {
             // Default values
-            let leads = 0;
-            let calls = 0;
+            let leads = 0;   // DB leads (forms + chat)
+            let calls = 0;   // CallRail phone calls
             let answerRate = 0;
             let contentCount = 0;
             let leadsChangeVal = 0;
 
+            // Use the analytics endpoint for content stats and leads change %
             try {
-                // Try to get analytics overview
                 const response = await fetch(`${API_URL}/api/analytics/overview/${currentClient.id}`, {
                     headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
                 });
-
                 if (response.ok) {
                     const data = await response.json();
-                    leads = data.leads || data.new_leads || 0;
-                    calls = data.calls || data.phone_calls || 0;
-                    answerRate = data.answer_rate || 0;
                     contentCount = data.content_count || data.blogs_published || 0;
                     leadsChangeVal = data.leads_change || data.lead_growth || 0;
                 }
@@ -6724,53 +6720,49 @@
                 console.error('Error loading overview stats:', error);
             }
 
-            // Fallback: fetch leads count directly if not returned from analytics
-            if (leads === 0) {
-                try {
-                    const leadsResponse = await fetch(`${API_URL}/api/leads?client_id=${currentClient.id}`, {
-                        headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
-                    });
-                    if (leadsResponse.ok) {
-                        const leadsData = await leadsResponse.json();
-                        // Count leads from the last 30 days (rolling window — matches Leads tab default)
-                        const cutoff = new Date();
-                        cutoff.setDate(cutoff.getDate() - 30);
-                        const allLeads = leadsData.leads || [];
-                        leads = allLeads.filter(l => {
-                            const leadDate = new Date(l.created_at);
-                            return leadDate >= cutoff;
-                        }).length;
-                    }
-                } catch (e) {
-                    console.error('Error fetching leads:', e);
+            // Fetch DB leads (forms + chat) with rolling 30-day cutoff — same as Leads tab
+            try {
+                const leadsResponse = await fetch(`${API_URL}/api/leads/?client_id=${currentClient.id}&limit=500`, {
+                    headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
+                });
+                if (leadsResponse.ok) {
+                    const leadsData = await leadsResponse.json();
+                    const cutoff = new Date();
+                    cutoff.setDate(cutoff.getDate() - 30);
+                    const allLeads = leadsData.leads || [];
+                    leads = allLeads.filter(l => {
+                        if (!l.created_at) return true;
+                        try { return new Date(l.created_at) >= cutoff; } catch(e) { return true; }
+                    }).length;
                 }
+            } catch (e) {
+                console.error('Error fetching leads:', e);
             }
 
-            // Fallback: fetch calls count from CallRail via the correct intelligence endpoint
-            if (calls === 0) {
-                try {
-                    const callsResponse = await fetch(`${API_URL}/api/intelligence/calls/${currentClient.id}?days=30`, {
-                        headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
-                    });
-                    if (callsResponse.ok) {
-                        const callsData = await callsResponse.json();
-                        calls = (callsData.calls || []).length;
+            // Fetch CallRail calls (rolling 30 days) — same source as Leads tab
+            try {
+                const callsResponse = await fetch(`${API_URL}/api/intelligence/calls/${currentClient.id}?days=30`, {
+                    headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
+                });
+                if (callsResponse.ok) {
+                    const callsData = await callsResponse.json();
+                    if (!callsData.error) {
+                        const callsList = callsData.calls || [];
+                        calls = callsList.length;
+                        const answered = callsList.filter(c => c.answered).length;
+                        answerRate = calls > 0 ? Math.round(answered / calls * 100) : 0;
                     }
-                } catch (e) {
-                    console.error('Error fetching calls:', e);
                 }
+            } catch (e) {
+                console.error('Error fetching calls:', e);
             }
 
-            // "New Leads" on Overview should match "Total Leads" on the Leads tab,
-            // which combines DB leads (forms + chat) AND CallRail phone calls.
+            // "New Leads" = DB leads + CallRail calls (matches Leads tab "Total Leads")
             const totalLeads = leads + calls;
             animateNumber('overview-leads', 0, totalLeads, 1500);
-            // Only set overview-calls from analytics if we actually got a non-zero value.
-            // If calls === 0, leave it as '--' for loadCallIntelligence() to populate from
-            // the intelligence API (which has the authoritative call count from CallRail).
-            if (calls > 0) {
-                animateNumber('overview-calls', 0, calls, 1500);
-            }
+            // This function is the sole owner of overview-calls (30-day count).
+            // loadCallIntelligence uses 90 days so must NOT touch this card.
+            animateNumber('overview-calls', 0, calls, 1500);
             animateNumber('overview-content', 0, contentCount, 1500);
 
             // Show leads change
@@ -7201,9 +7193,8 @@
                 summaryEl.classList.add('hidden');
             }
 
-            // Reset overview-calls counter while new data loads
-            const overviewCallsEl = document.getElementById('overview-calls');
-            if (overviewCallsEl) overviewCallsEl.textContent = '--';
+            // NOTE: Do NOT reset overview-calls here — loadOverviewStats() owns that
+            // card with the correct 30-day count. This function uses 90-day data.
 
             // Stop any running simulation
             if (callSimulationInterval) {
@@ -7239,13 +7230,9 @@
                     if (callsToday) {
                         callsToday.textContent = `${callCount} calls analyzed`;
                     }
-                    // Sync overview-calls stat card with the real call count from intelligence API
-                    const overviewCallsEl = document.getElementById('overview-calls');
-                    if (overviewCallsEl && callCount > 0) {
-                        animateNumber('overview-calls', 0, callCount, 1500);
-                    } else if (overviewCallsEl && callCount === 0) {
-                        overviewCallsEl.textContent = '0';
-                    }
+                    // NOTE: Do NOT overwrite overview-calls here. The intelligence
+                    // report uses 90 days, but the Overview card says "last 30 days".
+                    // loadOverviewStats() already sets it with the correct 30-day count.
 
                     // Check if we have REAL transcript-based AI insights (must have questions from calls)
                     // Keywords alone from chatbot shouldn't count - we need actual call transcript analysis
