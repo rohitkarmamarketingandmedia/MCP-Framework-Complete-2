@@ -1376,7 +1376,7 @@ INTERNAL LINKING RULES:
 6. FREQUENTLY ASKED QUESTIONS
    - Do NOT put FAQs in the body — put them in the faq_items JSON array only
    - Write EXACTLY {faq_count} real questions with real answers (60-80 words each)
-   - Questions must reflect real user search intent
+{custom_faq_instruction if custom_faq_instruction else '   - Questions must reflect real user search intent'}
 
 7. GET STARTED TODAY (~150 words)
    - Strong call-to-action using phone and email

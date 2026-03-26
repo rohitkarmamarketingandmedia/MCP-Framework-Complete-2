@@ -9989,20 +9989,76 @@
                     '<div class="flex items-center gap-3 text-gray-300"><div class="w-5 h-5 border-2 border-blue-400 border-t-transparent rounded-full animate-spin"></div><span>Step 2/3: Determining blog topic from questions...</span></div>' +
                 '</div>';
 
+                // Derive a meaningful keyword from the customer questions
                 let topic = '';
+
+                // 1. Try content opportunities (already analyzed topics)
                 if (opps.length > 0) {
                     topic = opps[0].title || opps[0].topic || '';
-                }
-                if (!topic && questions.length > 0) {
-                    topic = questions[0].replace(/^(do you|can you|how do|what is|is there|do i|how much|when|where|why)\s+/i, '').replace(/\?$/, '');
-                }
-                if (topic) {
-                    topic = _extractKeywordFromTopic(topic);
+                    if (topic) topic = _extractKeywordFromTopic(topic);
                 }
 
+                // 2. Extract a keyword from the common theme of all questions
+                if (!topic && questions.length > 0) {
+                    // Count nouns/phrases across all questions to find the dominant theme
+                    const allText = questions.join(' ').toLowerCase();
+                    const industry = (currentClient.industry || '').toLowerCase();
+                    const geo = (currentClient.geo || '').split(',')[0].trim();
+
+                    // Extract 2-word phrases from questions (bigrams)
+                    const phraseCount = {};
+                    const stopWords = new Set(['do', 'you', 'does', 'the', 'a', 'an', 'is', 'are', 'how', 'what', 'when', 'where', 'why', 'can', 'will', 'for', 'and', 'or', 'in', 'to', 'of', 'my', 'your', 'we', 'our', 'i', 'it', 'at', 'on', 'with', 'that', 'this', 'there', 'much', 'long', 'offer', 'have', 'provide', 'accept', 'like']);
+                    questions.forEach(function(q) {
+                        const words = q.toLowerCase().replace(/[?!.,;:'"]/g, '').split(/\s+/).filter(w => w.length > 2 && !stopWords.has(w));
+                        // Count single important words
+                        words.forEach(function(w) {
+                            phraseCount[w] = (phraseCount[w] || 0) + 1;
+                        });
+                        // Count bigrams
+                        for (let i = 0; i < words.length - 1; i++) {
+                            const bigram = words[i] + ' ' + words[i+1];
+                            phraseCount[bigram] = (phraseCount[bigram] || 0) + 1;
+                        }
+                    });
+
+                    // Find the most common meaningful phrase (prefer bigrams)
+                    const sorted = Object.entries(phraseCount)
+                        .filter(([phrase, count]) => count >= 2 && phrase.length > 3)
+                        .sort((a, b) => {
+                            // Prefer bigrams over single words, then by frequency
+                            const aIsPhrase = a[0].includes(' ') ? 1 : 0;
+                            const bIsPhrase = b[0].includes(' ') ? 1 : 0;
+                            if (bIsPhrase !== aIsPhrase) return bIsPhrase - aIsPhrase;
+                            return b[1] - a[1];
+                        });
+
+                    if (sorted.length > 0) {
+                        let bestPhrase = sorted[0][0];
+                        // Add industry context if the phrase is generic
+                        if (industry && !bestPhrase.includes(industry)) {
+                            topic = industry + ' ' + bestPhrase;
+                        } else {
+                            topic = bestPhrase;
+                        }
+                        // Add geo for local SEO
+                        if (geo && !topic.toLowerCase().includes(geo.toLowerCase())) {
+                            topic = topic + ' ' + geo;
+                        }
+                    }
+                }
+
+                // 3. Fallback to industry + primary keywords
                 if (!topic) {
-                    // Fall back to first primary keyword
-                    topic = (currentClient.primary_keywords && currentClient.primary_keywords[0]) || currentClient.industry || '';
+                    const pk = (currentClient.primary_keywords && currentClient.primary_keywords[0]) || '';
+                    const ind = currentClient.industry || '';
+                    const geo = (currentClient.geo || '').split(',')[0].trim();
+                    topic = pk || (ind + (geo ? ' ' + geo : ''));
+                }
+
+                // Clean up and title-case
+                topic = topic.replace(/[?!.,;:]+$/, '').trim();
+                if (topic) {
+                    topic = topic.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
                 }
 
                 // Step 3: Generate the blog
@@ -15342,16 +15398,23 @@
             container.classList.remove('hidden');
         }
 
-        function generateBlogFromGap(keyword) {
-            // Pre-fill the blog generation form with this keyword and switch to it
+        async function generateBlogFromGap(keyword) {
+            // Pre-fill the keyword and auto-generate the blog post
             var customKeyword = document.getElementById('customBlogKeyword');
             if (customKeyword) customKeyword.value = keyword;
-            showToast('Keyword "' + keyword + '" loaded! Click Generate Blog Post.', 'success');
-            // Scroll to the blog generation form
+
+            showToast('Generating blog for "' + keyword + '"...', 'success');
+
+            // Switch to Generate Content tab and scroll to top so user sees progress
+            showTab('generate');
             var genPanel = document.getElementById('panel-generate');
             if (genPanel) {
                 genPanel.scrollTo({ top: 0, behavior: 'smooth' });
             }
+
+            // Small delay to let the tab switch render, then auto-trigger generation
+            await new Promise(r => setTimeout(r, 300));
+            generateBlog();
         }
 
         // ==========================================
