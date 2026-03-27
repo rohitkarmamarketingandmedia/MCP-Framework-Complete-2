@@ -16436,23 +16436,57 @@
                     progressLog.innerHTML += `<div class="text-yellow-400"><i class="fas fa-spinner fa-spin mr-1"></i> Generating: ${keyword}...</div>`;
                     progressLog.scrollTop = progressLog.scrollHeight;
 
-                    // Use synchronous generation
-                    const response = await fetch('/api/content/blog/generate-sync', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Authorization': `Bearer ${AUTH_TOKEN}`
-                        },
-                        body: JSON.stringify({
-                            client_id: currentClient.id,
-                            keyword: keyword,
-                            word_count: wordCount,
-                            include_faq: faqCount > 0,
-                            faq_count: faqCount
-                        })
-                    });
+                    // Use synchronous generation with abort controller for timeout
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => controller.abort(), 180000); // 3 min timeout
 
-                    const result = await response.json();
+                    let response;
+                    try {
+                        response = await fetch('/api/content/blog/generate-sync', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Authorization': `Bearer ${AUTH_TOKEN}`
+                            },
+                            signal: controller.signal,
+                            body: JSON.stringify({
+                                client_id: currentClient.id,
+                                keyword: keyword,
+                                word_count: wordCount,
+                                include_faq: faqCount > 0,
+                                faq_count: faqCount,
+                                skip_fact_check: true  // Skip fact-check in bulk to avoid timeouts
+                            })
+                        });
+                    } catch (fetchErr) {
+                        clearTimeout(timeoutId);
+                        if (fetchErr.name === 'AbortError') {
+                            throw new Error('Request timed out (3 min). Try fewer keywords or lower word count.');
+                        }
+                        throw new Error('Network error: ' + fetchErr.message);
+                    }
+                    clearTimeout(timeoutId);
+
+                    // Handle non-JSON responses (e.g. proxy timeout HTML pages)
+                    let result;
+                    const contentType = response.headers.get('content-type') || '';
+                    if (!contentType.includes('application/json')) {
+                        const textBody = await response.text();
+                        console.error('Non-JSON response for keyword:', keyword, 'Status:', response.status, 'Body:', textBody.substring(0, 500));
+                        if (response.status === 502 || response.status === 504) {
+                            throw new Error('Server timeout — blog generation took too long. Try again.');
+                        } else if (response.status === 529) {
+                            throw new Error('AI service overloaded (529). Wait a minute and retry.');
+                        }
+                        throw new Error(`Server returned ${response.status}: ${textBody.substring(0, 100)}`);
+                    }
+
+                    try {
+                        result = await response.json();
+                    } catch (jsonErr) {
+                        console.error('JSON parse error for keyword:', keyword, jsonErr);
+                        throw new Error('Invalid server response. The server may have timed out.');
+                    }
 
                     if (!response.ok || result.error) {
                         throw new Error(result.error || 'Generation failed');
@@ -16482,6 +16516,11 @@
                 progressCount.textContent = `${completed}/${keywords.length}`;
                 progressBar.style.width = `${(completed / keywords.length) * 100}%`;
                 progressLog.scrollTop = progressLog.scrollHeight;
+
+                // Brief pause between generations to avoid API rate limits
+                if (completed < keywords.length) {
+                    await new Promise(r => setTimeout(r, 3000));
+                }
             }
 
             btn.disabled = false;
@@ -16489,8 +16528,25 @@
 
             showToast(`Bulk generation complete: ${succeeded}/${keywords.length} blogs created`, succeeded === keywords.length ? 'success' : 'warning');
 
+            // If some failed, show a Retry Failed button
+            const failedKeywords = results.filter(r => !r.success).map(r => r.keyword);
+            if (failedKeywords.length > 0) {
+                progressLog.innerHTML += `<div class="mt-2"><button onclick="retryFailedBulkBlogs()" class="px-3 py-1 bg-yellow-600 text-white rounded text-sm hover:bg-yellow-500"><i class="fas fa-redo mr-1"></i> Retry ${failedKeywords.length} Failed</button></div>`;
+                window._failedBulkKeywords = failedKeywords;
+                window._bulkWordCount = wordCount;
+                window._bulkFaqCount = faqCount;
+            }
+
             // Refresh blogs list
             loadBlogs();
+        }
+
+        async function retryFailedBulkBlogs() {
+            if (!window._failedBulkKeywords || window._failedBulkKeywords.length === 0) return;
+            const keywordsText = window._failedBulkKeywords.join('\n');
+            document.getElementById('bulkKeywords').value = keywordsText;
+            window._failedBulkKeywords = null;
+            generateBulkBlogs();
         }
 
         // ==========================================

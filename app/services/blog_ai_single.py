@@ -694,10 +694,14 @@ Return ONLY valid JSON (no markdown):
             
             logger.info(f"Fact-check: Starting verification for '{req.keyword}' ({len(words)} words)")
             
-            # Try with web search tool first, fall back to without
+            # Try with web search tool first, then without, then haiku fallback
+            response = None
+            fact_check_model = self.model_primary
+
+            # Attempt 1: Primary model with web search
             try:
                 response = self.client.messages.create(
-                    model=self.model_primary,
+                    model=fact_check_model,
                     max_tokens=4000,
                     system="You are a meticulous fact-checker. Verify claims by searching the web. Return only valid JSON. Focus on claims that could be factually incorrect — ignore stylistic or marketing language.",
                     messages=[
@@ -711,16 +715,38 @@ Return ONLY valid JSON (no markdown):
                     temperature=0.1,
                 )
             except Exception as tool_err:
-                logger.warning(f"Fact-check: web_search tool failed ({tool_err}), falling back to knowledge-only verification")
-                response = self.client.messages.create(
-                    model=self.model_primary,
-                    max_tokens=4000,
-                    system="You are a meticulous fact-checker. Return only valid JSON. Focus on claims that could be factually incorrect — ignore stylistic or marketing language. Note: you cannot search the web, so only flag claims you are confident are wrong based on your training knowledge.",
-                    messages=[
-                        {"role": "user", "content": verify_prompt}
-                    ],
-                    temperature=0.1,
-                )
+                logger.warning(f"Fact-check: web_search tool failed ({tool_err}), trying without web search")
+
+            # Attempt 2: Primary model without web search
+            if not response:
+                try:
+                    response = self.client.messages.create(
+                        model=fact_check_model,
+                        max_tokens=4000,
+                        system="You are a meticulous fact-checker. Return only valid JSON. Focus on claims that could be factually incorrect — ignore stylistic or marketing language. Note: you cannot search the web, so only flag claims you are confident are wrong based on your training knowledge.",
+                        messages=[
+                            {"role": "user", "content": verify_prompt}
+                        ],
+                        temperature=0.1,
+                    )
+                except Exception as model_err:
+                    logger.warning(f"Fact-check: primary model failed ({model_err}), trying fallback model")
+
+            # Attempt 3: Fallback model (haiku) without web search
+            if not response:
+                try:
+                    response = self.client.messages.create(
+                        model=self.model_fallback,
+                        max_tokens=4000,
+                        system="You are a meticulous fact-checker. Return only valid JSON. Focus on claims that could be factually incorrect — ignore stylistic or marketing language.",
+                        messages=[
+                            {"role": "user", "content": verify_prompt}
+                        ],
+                        temperature=0.1,
+                    )
+                except Exception as fallback_err:
+                    logger.error(f"Fact-check: all attempts failed. Last error: {fallback_err}")
+                    return {'status': 'error', 'reason': f'all_models_failed: {str(fallback_err)[:100]}'}
             
             # Extract the text response (may have multiple content blocks due to tool use)
             response_text = ""
@@ -934,76 +960,101 @@ Return ONLY valid JSON (no markdown):
         return keyword
 
     def _call_model(self, model: str, prompt: str, system_prompt: str = None) -> str:
-        """Call Anthropic Claude API with hardened settings"""
-        try:
-            logger.info(f"Calling Claude {model}...")
-            
-            if system_prompt is None:
-                system_prompt = "You are an SEO content generator. Return ONLY valid JSON. No markdown. No commentary."
-            
-            resp = self.client.messages.create(
-                model=model,
-                max_tokens=16000,
-                system=system_prompt.strip(),
-                messages=[
-                    {"role": "user", "content": prompt.strip()},
-                ],
-                temperature=0.4,  # Low temp for constraint following
-            )
-            content = resp.content[0].text or ""
-            content = content.strip()
-            logger.info(f"Got {len(content)} chars from Claude {model} (stop_reason={resp.stop_reason}, usage={resp.usage})")
+        """Call Anthropic Claude API with hardened settings and retry on 529 overloaded"""
+        import time as _time
 
-            # Warn if response was truncated
-            if resp.stop_reason == "max_tokens":
-                logger.warning(f"Claude response was TRUNCATED (stop_reason=max_tokens) — JSON likely incomplete. Last 100 chars: {content[-100:]}")
-            
-            # Validate JSON output
-            if content and not content.startswith("{"):
-                logger.warning("Model returned non-JSON output, attempting to extract JSON")
-                # Try to find JSON in response
-                start = content.find("{")
-                if start != -1:
-                    content = content[start:]
-            
-            return content
-        except anthropic.AuthenticationError as e:
-            logger.error(f"Claude authentication failed (invalid API key): {e}")
-            self._last_error = "ANTHROPIC_AUTH_ERROR"
-            self._last_error_message = "Anthropic API key is invalid or expired. Please check your ANTHROPIC_API_KEY."
-            return ""
-        except anthropic.RateLimitError as e:
-            error_msg = str(e).lower()
-            if 'credit' in error_msg or 'balance' in error_msg or 'billing' in error_msg or 'insufficient' in error_msg:
-                logger.error(f"Claude API credits exhausted: {e}")
-                self._last_error = "ANTHROPIC_CREDITS_EXHAUSTED"
-                self._last_error_message = "Anthropic API credits have been exhausted. Please add credits at console.anthropic.com to resume blog generation."
-            else:
-                logger.error(f"Claude rate limit hit: {e}")
-                self._last_error = "ANTHROPIC_RATE_LIMIT"
-                self._last_error_message = "Anthropic API rate limit reached. Please wait a moment and try again."
-            return ""
-        except anthropic.APIStatusError as e:
-            error_msg = str(e).lower()
-            if e.status_code == 402 or 'credit' in error_msg or 'billing' in error_msg or 'payment' in error_msg:
-                logger.error(f"Claude API credits/billing error (HTTP {e.status_code}): {e}")
-                self._last_error = "ANTHROPIC_CREDITS_EXHAUSTED"
-                self._last_error_message = "Anthropic API credits have been exhausted. Please add credits at console.anthropic.com to resume blog generation."
-            else:
-                logger.error(f"Claude API status error (HTTP {e.status_code}): {e}")
+        if system_prompt is None:
+            system_prompt = "You are an SEO content generator. Return ONLY valid JSON. No markdown. No commentary."
+
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                logger.info(f"Calling Claude {model} (attempt {attempt + 1}/{max_retries})...")
+
+                resp = self.client.messages.create(
+                    model=model,
+                    max_tokens=16000,
+                    system=system_prompt.strip(),
+                    messages=[
+                        {"role": "user", "content": prompt.strip()},
+                    ],
+                    temperature=0.4,  # Low temp for constraint following
+                )
+                content = resp.content[0].text or ""
+                content = content.strip()
+                logger.info(f"Got {len(content)} chars from Claude {model} (stop_reason={resp.stop_reason}, usage={resp.usage})")
+
+                # Warn if response was truncated
+                if resp.stop_reason == "max_tokens":
+                    logger.warning(f"Claude response was TRUNCATED (stop_reason=max_tokens) — JSON likely incomplete. Last 100 chars: {content[-100:]}")
+
+                # Validate JSON output
+                if content and not content.startswith("{"):
+                    logger.warning("Model returned non-JSON output, attempting to extract JSON")
+                    # Try to find JSON in response
+                    start = content.find("{")
+                    if start != -1:
+                        content = content[start:]
+
+                return content
+            except anthropic.AuthenticationError as e:
+                logger.error(f"Claude authentication failed (invalid API key): {e}")
+                self._last_error = "ANTHROPIC_AUTH_ERROR"
+                self._last_error_message = "Anthropic API key is invalid or expired. Please check your ANTHROPIC_API_KEY."
+                return ""
+            except anthropic.RateLimitError as e:
+                error_msg = str(e).lower()
+                if 'credit' in error_msg or 'balance' in error_msg or 'billing' in error_msg or 'insufficient' in error_msg:
+                    logger.error(f"Claude API credits exhausted: {e}")
+                    self._last_error = "ANTHROPIC_CREDITS_EXHAUSTED"
+                    self._last_error_message = "Anthropic API credits have been exhausted. Please add credits at console.anthropic.com to resume blog generation."
+                    return ""
+                else:
+                    # Rate limit — retry with backoff
+                    if attempt < max_retries - 1:
+                        wait_time = (attempt + 1) * 10  # 10s, 20s
+                        logger.warning(f"Claude rate limit hit, retrying in {wait_time}s (attempt {attempt + 1}): {e}")
+                        _time.sleep(wait_time)
+                        continue
+                    logger.error(f"Claude rate limit hit after {max_retries} attempts: {e}")
+                    self._last_error = "ANTHROPIC_RATE_LIMIT"
+                    self._last_error_message = "Anthropic API rate limit reached. Please wait a moment and try again."
+                    return ""
+            except anthropic.APIStatusError as e:
+                error_msg = str(e).lower()
+                if e.status_code == 402 or 'credit' in error_msg or 'billing' in error_msg or 'payment' in error_msg:
+                    logger.error(f"Claude API credits/billing error (HTTP {e.status_code}): {e}")
+                    self._last_error = "ANTHROPIC_CREDITS_EXHAUSTED"
+                    self._last_error_message = "Anthropic API credits have been exhausted. Please add credits at console.anthropic.com to resume blog generation."
+                    return ""
+                elif e.status_code == 529 or e.status_code == 503:
+                    # Overloaded — retry with backoff
+                    if attempt < max_retries - 1:
+                        wait_time = (attempt + 1) * 15  # 15s, 30s
+                        logger.warning(f"Claude API overloaded (HTTP {e.status_code}), retrying in {wait_time}s (attempt {attempt + 1})")
+                        _time.sleep(wait_time)
+                        continue
+                    logger.error(f"Claude API still overloaded after {max_retries} attempts (HTTP {e.status_code}): {e}")
+                    self._last_error = "ANTHROPIC_API_ERROR"
+                    self._last_error_message = f"AI service is overloaded (HTTP {e.status_code}). Please try again in a few minutes."
+                    return ""
+                else:
+                    logger.error(f"Claude API status error (HTTP {e.status_code}): {e}")
+                    self._last_error = "ANTHROPIC_API_ERROR"
+                    self._last_error_message = f"Anthropic API error (HTTP {e.status_code}). Please try again later."
+                    return ""
+            except anthropic.APIError as e:
+                logger.error(f"Claude API error: {e}")
                 self._last_error = "ANTHROPIC_API_ERROR"
-                self._last_error_message = f"Anthropic API error (HTTP {e.status_code}). Please try again later."
-            return ""
-        except anthropic.APIError as e:
-            logger.error(f"Claude API error: {e}")
-            self._last_error = "ANTHROPIC_API_ERROR"
-            self._last_error_message = f"Anthropic API error: {str(e)[:150]}"
-            return ""
-        except Exception as e:
-            logger.error(f"Model call failed: {e}")
-            self._last_error = "MODEL_CALL_FAILED"
-            self._last_error_message = f"AI model call failed: {str(e)[:150]}"
-            return ""
+                self._last_error_message = f"Anthropic API error: {str(e)[:150]}"
+                return ""
+            except Exception as e:
+                logger.error(f"Model call failed: {e}")
+                self._last_error = "MODEL_CALL_FAILED"
+                self._last_error_message = f"AI model call failed: {str(e)[:150]}"
+                return ""
+
+        return ""  # Should not reach here, but safety net
 
     def _call_model_continue(self, model: str, current_body: str, words_needed: int, req: BlogRequest) -> str:
         """Call model to continue/expand body content"""

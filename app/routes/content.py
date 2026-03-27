@@ -494,7 +494,8 @@ def generate_blog_sync(current_user):
         faq_count = data.get('faq_count', 5)
         selected_city = data.get('city')  # Optional city override from service_cities
         custom_faqs = data.get('custom_faqs')  # FAQ questions from call intelligence
-        
+        skip_fact_check = data.get('skip_fact_check', False)  # Skip fact-check for bulk generation
+
         if not client_id or not keyword:
             return jsonify({'error': 'client_id and keyword required'}), 400
         
@@ -683,7 +684,8 @@ def generate_blog_sync(current_user):
             blog_url=blog_url_base,
             custom_faqs=custom_faqs,
             service_cities=_svc_cities,
-            service_areas=_svc_areas
+            service_areas=_svc_areas,
+            verify_content=not skip_fact_check  # Skip fact-check in bulk to speed up
         )
         
         result = blog_gen.generate(blog_request)
