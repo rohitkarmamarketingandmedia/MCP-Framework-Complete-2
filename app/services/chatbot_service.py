@@ -122,6 +122,15 @@ GUIDELINES:
 - Don't discuss competitors or make comparisons
 - Stay focused on helping the visitor with their needs
 
+FORMATTING RULES:
+- Write in short, clear paragraphs (2-3 sentences each)
+- Use **bold** for phone numbers, email addresses, and key information
+- Use bullet points (- item) only for lists of 3+ items like services or steps
+- Separate different topics with paragraph breaks
+- Keep contact details on their own line for readability
+- Do NOT use headings or headers in chat responses
+- End responses with ONE clear next-step question (not multiple questions)
+
 Remember: Your goal is to be helpful, capture leads, and create a positive impression of {business_name}."""
 
         return prompt

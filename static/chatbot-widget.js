@@ -303,6 +303,30 @@
                     color: #1e293b;
                     border-bottom-left-radius: 4px;
                 }
+                .mcp-message-assistant p {
+                    margin: 0 0 8px 0;
+                }
+                .mcp-message-assistant p:last-child {
+                    margin-bottom: 0;
+                }
+                .mcp-message-assistant ul,
+                .mcp-message-assistant ol {
+                    margin: 6px 0;
+                    padding-left: 20px;
+                }
+                .mcp-message-assistant li {
+                    margin-bottom: 4px;
+                }
+                .mcp-message-assistant strong {
+                    font-weight: 600;
+                }
+                .mcp-message-assistant a {
+                    color: #2563eb;
+                    text-decoration: underline;
+                }
+                .mcp-message-assistant a:hover {
+                    color: #1d4ed8;
+                }
                 .mcp-typing {
                     display: none;
                     align-self: flex-start;
@@ -932,7 +956,13 @@
         renderMessage: function (msg) {
             const div = document.createElement('div');
             div.className = `mcp-message mcp-message-${msg.role}`;
-            div.textContent = msg.content;
+
+            if (msg.role === 'assistant') {
+                // Convert markdown to clean HTML for assistant messages
+                div.innerHTML = this.formatMarkdown(msg.content);
+            } else {
+                div.textContent = msg.content;
+            }
 
             if (msg.role === 'user') {
                 div.style.background = `linear-gradient(135deg, ${this.config.primary_color}, ${this.config.secondary_color || this.config.primary_color})`;
@@ -940,6 +970,86 @@
 
             this.elements.messages.appendChild(div);
             this.scrollToBottom();
+        },
+
+        formatMarkdown: function (text) {
+            if (!text) return '';
+            // Escape HTML first to prevent XSS
+            let html = this.escapeHtml(text);
+
+            // Bold: **text** or __text__
+            html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+            html = html.replace(/__(.+?)__/g, '<strong>$1</strong>');
+
+            // Italic: *text* or _text_ (but not inside links/bold)
+            html = html.replace(/(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)/g, '<em>$1</em>');
+
+            // Links: [text](url)
+            html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
+
+            // Plain URLs (http/https)
+            html = html.replace(/(?<!")(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" rel="noopener">$1</a>');
+
+            // Email addresses
+            html = html.replace(/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/g, '<a href="mailto:$1">$1</a>');
+
+            // Phone numbers (wrapped in links)
+            html = html.replace(/(?<!["\w])(\(?\d{3}\)?[\s.-]?\d{3}[\s.-]?\d{4})(?!["\w])/g, '<a href="tel:$1">$1</a>');
+
+            // Split into lines for block-level processing
+            const lines = html.split('\n');
+            let result = [];
+            let inList = false;
+            let listType = '';
+
+            for (let i = 0; i < lines.length; i++) {
+                const line = lines[i].trim();
+
+                // Unordered list item: - item or * item
+                if (/^[-*]\s+(.+)/.test(line)) {
+                    if (!inList || listType !== 'ul') {
+                        if (inList) result.push('</' + listType + '>');
+                        result.push('<ul>');
+                        inList = true;
+                        listType = 'ul';
+                    }
+                    result.push('<li>' + line.replace(/^[-*]\s+/, '') + '</li>');
+                    continue;
+                }
+
+                // Ordered list item: 1. item
+                if (/^\d+\.\s+(.+)/.test(line)) {
+                    if (!inList || listType !== 'ol') {
+                        if (inList) result.push('</' + listType + '>');
+                        result.push('<ol>');
+                        inList = true;
+                        listType = 'ol';
+                    }
+                    result.push('<li>' + line.replace(/^\d+\.\s+/, '') + '</li>');
+                    continue;
+                }
+
+                // Close any open list
+                if (inList) {
+                    result.push('</' + listType + '>');
+                    inList = false;
+                }
+
+                // Empty line = paragraph break
+                if (line === '') {
+                    continue;
+                }
+
+                // Regular text — wrap in paragraph
+                result.push('<p>' + line + '</p>');
+            }
+
+            // Close any remaining open list
+            if (inList) {
+                result.push('</' + listType + '>');
+            }
+
+            return result.join('');
         },
 
         showTyping: function () {
