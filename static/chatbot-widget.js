@@ -569,22 +569,146 @@
         },
 
         applyBranding: function () {
-            const primary = this.config.primary_color;
-            const secondary = this.config.secondary_color || primary;
+            const c = this.config;
+            const primary = c.primary_color;
+            const secondary = c.secondary_color || primary;
 
-            this.elements.bubble.style.background = `linear-gradient(135deg, ${primary}, ${secondary})`;
-            this.elements.window.querySelector('.mcp-chat-header').style.background =
-                `linear-gradient(135deg, ${primary}, ${secondary})`;
+            // ── Font ──
+            const fontMap = {
+                'system': "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif",
+                'inter': "'Inter', sans-serif",
+                'poppins': "'Poppins', sans-serif",
+                'roboto': "'Roboto', sans-serif",
+                'open-sans': "'Open Sans', sans-serif",
+                'lato': "'Lato', sans-serif",
+                'montserrat': "'Montserrat', sans-serif",
+                'nunito': "'Nunito', sans-serif",
+                'raleway': "'Raleway', sans-serif"
+            };
+            const fontFamily = c.font_family || 'system';
+            if (fontFamily !== 'system') {
+                // Load Google Font
+                const fontUrl = fontFamily === 'custom' && c.custom_font_url
+                    ? c.custom_font_url
+                    : `https://fonts.googleapis.com/css2?family=${fontFamily.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join('+')}&display=swap`;
+                if (!document.querySelector(`link[href="${fontUrl}"]`)) {
+                    const link = document.createElement('link');
+                    link.rel = 'stylesheet';
+                    link.href = fontUrl;
+                    document.head.appendChild(link);
+                }
+            }
+            const resolvedFont = fontFamily === 'custom' ? 'inherit' : (fontMap[fontFamily] || fontMap['system']);
+            this.elements.container.style.fontFamily = resolvedFont;
+
+            // ── Bubble ──
+            const bubbleStyle = c.bubble_style || 'gradient';
+            this.elements.bubble.style.background = bubbleStyle === 'gradient'
+                ? `linear-gradient(135deg, ${primary}, ${secondary})`
+                : primary;
+            const bubbleSize = parseInt(c.bubble_size || '60');
+            this.elements.bubble.style.width = bubbleSize + 'px';
+            this.elements.bubble.style.height = bubbleSize + 'px';
+
+            // Bubble icon
+            const bubbleIcon = c.bubble_icon || 'chat';
+            const iconPaths = {
+                'chat': 'M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z',
+                'message': 'M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-2 12H6v-2h12v2zm0-3H6V9h12v2zm0-3H6V6h12v2z',
+                'headset': 'M12 1c-4.97 0-9 4.03-9 9v7c0 1.66 1.34 3 3 3h3v-8H5v-2c0-3.87 3.13-7 7-7s7 3.13 7 7v2h-4v8h3c1.66 0 3-1.34 3-3v-7c0-4.97-4.03-9-9-9z',
+                'help': 'M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17h-2v-2h2v2zm2.07-7.75l-.9.92C13.45 12.9 13 13.5 13 15h-2v-.5c0-1.1.45-2.1 1.17-2.83l1.24-1.26c.37-.36.59-.86.59-1.41 0-1.1-.9-2-2-2s-2 .9-2 2H8c0-2.21 1.79-4 4-4s4 1.79 4 4c0 .88-.36 1.68-.93 2.25z'
+            };
+            const bubbleSvg = this.elements.bubble.querySelector('svg');
+            if (bubbleSvg) {
+                const path = bubbleSvg.querySelector('path');
+                if (path && iconPaths[bubbleIcon]) path.setAttribute('d', iconPaths[bubbleIcon]);
+            }
+
+            // ── Header ──
+            const headerEl = this.elements.window.querySelector('.mcp-chat-header');
+            const headerStyle = c.header_style || 'gradient';
+            if (headerStyle === 'gradient') {
+                headerEl.style.background = `linear-gradient(135deg, ${primary}, ${secondary})`;
+            } else if (headerStyle === 'solid') {
+                headerEl.style.background = primary;
+            } else if (headerStyle === 'dark') {
+                headerEl.style.background = '#1a1a2e';
+            } else if (headerStyle === 'light') {
+                headerEl.style.background = '#f8fafc';
+            }
+            headerEl.style.color = c.header_text_color || '#ffffff';
+
+            // ── Chat Window ──
+            this.elements.window.style.background = c.window_bg_color || '#ffffff';
+            this.elements.window.style.width = (parseInt(c.window_width || '380')) + 'px';
+            this.elements.window.style.height = (parseInt(c.window_height || '520')) + 'px';
+            this.elements.window.style.borderRadius = (parseInt(c.window_border_radius || '16')) + 'px';
+
+            // Shadow
+            const shadowMap = { none: 'none', light: '0 4px 12px rgba(0,0,0,0.08)', medium: '0 10px 40px rgba(0,0,0,0.2)', heavy: '0 20px 60px rgba(0,0,0,0.35)' };
+            this.elements.window.style.boxShadow = shadowMap[c.shadow_style || 'medium'] || shadowMap.medium;
+
+            // Border
+            const borderStyle = c.border_style || 'none';
+            const borderColor = c.border_color || '#e2e8f0';
+            this.elements.window.style.border = borderStyle === 'none' ? 'none' : borderStyle === 'thin' ? `1px solid ${borderColor}` : `2px solid ${borderColor}`;
+
+            // ── Messages area ──
+            this.elements.messages.style.background = c.window_bg_color || '#ffffff';
+
+            // ── User messages ──
+            this._userMsgBg = `linear-gradient(135deg, ${primary}, ${secondary})`;
+            this._userMsgTextColor = c.user_msg_text_color || '#ffffff';
+            this._botMsgBg = c.bot_msg_bg_color || '#f1f5f9';
+            this._botMsgTextColor = c.bot_msg_text_color || '#1e293b';
+            this._msgBorderRadius = (parseInt(c.message_border_radius || '16')) + 'px';
 
             const userMessages = this.elements.messages.querySelectorAll('.mcp-message-user');
             userMessages.forEach(msg => {
-                msg.style.background = `linear-gradient(135deg, ${primary}, ${secondary})`;
+                msg.style.background = this._userMsgBg;
+                msg.style.color = this._userMsgTextColor;
+                msg.style.borderRadius = this._msgBorderRadius;
+                msg.style.borderBottomRightRadius = '4px';
+            });
+            const botMessages = this.elements.messages.querySelectorAll('.mcp-message-assistant');
+            botMessages.forEach(msg => {
+                msg.style.background = this._botMsgBg;
+                msg.style.color = this._botMsgTextColor;
+                msg.style.borderRadius = this._msgBorderRadius;
+                msg.style.borderBottomLeftRadius = '4px';
             });
 
-            this.elements.sendBtn.style.setProperty('background', primary, 'important');
+            // ── Typing indicator ──
+            const typing = this.elements.typingIndicator;
+            if (typing) {
+                typing.style.background = this._botMsgBg;
+                typing.style.borderRadius = this._msgBorderRadius;
+            }
 
+            // ── Input ──
+            this.elements.input.style.backgroundColor = c.input_bg_color || '#ffffff';
+            this.elements.input.style.color = c.input_text_color || '#1e293b';
+            this.elements.input.style.borderColor = c.input_border_color || '#e2e8f0';
+
+            // ── Footer ──
+            const footer = this.elements.window.querySelector('.mcp-chat-footer');
+            if (footer) footer.style.background = c.window_bg_color || '#ffffff';
+
+            // ── Send button ──
+            this.elements.sendBtn.style.setProperty('background', primary, 'important');
+            const sendStyle = c.send_btn_style || 'round';
+            const sendRadius = sendStyle === 'round' ? '50%' : sendStyle === 'pill' ? '20px' : '8px';
+            this.elements.sendBtn.style.setProperty('border-radius', sendRadius, 'important');
+
+            // ── Lead form button ──
             const leadBtn = this.elements.leadForm.querySelector('button');
             if (leadBtn) leadBtn.style.setProperty('background', primary, 'important');
+
+            // ── Powered by ──
+            const poweredBy = this.elements.window.querySelector('.mcp-powered');
+            if (poweredBy && c.powered_by_visible === false) {
+                poweredBy.style.display = 'none';
+            }
         },
 
         bindEvents: function () {
@@ -964,8 +1088,18 @@
                 div.textContent = msg.content;
             }
 
+            // Apply theme colors to new messages
+            const radius = this._msgBorderRadius || '16px';
             if (msg.role === 'user') {
-                div.style.background = `linear-gradient(135deg, ${this.config.primary_color}, ${this.config.secondary_color || this.config.primary_color})`;
+                div.style.background = this._userMsgBg || `linear-gradient(135deg, ${this.config.primary_color}, ${this.config.secondary_color || this.config.primary_color})`;
+                div.style.color = this._userMsgTextColor || '#ffffff';
+                div.style.borderRadius = radius;
+                div.style.borderBottomRightRadius = '4px';
+            } else {
+                div.style.background = this._botMsgBg || '#f1f5f9';
+                div.style.color = this._botMsgTextColor || '#1e293b';
+                div.style.borderRadius = radius;
+                div.style.borderBottomLeftRadius = '4px';
             }
 
             this.elements.messages.appendChild(div);

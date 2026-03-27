@@ -3310,6 +3310,211 @@
                             </div>
                         </div>
 
+                        <!-- Theme & Styling -->
+                        <div class="glass rounded-2xl p-6">
+                            <h3 class="text-lg font-bold text-white mb-4">
+                                <i class="fas fa-paint-brush mr-2 text-orange-400"></i>Theme & Styling
+                                <span class="text-xs text-gray-500 font-normal ml-2">Match your website theme</span>
+                            </h3>
+
+                            <!-- Font Family -->
+                            <div class="mb-4">
+                                <label class="block text-sm text-gray-400 mb-2">Font Family</label>
+                                <select id="chatbotFontFamily" class="w-full px-4 py-2 glass rounded-lg text-white focus:outline-none" onchange="updateChatbotPreview()">
+                                    <option value="system">System Default</option>
+                                    <option value="inter">Inter</option>
+                                    <option value="poppins">Poppins</option>
+                                    <option value="roboto">Roboto</option>
+                                    <option value="open-sans">Open Sans</option>
+                                    <option value="lato">Lato</option>
+                                    <option value="montserrat">Montserrat</option>
+                                    <option value="nunito">Nunito</option>
+                                    <option value="raleway">Raleway</option>
+                                    <option value="custom">Custom (Google Fonts URL)</option>
+                                </select>
+                                <input type="text" id="chatbotCustomFontUrl" placeholder="https://fonts.googleapis.com/css2?family=YourFont"
+                                    class="w-full px-4 py-2 glass rounded-lg text-white focus:outline-none mt-2 hidden">
+                            </div>
+
+                            <!-- Header Style -->
+                            <div class="grid sm:grid-cols-2 gap-4 mb-4">
+                                <div>
+                                    <label class="block text-sm text-gray-400 mb-2">Header Style</label>
+                                    <select id="chatbotHeaderStyle" class="w-full px-4 py-2 glass rounded-lg text-white focus:outline-none" onchange="updateChatbotPreview()">
+                                        <option value="gradient">Gradient</option>
+                                        <option value="solid">Solid Primary</option>
+                                        <option value="dark">Dark</option>
+                                        <option value="light">Light</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-sm text-gray-400 mb-2">Header Text Color</label>
+                                    <div class="flex gap-2">
+                                        <input type="color" id="chatbotHeaderTextColor" value="#ffffff" class="w-12 h-10 rounded cursor-pointer" onchange="document.getElementById('chatbotHeaderTextColorText').value=this.value;updateChatbotPreview()">
+                                        <input type="text" id="chatbotHeaderTextColorText" value="#ffffff" class="flex-1 px-4 py-2 glass rounded-lg text-white focus:outline-none" onchange="document.getElementById('chatbotHeaderTextColor').value=this.value;updateChatbotPreview()">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Bubble Settings -->
+                            <div class="grid sm:grid-cols-3 gap-4 mb-4">
+                                <div>
+                                    <label class="block text-sm text-gray-400 mb-2">Bubble Size</label>
+                                    <select id="chatbotBubbleSize" class="w-full px-4 py-2 glass rounded-lg text-white focus:outline-none" onchange="updateChatbotPreview()">
+                                        <option value="50">Small (50px)</option>
+                                        <option value="60" selected>Medium (60px)</option>
+                                        <option value="70">Large (70px)</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-sm text-gray-400 mb-2">Bubble Icon</label>
+                                    <select id="chatbotBubbleIcon" class="w-full px-4 py-2 glass rounded-lg text-white focus:outline-none" onchange="updateChatbotPreview()">
+                                        <option value="chat">Chat Bubble</option>
+                                        <option value="message">Message</option>
+                                        <option value="headset">Headset</option>
+                                        <option value="help">Question Mark</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-sm text-gray-400 mb-2">Bubble Style</label>
+                                    <select id="chatbotBubbleStyle" class="w-full px-4 py-2 glass rounded-lg text-white focus:outline-none" onchange="updateChatbotPreview()">
+                                        <option value="gradient">Gradient</option>
+                                        <option value="solid">Solid</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <!-- Window Dimensions -->
+                            <div class="grid sm:grid-cols-3 gap-4 mb-4">
+                                <div>
+                                    <label class="block text-sm text-gray-400 mb-2">Window Width (px)</label>
+                                    <input type="number" id="chatbotWindowWidth" value="380" min="300" max="500"
+                                        class="w-full px-4 py-2 glass rounded-lg text-white focus:outline-none" onchange="updateChatbotPreview()">
+                                </div>
+                                <div>
+                                    <label class="block text-sm text-gray-400 mb-2">Window Height (px)</label>
+                                    <input type="number" id="chatbotWindowHeight" value="520" min="400" max="700"
+                                        class="w-full px-4 py-2 glass rounded-lg text-white focus:outline-none" onchange="updateChatbotPreview()">
+                                </div>
+                                <div>
+                                    <label class="block text-sm text-gray-400 mb-2">Corner Radius (px)</label>
+                                    <input type="number" id="chatbotWindowBorderRadius" value="16" min="0" max="32"
+                                        class="w-full px-4 py-2 glass rounded-lg text-white focus:outline-none" onchange="updateChatbotPreview()">
+                                </div>
+                            </div>
+
+                            <!-- Message Colors -->
+                            <p class="text-sm text-gray-300 font-medium mb-3"><i class="fas fa-comments mr-1 text-blue-400"></i> Message Bubbles</p>
+                            <div class="grid sm:grid-cols-2 gap-4 mb-4">
+                                <div>
+                                    <label class="block text-sm text-gray-400 mb-2">Bot Message Background</label>
+                                    <div class="flex gap-2">
+                                        <input type="color" id="chatbotBotMsgBg" value="#f1f5f9" class="w-12 h-10 rounded cursor-pointer" onchange="document.getElementById('chatbotBotMsgBgText').value=this.value;updateChatbotPreview()">
+                                        <input type="text" id="chatbotBotMsgBgText" value="#f1f5f9" class="flex-1 px-4 py-2 glass rounded-lg text-white focus:outline-none" onchange="document.getElementById('chatbotBotMsgBg').value=this.value;updateChatbotPreview()">
+                                    </div>
+                                </div>
+                                <div>
+                                    <label class="block text-sm text-gray-400 mb-2">Bot Message Text</label>
+                                    <div class="flex gap-2">
+                                        <input type="color" id="chatbotBotMsgText" value="#1e293b" class="w-12 h-10 rounded cursor-pointer" onchange="document.getElementById('chatbotBotMsgTextVal').value=this.value;updateChatbotPreview()">
+                                        <input type="text" id="chatbotBotMsgTextVal" value="#1e293b" class="flex-1 px-4 py-2 glass rounded-lg text-white focus:outline-none" onchange="document.getElementById('chatbotBotMsgText').value=this.value;updateChatbotPreview()">
+                                    </div>
+                                </div>
+                                <div>
+                                    <label class="block text-sm text-gray-400 mb-2">User Message Text</label>
+                                    <div class="flex gap-2">
+                                        <input type="color" id="chatbotUserMsgText" value="#ffffff" class="w-12 h-10 rounded cursor-pointer" onchange="document.getElementById('chatbotUserMsgTextVal').value=this.value;updateChatbotPreview()">
+                                        <input type="text" id="chatbotUserMsgTextVal" value="#ffffff" class="flex-1 px-4 py-2 glass rounded-lg text-white focus:outline-none" onchange="document.getElementById('chatbotUserMsgText').value=this.value;updateChatbotPreview()">
+                                    </div>
+                                </div>
+                                <div>
+                                    <label class="block text-sm text-gray-400 mb-2">Message Radius (px)</label>
+                                    <input type="number" id="chatbotMessageBorderRadius" value="16" min="0" max="24"
+                                        class="w-full px-4 py-2 glass rounded-lg text-white focus:outline-none" onchange="updateChatbotPreview()">
+                                </div>
+                            </div>
+
+                            <!-- Window Background & Input -->
+                            <p class="text-sm text-gray-300 font-medium mb-3"><i class="fas fa-window-maximize mr-1 text-green-400"></i> Window & Input</p>
+                            <div class="grid sm:grid-cols-2 gap-4 mb-4">
+                                <div>
+                                    <label class="block text-sm text-gray-400 mb-2">Window Background</label>
+                                    <div class="flex gap-2">
+                                        <input type="color" id="chatbotWindowBg" value="#ffffff" class="w-12 h-10 rounded cursor-pointer" onchange="document.getElementById('chatbotWindowBgText').value=this.value;updateChatbotPreview()">
+                                        <input type="text" id="chatbotWindowBgText" value="#ffffff" class="flex-1 px-4 py-2 glass rounded-lg text-white focus:outline-none" onchange="document.getElementById('chatbotWindowBg').value=this.value;updateChatbotPreview()">
+                                    </div>
+                                </div>
+                                <div>
+                                    <label class="block text-sm text-gray-400 mb-2">Input Background</label>
+                                    <div class="flex gap-2">
+                                        <input type="color" id="chatbotInputBg" value="#ffffff" class="w-12 h-10 rounded cursor-pointer" onchange="document.getElementById('chatbotInputBgText').value=this.value;updateChatbotPreview()">
+                                        <input type="text" id="chatbotInputBgText" value="#ffffff" class="flex-1 px-4 py-2 glass rounded-lg text-white focus:outline-none" onchange="document.getElementById('chatbotInputBg').value=this.value;updateChatbotPreview()">
+                                    </div>
+                                </div>
+                                <div>
+                                    <label class="block text-sm text-gray-400 mb-2">Input Text Color</label>
+                                    <div class="flex gap-2">
+                                        <input type="color" id="chatbotInputText" value="#1e293b" class="w-12 h-10 rounded cursor-pointer" onchange="document.getElementById('chatbotInputTextVal').value=this.value;updateChatbotPreview()">
+                                        <input type="text" id="chatbotInputTextVal" value="#1e293b" class="flex-1 px-4 py-2 glass rounded-lg text-white focus:outline-none" onchange="document.getElementById('chatbotInputText').value=this.value;updateChatbotPreview()">
+                                    </div>
+                                </div>
+                                <div>
+                                    <label class="block text-sm text-gray-400 mb-2">Input Border Color</label>
+                                    <div class="flex gap-2">
+                                        <input type="color" id="chatbotInputBorder" value="#e2e8f0" class="w-12 h-10 rounded cursor-pointer" onchange="document.getElementById('chatbotInputBorderText').value=this.value;updateChatbotPreview()">
+                                        <input type="text" id="chatbotInputBorderText" value="#e2e8f0" class="flex-1 px-4 py-2 glass rounded-lg text-white focus:outline-none" onchange="document.getElementById('chatbotInputBorder').value=this.value;updateChatbotPreview()">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Shadow, Border & Extras -->
+                            <p class="text-sm text-gray-300 font-medium mb-3"><i class="fas fa-adjust mr-1 text-yellow-400"></i> Effects</p>
+                            <div class="grid sm:grid-cols-3 gap-4 mb-4">
+                                <div>
+                                    <label class="block text-sm text-gray-400 mb-2">Shadow</label>
+                                    <select id="chatbotShadowStyle" class="w-full px-4 py-2 glass rounded-lg text-white focus:outline-none" onchange="updateChatbotPreview()">
+                                        <option value="none">None</option>
+                                        <option value="light">Light</option>
+                                        <option value="medium" selected>Medium</option>
+                                        <option value="heavy">Heavy</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-sm text-gray-400 mb-2">Window Border</label>
+                                    <select id="chatbotBorderStyle" class="w-full px-4 py-2 glass rounded-lg text-white focus:outline-none" onchange="updateChatbotPreview()">
+                                        <option value="none" selected>None</option>
+                                        <option value="thin">Thin</option>
+                                        <option value="thick">Thick</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-sm text-gray-400 mb-2">Border Color</label>
+                                    <div class="flex gap-2">
+                                        <input type="color" id="chatbotBorderColor" value="#e2e8f0" class="w-12 h-10 rounded cursor-pointer" onchange="document.getElementById('chatbotBorderColorText').value=this.value;updateChatbotPreview()">
+                                        <input type="text" id="chatbotBorderColorText" value="#e2e8f0" class="flex-1 px-4 py-2 glass rounded-lg text-white focus:outline-none" onchange="document.getElementById('chatbotBorderColor').value=this.value;updateChatbotPreview()">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Send Button & Misc -->
+                            <div class="grid sm:grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-sm text-gray-400 mb-2">Send Button Shape</label>
+                                    <select id="chatbotSendBtnStyle" class="w-full px-4 py-2 glass rounded-lg text-white focus:outline-none" onchange="updateChatbotPreview()">
+                                        <option value="round">Round</option>
+                                        <option value="square">Square</option>
+                                        <option value="pill">Pill</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="flex items-center justify-between p-3 glass rounded-lg cursor-pointer mt-5">
+                                        <span class="text-white text-sm">Show "Powered by" badge</span>
+                                        <input type="checkbox" id="chatbotPoweredByVisible" checked class="w-5 h-5 rounded" onchange="updateChatbotPreview()">
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
                         <!-- Lead Capture Settings -->
                         <div class="glass rounded-2xl p-6">
                             <h3 class="text-lg font-bold text-white mb-4"><i
@@ -20414,6 +20619,41 @@
             document.getElementById('chatbotNotifyCc').value = config.notification_cc || '';
             document.getElementById('chatbotNotifyBcc').value = config.notification_bcc || '';
 
+            // Theme & Styling
+            document.getElementById('chatbotFontFamily').value = config.font_family || 'system';
+            document.getElementById('chatbotCustomFontUrl').value = config.custom_font_url || '';
+            document.getElementById('chatbotCustomFontUrl').classList.toggle('hidden', (config.font_family || 'system') !== 'custom');
+            document.getElementById('chatbotHeaderStyle').value = config.header_style || 'gradient';
+            document.getElementById('chatbotHeaderTextColor').value = config.header_text_color || '#ffffff';
+            document.getElementById('chatbotHeaderTextColorText').value = config.header_text_color || '#ffffff';
+            document.getElementById('chatbotBubbleSize').value = config.bubble_size || '60';
+            document.getElementById('chatbotBubbleIcon').value = config.bubble_icon || 'chat';
+            document.getElementById('chatbotBubbleStyle').value = config.bubble_style || 'gradient';
+            document.getElementById('chatbotWindowWidth').value = config.window_width || '380';
+            document.getElementById('chatbotWindowHeight').value = config.window_height || '520';
+            document.getElementById('chatbotWindowBorderRadius').value = config.window_border_radius || '16';
+            document.getElementById('chatbotMessageBorderRadius').value = config.message_border_radius || '16';
+            document.getElementById('chatbotUserMsgText').value = config.user_msg_text_color || '#ffffff';
+            document.getElementById('chatbotUserMsgTextVal').value = config.user_msg_text_color || '#ffffff';
+            document.getElementById('chatbotBotMsgBg').value = config.bot_msg_bg_color || '#f1f5f9';
+            document.getElementById('chatbotBotMsgBgText').value = config.bot_msg_bg_color || '#f1f5f9';
+            document.getElementById('chatbotBotMsgText').value = config.bot_msg_text_color || '#1e293b';
+            document.getElementById('chatbotBotMsgTextVal').value = config.bot_msg_text_color || '#1e293b';
+            document.getElementById('chatbotWindowBg').value = config.window_bg_color || '#ffffff';
+            document.getElementById('chatbotWindowBgText').value = config.window_bg_color || '#ffffff';
+            document.getElementById('chatbotInputBg').value = config.input_bg_color || '#ffffff';
+            document.getElementById('chatbotInputBgText').value = config.input_bg_color || '#ffffff';
+            document.getElementById('chatbotInputText').value = config.input_text_color || '#1e293b';
+            document.getElementById('chatbotInputTextVal').value = config.input_text_color || '#1e293b';
+            document.getElementById('chatbotInputBorder').value = config.input_border_color || '#e2e8f0';
+            document.getElementById('chatbotInputBorderText').value = config.input_border_color || '#e2e8f0';
+            document.getElementById('chatbotShadowStyle').value = config.shadow_style || 'medium';
+            document.getElementById('chatbotBorderStyle').value = config.border_style || 'none';
+            document.getElementById('chatbotBorderColor').value = config.border_color || '#e2e8f0';
+            document.getElementById('chatbotBorderColorText').value = config.border_color || '#e2e8f0';
+            document.getElementById('chatbotSendBtnStyle').value = config.send_btn_style || 'round';
+            document.getElementById('chatbotPoweredByVisible').checked = config.powered_by_visible !== false;
+
             // Trigger settings
             document.getElementById('chatbotTriggerMode').value = config.trigger_mode || 'disabled';
             document.getElementById('chatbotTriggerDelay').value = config.trigger_delay_seconds || 60;
@@ -20535,6 +20775,31 @@
                 primary_color: document.getElementById('chatbotColor').value,
                 secondary_color: document.getElementById('chatbotColor2').value,
                 welcome_message: document.getElementById('chatbotWelcome').value,
+                // Theme & Styling
+                font_family: document.getElementById('chatbotFontFamily').value,
+                custom_font_url: document.getElementById('chatbotCustomFontUrl').value,
+                header_text_color: document.getElementById('chatbotHeaderTextColor').value,
+                header_style: document.getElementById('chatbotHeaderStyle').value,
+                bubble_size: document.getElementById('chatbotBubbleSize').value,
+                bubble_icon: document.getElementById('chatbotBubbleIcon').value,
+                bubble_style: document.getElementById('chatbotBubbleStyle').value,
+                window_bg_color: document.getElementById('chatbotWindowBg').value,
+                window_width: document.getElementById('chatbotWindowWidth').value,
+                window_height: document.getElementById('chatbotWindowHeight').value,
+                window_border_radius: document.getElementById('chatbotWindowBorderRadius').value,
+                message_border_radius: document.getElementById('chatbotMessageBorderRadius').value,
+                user_msg_text_color: document.getElementById('chatbotUserMsgText').value,
+                bot_msg_bg_color: document.getElementById('chatbotBotMsgBg').value,
+                bot_msg_text_color: document.getElementById('chatbotBotMsgText').value,
+                send_btn_style: document.getElementById('chatbotSendBtnStyle').value,
+                input_border_color: document.getElementById('chatbotInputBorder').value,
+                input_bg_color: document.getElementById('chatbotInputBg').value,
+                input_text_color: document.getElementById('chatbotInputText').value,
+                powered_by_visible: document.getElementById('chatbotPoweredByVisible').checked,
+                shadow_style: document.getElementById('chatbotShadowStyle').value,
+                border_style: document.getElementById('chatbotBorderStyle').value,
+                border_color: document.getElementById('chatbotBorderColor').value,
+                // Lead capture
                 lead_capture_enabled: document.getElementById('chatbotLeadEnabled').checked,
                 collect_name: document.getElementById('chatbotCollectName').checked,
                 collect_email: document.getElementById('chatbotCollectEmail').checked,
@@ -21271,9 +21536,93 @@
             const header = document.getElementById('previewHeader');
             const nameEl = document.getElementById('previewName');
             const messageEl = document.getElementById('previewMessage');
+            const previewWindow = document.getElementById('previewWindow');
+            const previewInput = previewWindow?.querySelector('input[type="text"]');
+            const previewSendBtn = previewWindow?.querySelector('button:last-child');
 
-            bubble.style.background = `linear-gradient(135deg, ${color1}, ${color2})`;
-            header.style.background = `linear-gradient(135deg, ${color1}, ${color2})`;
+            // Font family toggle
+            const fontSelect = document.getElementById('chatbotFontFamily');
+            const customFontInput = document.getElementById('chatbotCustomFontUrl');
+            if (fontSelect && customFontInput) {
+                customFontInput.classList.toggle('hidden', fontSelect.value !== 'custom');
+            }
+
+            // Header style
+            const headerStyle = document.getElementById('chatbotHeaderStyle')?.value || 'gradient';
+            const headerTextColor = document.getElementById('chatbotHeaderTextColor')?.value || '#ffffff';
+            if (headerStyle === 'gradient') {
+                header.style.background = `linear-gradient(135deg, ${color1}, ${color2})`;
+            } else if (headerStyle === 'solid') {
+                header.style.background = color1;
+            } else if (headerStyle === 'dark') {
+                header.style.background = '#1a1a2e';
+            } else if (headerStyle === 'light') {
+                header.style.background = '#f8fafc';
+            }
+            header.style.color = headerTextColor;
+
+            // Bubble style
+            const bubbleStyle = document.getElementById('chatbotBubbleStyle')?.value || 'gradient';
+            if (bubbleStyle === 'gradient') {
+                bubble.style.background = `linear-gradient(135deg, ${color1}, ${color2})`;
+            } else {
+                bubble.style.background = color1;
+            }
+
+            // Bubble size
+            const bubbleSize = document.getElementById('chatbotBubbleSize')?.value || '60';
+            bubble.style.width = (parseInt(bubbleSize) * 14 / 60) + 'px';  // Scale for mini preview
+            bubble.style.height = bubble.style.width;
+
+            // Window background
+            const windowBg = document.getElementById('chatbotWindowBg')?.value || '#ffffff';
+            if (previewWindow) previewWindow.style.backgroundColor = windowBg;
+
+            // Window border radius
+            const winRadius = document.getElementById('chatbotWindowBorderRadius')?.value || '16';
+            if (previewWindow) previewWindow.style.borderRadius = winRadius + 'px';
+
+            // Message colors
+            const botBg = document.getElementById('chatbotBotMsgBg')?.value || '#f1f5f9';
+            const botText = document.getElementById('chatbotBotMsgText')?.value || '#1e293b';
+            if (messageEl) {
+                messageEl.style.background = botBg;
+                messageEl.style.color = botText;
+            }
+
+            // Message border radius
+            const msgRadius = document.getElementById('chatbotMessageBorderRadius')?.value || '16';
+            if (messageEl) messageEl.style.borderRadius = msgRadius + 'px';
+
+            // Input styling
+            const inputBg = document.getElementById('chatbotInputBg')?.value || '#ffffff';
+            const inputText = document.getElementById('chatbotInputText')?.value || '#1e293b';
+            const inputBorder = document.getElementById('chatbotInputBorder')?.value || '#e2e8f0';
+            if (previewInput) {
+                previewInput.style.backgroundColor = inputBg;
+                previewInput.style.color = inputText;
+                previewInput.style.borderColor = inputBorder;
+            }
+
+            // Send button
+            if (previewSendBtn) previewSendBtn.style.background = color1;
+            const sendStyle = document.getElementById('chatbotSendBtnStyle')?.value || 'round';
+            if (previewSendBtn) {
+                previewSendBtn.style.borderRadius = sendStyle === 'round' ? '50%' : sendStyle === 'pill' ? '20px' : '8px';
+            }
+
+            // Shadow
+            const shadowStyle = document.getElementById('chatbotShadowStyle')?.value || 'medium';
+            const shadows = { none: 'none', light: '0 4px 12px rgba(0,0,0,0.08)', medium: '0 10px 40px rgba(0,0,0,0.2)', heavy: '0 20px 60px rgba(0,0,0,0.35)' };
+            if (previewWindow) previewWindow.style.boxShadow = shadows[shadowStyle] || shadows.medium;
+
+            // Border
+            const borderStyle = document.getElementById('chatbotBorderStyle')?.value || 'none';
+            const borderColor = document.getElementById('chatbotBorderColor')?.value || '#e2e8f0';
+            if (previewWindow) {
+                previewWindow.style.border = borderStyle === 'none' ? 'none' : borderStyle === 'thin' ? `1px solid ${borderColor}` : `2px solid ${borderColor}`;
+            }
+
             nameEl.textContent = name || 'Support Assistant';
             messageEl.textContent = welcome || 'Hi! How can I help you today?';
         }

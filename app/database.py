@@ -372,6 +372,57 @@ def run_migrations(app):
                 pass
 
 
+        # ── Chatbot Theme / Look & Feel columns ──
+        try:
+            result = db.session.execute(text("""
+                SELECT column_name FROM information_schema.columns
+                WHERE table_name = 'chatbot_configs' AND column_name = 'font_family'
+            """))
+            if not result.fetchone():
+                logger.info("Adding chatbot theme columns...")
+                theme_columns = [
+                    ("font_family", "VARCHAR(200) DEFAULT 'system'"),
+                    ("custom_font_url", "VARCHAR(500)"),
+                    ("header_text_color", "VARCHAR(20) DEFAULT '#ffffff'"),
+                    ("header_style", "VARCHAR(20) DEFAULT 'gradient'"),
+                    ("bubble_size", "VARCHAR(20) DEFAULT '60'"),
+                    ("bubble_icon", "VARCHAR(20) DEFAULT 'chat'"),
+                    ("bubble_style", "VARCHAR(20) DEFAULT 'gradient'"),
+                    ("window_bg_color", "VARCHAR(20) DEFAULT '#ffffff'"),
+                    ("window_width", "VARCHAR(10) DEFAULT '380'"),
+                    ("window_height", "VARCHAR(10) DEFAULT '520'"),
+                    ("window_border_radius", "VARCHAR(10) DEFAULT '16'"),
+                    ("message_border_radius", "VARCHAR(10) DEFAULT '16'"),
+                    ("user_msg_bg_color", "VARCHAR(20)"),
+                    ("user_msg_text_color", "VARCHAR(20) DEFAULT '#ffffff'"),
+                    ("bot_msg_bg_color", "VARCHAR(20) DEFAULT '#f1f5f9'"),
+                    ("bot_msg_text_color", "VARCHAR(20) DEFAULT '#1e293b'"),
+                    ("send_btn_style", "VARCHAR(20) DEFAULT 'round'"),
+                    ("input_border_color", "VARCHAR(20) DEFAULT '#e2e8f0'"),
+                    ("input_bg_color", "VARCHAR(20) DEFAULT '#ffffff'"),
+                    ("input_text_color", "VARCHAR(20) DEFAULT '#1e293b'"),
+                    ("powered_by_visible", "BOOLEAN DEFAULT TRUE"),
+                    ("shadow_style", "VARCHAR(20) DEFAULT 'medium'"),
+                    ("border_style", "VARCHAR(20) DEFAULT 'none'"),
+                    ("border_color", "VARCHAR(20) DEFAULT '#e2e8f0'"),
+                ]
+                for col_name, col_type in theme_columns:
+                    try:
+                        db.session.execute(text(f"ALTER TABLE chatbot_configs ADD COLUMN {col_name} {col_type}"))
+                        db.session.commit()
+                        logger.info(f"  ✓ Added chatbot theme column: {col_name}")
+                    except Exception as col_err:
+                        db.session.rollback()
+                        if 'already exists' not in str(col_err).lower():
+                            logger.warning(f"  Could not add {col_name}: {col_err}")
+        except Exception as e:
+            logger.debug(f"chatbot theme migration: {e}")
+            try:
+                db.session.rollback()
+            except:
+                pass
+
+
 def init_db(app):
     """Initialize database with app"""
     db.init_app(app)

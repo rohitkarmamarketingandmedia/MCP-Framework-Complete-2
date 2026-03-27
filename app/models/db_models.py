@@ -1624,6 +1624,32 @@ class DBChatbotConfig(db.Model):
     secondary_color: Mapped[str] = mapped_column(String(20), default='#1e40af')
     position: Mapped[str] = mapped_column(String(20), default='bottom-right')  # bottom-right, bottom-left
     avatar_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+
+    # Theme / Look & Feel
+    font_family: Mapped[str] = mapped_column(String(200), default='system')  # system, inter, poppins, roboto, open-sans, lato, montserrat, custom
+    custom_font_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)  # Google Fonts URL for custom
+    header_text_color: Mapped[str] = mapped_column(String(20), default='#ffffff')
+    header_style: Mapped[str] = mapped_column(String(20), default='gradient')  # gradient, solid, dark, light
+    bubble_size: Mapped[str] = mapped_column(String(20), default='60')  # px
+    bubble_icon: Mapped[str] = mapped_column(String(20), default='chat')  # chat, message, headset, help, custom
+    bubble_style: Mapped[str] = mapped_column(String(20), default='gradient')  # gradient, solid
+    window_bg_color: Mapped[str] = mapped_column(String(20), default='#ffffff')
+    window_width: Mapped[str] = mapped_column(String(10), default='380')  # px
+    window_height: Mapped[str] = mapped_column(String(10), default='520')  # px
+    window_border_radius: Mapped[str] = mapped_column(String(10), default='16')  # px
+    message_border_radius: Mapped[str] = mapped_column(String(10), default='16')  # px
+    user_msg_bg_color: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)  # null = use gradient
+    user_msg_text_color: Mapped[str] = mapped_column(String(20), default='#ffffff')
+    bot_msg_bg_color: Mapped[str] = mapped_column(String(20), default='#f1f5f9')
+    bot_msg_text_color: Mapped[str] = mapped_column(String(20), default='#1e293b')
+    send_btn_style: Mapped[str] = mapped_column(String(20), default='round')  # round, square, pill
+    input_border_color: Mapped[str] = mapped_column(String(20), default='#e2e8f0')
+    input_bg_color: Mapped[str] = mapped_column(String(20), default='#ffffff')
+    input_text_color: Mapped[str] = mapped_column(String(20), default='#1e293b')
+    powered_by_visible: Mapped[bool] = mapped_column(Boolean, default=True)
+    shadow_style: Mapped[str] = mapped_column(String(20), default='medium')  # none, light, medium, heavy
+    border_style: Mapped[str] = mapped_column(String(20), default='none')  # none, thin, thick
+    border_color: Mapped[str] = mapped_column(String(20), default='#e2e8f0')
     
     # Behavior
     auto_open_delay: Mapped[int] = mapped_column(Integer, default=0)  # 0 = don't auto open
@@ -1700,6 +1726,30 @@ class DBChatbotConfig(db.Model):
             'secondary_color': self.secondary_color,
             'position': self.position,
             'avatar_url': self.avatar_url,
+            'font_family': self.font_family,
+            'custom_font_url': self.custom_font_url,
+            'header_text_color': self.header_text_color,
+            'header_style': self.header_style,
+            'bubble_size': self.bubble_size,
+            'bubble_icon': self.bubble_icon,
+            'bubble_style': self.bubble_style,
+            'window_bg_color': self.window_bg_color,
+            'window_width': self.window_width,
+            'window_height': self.window_height,
+            'window_border_radius': self.window_border_radius,
+            'message_border_radius': self.message_border_radius,
+            'user_msg_bg_color': self.user_msg_bg_color,
+            'user_msg_text_color': self.user_msg_text_color,
+            'bot_msg_bg_color': self.bot_msg_bg_color,
+            'bot_msg_text_color': self.bot_msg_text_color,
+            'send_btn_style': self.send_btn_style,
+            'input_border_color': self.input_border_color,
+            'input_bg_color': self.input_bg_color,
+            'input_text_color': self.input_text_color,
+            'powered_by_visible': self.powered_by_visible,
+            'shadow_style': self.shadow_style,
+            'border_style': self.border_style,
+            'border_color': self.border_color,
             'auto_open_delay': self.auto_open_delay,
             'trigger_mode': self.trigger_mode,
             'trigger_delay_seconds': self.trigger_delay_seconds,
