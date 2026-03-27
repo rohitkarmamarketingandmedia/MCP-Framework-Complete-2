@@ -6144,6 +6144,9 @@
                 // Load overview data (with error handling)
                 try { loadOverviewData(); } catch (e) { console.error('loadOverviewData error:', e); }
 
+                // Auto-load cached rankings from DB (so Rankings tab shows data immediately)
+                try { loadCachedRankings(); } catch (e) { console.error('loadCachedRankings error:', e); }
+
                 // Load image library (with error handling)
                 try { loadImageLibrary(); } catch (e) { console.error('loadImageLibrary error:', e); }
 
@@ -18117,6 +18120,7 @@
             // Auto-load cached rankings from DB (from scheduler's daily 5 AM check)
             // This avoids consuming SEMrush API units
             if (!currentClient) return;
+            const rankingsTable = document.getElementById('rankingsTable');
             try {
                 const response = await fetch(`${API_URL}/api/monitoring/rankings/latest?client_id=${currentClient.id}&device=desktop`, {
                     headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
@@ -18126,10 +18130,18 @@
                     if (data.keywords && data.keywords.length > 0) {
                         rankingsData = data;
                         renderRankings();
+                        return;  // Success — done
                     }
+                }
+                // No cached data available — clear the spinner and show prompt
+                if (rankingsTable) {
+                    rankingsTable.innerHTML = '<tr><td colspan="5" class="py-8 text-center text-gray-500"><i class="fas fa-search text-2xl mb-2 block"></i>No cached rankings yet. Click "Check Rankings" to scan Google.</td></tr>';
                 }
             } catch (e) {
                 console.log('No cached rankings available');
+                if (rankingsTable) {
+                    rankingsTable.innerHTML = '<tr><td colspan="5" class="py-8 text-center text-gray-500"><i class="fas fa-search text-2xl mb-2 block"></i>Click "Check Rankings" to scan Google</td></tr>';
+                }
             }
         }
 
