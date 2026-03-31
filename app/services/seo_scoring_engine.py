@@ -133,10 +133,10 @@ class SEOScoringEngine:
             kw_heading_score = kw_heading_weight
             kw_heading_msg = f'✓ Keyword in {headings_with_keyword} headings'
         elif headings_with_keyword >= 2:
-            kw_heading_score = int(kw_heading_weight * 0.7)
+            kw_heading_score = int(kw_heading_weight * 0.8)
             kw_heading_msg = f'Keyword in {headings_with_keyword} headings (target: 3+)'
         elif headings_with_keyword >= 1:
-            kw_heading_score = int(kw_heading_weight * 0.4)
+            kw_heading_score = int(kw_heading_weight * 0.5)
             kw_heading_msg = f'Keyword in only {headings_with_keyword} heading (target: 3+)'
         else:
             kw_heading_score = 0
@@ -188,8 +188,8 @@ class SEOScoringEngine:
         if heading_data.get('h2_count', 0) < 3:
             result['recommendations'].append('Add more H2 subheadings (target: 3-6)')
         
-        # 7. Meta Title Length (55-60 chars optimal per SEO standards)
-        score, msg = self._score_meta_length(len(meta_title), 50, 65, 'Meta title')
+        # 7. Meta Title Length (45-70 chars acceptable, 50-65 optimal)
+        score, msg = self._score_meta_length(len(meta_title), 45, 70, 'Meta title')
         result['factors']['meta_title_length'] = {
             'score': score,
             'max': self.weights['meta_title_length'],
@@ -201,8 +201,8 @@ class SEOScoringEngine:
         elif len(meta_title) > 65:
             result['recommendations'].append(f'Shorten meta title (current: {len(meta_title)}, target: 55-60)')
         
-        # 8. Meta Description Length (140-165 chars acceptable)
-        score, msg = self._score_meta_length(len(meta_description), 130, 165, 'Meta description')
+        # 8. Meta Description Length (120-170 chars acceptable)
+        score, msg = self._score_meta_length(len(meta_description), 120, 170, 'Meta description')
         result['factors']['meta_description_length'] = {
             'score': score,
             'max': self.weights['meta_description_length'],
@@ -335,13 +335,15 @@ class SEOScoringEngine:
         
         weight = self.weights['keyword_density']
         
-        # More forgiving density ranges
+        # Forgiving density ranges for AI-generated content
         if 0.5 <= density <= 3.0:
             return weight, f'✓ Good density ({density:.1f}%)', density
         elif 0.3 <= density < 0.5 or 3.0 < density <= 4.0:
-            return int(weight * 0.8), f'Acceptable density ({density:.1f}%)', density
-        elif density < 0.3:
-            return int(weight * 0.4), f'Keyword underused ({density:.1f}%)', density
+            return int(weight * 0.85), f'Acceptable density ({density:.1f}%)', density
+        elif 0.2 <= density < 0.3:
+            return int(weight * 0.6), f'Keyword slightly underused ({density:.1f}%)', density
+        elif density < 0.2:
+            return int(weight * 0.3), f'Keyword underused ({density:.1f}%)', density
         else:
             return int(weight * 0.3), f'Keyword overused ({density:.1f}%)', density
     
@@ -410,13 +412,13 @@ class SEOScoringEngine:
     def _score_meta_length(self, length: int, min_len: int, max_len: int, name: str) -> tuple:
         """Score meta tag length"""
         weight = self.weights.get(f'{name.lower().replace(" ", "_")}_length', 5)
-        
+
         if min_len <= length <= max_len:
             return weight, f'✓ {name} length optimal ({length} chars)'
-        elif length > 0 and (length >= min_len - 10 or length <= max_len + 10):
-            return int(weight * 0.6), f'{name} length slightly off ({length} chars)'
+        elif length > 0 and (length >= min_len - 15 or length <= max_len + 15):
+            return int(weight * 0.7), f'{name} length slightly off ({length} chars)'
         elif length > 0:
-            return int(weight * 0.3), f'{name} length needs work ({length} chars)'
+            return int(weight * 0.35), f'{name} length needs work ({length} chars)'
         else:
             return 0, f'✗ Missing {name.lower()}'
     
@@ -454,13 +456,18 @@ class SEOScoringEngine:
             return int(weight * 0.2), 'Very difficult to read', 'Expert'
     
     def _score_link_count(self, count: int, min_count: int, max_count: int, name: str) -> tuple:
-        """Score link count"""
+        """Score link count with graduated scoring"""
         weight = self.weights.get(name.lower().replace(' ', '_'), 5)
-        
+
         if min_count <= count <= max_count:
             return weight, f'✓ Good {name.lower()} ({count})'
-        elif count > 0:
-            return int(weight * 0.5), f'{name} count could improve ({count})'
+        elif count >= min_count:
+            # Over max but still has enough
+            return int(weight * 0.9), f'{name} count high ({count})'
+        elif count >= 2:
+            return int(weight * 0.7), f'{name} count could improve ({count}, target: {min_count}+)'
+        elif count >= 1:
+            return int(weight * 0.4), f'{name} count low ({count}, target: {min_count}+)'
         else:
             return 0, f'✗ No {name.lower()}'
     

@@ -973,7 +973,7 @@ Return ONLY valid JSON (no markdown):
 
                 resp = self.client.messages.create(
                     model=model,
-                    max_tokens=16000,
+                    max_tokens=24000,
                     system=system_prompt.strip(),
                     messages=[
                         {"role": "user", "content": prompt.strip()},
@@ -1462,12 +1462,12 @@ Meta Description: 150-160 characters. MUST include keyword, specific benefit, an
     "h1": "{keyword.title()}",
     "meta_title": "[Max 60 char SEO title with keyword]",
     "meta_description": "[150-160 char unique description with benefit + CTA]",
-    "body": "<p>Full HTML content with all sections, H2/H3 headings, CTAs embedded, internal links...</p>",
+    "secondary_keywords": ["keyword1", "keyword2", "keyword3"],
+    "cta": {{"company_name": "{req.company_name}", "phone": "{req.phone}", "email": "{req.email}"}},
     "faq_items": [
 {faq_example_items}
     ],
-    "cta": {{"company_name": "{req.company_name}", "phone": "{req.phone}", "email": "{req.email}"}},
-    "secondary_keywords": ["keyword1", "keyword2", "keyword3"]
+    "body": "<p>Full HTML content with all sections, H2/H3 headings, CTAs embedded, internal links...</p>"
 }}
 
 ===== FINAL CHECK BEFORE RESPONDING =====

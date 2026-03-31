@@ -1762,6 +1762,75 @@ def get_blog_post(current_user, blog_id):
     return jsonify(blog.to_dict())
 
 
+@content_bp.route('/blog/<blog_id>/fact-check', methods=['POST'])
+@token_required
+def run_fact_check(current_user, blog_id):
+    """
+    Run fact-check verification on an existing blog post.
+
+    POST /api/content/blog/{blog_id}/fact-check
+    """
+    if not current_user.can_generate_content:
+        return jsonify({'error': 'Permission denied'}), 403
+
+    blog = DBBlogPost.query.get(blog_id)
+    if not blog:
+        return jsonify({'error': 'Blog post not found'}), 404
+
+    if not current_user.has_access_to_client(blog.client_id):
+        return jsonify({'error': 'Access denied'}), 403
+
+    try:
+        from app.services.blog_ai_single import get_blog_ai_single, BlogRequest
+
+        # Get client info for the BlogRequest
+        client = data_service.get_client(blog.client_id)
+        if not client:
+            return jsonify({'error': 'Client not found'}), 404
+
+        # Build a minimal BlogRequest with what we know
+        blog_request = BlogRequest(
+            keyword=blog.keyword or blog.title or '',
+            city=client.city or '',
+            state=client.state or '',
+            company_name=client.business_name or '',
+            industry=client.industry or '',
+        )
+
+        # Build result dict with blog content for verification
+        result = {
+            'body': blog.body or '',
+            'faq_items': []
+        }
+
+        # Try to extract FAQ items from the stored blog data
+        blog_dict = blog.to_dict()
+        if blog_dict.get('faq_items'):
+            result['faq_items'] = blog_dict['faq_items']
+
+        blog_ai = get_blog_ai_single()
+        fact_check = blog_ai._verify_content(result, blog_request)
+
+        if fact_check and isinstance(fact_check, dict):
+            blog.fact_check_report = json.dumps(fact_check)
+            blog.fact_check_score = fact_check.get('accuracy_score')
+            db.session.commit()
+
+            return jsonify({
+                'success': True,
+                'fact_check_report': fact_check,
+                'fact_check_score': fact_check.get('accuracy_score'),
+                'fact_check_status': fact_check.get('status', 'unknown')
+            })
+        else:
+            return jsonify({'error': 'Fact-check returned no data'}), 500
+
+    except Exception as e:
+        import traceback
+        logger.error(f"Fact-check error for blog {blog_id}: {e}\n{traceback.format_exc()}")
+        return jsonify({'error': f'Fact-check failed: {str(e)}'}), 500
+
+
 @content_bp.route('/social/generate', methods=['POST'])
 @token_required
 def generate_social_simple(current_user):

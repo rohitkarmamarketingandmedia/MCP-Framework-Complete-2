@@ -4653,6 +4653,22 @@
                     <!-- Meta fields - View mode -->
                     <div id="metaViewMode" class="mb-6 p-4 bg-gray-50 rounded-xl">
 
+                    <!-- Fact-Check: Run button (shown when no fact-check data) -->
+                    <div id="factCheckRunCard" class="hidden mb-6 p-4 bg-gradient-to-r from-slate-700 to-slate-800 rounded-xl text-white">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-3">
+                                <i class="fas fa-shield-alt text-gray-400 text-xl"></i>
+                                <div>
+                                    <h3 class="font-bold text-base">Fact-Check Verification</h3>
+                                    <p id="factCheckRunMsg" class="text-sm text-gray-400">No fact-check data available for this post.</p>
+                                </div>
+                            </div>
+                            <button id="runFactCheckBtn" onclick="runFactCheckForBlog()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition flex items-center gap-2">
+                                <i class="fas fa-play"></i> Run Fact Check
+                            </button>
+                        </div>
+                    </div>
+
                     <!-- Fact-Check Verification Card -->
                     <div id="factCheckCard" class="hidden mb-6 p-4 bg-gradient-to-r from-slate-800 to-slate-900 rounded-xl text-white">
                         <div class="flex items-center justify-between mb-4 cursor-pointer" onclick="toggleFactCheckDetails()">
@@ -10199,41 +10215,44 @@
 
                 // Derive a meaningful keyword from the customer questions
                 let topic = '';
+                const companyName = (currentClient.business_name || '').toLowerCase().trim();
+                const industry = (currentClient.industry || '').toLowerCase();
+                const geo = (currentClient.geo || '').split(',')[0].trim();
 
-                // 1. Try content opportunities (already analyzed topics)
-                if (opps.length > 0) {
-                    topic = opps[0].title || opps[0].topic || '';
-                    if (topic) topic = _extractKeywordFromTopic(topic);
+                // Helper: check if a topic is just the company name or empty
+                function isJustCompanyName(t) {
+                    if (!t) return true;
+                    var cleaned = t.toLowerCase().replace(/[^a-z0-9\s]/g, '').trim();
+                    if (cleaned.length < 4) return true;
+                    if (companyName && (cleaned === companyName || companyName.includes(cleaned) || cleaned.includes(companyName))) return true;
+                    // Also reject if it's just a number pattern like "941 dental studio"
+                    if (companyName && cleaned.replace(/\s+/g, '').includes(companyName.replace(/\s+/g, ''))) return true;
+                    return false;
                 }
 
-                // 2. Extract a keyword from the common theme of all questions
-                if (!topic && questions.length > 0) {
-                    // Count nouns/phrases across all questions to find the dominant theme
-                    const allText = questions.join(' ').toLowerCase();
-                    const industry = (currentClient.industry || '').toLowerCase();
-                    const geo = (currentClient.geo || '').split(',')[0].trim();
-
-                    // Extract 2-word phrases from questions (bigrams)
+                // PRIMARY METHOD: Analyze all questions for common bigrams/themes
+                if (questions.length > 0) {
                     const phraseCount = {};
-                    const stopWords = new Set(['do', 'you', 'does', 'the', 'a', 'an', 'is', 'are', 'how', 'what', 'when', 'where', 'why', 'can', 'will', 'for', 'and', 'or', 'in', 'to', 'of', 'my', 'your', 'we', 'our', 'i', 'it', 'at', 'on', 'with', 'that', 'this', 'there', 'much', 'long', 'offer', 'have', 'provide', 'accept', 'like']);
+                    const stopWords = new Set(['do', 'you', 'does', 'the', 'a', 'an', 'is', 'are', 'how', 'what', 'when', 'where', 'why', 'can', 'will', 'for', 'and', 'or', 'in', 'to', 'of', 'my', 'your', 'we', 'our', 'i', 'it', 'at', 'on', 'with', 'that', 'this', 'there', 'much', 'long', 'offer', 'have', 'provide', 'accept', 'like', 'about', 'should', 'bring', 'need', 'take', 'between', 'before', 'after', 'first', 'cost', 'handle']);
+                    // Also exclude company name words from being counted
+                    const companyWords = companyName.split(/\s+/).filter(w => w.length > 1);
+                    companyWords.forEach(w => stopWords.add(w));
+
                     questions.forEach(function(q) {
-                        const words = q.toLowerCase().replace(/[?!.,;:'"]/g, '').split(/\s+/).filter(w => w.length > 2 && !stopWords.has(w));
-                        // Count single important words
+                        const words = q.toLowerCase().replace(/[?!.,;:'"()]/g, '').split(/\s+/).filter(w => w.length > 2 && !stopWords.has(w));
                         words.forEach(function(w) {
                             phraseCount[w] = (phraseCount[w] || 0) + 1;
                         });
-                        // Count bigrams
                         for (let i = 0; i < words.length - 1; i++) {
                             const bigram = words[i] + ' ' + words[i+1];
                             phraseCount[bigram] = (phraseCount[bigram] || 0) + 1;
                         }
                     });
 
-                    // Find the most common meaningful phrase (prefer bigrams)
+                    // Find the most common meaningful phrase (prefer bigrams with count >= 2)
                     const sorted = Object.entries(phraseCount)
                         .filter(([phrase, count]) => count >= 2 && phrase.length > 3)
                         .sort((a, b) => {
-                            // Prefer bigrams over single words, then by frequency
                             const aIsPhrase = a[0].includes(' ') ? 1 : 0;
                             const bIsPhrase = b[0].includes(' ') ? 1 : 0;
                             if (bIsPhrase !== aIsPhrase) return bIsPhrase - aIsPhrase;
@@ -10242,25 +10261,45 @@
 
                     if (sorted.length > 0) {
                         let bestPhrase = sorted[0][0];
-                        // Add industry context if the phrase is generic
                         if (industry && !bestPhrase.includes(industry)) {
                             topic = industry + ' ' + bestPhrase;
                         } else {
                             topic = bestPhrase;
                         }
-                        // Add geo for local SEO
                         if (geo && !topic.toLowerCase().includes(geo.toLowerCase())) {
                             topic = topic + ' ' + geo;
                         }
                     }
                 }
 
-                // 3. Fallback to industry + primary keywords
-                if (!topic) {
+                // FALLBACK 1: Try content opportunities if bigram analysis didn't produce a result
+                if (isJustCompanyName(topic) && opps.length > 0) {
+                    var oppTopic = opps[0].title || opps[0].topic || '';
+                    if (oppTopic) {
+                        oppTopic = _extractKeywordFromTopic(oppTopic);
+                        if (!isJustCompanyName(oppTopic)) topic = oppTopic;
+                    }
+                }
+
+                // FALLBACK 2: Use industry + primary keywords
+                if (isJustCompanyName(topic)) {
                     const pk = (currentClient.primary_keywords && currentClient.primary_keywords[0]) || '';
-                    const ind = currentClient.industry || '';
-                    const geo = (currentClient.geo || '').split(',')[0].trim();
-                    topic = pk || (ind + (geo ? ' ' + geo : ''));
+                    if (pk && !isJustCompanyName(pk)) {
+                        topic = pk;
+                    } else {
+                        topic = (industry || 'services') + (geo ? ' ' + geo : '');
+                    }
+                }
+
+                // FALLBACK 3: Extract the core subject from the first question directly
+                if (isJustCompanyName(topic) && questions.length > 0) {
+                    var firstQ = questions[0];
+                    firstQ = firstQ.replace(/^(what|how|when|where|why|do|does|can|will|is|are)\s+/i, '');
+                    firstQ = firstQ.replace(/[?!.,;:]+$/, '').trim();
+                    var qWords = firstQ.split(/\s+/).slice(0, 4).join(' ');
+                    if (!isJustCompanyName(qWords) && qWords.length > 5) {
+                        topic = qWords + (geo ? ' ' + geo : '');
+                    }
                 }
 
                 // Clean up and title-case
@@ -13067,11 +13106,39 @@
 
         function updateFactCheckDisplay(blog) {
             const card = document.getElementById('factCheckCard');
+            const runCard = document.getElementById('factCheckRunCard');
             const report = blog.fact_check_report;
             const score = blog.fact_check_score;
-            
-            if (!report || !score || report.status === 'skipped') {
+
+            // No fact-check data at all — show the "Run Fact Check" button
+            if (!report || report.status === 'skipped') {
                 card.classList.add('hidden');
+                runCard.classList.remove('hidden');
+                var msg = 'No fact-check data available for this post.';
+                if (report && report.status === 'skipped') {
+                    msg = report.reason === 'content_too_short' ? 'Content too short for fact-check.' : 'Fact-check was skipped.';
+                }
+                document.getElementById('factCheckRunMsg').textContent = msg;
+                return;
+            }
+
+            // Fact-check returned an error — show "Run" with error message
+            if (report.status === 'error') {
+                card.classList.add('hidden');
+                runCard.classList.remove('hidden');
+                var reason = report.reason || 'Unknown error';
+                document.getElementById('factCheckRunMsg').textContent = 'Fact-check failed: ' + reason + '. Click to retry.';
+                return;
+            }
+
+            // Valid fact-check data exists — hide run card, show results
+            runCard.classList.add('hidden');
+
+            // Handle score of 0 (valid but falsy)
+            if (score === null || score === undefined) {
+                card.classList.add('hidden');
+                runCard.classList.remove('hidden');
+                document.getElementById('factCheckRunMsg').textContent = 'Fact-check data incomplete. Click to re-run.';
                 return;
             }
             
@@ -13157,6 +13224,49 @@
             document.getElementById('factCheckToggle').style.transform = '';
         }
         
+        async function runFactCheckForBlog() {
+            if (!currentBlog || !currentBlog.id) {
+                showToast('No blog selected', 'error');
+                return;
+            }
+            var btn = document.getElementById('runFactCheckBtn');
+            var origText = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Running...';
+            document.getElementById('factCheckRunMsg').textContent = 'Verifying claims via web search... This may take 30-60 seconds.';
+
+            try {
+                var response = await fetch(API_URL + '/api/content/blog/' + currentBlog.id + '/fact-check', {
+                    method: 'POST',
+                    headers: { 'Authorization': 'Bearer ' + AUTH_TOKEN, 'Content-Type': 'application/json' }
+                });
+                var data = await response.json();
+                if (data.success && data.fact_check_report) {
+                    // Update the in-memory blog object
+                    currentBlog.fact_check_report = data.fact_check_report;
+                    currentBlog.fact_check_score = data.fact_check_score;
+                    // Also update in allBlogs array
+                    var idx = allBlogs.findIndex(function(b) { return b.id === currentBlog.id; });
+                    if (idx >= 0) {
+                        allBlogs[idx].fact_check_report = data.fact_check_report;
+                        allBlogs[idx].fact_check_score = data.fact_check_score;
+                    }
+                    // Re-render the display
+                    updateFactCheckDisplay(currentBlog);
+                    showToast('Fact-check complete! Score: ' + (data.fact_check_score || 0) + '/100', 'success');
+                } else {
+                    document.getElementById('factCheckRunMsg').textContent = 'Fact-check failed: ' + (data.error || 'Unknown error') + '. Try again.';
+                    showToast('Fact-check failed: ' + (data.error || 'Unknown error'), 'error');
+                }
+            } catch (err) {
+                document.getElementById('factCheckRunMsg').textContent = 'Network error: ' + err.message + '. Try again.';
+                showToast('Fact-check error: ' + err.message, 'error');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = origText;
+            }
+        }
+
         function toggleFactCheckDetails() {
             const details = document.getElementById('factCheckDetails');
             const toggle = document.getElementById('factCheckToggle');
@@ -16631,7 +16741,7 @@
             btn.disabled = true;
             btn.innerHTML = '<div class="spinner w-5 h-5 mr-2"></div> Generating...';
             progress.classList.remove('hidden');
-            progressLog.innerHTML = '';
+            progressLog.innerHTML = '<div class="text-blue-300 text-xs mb-2 p-2 bg-blue-500/10 rounded"><i class="fas fa-info-circle mr-1"></i>Fact-check is skipped during bulk generation for speed. You can run fact-check on individual posts from the blog editor.</div>';
             progressCount.textContent = `0/${keywords.length}`;
             progressBar.style.width = '0%';
 
