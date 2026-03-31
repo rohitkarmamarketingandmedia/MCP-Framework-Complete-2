@@ -1415,8 +1415,8 @@ REMEMBER: Body must have {word_count}+ words, at least 5 internal <a href> links
                 system_prompt = system_prompt.replace(f'{{{key}}}', str(value))
 
         # Use Claude with a generous token limit for content generation
-        # Cap at 8000 to allow full pages/blogs; min 2000 for short agents
-        fast_tokens = max(min(agent.max_tokens, 8000), 2000)
+        # Cap at 16000 to allow full pages/blogs with JSON; min 2000 for short agents
+        fast_tokens = max(min(agent.max_tokens, 16000), 2000)
 
         logger.info(f"Using agent '{agent_name}' with Claude (tokens={fast_tokens})")
 

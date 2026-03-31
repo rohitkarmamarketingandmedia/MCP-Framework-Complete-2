@@ -324,14 +324,14 @@ Return ONLY valid JSON — no markdown, no extra text."""
 {user_input}
 
 Return a JSON object with keys: hero_headline, hero_subheadline, intro_text, body_content (full HTML, {target_words}+ words), cta_headline, cta_button_text, form_headline, trust_badges (list), faq (list of {{question, answer}}), meta_title, meta_description, secondary_keywords (list)."""
-                raw = self.ai_service.generate_raw(direct_prompt, max_tokens=8192)
+                raw = self.ai_service.generate_raw(direct_prompt, max_tokens=16000)
                 if isinstance(raw, str):
                     raw = raw.replace('```json', '').replace('```', '').strip()
                     return json.loads(raw)
             except Exception as direct_err:
                 logger.error(f"Direct AI generation also failed: {direct_err}")
             return self._generate_template(context)
-    
+
     def _generate_location_with_ai(self, context: Dict) -> Dict:
         """Generate location page content using AI agent config"""
         services_list = ', '.join(context.get('services', []))
@@ -383,7 +383,7 @@ Return ONLY valid JSON — no markdown, no extra text."""
 {user_input}
 
 Return a JSON object with keys: hero_headline, hero_subheadline, intro_text, body_content (full HTML, {target_words}+ words), cta_headline, cta_button_text, form_headline, trust_badges (list), faq (list of {{question, answer}}), meta_title, meta_description, secondary_keywords (list)."""
-                raw = self.ai_service.generate_raw(direct_prompt, max_tokens=8192)
+                raw = self.ai_service.generate_raw(direct_prompt, max_tokens=16000)
                 if isinstance(raw, str):
                     raw = raw.replace('```json', '').replace('```', '').strip()
                     return json.loads(raw)

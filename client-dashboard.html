@@ -6368,6 +6368,9 @@
                 // Auto-load cached rankings from DB (so Rankings tab shows data immediately)
                 try { loadCachedRankings(); } catch (e) { console.error('loadCachedRankings error:', e); }
 
+                // Pre-fetch call intelligence data (so Call Intel tab shows data immediately)
+                try { loadCalls(); } catch (e) { console.error('loadCalls prefetch error:', e); }
+
                 // Load image library (with error handling)
                 try { loadImageLibrary(); } catch (e) { console.error('loadImageLibrary error:', e); }
 
@@ -10219,7 +10222,12 @@
                 const industry = (currentClient.industry || '').toLowerCase();
                 const geo = (currentClient.geo || '').split(',')[0].trim();
 
-                // Helper: check if a topic is just the company name or empty
+                // Helper: check if a topic is just the company name, empty, or a generic non-keyword phrase
+                var genericPhrases = ['frequently asked questions', 'asked questions', 'faq', 'faqs', 'questions answered',
+                    'common questions', 'customer questions', 'general questions', 'your questions', 'questions answers',
+                    'contact us', 'get in touch', 'learn more', 'read more', 'click here', 'call us', 'free estimate',
+                    'free quote', 'schedule appointment', 'book now', 'services offered', 'our services',
+                    'about us', 'who we are', 'what we do', 'how it works'];
                 function isJustCompanyName(t) {
                     if (!t) return true;
                     var cleaned = t.toLowerCase().replace(/[^a-z0-9\s]/g, '').trim();
@@ -10227,13 +10235,15 @@
                     if (companyName && (cleaned === companyName || companyName.includes(cleaned) || cleaned.includes(companyName))) return true;
                     // Also reject if it's just a number pattern like "941 dental studio"
                     if (companyName && cleaned.replace(/\s+/g, '').includes(companyName.replace(/\s+/g, ''))) return true;
+                    // Reject generic non-keyword phrases
+                    if (genericPhrases.some(function(gp) { return cleaned === gp || cleaned.includes(gp); })) return true;
                     return false;
                 }
 
                 // PRIMARY METHOD: Analyze all questions for common bigrams/themes
                 if (questions.length > 0) {
                     const phraseCount = {};
-                    const stopWords = new Set(['do', 'you', 'does', 'the', 'a', 'an', 'is', 'are', 'how', 'what', 'when', 'where', 'why', 'can', 'will', 'for', 'and', 'or', 'in', 'to', 'of', 'my', 'your', 'we', 'our', 'i', 'it', 'at', 'on', 'with', 'that', 'this', 'there', 'much', 'long', 'offer', 'have', 'provide', 'accept', 'like', 'about', 'should', 'bring', 'need', 'take', 'between', 'before', 'after', 'first', 'cost', 'handle']);
+                    const stopWords = new Set(['do', 'you', 'does', 'the', 'a', 'an', 'is', 'are', 'how', 'what', 'when', 'where', 'why', 'can', 'will', 'for', 'and', 'or', 'in', 'to', 'of', 'my', 'your', 'we', 'our', 'i', 'it', 'at', 'on', 'with', 'that', 'this', 'there', 'much', 'long', 'offer', 'have', 'provide', 'accept', 'like', 'about', 'should', 'bring', 'need', 'take', 'between', 'before', 'after', 'first', 'cost', 'handle', 'frequently', 'asked', 'questions', 'question', 'faq', 'faqs', 'answered', 'common', 'general', 'customer', 'contact', 'call', 'free', 'estimate', 'quote', 'appointment', 'schedule', 'book']);
                     // Also exclude company name words from being counted
                     const companyWords = companyName.split(/\s+/).filter(w => w.length > 1);
                     companyWords.forEach(w => stopWords.add(w));
