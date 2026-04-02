@@ -1330,36 +1330,61 @@ REMEMBER: Body must have {word_count}+ words, at least 5 internal <a href> links
         try:
             import anthropic as _anthropic
             client = _anthropic.Anthropic(api_key=self.anthropic_key, max_retries=0)  # _call_with_retry handles all retries
-            
-            response = client.messages.create(
-                model=actual_model,
-                max_tokens=max_tokens,
-                system=system_prompt,
-                messages=[
-                    {'role': 'user', 'content': prompt}
-                ],
-                temperature=temperature,
-            )
-            
-            content = response.content[0].text
-            
+
+            # Use streaming for large max_tokens to avoid timeout errors
+            if max_tokens > 8000:
+                logger.info(f"Using streaming for large request (max_tokens={max_tokens})")
+                content = ""
+                with client.messages.stream(
+                    model=actual_model,
+                    max_tokens=max_tokens,
+                    system=system_prompt,
+                    messages=[
+                        {'role': 'user', 'content': prompt}
+                    ],
+                    temperature=temperature,
+                ) as stream:
+                    for text in stream.text_stream:
+                        content += text
+                final_message = stream.get_final_message()
+                stop_reason = final_message.stop_reason if final_message else None
+                usage_data = {}
+                if final_message and final_message.usage:
+                    usage_data = {
+                        'input_tokens': final_message.usage.input_tokens,
+                        'output_tokens': final_message.usage.output_tokens,
+                    }
+            else:
+                response = client.messages.create(
+                    model=actual_model,
+                    max_tokens=max_tokens,
+                    system=system_prompt,
+                    messages=[
+                        {'role': 'user', 'content': prompt}
+                    ],
+                    temperature=temperature,
+                )
+                content = response.content[0].text
+                stop_reason = response.stop_reason
+                usage_data = {
+                    'input_tokens': response.usage.input_tokens,
+                    'output_tokens': response.usage.output_tokens,
+                }
+
             # Check for truncation
-            if response.stop_reason == 'max_tokens':
+            if stop_reason == 'max_tokens':
                 logger.warning(f"Anthropic response was truncated (stop_reason=max_tokens)")
-            
-            logger.info(f"Anthropic API success: content length={len(content)}, stop_reason={response.stop_reason}")
-            
+
+            logger.info(f"Anthropic API success: content length={len(content)}, stop_reason={stop_reason}")
+
             if not content or len(content) < 50:
                 logger.error(f"Anthropic returned very short content: '{content[:100]}'")
                 return {'error': 'Anthropic returned empty or very short content. Try again.'}
-            
+
             return {
                 'content': content,
-                'usage': {
-                    'input_tokens': response.usage.input_tokens,
-                    'output_tokens': response.usage.output_tokens,
-                },
-                'stop_reason': response.stop_reason
+                'usage': usage_data,
+                'stop_reason': stop_reason
             }
             
         except _anthropic.AuthenticationError as e:

@@ -971,7 +971,7 @@ Return ONLY valid JSON (no markdown):
         return keyword
 
     def _call_model(self, model: str, prompt: str, system_prompt: str = None) -> str:
-        """Call Anthropic Claude API with hardened settings and retry on 529 overloaded"""
+        """Call Anthropic Claude API with streaming (required for long responses) and retry on 529 overloaded"""
         import time as _time
 
         if system_prompt is None:
@@ -980,29 +980,40 @@ Return ONLY valid JSON (no markdown):
         max_retries = 3
         for attempt in range(max_retries):
             try:
-                logger.info(f"Calling Claude {model} (attempt {attempt + 1}/{max_retries})...")
+                logger.info(f"Calling Claude {model} via streaming (attempt {attempt + 1}/{max_retries})...")
 
-                resp = self.client.messages.create(
+                # Use streaming to avoid timeout for long-running requests
+                content = ""
+                stop_reason = None
+                usage_info = None
+
+                with self.client.messages.stream(
                     model=model,
                     max_tokens=24000,
                     system=system_prompt.strip(),
                     messages=[
                         {"role": "user", "content": prompt.strip()},
                     ],
-                    temperature=0.4,  # Low temp for constraint following
-                )
-                content = resp.content[0].text or ""
+                    temperature=0.4,
+                ) as stream:
+                    for text in stream.text_stream:
+                        content += text
+
+                # Get the final message for metadata
+                final_message = stream.get_final_message()
+                stop_reason = final_message.stop_reason if final_message else None
+                usage_info = final_message.usage if final_message else None
+
                 content = content.strip()
-                logger.info(f"Got {len(content)} chars from Claude {model} (stop_reason={resp.stop_reason}, usage={resp.usage})")
+                logger.info(f"Got {len(content)} chars from Claude {model} (stop_reason={stop_reason}, usage={usage_info})")
 
                 # Warn if response was truncated
-                if resp.stop_reason == "max_tokens":
+                if stop_reason == "max_tokens":
                     logger.warning(f"Claude response was TRUNCATED (stop_reason=max_tokens) — JSON likely incomplete. Last 100 chars: {content[-100:]}")
 
                 # Validate JSON output
                 if content and not content.startswith("{"):
                     logger.warning("Model returned non-JSON output, attempting to extract JSON")
-                    # Try to find JSON in response
                     start = content.find("{")
                     if start != -1:
                         content = content[start:]
@@ -1021,9 +1032,8 @@ Return ONLY valid JSON (no markdown):
                     self._last_error_message = "Anthropic API credits have been exhausted. Please add credits at console.anthropic.com to resume blog generation."
                     return ""
                 else:
-                    # Rate limit — retry with backoff
                     if attempt < max_retries - 1:
-                        wait_time = (attempt + 1) * 10  # 10s, 20s
+                        wait_time = (attempt + 1) * 10
                         logger.warning(f"Claude rate limit hit, retrying in {wait_time}s (attempt {attempt + 1}): {e}")
                         _time.sleep(wait_time)
                         continue
@@ -1039,9 +1049,8 @@ Return ONLY valid JSON (no markdown):
                     self._last_error_message = "Anthropic API credits have been exhausted. Please add credits at console.anthropic.com to resume blog generation."
                     return ""
                 elif e.status_code == 529 or e.status_code == 503:
-                    # Overloaded — retry with backoff
                     if attempt < max_retries - 1:
-                        wait_time = (attempt + 1) * 15  # 15s, 30s
+                        wait_time = (attempt + 1) * 15
                         logger.warning(f"Claude API overloaded (HTTP {e.status_code}), retrying in {wait_time}s (attempt {attempt + 1})")
                         _time.sleep(wait_time)
                         continue
