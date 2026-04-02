@@ -52,7 +52,7 @@ class BaseConfig:
     SEMRUSH_API_KEY = os.environ.get('SEMRUSH_API_KEY', '')
 
     # AI Model Settings — Claude only for all content generation
-    DEFAULT_AI_MODEL = os.environ.get('DEFAULT_AI_MODEL', 'claude-sonnet-4-20250514')
+    DEFAULT_AI_MODEL = os.environ.get('DEFAULT_AI_MODEL', 'claude-sonnet-4-6')
     FAST_AI_MODEL = os.environ.get('FAST_AI_MODEL', 'claude-haiku-4-5-20251001')
     
     # WordPress

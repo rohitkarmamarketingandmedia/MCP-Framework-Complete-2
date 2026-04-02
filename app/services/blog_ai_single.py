@@ -74,7 +74,7 @@ class BlogAISingle:
         'clearwater', 'st petersburg', 'largo', 'pinellas park', 'dunedin'
     ]
 
-    def __init__(self, api_key: str = None, model_primary: str = "claude-sonnet-4-20250514", model_fallback: str = "claude-haiku-4-5-20251001"):
+    def __init__(self, api_key: str = None, model_primary: str = "claude-sonnet-4-6", model_fallback: str = "claude-haiku-4-5-20251001"):
         self.api_key = api_key or os.environ.get("ANTHROPIC_API_KEY", "")
         self.client = anthropic.Anthropic(api_key=self.api_key, max_retries=0) if self.api_key else None  # service handles all retries
         self.model_primary = model_primary
@@ -105,12 +105,15 @@ class BlogAISingle:
         # 1) Try primary then fallback
         raw = self._call_model(self.model_primary, base_prompt, system_prompt)
 
-        # Check if API credits are exhausted — no point retrying
+        # Check if API returned a fatal error — no point retrying with fallback
         if not raw and self._last_error in ("ANTHROPIC_CREDITS_EXHAUSTED", "ANTHROPIC_AUTH_ERROR"):
             result = self._empty_result(req)
             result["error"] = self._last_error_message
             result["error_code"] = self._last_error
             return result
+        # Track the primary model error for later (in case fallback also fails)
+        primary_error = self._last_error
+        primary_error_message = self._last_error_message
         parsed = self._robust_parse_json(raw)
 
         if not parsed or not parsed.get("body"):
@@ -195,7 +198,15 @@ class BlogAISingle:
         # Safety: if body is still empty after all processing, flag the error clearly
         if not result.get("body") or result["word_count"] < 50:
             logger.error(f"CRITICAL: Body still empty/too short after all generation attempts. word_count={result['word_count']}")
-            result["error"] = "Content generation produced insufficient body text. Please try again."
+            # Propagate the actual API error if one was captured during model calls
+            if self._last_error and self._last_error_message:
+                result["error"] = self._last_error_message
+                result["error_code"] = self._last_error
+            elif primary_error and primary_error_message:
+                result["error"] = primary_error_message
+                result["error_code"] = primary_error
+            else:
+                result["error"] = "Content generation produced insufficient body text. Please try again."
         
         # 11) Final validation
         validation_result = self._validate_output(result, req)

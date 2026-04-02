@@ -496,7 +496,7 @@ RULES for content_recommendations (return 3-5):
     # ourselves — prevents the double-retry storm seen in logs.
     model_sequence = [
         ("claude-haiku-4-5-20251001",  1500),   # Haiku — 3 attempts, 2s/4s/6s backoff
-        ("claude-sonnet-4-20250514",   2000),   # Sonnet — 2 attempts, 3s/6s backoff
+        ("claude-sonnet-4-6",   2000),   # Sonnet — 2 attempts, 3s/6s backoff
     ]
 
     ai_client = _anthropic.Anthropic(max_retries=0)  # we handle all retries manually

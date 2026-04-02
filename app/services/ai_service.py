@@ -28,7 +28,7 @@ class AIService:
     @property
     def default_model(self):
         """Get default AI model at runtime - Claude Sonnet as primary"""
-        return os.environ.get('DEFAULT_AI_MODEL', 'claude-sonnet-4-20250514')
+        return os.environ.get('DEFAULT_AI_MODEL', 'claude-sonnet-4-6')
     
     def _rate_limit_delay(self):
         """Enforce minimum delay between API calls"""
@@ -128,7 +128,7 @@ class AIService:
         self._rate_limit_delay()
         
         # Model selection — Claude only
-        claude_model = os.environ.get('BLOG_AI_MODEL', 'claude-sonnet-4-20250514')
+        claude_model = os.environ.get('BLOG_AI_MODEL', 'claude-sonnet-4-6')
 
         # Calculate tokens — Claude supports up to 16K output
         # 1 word ≈ 1.5 tokens, plus JSON overhead
@@ -1319,7 +1319,7 @@ REMEMBER: Body must have {word_count}+ words, at least 5 internal <a href> links
         if not self.anthropic_key:
             return {'error': 'Anthropic API key not configured'}
         
-        actual_model = model or 'claude-sonnet-4-20250514'
+        actual_model = model or 'claude-sonnet-4-6'
         
         # Default system prompt if not provided
         if system_prompt is None:

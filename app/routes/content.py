@@ -704,6 +704,8 @@ def generate_blog_sync(current_user):
                 return jsonify({'error': error_msg, 'error_code': 'auth_error'}), 503
             elif error_code == 'ANTHROPIC_RATE_LIMIT':
                 return jsonify({'error': error_msg, 'error_code': 'rate_limit'}), 429
+            elif error_code == 'ANTHROPIC_API_ERROR':
+                return jsonify({'error': error_msg, 'error_code': 'api_error'}), 503
             return jsonify({'error': error_msg}), 500
 
         # Validate body content
@@ -964,13 +966,15 @@ def generate_content(current_user):
     result = blog_gen.generate(blog_request)
     
     if result.get('error'):
-        return jsonify({'error': result['error']}), 500
-    
+        error_code = result.get('error_code', '')
+        status = 402 if error_code == 'ANTHROPIC_CREDITS_EXHAUSTED' else 429 if error_code == 'ANTHROPIC_RATE_LIMIT' else 503 if error_code == 'ANTHROPIC_API_ERROR' else 500
+        return jsonify({'error': result['error'], 'error_code': error_code}), status
+
     # Post-process with internal linking service to ensure links are added
     from app.services.internal_linking_service import internal_linking_service
     body_content = result.get('body', '')
     links_added = 0
-    
+
     if body_content:
         link_result = internal_linking_service.process_blog_content(
             content=body_content,
@@ -1168,11 +1172,17 @@ def bulk_generate(current_user):
             logger.info(f"[BULK] Generate returned, checking result...")
             
             if result.get('error'):
-                logger.error(f"[BULK] Generation returned error: {result['error']}")
+                error_code = result.get('error_code', '')
+                logger.error(f"[BULK] Generation returned error ({error_code}): {result['error']}")
+                # If credits exhausted, stop entire bulk — no point continuing
+                if error_code == 'ANTHROPIC_CREDITS_EXHAUSTED':
+                    results.append({'keyword': keyword, 'success': False, 'error': result['error'], 'error_code': error_code})
+                    break
                 results.append({
                     'keyword': keyword,
                     'success': False,
-                    'error': result['error']
+                    'error': result['error'],
+                    'error_code': error_code
                 })
                 continue
             

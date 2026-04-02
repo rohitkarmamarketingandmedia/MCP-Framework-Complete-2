@@ -9921,7 +9921,7 @@
                             // Content Opportunities
                             const opps = analysis.content_opportunities || [];
                             document.getElementById('callContentOpps').innerHTML = opps.length > 0 ?
-                                opps.slice(0, 6).map(opp => `
+                                opps.slice(0, 6).map((opp, idx) => `
                                     <div class="bg-white/5 rounded-lg p-3 border border-white/10 hover:border-purple-500/30 transition">
                                         <div class="text-sm text-white font-medium mb-1">${opp.title || opp.topic || ''}</div>
                                         <div class="text-xs text-gray-500 mb-2">${opp.type || 'blog'} • ${opp.reason || 'Based on customer calls'}</div>
@@ -16647,6 +16647,9 @@
                         return;
                     } else if (errorCode === 'rate_limit' || response.status === 429) {
                         showApiErrorMessage('Rate Limit Reached', 'The AI service is temporarily rate-limited. Please wait a few minutes and try again.');
+                        return;
+                    } else if (errorCode === 'api_error' || response.status === 503) {
+                        showApiErrorMessage('AI Service Unavailable', result.error || 'The AI service is temporarily unavailable or overloaded. Please try again in a few minutes.');
                         return;
                     }
                     throw new Error(result.error || `Server error: ${response.status}`);
