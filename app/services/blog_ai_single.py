@@ -138,7 +138,7 @@ class BlogAISingle:
         # 2) Normalize shape
         result = self._normalize_result(parsed, req)
         logger.info(f"[BODY DEBUG] After normalize: body length={len(result.get('body', ''))}, first 200 chars: {result.get('body', '')[:200]}")
-        
+
         # Log what the AI actually returned vs what we normalized to
         logger.info(f"[TITLE DEBUG] AI raw title: '{parsed.get('title', 'MISSING')}'")
         logger.info(f"[TITLE DEBUG] AI raw meta_title: '{parsed.get('meta_title', 'MISSING')}'")
@@ -146,8 +146,15 @@ class BlogAISingle:
         logger.info(f"[TITLE DEBUG] Normalized title: '{result.get('title', '')}'")
         logger.info(f"[TITLE DEBUG] Normalized meta_title: '{result.get('meta_title', '')}'")
 
+        # Log FAQ status from raw parsed data
+        raw_faqs = parsed.get('faq_items') or parsed.get('faq') or []
+        logger.info(f"[FAQ DEBUG] Raw parsed faq_items: {len(raw_faqs) if isinstance(raw_faqs, list) else 'not a list'}, requested: {getattr(req, 'faq_count', 'N/A')}")
+
         # 3) Enforce word count by continuation
         result = self._ensure_word_count(result, req)
+
+        # 3b) Ensure FAQs are present when requested
+        result = self._ensure_faqs(result, req)
 
         # 4) SEO auto-fixes
         result = self._seo_autofix(result, req)
@@ -2411,6 +2418,144 @@ No markdown. No commentary. Just the JSON object."""
             logger.warning(f"Could not reach target word count: {final_count}/{target_min}")
 
         return result
+
+    def _ensure_faqs(self, result: Dict[str, Any], req: BlogRequest) -> Dict[str, Any]:
+        """Ensure FAQ items are present when requested.
+        If the model returned empty faq_items despite faq_count > 0,
+        first try extracting from body HTML, then make a focused API call."""
+        expected = getattr(req, 'faq_count', 0)
+        if expected <= 0:
+            return result
+
+        current_faqs = result.get('faq_items', [])
+        if len(current_faqs) >= expected:
+            logger.info(f"FAQ check passed: {len(current_faqs)}/{expected} FAQs present")
+            return result
+
+        logger.warning(f"FAQ shortfall: got {len(current_faqs)}, expected {expected}. Attempting recovery.")
+
+        # --- Strategy 1: Extract FAQs embedded in body HTML ---
+        body = result.get('body', '')
+        if body and len(current_faqs) == 0:
+            extracted = self._extract_faqs_from_body(body)
+            if len(extracted) >= expected:
+                result['faq_items'] = extracted[:expected]
+                logger.info(f"Extracted {len(result['faq_items'])} FAQs from body HTML")
+                # Remove the FAQ section from body to avoid duplication
+                result['body'] = self._remove_faq_section_from_body(body)
+                return result
+            elif extracted:
+                current_faqs = extracted
+                logger.info(f"Partial extraction: {len(extracted)} FAQs from body")
+
+        # --- Strategy 2: Dedicated API call to generate missing FAQs ---
+        needed = expected - len(current_faqs)
+        logger.info(f"Generating {needed} FAQs via dedicated API call")
+
+        faq_prompt = f"""Generate EXACTLY {needed} FAQ items for a blog post about "{req.keyword}" for {req.company_name} in {req.city}, {req.state}.
+
+Industry: {req.industry}
+
+Each FAQ must have:
+- A specific, search-intent question that someone would actually Google
+- A detailed 60-80 word answer with real, helpful information
+- Questions should cover: cost/pricing, process, timeline, benefits, and comparisons
+
+Return ONLY valid JSON — no markdown, no commentary:
+{{
+    "faq_items": [
+        {{"question": "How much does [service] cost in {req.city}?", "answer": "Detailed 60-80 word answer..."}},
+        {{"question": "What is the process for [service]?", "answer": "Detailed 60-80 word answer..."}}
+    ]
+}}
+
+OUTPUT JSON:"""
+
+        raw = self._call_model(self.model_primary, faq_prompt)
+        parsed = self._robust_parse_json(raw)
+        new_faqs = parsed.get('faq_items') or parsed.get('faq') or []
+
+        if not new_faqs or not isinstance(new_faqs, list):
+            # Try fallback model
+            logger.warning("Primary model FAQ generation failed, trying fallback")
+            raw2 = self._call_model(self.model_fallback, faq_prompt)
+            parsed2 = self._robust_parse_json(raw2)
+            new_faqs = parsed2.get('faq_items') or parsed2.get('faq') or []
+
+        if new_faqs and isinstance(new_faqs, list):
+            # Validate each FAQ has question + answer
+            valid_faqs = [
+                faq for faq in new_faqs
+                if isinstance(faq, dict) and faq.get('question') and faq.get('answer')
+                and len(faq['question']) > 10 and len(faq['answer']) > 20
+            ]
+            result['faq_items'] = (current_faqs + valid_faqs)[:expected]
+            logger.info(f"FAQ recovery complete: {len(result['faq_items'])}/{expected} FAQs")
+        else:
+            logger.error(f"FAQ recovery failed — could not generate FAQs")
+            result['faq_items'] = current_faqs  # Keep whatever we had
+
+        # Regenerate schema to include recovered FAQs
+        if result.get('faq_items'):
+            result['schema'] = self._generate_schema(result, req)
+            logger.info(f"Regenerated schema with {len(result['faq_items'])} FAQs")
+
+        return result
+
+    def _extract_faqs_from_body(self, body: str) -> list:
+        """Extract FAQ items from body HTML if the model embedded them there."""
+        faqs = []
+
+        # Pattern 1: FAQ schema-like structure with <h3> question + <p> answer
+        # Look for an FAQ section (h2 with FAQ/Frequently in it, followed by h3+p pairs)
+        faq_section_match = re.search(
+            r'<h2[^>]*>[^<]*(?:FAQ|Frequently\s+Asked|Common\s+Questions)[^<]*</h2>(.*?)(?=<h2|$)',
+            body, re.IGNORECASE | re.DOTALL
+        )
+
+        if faq_section_match:
+            section = faq_section_match.group(1)
+            # Extract h3 question + following p answer pairs
+            pairs = re.findall(
+                r'<h3[^>]*>(.*?)</h3>\s*<p[^>]*>(.*?)</p>',
+                section, re.DOTALL
+            )
+            for q, a in pairs:
+                q_clean = re.sub(r'<[^>]+>', '', q).strip()
+                a_clean = re.sub(r'<[^>]+>', '', a).strip()
+                if q_clean and a_clean and len(q_clean) > 10 and len(a_clean) > 20:
+                    faqs.append({'question': q_clean, 'answer': a_clean})
+
+        if faqs:
+            return faqs
+
+        # Pattern 2: <strong> question inside <p>, with answer text
+        faq_section_match2 = re.search(
+            r'<h2[^>]*>[^<]*(?:FAQ|Frequently\s+Asked|Common\s+Questions)[^<]*</h2>(.*?)(?=<h2|$)',
+            body, re.IGNORECASE | re.DOTALL
+        )
+        if faq_section_match2:
+            section = faq_section_match2.group(1)
+            pairs = re.findall(
+                r'<p[^>]*>\s*<strong>(.*?)</strong>\s*(.*?)</p>',
+                section, re.DOTALL
+            )
+            for q, a in pairs:
+                q_clean = re.sub(r'<[^>]+>', '', q).strip()
+                a_clean = re.sub(r'<[^>]+>', '', a).strip()
+                if q_clean and a_clean and len(q_clean) > 10 and len(a_clean) > 20:
+                    faqs.append({'question': q_clean, 'answer': a_clean})
+
+        return faqs
+
+    def _remove_faq_section_from_body(self, body: str) -> str:
+        """Remove the FAQ section from body HTML to avoid duplication with faq_items."""
+        # Remove H2 FAQ section and everything until next H2 or end
+        cleaned = re.sub(
+            r'<h2[^>]*>[^<]*(?:FAQ|Frequently\s+Asked|Common\s+Questions)[^<]*</h2>.*?(?=<h2|$)',
+            '', body, flags=re.IGNORECASE | re.DOTALL
+        ).strip()
+        return cleaned if len(cleaned) > 200 else body  # Safety: don't return empty body
 
     def _seo_autofix(self, result: Dict[str, Any], req: BlogRequest) -> Dict[str, Any]:
         """Auto-fix common SEO issues - keyword driven, no location injection"""
