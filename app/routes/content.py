@@ -348,7 +348,7 @@ def _generate_blog_background(task_id, app, client_id, keyword, word_count, incl
                 phone=phone or '',
                 email=email or '',
                 contact_url=contact_url or '',
-                target_words=word_count,
+                target_words=max(word_count, 1800),  # Minimum 1800 for quality, same as sync endpoint
                 faq_count=faq_count if include_faq else 0,
                 internal_links=internal_links,
                 service_cities=client_service_cities,
@@ -843,7 +843,7 @@ def generate_blog_async(current_user):
             app,
             data['client_id'],
             data['keyword'],
-            data.get('word_count', 800),
+            max(data.get('word_count', 1500), 1500),  # Minimum 1500 words for quality
             data.get('include_faq', True),
             data.get('faq_count', 5),
             current_user.id
