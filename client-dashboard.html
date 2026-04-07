@@ -2757,6 +2757,32 @@
                                 </div>
                             </div>
 
+                            <!-- SEMrush Project Selection -->
+                            <div class="p-4 bg-white/5 rounded-xl border border-white/10">
+                                <div class="flex items-center gap-3 mb-3">
+                                    <div class="w-10 h-10 rounded-lg bg-orange-600/20 flex items-center justify-center">
+                                        <i class="fas fa-rocket text-orange-500"></i>
+                                    </div>
+                                    <div class="flex-1">
+                                        <h4 class="font-medium text-white">SEMrush Project</h4>
+                                        <p id="semrushProjectStatus" class="text-xs text-gray-400">Auto-detect</p>
+                                    </div>
+                                </div>
+                                <label class="text-xs text-gray-400 block mb-1">Position Tracking Project</label>
+                                <div class="flex items-center gap-2">
+                                    <select id="semrushProjectSelect"
+                                        class="flex-1 bg-white/5 border border-white/10 text-gray-300 rounded-lg px-3 py-2 text-sm focus:border-orange-500 focus:outline-none appearance-none"
+                                        onchange="saveSemrushProject()">
+                                        <option value="">Auto-detect by domain</option>
+                                    </select>
+                                    <button onclick="loadSemrushProjects()" id="loadSemrushProjectsBtn"
+                                        class="px-3 py-2 bg-orange-600/20 hover:bg-orange-600/40 text-orange-400 rounded-lg text-sm transition" title="Refresh project list">
+                                        <i class="fas fa-sync-alt text-xs"></i>
+                                    </button>
+                                </div>
+                                <p id="semrushProjectNote" class="text-xs text-gray-500 mt-1">Click refresh to load projects</p>
+                            </div>
+
                             <!-- Google Business Profile -->
                             <div class="p-4 bg-white/5 rounded-xl border border-white/10">
                                 <div class="flex items-center gap-3 mb-3">
@@ -3231,7 +3257,7 @@
                                     <p class="text-xs text-gray-500">Users → Edit → Application Passwords</p>
                                 </div>
 
-                                <!-- SEMrush -->
+                                <!-- SEMrush (legacy - project selector moved to active integrations section) -->
                                 <div class="p-4 bg-white/5 rounded-xl border border-white/10">
                                     <div class="flex items-center gap-3 mb-3">
                                         <div class="w-10 h-10 rounded-lg bg-orange-600/20 flex items-center justify-center">
@@ -3242,24 +3268,11 @@
                                             <p id="semrushStatus" class="text-xs text-gray-400">Server-side config</p>
                                         </div>
                                     </div>
-                                    <div class="text-xs text-gray-400 p-2 bg-white/5 rounded-lg mb-3">
-                                        <i class="fas fa-server mr-1"></i> API key via env variable
+                                    <div class="text-xs text-gray-400 p-2 bg-white/5 rounded-lg">
+                                        <i class="fas fa-server mr-1"></i> Configured via environment variable
                                         <code class="text-purple-400 ml-1">SEMRUSH_API_KEY</code>
                                     </div>
-                                    <div>
-                                        <label class="text-xs text-gray-400 block mb-1">Position Tracking Project</label>
-                                        <div class="flex items-center gap-2">
-                                            <select id="semrushProjectSelect"
-                                                class="flex-1 bg-white/5 border border-white/10 text-gray-300 rounded-lg px-3 py-2 text-sm focus:border-orange-500 focus:outline-none appearance-none"
-                                                onchange="saveSemrushProject()">
-                                                <option value="">Auto-detect by domain</option>
-                                            </select>
-                                            <button onclick="loadSemrushProjects()" id="loadSemrushProjectsBtn"
-                                                class="px-3 py-2 bg-orange-600/20 hover:bg-orange-600/40 text-orange-400 rounded-lg text-sm transition" title="Refresh project list">
-                                                <i class="fas fa-sync-alt text-xs"></i>
-                                            </button>
-                                        </div>
-                                        <p id="semrushProjectNote" class="text-xs text-gray-500 mt-1"></p>
+                                        <p class="text-xs text-gray-500 mt-1"></p>
                                     </div>
                                 </div>
 
