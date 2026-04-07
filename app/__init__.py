@@ -71,14 +71,34 @@ def create_app(config_name=None):
             from sqlalchemy import text, inspect
             try:
                 inspector = inspect(db.engine)
-                if 'blog_posts' in inspector.get_table_names():
+                table_names = inspector.get_table_names()
+
+                if 'blog_posts' in table_names:
                     bp_cols = [col['name'] for col in inspector.get_columns('blog_posts')]
                     if 'notes' not in bp_cols:
                         db.session.execute(text("ALTER TABLE blog_posts ADD COLUMN notes TEXT DEFAULT '[]'"))
                         db.session.commit()
                         logger.info("Migration: added 'notes' column to blog_posts")
             except Exception as mig_err:
-                logger.warning(f"Column migration check: {mig_err}")
+                logger.warning(f"Column migration check (blog_posts): {mig_err}")
+
+            # SEMrush project fields on clients — run separately so one failure doesn't block others
+            try:
+                _add_col_migrations = [
+                    ("clients", "semrush_project_id", "VARCHAR(100)"),
+                    ("clients", "semrush_project_name", "VARCHAR(255)"),
+                ]
+                for _tbl, _col, _typ in _add_col_migrations:
+                    try:
+                        db.session.execute(text(
+                            f"ALTER TABLE {_tbl} ADD COLUMN IF NOT EXISTS {_col} {_typ}"
+                        ))
+                        db.session.commit()
+                    except Exception:
+                        db.session.rollback()
+                logger.info("Migration: SEMrush column check complete")
+            except Exception as mig_err:
+                logger.warning(f"Column migration check (semrush): {mig_err}")
     except Exception as e:
         logger.warning(f"Could not initialize intelligence models: {e}")
     

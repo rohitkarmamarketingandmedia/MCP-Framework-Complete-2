@@ -399,9 +399,9 @@ class DBClient(db.Model):
             'gsc_site_url': self.gsc_site_url,
             'callrail_company_id': self.callrail_company_id,
             'callrail_account_id': self.callrail_account_id,
-            # SEMrush
-            'semrush_project_id': self.semrush_project_id,
-            'semrush_project_name': self.semrush_project_name,
+            # SEMrush (safe access for pre-migration databases)
+            'semrush_project_id': getattr(self, 'semrush_project_id', None),
+            'semrush_project_name': getattr(self, 'semrush_project_name', None),
             # Social connections (status only, no tokens)
             'social_connections': {
                 'gbp': {
