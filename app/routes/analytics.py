@@ -165,7 +165,7 @@ def get_traffic(current_user, client_id):
     credentials_configured = bool(os.environ.get('GA4_CREDENTIALS_JSON'))
     is_configured = bool(property_id)
 
-    logger.info(f"GA4 check for client {client_id}: client_property={client_property_id}, global_property={global_property_id}, credentials={credentials_configured}")
+    logger.info(f"GA4 check for client {client_id}: property={client_property_id or global_property_id}, dates={start_date.strftime('%Y-%m-%d')}→{end_date.strftime('%Y-%m-%d')}, credentials={credentials_configured}")
     
     if not is_configured:
         return jsonify({

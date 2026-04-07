@@ -18635,7 +18635,7 @@
 
             try {
                 const dates = getGA4Dates();
-                const url = `${API_URL}/api/analytics/traffic/${currentClient.id}?start=${dates.start}&end=${dates.end}`;
+                const url = `${API_URL}/api/analytics/traffic/${currentClient.id}?start=${dates.start}&end=${dates.end}&_t=${Date.now()}`;
                 const response = await fetch(url, {
                     headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
                 });
@@ -18698,6 +18698,7 @@
                 }
 
                 // ----- Metric cards -----
+                console.log('[GA4] Requested:', dates.start, '→', dates.end, '| API returned:', data.start_date, '→', data.end_date, '| Sessions:', data.sessions);
                 document.getElementById('ga4Sessions').textContent = (data.sessions || 0).toLocaleString();
                 document.getElementById('ga4Users').textContent = (data.users || 0).toLocaleString();
                 document.getElementById('ga4Pageviews').textContent = (data.pageviews || 0).toLocaleString();
