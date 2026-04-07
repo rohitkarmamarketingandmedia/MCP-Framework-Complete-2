@@ -1667,6 +1667,21 @@
                         <p id="countInstagram" class="text-2xl font-bold text-pink-500">0</p>
                     </button>
                 </div>
+                <!-- Bulk Actions Bar (hidden by default, shown when posts are selected) -->
+                <div id="socialBulkBar" class="hidden glass rounded-xl p-3 mb-4 flex items-center justify-between border border-purple-500/30">
+                    <div class="flex items-center gap-3">
+                        <label class="flex items-center gap-2 cursor-pointer">
+                            <input type="checkbox" id="socialSelectAll" onchange="toggleSelectAllSocial(this.checked)" class="w-4 h-4 rounded accent-purple-500 cursor-pointer">
+                            <span class="text-sm text-gray-300">Select All</span>
+                        </label>
+                        <span id="socialSelectedCount" class="text-sm text-purple-400 font-medium">0 selected</span>
+                    </div>
+                    <button onclick="bulkDeleteSocial()" id="socialBulkDeleteBtn"
+                        class="px-3 py-1.5 text-sm bg-red-600/80 hover:bg-red-600 text-white rounded-lg transition flex items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed" disabled>
+                        <i class="fas fa-trash text-xs"></i> Delete Selected
+                    </button>
+                </div>
+
                 <div id="socialList" class="grid md:grid-cols-2 gap-4">
                     <div class="text-center py-12 col-span-2">
                         <div class="spinner mx-auto mb-4"></div>
@@ -1985,10 +2000,10 @@
             <!-- Google Analytics 4 Panel -->
             <div id="panel-ga4" class="hidden fade-in">
                 <div class="glass rounded-2xl p-6">
-                    <div class="flex items-center justify-between mb-6">
+                    <!-- Header with date range controls -->
+                    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
                         <div class="flex items-center gap-3">
-                            <div
-                                class="w-12 h-12 rounded-xl bg-gradient-to-br from-orange-500 to-yellow-600 flex items-center justify-center">
+                            <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-orange-500 to-yellow-600 flex items-center justify-center">
                                 <i class="fab fa-google text-white text-xl"></i>
                             </div>
                             <div>
@@ -1996,18 +2011,32 @@
                                 <p class="text-sm text-gray-400">Website traffic and performance</p>
                             </div>
                         </div>
-                        <button onclick="refreshGA4Data()" id="refreshGA4Btn"
-                            class="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg text-sm font-medium transition">
-                            <i class="fas fa-sync-alt mr-2"></i>Refresh
-                        </button>
+                        <div class="flex items-center gap-2 flex-wrap">
+                            <!-- Date range presets -->
+                            <div class="flex bg-white/5 rounded-lg p-0.5 text-xs">
+                                <button onclick="setGA4DateRange('7d')" id="ga4Range7d" class="px-3 py-1.5 rounded-md text-gray-400 hover:text-white transition">7D</button>
+                                <button onclick="setGA4DateRange('30d')" id="ga4Range30d" class="px-3 py-1.5 rounded-md bg-orange-600 text-white">30D</button>
+                                <button onclick="setGA4DateRange('90d')" id="ga4Range90d" class="px-3 py-1.5 rounded-md text-gray-400 hover:text-white transition">90D</button>
+                                <button onclick="setGA4DateRange('6m')" id="ga4Range6m" class="px-3 py-1.5 rounded-md text-gray-400 hover:text-white transition">6M</button>
+                                <button onclick="setGA4DateRange('1y')" id="ga4Range1y" class="px-3 py-1.5 rounded-md text-gray-400 hover:text-white transition">1Y</button>
+                            </div>
+                            <!-- Custom date inputs -->
+                            <div class="flex items-center gap-1 text-xs">
+                                <input type="date" id="ga4StartDate" class="bg-white/5 border border-white/10 text-gray-300 rounded-lg px-2 py-1.5 text-xs focus:border-orange-500 focus:outline-none" onchange="setGA4DateRange('custom')">
+                                <span class="text-gray-500">to</span>
+                                <input type="date" id="ga4EndDate" class="bg-white/5 border border-white/10 text-gray-300 rounded-lg px-2 py-1.5 text-xs focus:border-orange-500 focus:outline-none" onchange="setGA4DateRange('custom')">
+                            </div>
+                            <button onclick="refreshGA4Data()" id="refreshGA4Btn"
+                                class="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg text-sm font-medium transition">
+                                <i class="fas fa-sync-alt mr-2"></i>Refresh
+                            </button>
+                        </div>
                     </div>
 
-                    <div id="ga4NotConfigured"
-                        class="p-4 bg-amber-500/10 border border-amber-500/30 rounded-xl mb-4">
-                        <p class="text-amber-400 text-sm"><i class="fas fa-exclamation-triangle mr-2"></i>GA4 not
-                            configured. <a href="#" onclick="showTab('settings'); return false;"
-                                class="underline hover:text-amber-300">Add your GA4 Property ID in Settings →
-                                Integrations</a></p>
+                    <!-- Status messages -->
+                    <div id="ga4NotConfigured" class="p-4 bg-amber-500/10 border border-amber-500/30 rounded-xl mb-4">
+                        <p class="text-amber-400 text-sm"><i class="fas fa-exclamation-triangle mr-2"></i>GA4 not configured.
+                            <a href="#" onclick="showTab('settings'); return false;" class="underline hover:text-amber-300">Add your GA4 Property ID in Settings → Integrations</a></p>
                     </div>
 
                     <div id="ga4CredentialsMissing" class="hidden p-4 bg-blue-500/10 border border-blue-500/30 rounded-xl mb-4">
@@ -2015,24 +2044,26 @@
                             <i class="fas fa-key text-blue-400 mt-1"></i>
                             <div>
                                 <p class="text-blue-400 font-medium text-sm mb-1">GA4 Property ID Saved — Server Credentials Needed</p>
-                                <p class="text-gray-400 text-xs">The GA4 Property ID is configured for this client, but the server needs a Google Service Account to fetch analytics data. Set the <code class="bg-white/10 px-1 rounded">GA4_CREDENTIALS_JSON</code> environment variable on the server with your Google Service Account JSON.</p>
+                                <p class="text-gray-400 text-xs">Set the <code class="bg-white/10 px-1 rounded">GA4_CREDENTIALS_JSON</code> environment variable on the server with your Google Service Account JSON.</p>
                                 <p class="text-gray-500 text-xs mt-2"><i class="fas fa-info-circle mr-1"></i>Steps: Google Cloud Console → Create Service Account → Enable Analytics Data API → Download JSON key → Set as env variable</p>
                             </div>
                         </div>
                     </div>
 
-                    <div id="ga4Error" class="hidden p-4 bg-red-500/10 border border-red-500/30 rounded-xl mb-4">
-                    </div>
+                    <div id="ga4Error" class="hidden p-4 bg-red-500/10 border border-red-500/30 rounded-xl mb-4"></div>
 
+                    <!-- Main data area -->
                     <div id="ga4Data" class="hidden">
-                        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+
+                        <!-- Row 1: Key Metrics (6 cards) -->
+                        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
                             <div class="text-center p-3 bg-white/5 rounded-xl">
                                 <p id="ga4Sessions" class="text-2xl font-bold text-white">--</p>
-                                <p class="text-xs text-gray-400">Sessions (30d)</p>
+                                <p id="ga4SessionsLabel" class="text-xs text-gray-400">Sessions</p>
                             </div>
                             <div class="text-center p-3 bg-white/5 rounded-xl">
                                 <p id="ga4Users" class="text-2xl font-bold text-blue-400">--</p>
-                                <p class="text-xs text-gray-400">Users (30d)</p>
+                                <p class="text-xs text-gray-400">Users</p>
                             </div>
                             <div class="text-center p-3 bg-white/5 rounded-xl">
                                 <p id="ga4Pageviews" class="text-2xl font-bold text-green-400">--</p>
@@ -2042,25 +2073,116 @@
                                 <p id="ga4BounceRate" class="text-2xl font-bold text-purple-400">--</p>
                                 <p class="text-xs text-gray-400">Bounce Rate</p>
                             </div>
+                            <div class="text-center p-3 bg-white/5 rounded-xl">
+                                <p id="ga4AvgDuration" class="text-2xl font-bold text-amber-400">--</p>
+                                <p class="text-xs text-gray-400">Avg Duration</p>
+                            </div>
+                            <div class="text-center p-3 bg-white/5 rounded-xl">
+                                <p id="ga4NewVsReturn" class="text-2xl font-bold text-cyan-400">--</p>
+                                <p class="text-xs text-gray-400">New / Return</p>
+                            </div>
                         </div>
 
-                        <div class="grid md:grid-cols-2 gap-4">
+                        <!-- Row 2: Sessions Trend Chart -->
+                        <div class="p-4 bg-white/5 rounded-xl mb-6">
+                            <h4 class="text-white font-medium mb-3"><i class="fas fa-chart-line mr-2 text-orange-400"></i>Sessions Trend</h4>
+                            <div style="height: 220px; position: relative;">
+                                <canvas id="ga4TrendChart"></canvas>
+                            </div>
+                        </div>
+
+                        <!-- Row 3: Top Pages & Top Search Terms (side by side) -->
+                        <div class="grid md:grid-cols-2 gap-4 mb-6">
+                            <!-- Top Pages with search and sort -->
                             <div class="p-4 bg-white/5 rounded-xl">
-                                <h4 class="text-white font-medium mb-3"><i
-                                        class="fas fa-globe mr-2 text-blue-400"></i>Top Pages</h4>
-                                <div id="ga4TopPages" class="space-y-2 text-sm">
-                                    <p class="text-gray-500">Loading...</p>
+                                <div class="flex items-center justify-between mb-3">
+                                    <h4 class="text-white font-medium"><i class="fas fa-globe mr-2 text-blue-400"></i>Top Pages</h4>
+                                    <input type="text" id="ga4PagesSearch" placeholder="Search pages..."
+                                        class="bg-white/5 border border-white/10 text-gray-300 rounded-lg px-2 py-1 text-xs w-36 focus:border-blue-500 focus:outline-none"
+                                        oninput="filterGA4Table('pages')">
+                                </div>
+                                <div class="overflow-x-auto">
+                                    <table class="w-full text-sm">
+                                        <thead>
+                                            <tr class="text-xs text-gray-500 border-b border-white/5">
+                                                <th class="text-left pb-2 cursor-pointer hover:text-gray-300" onclick="sortGA4Table('pages','page')">Page <i class="fas fa-sort text-gray-600 ml-1"></i></th>
+                                                <th class="text-right pb-2 cursor-pointer hover:text-gray-300" onclick="sortGA4Table('pages','views')">Views <i class="fas fa-sort text-gray-600 ml-1"></i></th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="ga4TopPages">
+                                            <tr><td colspan="2" class="text-gray-500 py-4 text-center">Loading...</td></tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                                <div id="ga4PagesShowMore" class="hidden text-center mt-2">
+                                    <button onclick="toggleGA4ShowAll('pages')" class="text-xs text-blue-400 hover:text-blue-300">Show all</button>
                                 </div>
                             </div>
+                            <!-- Top Search Terms with search and sort -->
                             <div class="p-4 bg-white/5 rounded-xl">
-                                <h4 class="text-white font-medium mb-3"><i
-                                        class="fas fa-search mr-2 text-green-400"></i>Top Search Terms</h4>
-                                <div id="ga4SearchTerms" class="space-y-2 text-sm">
-                                    <p class="text-gray-500">Loading...</p>
+                                <div class="flex items-center justify-between mb-3">
+                                    <h4 class="text-white font-medium"><i class="fas fa-search mr-2 text-green-400"></i>Top Search Terms</h4>
+                                    <input type="text" id="ga4TermsSearch" placeholder="Search terms..."
+                                        class="bg-white/5 border border-white/10 text-gray-300 rounded-lg px-2 py-1 text-xs w-36 focus:border-green-500 focus:outline-none"
+                                        oninput="filterGA4Table('terms')">
+                                </div>
+                                <div class="overflow-x-auto">
+                                    <table class="w-full text-sm">
+                                        <thead>
+                                            <tr class="text-xs text-gray-500 border-b border-white/5">
+                                                <th class="text-left pb-2 cursor-pointer hover:text-gray-300" onclick="sortGA4Table('terms','term')">Term <i class="fas fa-sort text-gray-600 ml-1"></i></th>
+                                                <th class="text-right pb-2 cursor-pointer hover:text-gray-300" onclick="sortGA4Table('terms','clicks')">Clicks <i class="fas fa-sort text-gray-600 ml-1"></i></th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="ga4SearchTerms">
+                                            <tr><td colspan="2" class="text-gray-500 py-4 text-center">Loading...</td></tr>
+                                        </tbody>
+                                    </table>
                                 </div>
                                 <p class="text-xs text-gray-600 mt-2" id="searchTermsNote" style="display: none;">
                                     <i class="fas fa-info-circle mr-1"></i>Requires Google Search Console
                                 </p>
+                            </div>
+                        </div>
+
+                        <!-- Row 4: Traffic Sources & Device Breakdown (side by side) -->
+                        <div class="grid md:grid-cols-2 gap-4">
+                            <!-- Traffic Sources -->
+                            <div class="p-4 bg-white/5 rounded-xl">
+                                <div class="flex items-center justify-between mb-3">
+                                    <h4 class="text-white font-medium"><i class="fas fa-directions mr-2 text-cyan-400"></i>Traffic Sources</h4>
+                                    <input type="text" id="ga4SourcesSearch" placeholder="Search sources..."
+                                        class="bg-white/5 border border-white/10 text-gray-300 rounded-lg px-2 py-1 text-xs w-36 focus:border-cyan-500 focus:outline-none"
+                                        oninput="filterGA4Table('sources')">
+                                </div>
+                                <div class="overflow-x-auto">
+                                    <table class="w-full text-sm">
+                                        <thead>
+                                            <tr class="text-xs text-gray-500 border-b border-white/5">
+                                                <th class="text-left pb-2 cursor-pointer hover:text-gray-300" onclick="sortGA4Table('sources','source')">Source / Medium <i class="fas fa-sort text-gray-600 ml-1"></i></th>
+                                                <th class="text-right pb-2 cursor-pointer hover:text-gray-300" onclick="sortGA4Table('sources','sessions')">Sessions <i class="fas fa-sort text-gray-600 ml-1"></i></th>
+                                                <th class="text-right pb-2 cursor-pointer hover:text-gray-300" onclick="sortGA4Table('sources','users')">Users <i class="fas fa-sort text-gray-600 ml-1"></i></th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="ga4TrafficSources">
+                                            <tr><td colspan="3" class="text-gray-500 py-4 text-center">Loading...</td></tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                            <!-- Device Breakdown -->
+                            <div class="p-4 bg-white/5 rounded-xl">
+                                <h4 class="text-white font-medium mb-3"><i class="fas fa-desktop mr-2 text-pink-400"></i>Device Breakdown</h4>
+                                <div id="ga4Devices" class="space-y-3">
+                                    <p class="text-gray-500 text-sm">Loading...</p>
+                                </div>
+                                <!-- New vs Returning donut-style visual -->
+                                <div class="mt-5 pt-4 border-t border-white/5">
+                                    <h4 class="text-white font-medium mb-3 text-sm"><i class="fas fa-users mr-2 text-teal-400"></i>New vs Returning Users</h4>
+                                    <div id="ga4NewReturnBar" class="flex items-center gap-2">
+                                        <p class="text-gray-500 text-sm">Loading...</p>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -3112,18 +3234,32 @@
                                 <!-- SEMrush -->
                                 <div class="p-4 bg-white/5 rounded-xl border border-white/10">
                                     <div class="flex items-center gap-3 mb-3">
-                                        <div
-                                            class="w-10 h-10 rounded-lg bg-orange-600/20 flex items-center justify-center">
+                                        <div class="w-10 h-10 rounded-lg bg-orange-600/20 flex items-center justify-center">
                                             <i class="fas fa-rocket text-orange-500"></i>
                                         </div>
-                                        <div>
+                                        <div class="flex-1">
                                             <h4 class="font-medium text-white">SEMrush</h4>
                                             <p id="semrushStatus" class="text-xs text-gray-400">Server-side config</p>
                                         </div>
                                     </div>
-                                    <div class="text-xs text-gray-400 p-2 bg-white/5 rounded-lg">
-                                        <i class="fas fa-server mr-1"></i> Configured via environment variable
+                                    <div class="text-xs text-gray-400 p-2 bg-white/5 rounded-lg mb-3">
+                                        <i class="fas fa-server mr-1"></i> API key via env variable
                                         <code class="text-purple-400 ml-1">SEMRUSH_API_KEY</code>
+                                    </div>
+                                    <div>
+                                        <label class="text-xs text-gray-400 block mb-1">Position Tracking Project</label>
+                                        <div class="flex items-center gap-2">
+                                            <select id="semrushProjectSelect"
+                                                class="flex-1 bg-white/5 border border-white/10 text-gray-300 rounded-lg px-3 py-2 text-sm focus:border-orange-500 focus:outline-none appearance-none"
+                                                onchange="saveSemrushProject()">
+                                                <option value="">Auto-detect by domain</option>
+                                            </select>
+                                            <button onclick="loadSemrushProjects()" id="loadSemrushProjectsBtn"
+                                                class="px-3 py-2 bg-orange-600/20 hover:bg-orange-600/40 text-orange-400 rounded-lg text-sm transition" title="Refresh project list">
+                                                <i class="fas fa-sync-alt text-xs"></i>
+                                            </button>
+                                        </div>
+                                        <p id="semrushProjectNote" class="text-xs text-gray-500 mt-1"></p>
                                     </div>
                                 </div>
 
@@ -6760,6 +6896,13 @@
 
             // Load GA4 data when Analytics tab is shown
             if (tab === 'ga4') {
+                // Initialize date inputs if empty
+                const startInput = document.getElementById('ga4StartDate');
+                if (startInput && !startInput.value) {
+                    const dates = getGA4Dates();
+                    startInput.value = dates.start;
+                    document.getElementById('ga4EndDate').value = dates.end;
+                }
                 refreshGA4Data();
             }
 
@@ -6794,6 +6937,7 @@
                 loadNotificationPrefs();
                 loadWufooConfig();
                 loadNotificationHistory();
+                initSemrushProjectDropdown();
                 setTimeout(updateDigestPreview, 100);
             }
 
@@ -11915,6 +12059,12 @@
                 case 'gsc':
                     updates.gsc_site_url = document.getElementById('gscSiteUrl').value.trim();
                     break;
+                case 'semrush':
+                    const sel = document.getElementById('semrushProjectSelect');
+                    updates.semrush_project_id = sel?.value || '';
+                    updates.semrush_project_name = sel?.selectedOptions[0]?.textContent?.trim() || '';
+                    if (updates.semrush_project_name === 'Auto-detect by domain') updates.semrush_project_name = '';
+                    break;
                 case 'wordpress':
                     updates.wordpress_url = document.getElementById('wpSiteUrl').value.trim();
                     const wpPass = document.getElementById('wpAppPassword').value;
@@ -11948,6 +12098,77 @@
                 showToast('Failed to save integration', 'error');
             }
         }
+
+        // ---- SEMrush Project Selection ----
+        async function loadSemrushProjects() {
+            const select = document.getElementById('semrushProjectSelect');
+            const btn = document.getElementById('loadSemrushProjectsBtn');
+            const note = document.getElementById('semrushProjectNote');
+            if (!select) return;
+
+            if (btn) btn.innerHTML = '<i class="fas fa-spinner fa-spin text-xs"></i>';
+
+            try {
+                const response = await fetch(`${API_URL}/api/semrush/projects`, {
+                    headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
+                });
+                const data = await response.json();
+
+                // Preserve current selection
+                const currentVal = currentClient?.semrush_project_id || '';
+
+                // Rebuild options
+                select.innerHTML = '<option value="">Auto-detect by domain</option>';
+                if (data.projects?.length) {
+                    data.projects.forEach(p => {
+                        const opt = document.createElement('option');
+                        opt.value = p.id;
+                        opt.textContent = `${p.name} (${p.domain})`;
+                        if (p.id === currentVal) opt.selected = true;
+                        select.appendChild(opt);
+                    });
+                    if (note) note.textContent = `${data.projects.length} project${data.projects.length !== 1 ? 's' : ''} found`;
+                } else {
+                    if (note) note.textContent = data.error || 'No Position Tracking projects found';
+                }
+            } catch (error) {
+                console.error('Failed to load SEMrush projects:', error);
+                if (note) note.textContent = 'Failed to load projects';
+            } finally {
+                if (btn) btn.innerHTML = '<i class="fas fa-sync-alt text-xs"></i>';
+            }
+        }
+
+        function saveSemrushProject() {
+            saveIntegration('semrush');
+        }
+
+        // Populate SEMrush dropdown when Settings tab loads
+        function initSemrushProjectDropdown() {
+            if (!currentClient) return;
+            const select = document.getElementById('semrushProjectSelect');
+            if (!select) return;
+
+            // If client has a stored project, show it as selected even before we fetch the full list
+            const storedId = currentClient.semrush_project_id;
+            const storedName = currentClient.semrush_project_name;
+            if (storedId) {
+                // Add the stored project as an option right away
+                const existing = select.querySelector(`option[value="${storedId}"]`);
+                if (!existing) {
+                    const opt = document.createElement('option');
+                    opt.value = storedId;
+                    opt.textContent = storedName || `Project ${storedId}`;
+                    opt.selected = true;
+                    select.appendChild(opt);
+                }
+                select.value = storedId;
+            }
+
+            // Then load full list in background
+            loadSemrushProjects();
+        }
+        // ---- End SEMrush Project Selection ----
 
         async function saveAllIntegrations() {
             if (!currentClient) {
@@ -16222,6 +16443,7 @@
         // SOCIAL
         // ==========================================
         let socialFilter = 'all';
+        const selectedSocialIds = new Set();
 
         function renderSocial() {
             const container = document.getElementById('socialList');
@@ -16259,8 +16481,14 @@
                 const showPublish = post.status !== 'published';
 
                 return `
-                <div class="glass rounded-xl p-4 social-${post.platform}">
+                <div class="glass rounded-xl p-4 social-${post.platform} ${selectedSocialIds.has(post.id) ? 'ring-2 ring-purple-500' : ''}">
                     <div class="flex items-center gap-2 mb-3">
+                        ${USER_ROLE !== 'client' && USER_ROLE !== 'viewer' ? `
+                        <input type="checkbox" class="social-select-cb w-4 h-4 rounded accent-purple-500 cursor-pointer flex-shrink-0"
+                               data-post-id="${post.id}"
+                               ${selectedSocialIds.has(post.id) ? 'checked' : ''}
+                               onchange="toggleSocialSelect('${post.id}', this.checked)">
+                        ` : ''}
                         ${getPlatformIcon(post.platform)}
                         <span class="text-sm font-medium text-white">${getPlatformName(post.platform)}</span>
                         <span class="ml-auto px-2 py-1 ${statusColors[post.status] || statusColors.draft} rounded text-xs">
@@ -16392,6 +16620,103 @@
             }
         }
 
+        // ---- Bulk Select & Delete for Social Posts ----
+        function toggleSocialSelect(postId, checked) {
+            if (checked) {
+                selectedSocialIds.add(postId);
+            } else {
+                selectedSocialIds.delete(postId);
+            }
+            updateSocialBulkBar();
+        }
+
+        function toggleSelectAllSocial(checked) {
+            const filtered = socialFilter === 'all' ? allSocial : allSocial.filter(s => s.platform === socialFilter);
+            if (checked) {
+                filtered.forEach(p => selectedSocialIds.add(p.id));
+            } else {
+                filtered.forEach(p => selectedSocialIds.delete(p.id));
+            }
+            // Update all visible checkboxes without full re-render
+            document.querySelectorAll('.social-select-cb').forEach(cb => {
+                cb.checked = checked;
+                const card = cb.closest('.glass');
+                if (card) {
+                    card.classList.toggle('ring-2', checked);
+                    card.classList.toggle('ring-purple-500', checked);
+                }
+            });
+            updateSocialBulkBar();
+        }
+
+        function updateSocialBulkBar() {
+            const bar = document.getElementById('socialBulkBar');
+            const countEl = document.getElementById('socialSelectedCount');
+            const deleteBtn = document.getElementById('socialBulkDeleteBtn');
+            const selectAllCb = document.getElementById('socialSelectAll');
+            const count = selectedSocialIds.size;
+
+            // Only show bar for roles that can delete, and when there are posts
+            if (bar) {
+                const canDelete = USER_ROLE !== 'client' && USER_ROLE !== 'viewer';
+                bar.classList.toggle('hidden', !canDelete || allSocial.length === 0);
+            }
+            if (countEl) countEl.textContent = `${count} selected`;
+            if (deleteBtn) deleteBtn.disabled = count === 0;
+
+            // Sync "Select All" checkbox state
+            const filtered = socialFilter === 'all' ? allSocial : allSocial.filter(s => s.platform === socialFilter);
+            if (selectAllCb && filtered.length > 0) {
+                const allChecked = filtered.every(p => selectedSocialIds.has(p.id));
+                const someChecked = filtered.some(p => selectedSocialIds.has(p.id));
+                selectAllCb.checked = allChecked;
+                selectAllCb.indeterminate = someChecked && !allChecked;
+            }
+        }
+
+        async function bulkDeleteSocial() {
+            const count = selectedSocialIds.size;
+            if (count === 0) return;
+            if (!confirm(`Delete ${count} selected social post${count > 1 ? 's' : ''}? This cannot be undone.`)) return;
+
+            const btn = document.getElementById('socialBulkDeleteBtn');
+            const originalHtml = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin text-xs"></i> Deleting...';
+
+            try {
+                const response = await fetch(`${API_URL}/api/social/bulk-delete`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${AUTH_TOKEN}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ ids: Array.from(selectedSocialIds) })
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || 'Failed to bulk delete');
+                }
+
+                const result = await response.json();
+                allSocial = allSocial.filter(s => !selectedSocialIds.has(s.id));
+                selectedSocialIds.clear();
+                document.getElementById('socialSelectAll').checked = false;
+                renderSocial();
+                updateSocialBulkBar();
+                updateStats();
+                showToast(`Deleted ${result.deleted} post${result.deleted !== 1 ? 's' : ''}`, 'success');
+            } catch (error) {
+                console.error('Bulk delete error:', error);
+                showToast('Error: ' + error.message, 'error');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = originalHtml;
+            }
+        }
+        // ---- End Bulk Select & Delete ----
+
         async function deleteSocialPost(postId) {
             if (!confirm('Delete this social post?')) return;
 
@@ -16420,6 +16745,11 @@
 
         function filterSocial(filter) {
             socialFilter = filter;
+            // Clear selections when switching filters
+            selectedSocialIds.clear();
+            const selectAllCb = document.getElementById('socialSelectAll');
+            if (selectAllCb) { selectAllCb.checked = false; selectAllCb.indeterminate = false; }
+
             ['all', 'gbp', 'facebook', 'instagram'].forEach(f => {
                 const el = document.getElementById(`social-${f}`);
                 if (el) {
@@ -16431,6 +16761,7 @@
                 activeEl.classList.add('border-2', 'border-purple-500');
             }
             renderSocial();
+            updateSocialBulkBar();
         }
 
         function getPlatformIcon(platform) {
@@ -18234,6 +18565,62 @@
         // GOOGLE ANALYTICS 4
         // ==========================================
 
+        // ==========================================
+        // GA4 ANALYTICS — STATE & HELPERS
+        // ==========================================
+        let ga4DateRange = '30d';
+        let ga4LastData = null;  // cache for search/sort
+        let ga4TrendChart = null;
+        let ga4SortState = { pages: { col: 'views', asc: false }, terms: { col: 'clicks', asc: false }, sources: { col: 'sessions', asc: false } };
+        let ga4ShowAll = { pages: false, terms: false };
+
+        function getGA4Dates() {
+            if (ga4DateRange === 'custom') {
+                const s = document.getElementById('ga4StartDate').value;
+                const e = document.getElementById('ga4EndDate').value;
+                if (s && e) return { start: s, end: e };
+            }
+            const now = new Date();
+            let start = new Date();
+            switch (ga4DateRange) {
+                case '7d': start.setDate(now.getDate() - 7); break;
+                case '90d': start.setDate(now.getDate() - 90); break;
+                case '6m': start.setMonth(now.getMonth() - 6); break;
+                case '1y': start.setFullYear(now.getFullYear() - 1); break;
+                default: start.setDate(now.getDate() - 30);
+            }
+            return { start: start.toISOString().slice(0, 10), end: now.toISOString().slice(0, 10) };
+        }
+
+        function setGA4DateRange(range) {
+            ga4DateRange = range;
+            // Update active button
+            ['7d','30d','90d','6m','1y'].forEach(r => {
+                const btn = document.getElementById('ga4Range' + r);
+                if (btn) {
+                    btn.classList.toggle('bg-orange-600', r === range);
+                    btn.classList.toggle('text-white', r === range);
+                    btn.classList.toggle('text-gray-400', r !== range);
+                }
+            });
+            if (range !== 'custom') {
+                const dates = getGA4Dates();
+                document.getElementById('ga4StartDate').value = dates.start;
+                document.getElementById('ga4EndDate').value = dates.end;
+            }
+            refreshGA4Data();
+        }
+
+        function formatDuration(seconds) {
+            if (!seconds || seconds < 0) return '0s';
+            const m = Math.floor(seconds / 60);
+            const s = Math.round(seconds % 60);
+            return m > 0 ? `${m}m ${s}s` : `${s}s`;
+        }
+
+        // ==========================================
+        // GA4 ANALYTICS — MAIN REFRESH
+        // ==========================================
         async function refreshGA4Data() {
             if (!currentClient) {
                 showToast('Please select a client first', 'warning');
@@ -18247,101 +18634,97 @@
             }
 
             try {
-                const response = await fetch(`${API_URL}/api/analytics/traffic/${currentClient.id}`, {
+                const dates = getGA4Dates();
+                const url = `${API_URL}/api/analytics/traffic/${currentClient.id}?start=${dates.start}&end=${dates.end}`;
+                const response = await fetch(url, {
                     headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
                 });
 
-                if (response.ok) {
-                    const data = await response.json();
-
-                    if (data.configured) {
-                        document.getElementById('ga4NotConfigured').classList.add('hidden');
-                        const ga4ErrorDiv = document.getElementById('ga4Error');
-
-                        // Check if credentials are missing on server
-                        if (data.credentials_missing) {
-                            document.getElementById('ga4CredentialsMissing').classList.remove('hidden');
-                            document.getElementById('ga4Data').classList.add('hidden');
-                            if (ga4ErrorDiv) ga4ErrorDiv.classList.add('hidden');
-                        } else if (data.ga4_error) {
-                            // API returned an error (permission denied, wrong property ID, etc.)
-                            if (ga4ErrorDiv) {
-                                ga4ErrorDiv.innerHTML = `
-                                    <div class="flex items-start gap-3">
-                                        <i class="fas fa-exclamation-circle text-red-400 mt-1"></i>
-                                        <div>
-                                            <p class="text-red-400 font-medium text-sm mb-1">GA4 Data Unavailable</p>
-                                            <p class="text-gray-400 text-xs">${data.ga4_error}</p>
-                                            ${data.property_id_used ? `<p class="text-gray-500 text-xs mt-1">Property ID: ${data.property_id_used}</p>` : ''}
-                                        </div>
-                                    </div>`;
-                                ga4ErrorDiv.classList.remove('hidden');
-                            }
-                            document.getElementById('ga4CredentialsMissing').classList.add('hidden');
-                            document.getElementById('ga4Data').classList.add('hidden');
-                        } else {
-                            document.getElementById('ga4CredentialsMissing').classList.add('hidden');
-                            if (ga4ErrorDiv) ga4ErrorDiv.classList.add('hidden');
-                            document.getElementById('ga4Data').classList.remove('hidden');
-
-                            // Show warning if using fallback global property
-                            if (data.using_fallback_property) {
-                                showToast('This client has no GA4 Property ID set. Using global default — data may not be accurate. Set the correct Property ID in Settings → Integrations.', 'warning');
-                            }
-                        }
-
-                        // Update metrics
-                        document.getElementById('ga4Sessions').textContent = (data.sessions || 0).toLocaleString();
-                        document.getElementById('ga4Users').textContent = (data.users || 0).toLocaleString();
-                        document.getElementById('ga4Pageviews').textContent = (data.pageviews || 0).toLocaleString();
-                        document.getElementById('ga4BounceRate').textContent = (data.bounce_rate || 0).toFixed(1) + '%';
-
-                        // Update top pages
-                        const siteUrl = currentClient?.website_url || '';
-                        const baseUrl = siteUrl.replace(/\/$/, '');
-                        const topPagesHtml = data.top_pages?.length
-                            ? data.top_pages.slice(0, 5).map(p => {
-                                const fullUrl = p.page.startsWith('http') ? p.page : (baseUrl + p.page);
-                                return `
-                                <div class="flex justify-between text-gray-300 py-1">
-                                    <a href="${fullUrl}" target="_blank" class="truncate flex-1 text-blue-400 hover:text-blue-300 text-sm">${p.page}</a>
-                                    <span class="text-gray-500 ml-2 text-sm">${p.views}</span>
-                                </div>
-                            `}).join('')
-                            : '<p class="text-gray-500">No page data</p>';
-                        document.getElementById('ga4TopPages').innerHTML = topPagesHtml;
-
-                        // Update search terms
-                        const searchTermsHtml = data.search_terms?.length && data.search_terms[0]?.term !== '(not provided)'
-                            ? data.search_terms.slice(0, 5).map(t => `
-                                <div class="flex justify-between text-gray-300">
-                                    <span class="truncate flex-1">${t.term}</span>
-                                    <span class="text-gray-500 ml-2">${t.clicks || t.impressions || ''}</span>
-                                </div>
-                            `).join('')
-                            : '<p class="text-gray-500 text-xs">Connect Google Search Console in Settings to see search terms</p>';
-                        document.getElementById('ga4SearchTerms').innerHTML = searchTermsHtml;
-
-                        // Show note if no search data
-                        const searchNote = document.getElementById('searchTermsNote');
-                        if (searchNote && (!data.search_terms?.length || data.search_terms[0]?.term === '(not provided)')) {
-                            searchNote.style.display = 'block';
-                        }
-                    } else {
-                        document.getElementById('ga4NotConfigured').classList.remove('hidden');
-                        document.getElementById('ga4CredentialsMissing').classList.add('hidden');
-                        document.getElementById('ga4Data').classList.add('hidden');
-                        const ga4Err = document.getElementById('ga4Error');
-                        if (ga4Err) ga4Err.classList.add('hidden');
-                    }
-                } else {
+                if (!response.ok) {
                     console.error('GA4 fetch failed');
                     document.getElementById('ga4NotConfigured').classList.remove('hidden');
                     document.getElementById('ga4CredentialsMissing').classList.add('hidden');
                     document.getElementById('ga4Data').classList.add('hidden');
-                    const ga4Err = document.getElementById('ga4Error');
-                    if (ga4Err) ga4Err.classList.add('hidden');
+                    document.getElementById('ga4Error').classList.add('hidden');
+                    return;
                 }
+
+                const data = await response.json();
+                ga4LastData = data;
+
+                if (!data.configured) {
+                    document.getElementById('ga4NotConfigured').classList.remove('hidden');
+                    document.getElementById('ga4CredentialsMissing').classList.add('hidden');
+                    document.getElementById('ga4Data').classList.add('hidden');
+                    document.getElementById('ga4Error').classList.add('hidden');
+                    return;
+                }
+
+                document.getElementById('ga4NotConfigured').classList.add('hidden');
+                const ga4ErrorDiv = document.getElementById('ga4Error');
+
+                if (data.credentials_missing) {
+                    document.getElementById('ga4CredentialsMissing').classList.remove('hidden');
+                    document.getElementById('ga4Data').classList.add('hidden');
+                    if (ga4ErrorDiv) ga4ErrorDiv.classList.add('hidden');
+                    return;
+                }
+
+                if (data.ga4_error) {
+                    if (ga4ErrorDiv) {
+                        ga4ErrorDiv.innerHTML = `
+                            <div class="flex items-start gap-3">
+                                <i class="fas fa-exclamation-circle text-red-400 mt-1"></i>
+                                <div>
+                                    <p class="text-red-400 font-medium text-sm mb-1">GA4 Data Unavailable</p>
+                                    <p class="text-gray-400 text-xs">${data.ga4_error}</p>
+                                    ${data.property_id_used ? `<p class="text-gray-500 text-xs mt-1">Property ID: ${data.property_id_used}</p>` : ''}
+                                </div>
+                            </div>`;
+                        ga4ErrorDiv.classList.remove('hidden');
+                    }
+                    document.getElementById('ga4CredentialsMissing').classList.add('hidden');
+                    document.getElementById('ga4Data').classList.add('hidden');
+                    return;
+                }
+
+                // Success — show data
+                document.getElementById('ga4CredentialsMissing').classList.add('hidden');
+                if (ga4ErrorDiv) ga4ErrorDiv.classList.add('hidden');
+                document.getElementById('ga4Data').classList.remove('hidden');
+
+                if (data.using_fallback_property) {
+                    showToast('Using global default GA4 property — data may not be accurate for this client.', 'warning');
+                }
+
+                // ----- Metric cards -----
+                document.getElementById('ga4Sessions').textContent = (data.sessions || 0).toLocaleString();
+                document.getElementById('ga4Users').textContent = (data.users || 0).toLocaleString();
+                document.getElementById('ga4Pageviews').textContent = (data.pageviews || 0).toLocaleString();
+                document.getElementById('ga4BounceRate').textContent = (data.bounce_rate || 0).toFixed(1) + '%';
+                document.getElementById('ga4AvgDuration').textContent = formatDuration(data.avg_session_duration || 0);
+                const nw = data.new_users || 0;
+                const rt = data.returning_users || 0;
+                document.getElementById('ga4NewVsReturn').textContent = `${nw} / ${rt}`;
+
+                // ----- Sessions Trend Chart -----
+                renderGA4TrendChart(data.daily_trend || []);
+
+                // ----- Top Pages table -----
+                renderGA4PagesTable(data.top_pages || []);
+
+                // ----- Search Terms table -----
+                renderGA4TermsTable(data.search_terms || []);
+
+                // ----- Traffic Sources table -----
+                renderGA4SourcesTable(data.traffic_sources || []);
+
+                // ----- Device Breakdown -----
+                renderGA4Devices(data.devices || []);
+
+                // ----- New vs Returning bar -----
+                renderGA4NewReturnBar(nw, rt);
+
             } catch (error) {
                 console.error('GA4 error:', error);
             } finally {
@@ -18350,6 +18733,244 @@
                     btn.disabled = false;
                 }
             }
+        }
+
+        // ==========================================
+        // GA4 ANALYTICS — RENDER FUNCTIONS
+        // ==========================================
+
+        function renderGA4TrendChart(trend) {
+            const ctx = document.getElementById('ga4TrendChart');
+            if (!ctx) return;
+
+            if (ga4TrendChart) { ga4TrendChart.destroy(); ga4TrendChart = null; }
+
+            if (!trend.length) {
+                ctx.parentElement.innerHTML = '<p class="text-gray-500 text-sm text-center py-8">No trend data available</p>';
+                return;
+            }
+
+            const labels = trend.map(d => {
+                const s = d.date;
+                return s.length === 8 ? `${s.slice(4,6)}/${s.slice(6,8)}` : s;
+            });
+
+            ga4TrendChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels,
+                    datasets: [
+                        {
+                            label: 'Sessions',
+                            data: trend.map(d => d.sessions),
+                            borderColor: '#f97316',
+                            backgroundColor: 'rgba(249,115,22,0.1)',
+                            fill: true, tension: 0.3, pointRadius: 1
+                        },
+                        {
+                            label: 'Users',
+                            data: trend.map(d => d.users),
+                            borderColor: '#3b82f6',
+                            backgroundColor: 'transparent',
+                            borderDash: [5, 3], tension: 0.3, pointRadius: 0
+                        },
+                        {
+                            label: 'Pageviews',
+                            data: trend.map(d => d.pageviews),
+                            borderColor: '#22c55e',
+                            backgroundColor: 'transparent',
+                            borderDash: [2, 2], tension: 0.3, pointRadius: 0
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { labels: { color: '#9ca3af', boxWidth: 12, font: { size: 11 } } } },
+                    scales: {
+                        x: { ticks: { color: '#6b7280', maxTicksLimit: 10, font: { size: 10 } }, grid: { color: 'rgba(255,255,255,0.03)' } },
+                        y: { ticks: { color: '#6b7280', font: { size: 10 } }, grid: { color: 'rgba(255,255,255,0.05)' }, beginAtZero: true }
+                    },
+                    interaction: { mode: 'index', intersect: false }
+                }
+            });
+        }
+
+        function renderGA4PagesTable(pages) {
+            const tbody = document.getElementById('ga4TopPages');
+            const showMore = document.getElementById('ga4PagesShowMore');
+            if (!tbody) return;
+
+            if (!pages.length) {
+                tbody.innerHTML = '<tr><td colspan="2" class="text-gray-500 py-4 text-center">No page data</td></tr>';
+                if (showMore) showMore.classList.add('hidden');
+                return;
+            }
+
+            const siteUrl = (currentClient?.website_url || '').replace(/\/$/, '');
+            const search = (document.getElementById('ga4PagesSearch')?.value || '').toLowerCase();
+            let filtered = pages.filter(p => !search || p.page.toLowerCase().includes(search));
+
+            // Sort
+            const { col, asc } = ga4SortState.pages;
+            filtered.sort((a, b) => {
+                const va = col === 'page' ? a.page : (a.views || 0);
+                const vb = col === 'page' ? b.page : (b.views || 0);
+                if (typeof va === 'string') return asc ? va.localeCompare(vb) : vb.localeCompare(va);
+                return asc ? va - vb : vb - va;
+            });
+
+            const limit = ga4ShowAll.pages ? filtered.length : 10;
+            const visible = filtered.slice(0, limit);
+
+            tbody.innerHTML = visible.map(p => {
+                const fullUrl = p.page.startsWith('http') ? p.page : (siteUrl + p.page);
+                return `<tr class="border-b border-white/5 hover:bg-white/5">
+                    <td class="py-1.5 pr-2"><a href="${fullUrl}" target="_blank" class="text-blue-400 hover:text-blue-300 truncate block max-w-[260px]" title="${p.page}">${p.page}</a></td>
+                    <td class="py-1.5 text-right text-gray-400">${(p.views || 0).toLocaleString()}</td>
+                </tr>`;
+            }).join('');
+
+            if (showMore) {
+                showMore.classList.toggle('hidden', filtered.length <= 10);
+                showMore.querySelector('button').textContent = ga4ShowAll.pages ? 'Show less' : `Show all (${filtered.length})`;
+            }
+        }
+
+        function renderGA4TermsTable(terms) {
+            const tbody = document.getElementById('ga4SearchTerms');
+            const noteEl = document.getElementById('searchTermsNote');
+
+            if (!terms.length || (terms.length === 1 && terms[0]?.term === '(not provided)')) {
+                tbody.innerHTML = '<tr><td colspan="2" class="text-gray-500 py-4 text-center text-xs">Connect Google Search Console in Settings to see search terms</td></tr>';
+                if (noteEl) noteEl.style.display = 'block';
+                return;
+            }
+            if (noteEl) noteEl.style.display = 'none';
+
+            const search = (document.getElementById('ga4TermsSearch')?.value || '').toLowerCase();
+            let filtered = terms.filter(t => !search || t.term.toLowerCase().includes(search));
+
+            const { col, asc } = ga4SortState.terms;
+            filtered.sort((a, b) => {
+                const va = col === 'term' ? a.term : (a.clicks || a.impressions || 0);
+                const vb = col === 'term' ? b.term : (b.clicks || b.impressions || 0);
+                if (typeof va === 'string') return asc ? va.localeCompare(vb) : vb.localeCompare(va);
+                return asc ? va - vb : vb - va;
+            });
+
+            tbody.innerHTML = filtered.slice(0, 15).map(t => `
+                <tr class="border-b border-white/5 hover:bg-white/5">
+                    <td class="py-1.5 pr-2 text-gray-300 truncate max-w-[200px]">${t.term}</td>
+                    <td class="py-1.5 text-right text-gray-400">${(t.clicks || t.impressions || 0).toLocaleString()}</td>
+                </tr>
+            `).join('');
+        }
+
+        function renderGA4SourcesTable(sources) {
+            const tbody = document.getElementById('ga4TrafficSources');
+            if (!tbody) return;
+
+            if (!sources.length) {
+                tbody.innerHTML = '<tr><td colspan="3" class="text-gray-500 py-4 text-center">No source data</td></tr>';
+                return;
+            }
+
+            const search = (document.getElementById('ga4SourcesSearch')?.value || '').toLowerCase();
+            let filtered = sources.filter(s => !search || `${s.source} ${s.medium}`.toLowerCase().includes(search));
+
+            const { col, asc } = ga4SortState.sources;
+            filtered.sort((a, b) => {
+                if (col === 'source') {
+                    const va = `${a.source}/${a.medium}`, vb = `${b.source}/${b.medium}`;
+                    return asc ? va.localeCompare(vb) : vb.localeCompare(va);
+                }
+                const va = a[col] || 0, vb = b[col] || 0;
+                return asc ? va - vb : vb - va;
+            });
+
+            const mediumColors = {
+                'organic': 'text-green-400', 'cpc': 'text-amber-400', 'social': 'text-blue-400',
+                'referral': 'text-purple-400', '(none)': 'text-gray-400', 'email': 'text-pink-400'
+            };
+
+            tbody.innerHTML = filtered.slice(0, 15).map(s => {
+                const mColor = mediumColors[s.medium] || 'text-gray-400';
+                return `<tr class="border-b border-white/5 hover:bg-white/5">
+                    <td class="py-1.5 pr-2"><span class="text-gray-200">${s.source}</span> <span class="${mColor} text-xs">/ ${s.medium}</span></td>
+                    <td class="py-1.5 text-right text-gray-400">${(s.sessions || 0).toLocaleString()}</td>
+                    <td class="py-1.5 text-right text-gray-400">${(s.users || 0).toLocaleString()}</td>
+                </tr>`;
+            }).join('');
+        }
+
+        function renderGA4Devices(devices) {
+            const container = document.getElementById('ga4Devices');
+            if (!container) return;
+
+            if (!devices.length) {
+                container.innerHTML = '<p class="text-gray-500 text-sm">No device data</p>';
+                return;
+            }
+
+            const totalSessions = devices.reduce((s, d) => s + (d.sessions || 0), 0) || 1;
+            const icons = { desktop: 'fa-desktop', mobile: 'fa-mobile-alt', tablet: 'fa-tablet-alt' };
+            const colors = { desktop: 'bg-blue-500', mobile: 'bg-green-500', tablet: 'bg-purple-500' };
+
+            container.innerHTML = devices.map(d => {
+                const pct = ((d.sessions / totalSessions) * 100).toFixed(1);
+                const icon = icons[d.device] || 'fa-question';
+                const color = colors[d.device] || 'bg-gray-500';
+                return `<div class="flex items-center gap-3">
+                    <i class="fas ${icon} text-gray-400 w-5 text-center"></i>
+                    <span class="text-gray-300 text-sm capitalize w-16">${d.device}</span>
+                    <div class="flex-1 bg-white/5 rounded-full h-2 overflow-hidden">
+                        <div class="${color} h-full rounded-full" style="width: ${pct}%"></div>
+                    </div>
+                    <span class="text-gray-400 text-xs w-20 text-right">${d.sessions.toLocaleString()} (${pct}%)</span>
+                </div>`;
+            }).join('');
+        }
+
+        function renderGA4NewReturnBar(newUsers, returning) {
+            const container = document.getElementById('ga4NewReturnBar');
+            if (!container) return;
+            const total = (newUsers + returning) || 1;
+            const newPct = ((newUsers / total) * 100).toFixed(1);
+            const retPct = ((returning / total) * 100).toFixed(1);
+
+            container.innerHTML = `
+                <div class="flex-1">
+                    <div class="flex rounded-full h-3 overflow-hidden">
+                        <div class="bg-teal-500" style="width: ${newPct}%"></div>
+                        <div class="bg-indigo-500" style="width: ${retPct}%"></div>
+                    </div>
+                    <div class="flex justify-between mt-2 text-xs">
+                        <span class="text-teal-400"><i class="fas fa-circle text-[8px] mr-1"></i>New: ${newUsers.toLocaleString()} (${newPct}%)</span>
+                        <span class="text-indigo-400"><i class="fas fa-circle text-[8px] mr-1"></i>Returning: ${returning.toLocaleString()} (${retPct}%)</span>
+                    </div>
+                </div>`;
+        }
+
+        // ==========================================
+        // GA4 ANALYTICS — SEARCH, SORT, SHOW ALL
+        // ==========================================
+
+        function filterGA4Table(type) {
+            if (!ga4LastData) return;
+            if (type === 'pages') renderGA4PagesTable(ga4LastData.top_pages || []);
+            else if (type === 'terms') renderGA4TermsTable(ga4LastData.search_terms || []);
+            else if (type === 'sources') renderGA4SourcesTable(ga4LastData.traffic_sources || []);
+        }
+
+        function sortGA4Table(type, col) {
+            const state = ga4SortState[type];
+            if (state.col === col) { state.asc = !state.asc; } else { state.col = col; state.asc = (typeof col === 'string' && (col === 'page' || col === 'term' || col === 'source')); }
+            filterGA4Table(type);
+        }
+
+        function toggleGA4ShowAll(type) {
+            ga4ShowAll[type] = !ga4ShowAll[type];
+            filterGA4Table(type);
         }
 
         // ==========================================

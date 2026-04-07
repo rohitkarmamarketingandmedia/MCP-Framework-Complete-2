@@ -47,6 +47,18 @@ def run_migration(current_user):
         except Exception as e:
             db.session.rollback()
             results.append({'column': 'clients.callrail_account_id', 'status': 'error', 'error': str(e)})
+
+        # Add semrush_project_id and semrush_project_name to clients table
+        for col_name, col_type in [('semrush_project_id', 'VARCHAR(100)'), ('semrush_project_name', 'VARCHAR(255)')]:
+            try:
+                db.session.execute(db.text(
+                    f"ALTER TABLE clients ADD COLUMN IF NOT EXISTS {col_name} {col_type}"
+                ))
+                db.session.commit()
+                results.append({'column': f'clients.{col_name}', 'status': 'success'})
+            except Exception as e:
+                db.session.rollback()
+                results.append({'column': f'clients.{col_name}', 'status': 'error', 'error': str(e)})
         
         logger.info(f"Migration completed: {results}")
         

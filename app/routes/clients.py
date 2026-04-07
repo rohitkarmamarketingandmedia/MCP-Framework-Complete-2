@@ -357,6 +357,12 @@ def update_integrations(current_user, client_id):
     if 'gsc_site_url' in data:
         integrations['gsc_site_url'] = data['gsc_site_url']
         client.gsc_site_url = data['gsc_site_url'] or None  # Also save to direct field
+    if 'semrush_project_id' in data:
+        integrations['semrush_project_id'] = data['semrush_project_id']
+        client.semrush_project_id = data['semrush_project_id'] or None
+    if 'semrush_project_name' in data:
+        integrations['semrush_project_name'] = data['semrush_project_name']
+        client.semrush_project_name = data['semrush_project_name'] or None
     
     # Direct field updates for WordPress
     if 'wordpress_url' in data:

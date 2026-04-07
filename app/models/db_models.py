@@ -202,6 +202,10 @@ class DBClient(db.Model):
     # Google Analytics 4 Integration
     ga4_property_id: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     
+    # SEMrush Integration
+    semrush_project_id: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    semrush_project_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+
     # Google Search Console Integration
     gsc_site_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
     
@@ -395,6 +399,9 @@ class DBClient(db.Model):
             'gsc_site_url': self.gsc_site_url,
             'callrail_company_id': self.callrail_company_id,
             'callrail_account_id': self.callrail_account_id,
+            # SEMrush
+            'semrush_project_id': self.semrush_project_id,
+            'semrush_project_name': self.semrush_project_name,
             # Social connections (status only, no tokens)
             'social_connections': {
                 'gbp': {

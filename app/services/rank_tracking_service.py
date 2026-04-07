@@ -719,7 +719,7 @@ class RankTrackingService:
     # TRACKED KEYWORD RANKING (Position Tracking)
     # ==========================================
 
-    def import_tracked_keywords_from_semrush(self, client_id: str, domain: str, database: str = None) -> Dict:
+    def import_tracked_keywords_from_semrush(self, client_id: str, domain: str, database: str = None, semrush_project_id: str = None) -> Dict:
         """
         Import tracked keywords from SEMrush Position Tracking project.
 
@@ -744,21 +744,23 @@ class RankTrackingService:
         source = 'position_tracking'
 
         try:
-            # Step 1: list projects
-            proj_resp = requests.get(
-                'https://api.semrush.com/management/v1/projects',
-                params={'key': self.api_key},
-                timeout=30
-            )
-            projects = proj_resp.json() if proj_resp.status_code == 200 else []
+            # Use stored project ID if available, otherwise look it up by domain
+            project_id = semrush_project_id
 
-            # Find project matching this domain
-            project_id = None
-            for proj in (projects if isinstance(projects, list) else []):
-                proj_domain = self._clean_domain(proj.get('domain', '') or proj.get('url', ''))
-                if proj_domain == domain:
-                    project_id = proj.get('project_id') or proj.get('id')
-                    break
+            if not project_id:
+                # Step 1: list projects and match by domain
+                proj_resp = requests.get(
+                    'https://api.semrush.com/management/v1/projects',
+                    params={'key': self.api_key},
+                    timeout=30
+                )
+                projects = proj_resp.json() if proj_resp.status_code == 200 else []
+
+                for proj in (projects if isinstance(projects, list) else []):
+                    proj_domain = self._clean_domain(proj.get('domain', '') or proj.get('url', ''))
+                    if proj_domain == domain:
+                        project_id = proj.get('project_id') or proj.get('id')
+                        break
 
             if project_id:
                 logger.info(f"[TRACKED-KW] Found Position Tracking project {project_id} for {domain}")

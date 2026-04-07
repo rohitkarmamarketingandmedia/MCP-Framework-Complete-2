@@ -131,6 +131,45 @@ def get_status(current_user):
     })
 
 
+@semrush_bp.route('/projects', methods=['GET'])
+@token_required
+def list_projects(current_user):
+    """
+    List all SEMrush Position Tracking projects (for dropdown selection).
+
+    GET /api/semrush/projects
+
+    Returns: { projects: [{ id, name, domain, ... }] }
+    """
+    api_key = os.environ.get('SEMRUSH_API_KEY', '')
+    if not api_key:
+        return jsonify({'error': 'SEMRUSH_API_KEY not configured', 'projects': []})
+
+    try:
+        resp = requests.get(
+            'https://api.semrush.com/management/v1/projects',
+            params={'key': api_key},
+            timeout=30
+        )
+        if resp.status_code != 200:
+            return jsonify({'error': f'SEMrush API error: {resp.status_code}', 'projects': []})
+
+        raw = resp.json()
+        projects_list = raw if isinstance(raw, list) else []
+
+        projects = []
+        for proj in projects_list:
+            projects.append({
+                'id': str(proj.get('project_id') or proj.get('id', '')),
+                'name': proj.get('project_name') or proj.get('name', ''),
+                'domain': proj.get('domain') or proj.get('url', ''),
+            })
+
+        return jsonify({'projects': projects})
+    except Exception as e:
+        return jsonify({'error': str(e), 'projects': []})
+
+
 @semrush_bp.route('/test', methods=['GET'])
 @token_required
 def test_api(current_user):

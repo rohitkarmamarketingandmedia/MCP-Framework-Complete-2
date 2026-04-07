@@ -139,15 +139,16 @@ class AnalyticsService:
                 RunReportRequest,
                 DateRange,
                 Dimension,
-                Metric
+                Metric,
+                OrderBy
             )
-            
+
             client = self._get_client()
             date_range = DateRange(
                 start_date=start_date.strftime('%Y-%m-%d'),
                 end_date=end_date.strftime('%Y-%m-%d')
             )
-            
+
             # Request 1: Channel breakdown
             channels = []
             try:
@@ -227,18 +228,125 @@ class AnalyticsService:
             except Exception as e:
                 logger.warning(f"GA4 top pages request failed: {e}")
             
+            # Request 4: Traffic sources (source/medium)
+            traffic_sources = []
+            try:
+                sources_request = RunReportRequest(
+                    property=f'properties/{property_id}',
+                    date_ranges=[date_range],
+                    dimensions=[
+                        Dimension(name='sessionSource'),
+                        Dimension(name='sessionMedium')
+                    ],
+                    metrics=[
+                        Metric(name='sessions'),
+                        Metric(name='totalUsers')
+                    ],
+                    order_bys=[OrderBy(
+                        metric=OrderBy.MetricOrderBy(metric_name='sessions'),
+                        desc=True
+                    )],
+                    limit=15
+                )
+                sources_response = client.run_report(sources_request)
+                for row in sources_response.rows:
+                    traffic_sources.append({
+                        'source': row.dimension_values[0].value,
+                        'medium': row.dimension_values[1].value,
+                        'sessions': int(row.metric_values[0].value),
+                        'users': int(row.metric_values[1].value)
+                    })
+            except Exception as e:
+                logger.warning(f"GA4 traffic sources request failed: {e}")
+
+            # Request 5: Device breakdown
+            devices = []
+            try:
+                device_request = RunReportRequest(
+                    property=f'properties/{property_id}',
+                    date_ranges=[date_range],
+                    dimensions=[Dimension(name='deviceCategory')],
+                    metrics=[
+                        Metric(name='sessions'),
+                        Metric(name='totalUsers')
+                    ]
+                )
+                device_response = client.run_report(device_request)
+                for row in device_response.rows:
+                    devices.append({
+                        'device': row.dimension_values[0].value,
+                        'sessions': int(row.metric_values[0].value),
+                        'users': int(row.metric_values[1].value)
+                    })
+            except Exception as e:
+                logger.warning(f"GA4 device breakdown request failed: {e}")
+
+            # Request 6: New vs returning users
+            new_users = 0
+            total_users = 0
+            try:
+                users_request = RunReportRequest(
+                    property=f'properties/{property_id}',
+                    date_ranges=[date_range],
+                    metrics=[
+                        Metric(name='totalUsers'),
+                        Metric(name='newUsers')
+                    ]
+                )
+                users_response = client.run_report(users_request)
+                if users_response.rows:
+                    row = users_response.rows[0]
+                    total_users = int(float(row.metric_values[0].value))
+                    new_users = int(float(row.metric_values[1].value))
+            except Exception as e:
+                logger.warning(f"GA4 new vs returning request failed: {e}")
+
+            # Request 7: Daily sessions trend
+            daily_trend = []
+            try:
+                trend_request = RunReportRequest(
+                    property=f'properties/{property_id}',
+                    date_ranges=[date_range],
+                    dimensions=[Dimension(name='date')],
+                    metrics=[
+                        Metric(name='sessions'),
+                        Metric(name='totalUsers'),
+                        Metric(name='screenPageViews')
+                    ],
+                    order_bys=[OrderBy(
+                        dimension=OrderBy.DimensionOrderBy(dimension_name='date'),
+                        desc=False
+                    )],
+                    limit=90
+                )
+                trend_response = client.run_report(trend_request)
+                for row in trend_response.rows:
+                    daily_trend.append({
+                        'date': row.dimension_values[0].value,
+                        'sessions': int(row.metric_values[0].value),
+                        'users': int(row.metric_values[1].value),
+                        'pageviews': int(row.metric_values[2].value)
+                    })
+            except Exception as e:
+                logger.warning(f"GA4 daily trend request failed: {e}")
+
             return {
                 'channels': channels,
                 'pageviews': pageviews,
                 'bounce_rate': bounce_rate,
                 'avg_session_duration': avg_session_duration,
                 'top_pages': top_pages,
+                'traffic_sources': traffic_sources,
+                'devices': devices,
+                'new_users': new_users,
+                'returning_users': max(0, total_users - new_users),
+                'daily_trend': daily_trend,
                 'period': {
                     'start': start_date.isoformat(),
                     'end': end_date.isoformat()
                 }
             }
-            
+
         except Exception as e:
             logger.error(f"GA4 detailed traffic error: {e}")
             return {'error': str(e), **self._mock_detailed_traffic()}
@@ -328,6 +436,17 @@ class AnalyticsService:
         }
     
     def _mock_detailed_traffic(self) -> Dict:
+        import random
+        # Generate mock daily trend for last 30 days
+        daily_trend = []
+        for i in range(30):
+            d = (datetime.utcnow() - timedelta(days=29 - i))
+            daily_trend.append({
+                'date': d.strftime('%Y%m%d'),
+                'sessions': random.randint(40, 120),
+                'users': random.randint(30, 100),
+                'pageviews': random.randint(80, 300)
+            })
         return {
             'channels': [
                 {'channel': 'Organic Search', 'sessions': 1420, 'users': 1180, 'conversions': 35},
@@ -335,6 +454,21 @@ class AnalyticsService:
                 {'channel': 'Referral', 'sessions': 280, 'users': 240, 'conversions': 8},
                 {'channel': 'Social', 'sessions': 170, 'users': 150, 'conversions': 5}
             ],
+            'traffic_sources': [
+                {'source': 'google', 'medium': 'organic', 'sessions': 1200, 'users': 1020},
+                {'source': '(direct)', 'medium': '(none)', 'sessions': 580, 'users': 450},
+                {'source': 'facebook', 'medium': 'social', 'sessions': 120, 'users': 105},
+                {'source': 'yelp', 'medium': 'referral', 'sessions': 85, 'users': 72},
+                {'source': 'bing', 'medium': 'organic', 'sessions': 220, 'users': 160},
+            ],
+            'devices': [
+                {'device': 'desktop', 'sessions': 1350, 'users': 1100},
+                {'device': 'mobile', 'sessions': 950, 'users': 820},
+                {'device': 'tablet', 'sessions': 150, 'users': 130}
+            ],
+            'new_users': 1280,
+            'returning_users': 770,
+            'daily_trend': daily_trend,
             'note': 'Mock data - configure GA4 credentials for real data'
         }
     

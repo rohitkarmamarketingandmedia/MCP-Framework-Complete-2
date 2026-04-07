@@ -1183,7 +1183,8 @@ def import_tracked_keywords(current_user, client_id):
         return jsonify({'error': 'Client not found'}), 404
 
     domain = client.website_url or client.business_name
-    result = rank_tracking_service.import_tracked_keywords_from_semrush(client_id, domain)
+    semrush_pid = getattr(client, 'semrush_project_id', None)
+    result = rank_tracking_service.import_tracked_keywords_from_semrush(client_id, domain, semrush_project_id=semrush_pid)
 
     if result.get('error'):
         return jsonify(result), 400
