@@ -3189,16 +3189,48 @@ def _parse_content_package(text: str) -> dict:
         if not any(l['url'] == url for l in internal_links):
             internal_links.append({'text': anchor, 'url': url})
 
-    # Arrow format: anchor → URL
-    for m in re.finditer(r'["\']?([^"\'→\n]{3,80}?)["\']?\s*[→⟶➜>]+\s*(https?://\S+)', text):
+    # Arrow format: anchor → URL  (with or without https://)
+    for m in re.finditer(r'["\']?([^"\'→\n]{3,80}?)["\']?\s*[→⟶➜>]+\s*((?:https?://)?\S+)', text):
         anchor, url = m.group(1).strip(), m.group(2).strip().rstrip(')')
         if anchor and not re.match(r'^https?://', anchor) and not any(l['url'] == url for l in internal_links):
+            # Ensure URL has protocol
+            if url and not url.startswith('http'):
+                url = 'https://' + url
+            internal_links.append({'text': anchor, 'url': url})
+
+    # >> format: "anchor text" >> domain.com/path  (common in content packages)
+    for m in re.finditer(r'["\*]([^"\*\n]{3,80}?)["\*]\s*>>+\s*((?:https?://)?[a-zA-Z0-9][\w.-]+\.[a-z]{2,}(?:/\S*)?)', text):
+        anchor, url = m.group(1).strip(), m.group(2).strip().rstrip(')')
+        if anchor and not any(l['url'] == url for l in internal_links):
+            if not url.startswith('http'):
+                url = 'https://' + url
+            internal_links.append({'text': anchor, 'url': url})
+
+    # Bullet/asterisk link lists: * "anchor text" >> URL  or  * anchor >> URL
+    for m in re.finditer(r'^\s*[•\-\*·]\s*["\']?([^"\'→>\n]{3,80}?)["\']?\s*>>+\s*((?:https?://)?[a-zA-Z0-9][\w.-]+\.[a-z]{2,}(?:/\S*)?)', text, re.MULTILINE):
+        anchor, url = m.group(1).strip(), m.group(2).strip().rstrip(')')
+        if anchor and not any(l['url'] == url for l in internal_links):
+            if not url.startswith('http'):
+                url = 'https://' + url
             internal_links.append({'text': anchor, 'url': url})
 
     # URL (anchor) format
     for m in re.finditer(r'(https?://\S+)\s*[\(–—\-:]\s*([^)\n]{3,80})', text):
         url, anchor = m.group(1).strip().rstrip(')'), m.group(2).strip().rstrip(')')
         if not any(l['url'] == url for l in internal_links):
+            internal_links.append({'text': anchor, 'url': url})
+
+    # Bare domain.com/path links (no anchor) — common in content packages
+    # Match lines like: akelectricalfl.com/surge-protection/
+    for m in re.finditer(r'^\s*[•\-\*·]\s*((?:https?://)?([a-zA-Z0-9][\w.-]+\.[a-z]{2,}/\S+))\s*$', text, re.MULTILINE):
+        url = m.group(1).strip()
+        domain_path = m.group(2).strip()
+        if not url.startswith('http'):
+            url = 'https://' + url
+        if not any(l['url'] == url for l in internal_links):
+            # Generate anchor from URL path
+            path = url.rstrip('/').split('/')[-1]
+            anchor = path.replace('-', ' ').replace('_', ' ').title()
             internal_links.append({'text': anchor, 'url': url})
 
     if internal_links:
@@ -3246,6 +3278,14 @@ def _parse_content_package(text: str) -> dict:
         r'author[:\-–—=]|last\s*updated[:\-–—=]|publish\s*date|'
         r'cta[:\-–—=]|call\s*to\s*action|'
         r'featured\s*image|'
+        # Content package section headers
+        r'keyword\s*iteration|entity\s*term|full\s*article|'
+        r'client\s*summary|mcp\s*copy|copy.?paste\s*ready|'
+        r'publish\s*(?:date|schedule|timing)|next\s*action|refresh\s*(?:every|date)|'
+        r'what\s*is\s*in\s*this\s*package|'
+        r'localbusiness\s*:|howto\s*:|faqpage\s*:|'
+        r'<script\s|</script>|@context|@type|'
+        r'serving\s+(?:venice|sarasota|bradenton)|'
         r'[-=]{3,}|[*]{3,}'  # horizontal rules
         r')',
         re.IGNORECASE
@@ -3256,7 +3296,18 @@ def _parse_content_package(text: str) -> dict:
         r'^\s*[•\-\*·]\s*"[^"]+"\s*to\s*/|'  # • "keyword" to /path/
         r'^\s*[•\-\*·]\s*link\s+to\s|'         # • Link to ...
         r'^\s*anchor\s*text[:\-–—=]|'
-        r'^\s*(?:link|anchor)\s*(?:#?\d+)[:\-–—=]',
+        r'^\s*(?:link|anchor)\s*(?:#?\d+)[:\-–—=]|'
+        r'^\s*[•\-\*·]\s*"[^"]+"\s*>>|'        # • "anchor" >> url
+        r'^\s*[•\-\*·]\s*[^•\-\*·\n]+>>\s*\w',  # • anchor >> url (no quotes)
+        re.IGNORECASE
+    )
+
+    # Schema/JSON-LD blocks — mark entire <script> blocks as metadata
+    schema_line_re = re.compile(
+        r'^\s*(?:<script|</script>|\{|\}|"@|"name"|"text"|"description"|"step"|"mainEntity"|"acceptedAnswer"|'
+        r'"image"|"url"|"telephone"|"address"|"geo"|"openingHours"|"priceRange"|"areaServed"|'
+        r'"dayOfWeek"|"opens"|"closes"|"streetAddress"|"addressLocality"|"addressRegion"|'
+        r'"postalCode"|"addressCountry"|"latitude"|"longitude")',
         re.IGNORECASE
     )
 
@@ -3285,10 +3336,29 @@ def _parse_content_package(text: str) -> dict:
             line_classifications.append((line, 'meta'))
             continue
 
-        # Lines that are just a URL
-        if re.match(r'^https?://\S+\s*$', stripped):
+        # Schema/JSON-LD block lines
+        if schema_line_re.match(stripped):
             line_classifications.append((line, 'meta'))
             continue
+
+        # Lines that are just a URL (with or without protocol)
+        if re.match(r'^(?:https?://)?\S+\.\S+/\S*\s*$', stripped) and len(stripped.split()) <= 2:
+            line_classifications.append((line, 'meta'))
+            continue
+
+        # Lines that look like keyword iterations (no verb, short phrases)
+        # e.g. "hurricane electrical prep Venice FL"
+        # Detect: multiple similar short phrases in sequence with no punctuation
+        if len(stripped.split()) <= 10 and not stripped.endswith('.') and not stripped.endswith('?') and not stripped.endswith(':'):
+            # Check if this is part of a keyword list block (look at surrounding lines)
+            nearby_short = 0
+            for j in range(max(0, i-2), min(len(lines), i+3)):
+                neighbor = lines[j].strip()
+                if neighbor and len(neighbor.split()) <= 10 and not neighbor.endswith('.') and not neighbor.endswith('?'):
+                    nearby_short += 1
+            if nearby_short >= 4:  # 4+ short lines in a row = keyword list block
+                line_classifications.append((line, 'meta'))
+                continue
 
         # Everything else is potential body content
         line_classifications.append((line, 'body'))
@@ -3364,9 +3434,16 @@ def _parse_content_package(text: str) -> dict:
             result['body'] = body_text
             result['body_warning'] = 'keyword_list'
         else:
-            # Convert markdown headings to HTML
+            # Convert headings to HTML — markdown or plain-text style
             if re.search(r'^#{1,6}\s+', body_text, re.MULTILINE):
                 body_text = _markdown_to_html(body_text)
+            else:
+                body_text = _plaintext_to_html(body_text)
+
+            # Inject internal links into body as <a> tags for SEO scoring
+            if result.get('internal_links') and '<a ' not in body_text:
+                body_text = _inject_internal_links(body_text, result['internal_links'])
+
             result['body'] = body_text
     else:
         logger.warning(f"Smart-paste: body too short ({len(body_text)} chars), not using. First 200: {repr(body_text[:200])}")
@@ -3444,6 +3521,149 @@ def _markdown_to_html(md_text: str) -> str:
         html_lines.append('</ul>')
 
     return '\n'.join(html_lines)
+
+
+def _plaintext_to_html(text: str) -> str:
+    """
+    Convert plain-text blog content to HTML with proper heading detection.
+    Detects common heading patterns like:
+    - "Step 1: Title Here"
+    - "What Is Hurricane Electrical Prep?"
+    - "Frequently Asked Questions"
+    - "During the Storm: What Not to Do"
+    - Short standalone lines followed by paragraph text
+    """
+    html_lines = []
+    in_list = False
+    lines = text.split('\n')
+
+    # Patterns that indicate a line is a heading (not body prose)
+    heading_patterns = [
+        # Step N: Title
+        r'^Step\s+\d+\s*[:\-–—]\s*.+',
+        # Question-style headings: What Is..., How Do..., Why..., When Should...
+        r'^(?:What|How|Why|When|Where|Who|Which|Do|Does|Is|Are|Can|Should|Will)\s+.{10,80}\??$',
+        # Short title-case lines (3-10 words, no period at end)
+        # e.g. "During the Storm: What Not to Do", "Frequently Asked Questions"
+    ]
+    heading_re = re.compile('|'.join(heading_patterns), re.IGNORECASE)
+
+    for i, line in enumerate(lines):
+        stripped = line.strip()
+
+        # Empty line
+        if not stripped:
+            if in_list:
+                html_lines.append('</ul>')
+                in_list = False
+            html_lines.append('')
+            continue
+
+        # Already HTML
+        if stripped.startswith('<h') or stripped.startswith('<p') or stripped.startswith('<ul') or stripped.startswith('<li'):
+            html_lines.append(stripped)
+            continue
+
+        # Unordered list items
+        li_match = re.match(r'^[-*•·]\s+(.+)', stripped)
+        if li_match:
+            if not in_list:
+                html_lines.append('<ul>')
+                in_list = True
+            html_lines.append(f'<li>{li_match.group(1)}</li>')
+            continue
+
+        # Ordered list items
+        oli_match = re.match(r'^\d+[.)]\s+(.+)', stripped)
+        if oli_match:
+            if not in_list:
+                html_lines.append('<ul>')
+                in_list = True
+            html_lines.append(f'<li>{oli_match.group(1)}</li>')
+            continue
+
+        # Close list if we hit a non-list line
+        if in_list and stripped:
+            html_lines.append('</ul>')
+            in_list = False
+
+        # Check if this is a heading
+        is_heading = False
+        heading_level = 2  # default to h2
+
+        # Explicit heading pattern matches
+        if heading_re.match(stripped):
+            is_heading = True
+
+        # Short title-like lines: 2-12 words, no period, not a sentence
+        if not is_heading:
+            word_count = len(stripped.split())
+            ends_with_period = stripped.endswith('.')
+            has_colon = ':' in stripped
+
+            if word_count <= 12 and not ends_with_period:
+                # Check if next non-empty line is a longer paragraph
+                next_content = ''
+                for j in range(i + 1, min(i + 4, len(lines))):
+                    if lines[j].strip():
+                        next_content = lines[j].strip()
+                        break
+                # Check if previous non-empty line was also short (avoid marking list items)
+                if next_content and len(next_content.split()) > 15:
+                    is_heading = True
+
+        # Determine heading level
+        if is_heading:
+            # First heading in the article = h1 (title), rest are h2
+            # "Step N:" or FAQ-style = h2, sub-items = h3
+            if re.match(r'^Step\s+\d+', stripped, re.IGNORECASE):
+                heading_level = 2
+            elif re.match(r'^(?:What|How|Why|When|Where|Who|Which)\s+', stripped, re.IGNORECASE) and len(stripped.split()) <= 8:
+                heading_level = 3  # FAQ sub-questions are h3
+            elif any(kw in stripped.lower() for kw in ['frequently asked', 'faq', 'during the storm', 'after the storm', 'why ', 'what ak electrical']):
+                heading_level = 2
+            # Short sub-headings under steps
+            elif len(stripped.split()) <= 6 and ':' not in stripped:
+                heading_level = 3
+
+            html_lines.append(f'<h{heading_level}>{stripped}</h{heading_level}>')
+        else:
+            # Regular paragraph
+            html_lines.append(f'<p>{stripped}</p>')
+
+    if in_list:
+        html_lines.append('</ul>')
+
+    return '\n'.join(html_lines)
+
+
+def _inject_internal_links(body_html: str, links: list) -> str:
+    """
+    Inject <a> tags into the HTML body for internal links.
+    Matches anchor text in the body and wraps the first occurrence with a link.
+    This ensures the SEO scoring engine can count internal links.
+    """
+    if not links:
+        return body_html
+
+    for link in links:
+        anchor = link.get('text', '')
+        url = link.get('url', '')
+        if not anchor or not url:
+            continue
+
+        # Escape anchor for regex
+        escaped_anchor = re.escape(anchor)
+
+        # Replace first occurrence of the anchor text (case-insensitive) that isn't already in a link
+        # Only match text that's NOT inside an existing <a> tag
+        pattern = rf'(?<!<a[^>]*>)(?<!["\'/])({escaped_anchor})(?!</a>)(?!["\'/])'
+        replacement = f'<a href="{url}">\\1</a>'
+        body_html, count = re.subn(pattern, replacement, body_html, count=1, flags=re.IGNORECASE)
+        if count > 0:
+            logger.debug(f"Injected internal link: '{anchor}' → {url}")
+
+    return body_html
 
 
 # ==========================================
