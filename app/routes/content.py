@@ -1792,6 +1792,7 @@ def run_fact_check(current_user, blog_id):
 
     try:
         from app.services.blog_ai_single import get_blog_ai_single, BlogRequest
+        from app.database import db
 
         # Get client info for the BlogRequest
         client = data_service.get_client(blog.client_id)
