@@ -1799,10 +1799,16 @@ def run_fact_check(current_user, blog_id):
             return jsonify({'error': 'Client not found'}), 404
 
         # Build a minimal BlogRequest with what we know
+        # DBClient has 'geo' (e.g. "Venice, Florida") — split into city/state
+        geo = client.geo or ''
+        geo_parts = [p.strip() for p in geo.split(',', 1)] if geo else ['', '']
+        fc_city = geo_parts[0] if len(geo_parts) > 0 else ''
+        fc_state = geo_parts[1] if len(geo_parts) > 1 else ''
+
         blog_request = BlogRequest(
-            keyword=blog.keyword or blog.title or '',
-            city=client.city or '',
-            state=client.state or '',
+            keyword=blog.primary_keyword or blog.title or '',
+            city=fc_city,
+            state=fc_state,
             company_name=client.business_name or '',
             industry=client.industry or '',
         )
@@ -3546,6 +3552,385 @@ Wrap the JSON in ```json ... ``` tags."""
     except Exception as e:
         logger.error(f"Gap analysis failed: {e}", exc_info=True)
         return jsonify({'error': f'Gap analysis failed: {str(e)}'}), 500
+
+
+# ==========================================
+# Deep Competitor Intelligence Scan
+# ==========================================
+
+@content_bp.route('/deep-gap-analysis', methods=['POST'])
+@token_required
+def deep_gap_analysis(current_user):
+    """
+    Deep competitor content gap analysis that actually crawls sites.
+
+    1. Fetches sitemap + homepage for the client and each competitor
+    2. Extracts page titles, headings, services offered
+    3. Sends real crawl data to AI for comparison
+    4. Returns structured report: competitor grid + gap topics + blog suggestions
+
+    POST /api/content/deep-gap-analysis
+    Body: { client_id, competitor_urls: [...], num_topics: 5 }
+    """
+    import requests as http_requests
+    from urllib.parse import urljoin, urlparse
+
+    if not current_user.can_generate_content:
+        return jsonify({'error': 'Permission denied'}), 403
+
+    data = request.get_json(silent=True) or {}
+    client_id = data.get('client_id')
+    competitor_urls = data.get('competitor_urls', [])
+    num_topics = data.get('num_topics', 5)
+
+    if not client_id:
+        return jsonify({'error': 'client_id is required'}), 400
+    if not current_user.has_access_to_client(client_id):
+        return jsonify({'error': 'Access denied'}), 403
+
+    client = DBClient.query.get(client_id)
+    if not client:
+        return jsonify({'error': 'Client not found'}), 404
+
+    my_site = client.website_url or ''
+    if not my_site:
+        return jsonify({'error': 'No website URL configured for this client'}), 400
+
+    # Get competitors from input or client settings
+    if not competitor_urls:
+        try:
+            competitor_urls = json.loads(client.competitors) if client.competitors else []
+        except (json.JSONDecodeError, TypeError):
+            if isinstance(client.competitors, list):
+                competitor_urls = client.competitors
+            elif isinstance(client.competitors, str) and client.competitors.strip():
+                competitor_urls = [u.strip() for u in client.competitors.split(',') if u.strip()]
+            else:
+                competitor_urls = []
+
+    if not competitor_urls:
+        return jsonify({'error': 'No competitor URLs provided and none configured in client settings'}), 400
+
+    competitor_urls = competitor_urls[:5]  # Limit to 5
+
+    def _clean_url(url):
+        url = url.strip().rstrip('/')
+        if not url.startswith('http'):
+            url = 'https://' + url
+        return url
+
+    def _extract_domain(url):
+        parsed = urlparse(url)
+        d = parsed.netloc or parsed.path
+        d = d.lower().replace('www.', '')
+        return d.rstrip('/')
+
+    def _crawl_site_intel(url, timeout=15):
+        """Crawl a site and extract content intelligence: pages, titles, headings, services."""
+        url = _clean_url(url)
+        domain = _extract_domain(url)
+        intel = {
+            'url': url,
+            'domain': domain,
+            'page_titles': [],
+            'service_pages': [],
+            'blog_topics': [],
+            'headings': [],
+            'meta_desc': '',
+            'tagline': '',
+            'error': None
+        }
+
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        }
+
+        try:
+            from bs4 import BeautifulSoup
+
+            # Step 1: Homepage
+            resp = http_requests.get(url, timeout=timeout, headers=headers, allow_redirects=True)
+            if resp.status_code != 200:
+                intel['error'] = f'HTTP {resp.status_code}'
+                return intel
+
+            soup = BeautifulSoup(resp.text, 'html.parser')
+
+            # Title and meta
+            title_tag = soup.find('title')
+            if title_tag:
+                intel['tagline'] = title_tag.get_text(strip=True)[:200]
+
+            meta_desc = soup.find('meta', attrs={'name': 'description'})
+            if meta_desc:
+                intel['meta_desc'] = meta_desc.get('content', '')[:300]
+
+            # Headings from homepage
+            for h in soup.find_all(['h1', 'h2', 'h3']):
+                text = h.get_text(strip=True)[:150]
+                if text and len(text) > 3:
+                    intel['headings'].append(text)
+
+            # Links from homepage — categorize service vs blog
+            all_links = []
+            for a in soup.find_all('a', href=True):
+                href = urljoin(resp.url, a.get('href', ''))
+                parsed = urlparse(href)
+                if domain not in parsed.netloc.lower():
+                    continue
+                text = a.get_text(strip=True)[:150]
+                path = parsed.path.lower().rstrip('/')
+                if not path or path == '/' or len(path) < 3:
+                    continue
+                # Skip utility pages
+                if any(x in path for x in ['/wp-', '/feed', '/tag/', '/category/', '/author/', '#', '.pdf', '.jpg', '.png', '.css', '.js', '/cart', '/checkout', '/login', '/privacy', '/terms']):
+                    continue
+                all_links.append({'url': href, 'text': text, 'path': path})
+
+            # Classify links
+            for link in all_links:
+                path = link['path']
+                text = link['text'] or link['path'].split('/')[-1].replace('-', ' ').title()
+                if any(x in path for x in ['/blog', '/news', '/article', '/post', '/resource']):
+                    if text and len(text) > 5:
+                        intel['blog_topics'].append(text)
+                elif any(x in path for x in ['/service', '/about', '/contact', '/gallery', '/portfolio', '/testimonial', '/review', '/faq', '/area']):
+                    intel['service_pages'].append(text)
+                else:
+                    intel['page_titles'].append(text)
+
+            # Step 2: Try sitemap for comprehensive page list
+            sitemap_urls = [
+                f'https://{domain}/sitemap.xml',
+                f'https://www.{domain}/sitemap.xml',
+                f'https://{domain}/wp-sitemap.xml',
+            ]
+            for sm_url in sitemap_urls:
+                try:
+                    sm_resp = http_requests.get(sm_url, timeout=8, headers=headers)
+                    if sm_resp.status_code == 200 and '<url' in sm_resp.text.lower():
+                        sm_soup = BeautifulSoup(sm_resp.text, 'xml')
+
+                        # Handle sitemap index
+                        sub_sitemaps = sm_soup.find_all('sitemap')
+                        if sub_sitemaps:
+                            for ss in sub_sitemaps[:5]:
+                                loc = ss.find('loc')
+                                if loc:
+                                    try:
+                                        ss_resp = http_requests.get(loc.text, timeout=8, headers=headers)
+                                        if ss_resp.status_code == 200:
+                                            ss_soup = BeautifulSoup(ss_resp.text, 'xml')
+                                            for u in ss_soup.find_all('url'):
+                                                l = u.find('loc')
+                                                if l and domain in l.text:
+                                                    path = urlparse(l.text).path.lower()
+                                                    title = path.rstrip('/').split('/')[-1].replace('-', ' ').replace('_', ' ').title()
+                                                    if '/blog' in path or '/post' in path or '/news' in path:
+                                                        if title and len(title) > 3:
+                                                            intel['blog_topics'].append(title)
+                                                    elif title and len(title) > 3:
+                                                        intel['page_titles'].append(title)
+                                    except:
+                                        continue
+                        else:
+                            for u in sm_soup.find_all('url'):
+                                l = u.find('loc')
+                                if l and domain in l.text:
+                                    path = urlparse(l.text).path.lower()
+                                    title = path.rstrip('/').split('/')[-1].replace('-', ' ').replace('_', ' ').title()
+                                    if '/blog' in path or '/post' in path or '/news' in path:
+                                        if title and len(title) > 3:
+                                            intel['blog_topics'].append(title)
+                                    elif title and len(title) > 3:
+                                        intel['page_titles'].append(title)
+                        break
+                except:
+                    continue
+
+            # Deduplicate
+            intel['page_titles'] = list(dict.fromkeys(intel['page_titles']))[:50]
+            intel['service_pages'] = list(dict.fromkeys(intel['service_pages']))[:30]
+            intel['blog_topics'] = list(dict.fromkeys(intel['blog_topics']))[:50]
+            intel['headings'] = list(dict.fromkeys(intel['headings']))[:30]
+
+        except Exception as e:
+            intel['error'] = str(e)
+            logger.warning(f"Failed to crawl {url}: {e}")
+
+        return intel
+
+    try:
+        logger.info(f"Starting deep gap analysis for client {client_id} vs {len(competitor_urls)} competitors")
+
+        # Crawl all sites in parallel-ish (sequential but fast)
+        my_intel = _crawl_site_intel(my_site)
+        competitor_intel = []
+        for comp_url in competitor_urls:
+            ci = _crawl_site_intel(comp_url)
+            competitor_intel.append(ci)
+
+        # Build the AI analysis prompt with real crawl data
+        industry = client.industry or 'general'
+        geo = client.geo or ''
+        biz_name = client.business_name or ''
+        phone = client.phone or ''
+        usps = ''
+        try:
+            usp_list = json.loads(client.unique_selling_points) if client.unique_selling_points else []
+            if isinstance(usp_list, list):
+                usps = '; '.join(usp_list[:5])
+            elif isinstance(usp_list, str):
+                usps = usp_list
+        except:
+            usps = client.unique_selling_points or ''
+
+        my_pages_summary = f"""
+MY CLIENT: {biz_name} ({my_intel['domain']})
+Tagline: {my_intel['tagline']}
+Description: {my_intel['meta_desc']}
+Unique Selling Points: {usps}
+Service Pages: {', '.join(my_intel['service_pages'][:20]) or 'None found'}
+Blog Topics: {', '.join(my_intel['blog_topics'][:25]) or 'None found'}
+Other Pages: {', '.join(my_intel['page_titles'][:20]) or 'None found'}
+Homepage Headings: {', '.join(my_intel['headings'][:15]) or 'None found'}
+"""
+
+        competitors_summary = ""
+        for ci in competitor_intel:
+            competitors_summary += f"""
+COMPETITOR: {ci['domain']}
+Tagline: {ci['tagline']}
+Description: {ci['meta_desc']}
+Service Pages: {', '.join(ci['service_pages'][:20]) or 'None found'}
+Blog Topics: {', '.join(ci['blog_topics'][:25]) or 'None found'}
+Other Pages: {', '.join(ci['page_titles'][:20]) or 'None found'}
+Homepage Headings: {', '.join(ci['headings'][:15]) or 'None found'}
+{f"(Error crawling: {ci['error']})" if ci['error'] else ''}
+"""
+
+        prompt = f"""You are an expert SEO strategist and competitive intelligence analyst. I have crawled real data from my client's website and their competitors. Analyze this data and produce a complete competitive intelligence report.
+
+INDUSTRY: {industry}
+LOCATION: {geo}
+
+{my_pages_summary}
+
+{competitors_summary}
+
+TASK: Produce a JSON response with this exact structure:
+
+{{
+  "competitor_grid": [
+    {{
+      "domain": "competitor.com",
+      "strengths": ["strength1", "strength2"],
+      "weaknesses": ["weakness1", "weakness2"],
+      "services_they_cover": ["service1", "service2"],
+      "content_count": 0,
+      "threat_level": "high/medium/low",
+      "summary": "1-2 sentence summary"
+    }}
+  ],
+  "my_strengths": ["what my client does well based on their site content"],
+  "my_weaknesses": ["content gaps or areas where client is behind"],
+  "gap_topics": [
+    {{
+      "title": "SEO-optimized blog title targeting {geo}",
+      "keyword": "primary target keyword",
+      "search_volume": "low/medium/high",
+      "difficulty": "easy/medium/hard",
+      "reason": "2-3 sentences: what gap this fills, which competitor covers it, why it matters for revenue",
+      "competitors_covering": ["competitor1.com"],
+      "priority": 1,
+      "estimated_traffic": "X visits/month",
+      "cta_angle": "how to weave in {biz_name}'s CTA and differentiators"
+    }}
+  ],
+  "executive_summary": "3-4 sentence overview of the competitive landscape and biggest opportunities"
+}}
+
+RULES:
+- Return exactly {num_topics} gap_topics, ranked by priority (highest business impact first)
+- Every blog title MUST include the city/location ({geo}) for local SEO
+- gap_topics should focus on topics competitors ACTUALLY have content for (based on crawl data) that my client does NOT
+- If a competitor has blog posts or service pages on a topic and my client doesn't, that's a high-priority gap
+- competitor_grid should have one entry per competitor
+- threat_level: "high" if they cover more topics and rank well, "medium" if comparable, "low" if thin content
+- cta_angle: specific suggestions for how {biz_name} can differentiate (mention phone: {phone}, USPs: {usps})
+- Be specific and actionable — no generic advice
+
+Wrap the JSON in ```json ... ``` tags."""
+
+        ai_svc = AIService()
+        raw_response = ai_svc.generate_raw(prompt, max_tokens=4000)
+
+        # Parse JSON
+        result = {}
+        json_match = re.search(r'```json\s*([\s\S]*?)\s*```', raw_response)
+        if json_match:
+            try:
+                result = json.loads(json_match.group(1))
+            except json.JSONDecodeError:
+                pass
+
+        if not result:
+            try:
+                result = json.loads(raw_response)
+            except:
+                return jsonify({
+                    'message': 'Analysis complete (raw)',
+                    'raw_response': raw_response[:3000],
+                    'crawl_data': {
+                        'my_site': {
+                            'domain': my_intel['domain'],
+                            'pages': len(my_intel['page_titles']) + len(my_intel['blog_topics']),
+                            'services': my_intel['service_pages'][:10],
+                            'blogs': my_intel['blog_topics'][:10],
+                        },
+                        'competitors': [
+                            {
+                                'domain': ci['domain'],
+                                'pages': len(ci['page_titles']) + len(ci['blog_topics']),
+                                'services': ci['service_pages'][:10],
+                                'blogs': ci['blog_topics'][:10],
+                                'error': ci['error'],
+                            }
+                            for ci in competitor_intel
+                        ]
+                    }
+                })
+
+        # Attach crawl metadata
+        result['crawl_data'] = {
+            'my_site': {
+                'domain': my_intel['domain'],
+                'total_pages': len(my_intel['page_titles']) + len(my_intel['blog_topics']) + len(my_intel['service_pages']),
+                'service_pages': my_intel['service_pages'][:15],
+                'blog_count': len(my_intel['blog_topics']),
+            },
+            'competitors': [
+                {
+                    'domain': ci['domain'],
+                    'total_pages': len(ci['page_titles']) + len(ci['blog_topics']) + len(ci['service_pages']),
+                    'blog_count': len(ci['blog_topics']),
+                    'error': ci['error'],
+                }
+                for ci in competitor_intel
+            ]
+        }
+        result['client_id'] = client_id
+        result['my_site'] = my_site
+        result['competitor_urls'] = competitor_urls
+
+        logger.info(f"Deep gap analysis complete: {len(result.get('gap_topics', []))} topics found")
+
+        return jsonify(result)
+
+    except Exception as e:
+        logger.error(f"Deep gap analysis failed: {e}", exc_info=True)
+        return jsonify({'error': f'Analysis failed: {str(e)}'}), 500
 
 
 # ==========================================

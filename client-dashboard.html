@@ -1519,54 +1519,106 @@
                     </div>
                 </div>
 
-                <!-- Competitor Gap Analysis -->
+                <!-- Deep Competitor Intelligence -->
                 <div class="glass rounded-2xl p-6 md:col-span-2 mt-6">
-                    <div class="flex items-center gap-3 mb-6">
-                        <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-red-500 to-orange-600 flex items-center justify-center">
-                            <i class="fas fa-crosshairs text-white text-xl"></i>
+                    <div class="flex items-center justify-between mb-6">
+                        <div class="flex items-center gap-3">
+                            <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-red-500 to-orange-600 flex items-center justify-center">
+                                <i class="fas fa-crosshairs text-white text-xl"></i>
+                            </div>
+                            <div>
+                                <h3 class="text-lg font-bold text-white">Competitor Intelligence Scanner</h3>
+                                <p class="text-sm text-gray-400">Deep-crawl competitor sites → find gaps → generate winning content</p>
+                            </div>
                         </div>
-                        <div>
-                            <h3 class="text-lg font-bold text-white">Competitor Content Gap Analysis</h3>
-                            <p class="text-sm text-gray-400">Find what your competitors cover that you don't — get topic ideas</p>
-                        </div>
-                    </div>
-
-                    <div class="space-y-4">
-                        <div>
-                            <label class="block text-sm font-medium text-gray-300 mb-2">Your Website</label>
-                            <input type="text" id="gapMySite" placeholder="https://www.yoursite.com"
-                                class="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-purple-500">
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-300 mb-2">Competitor URLs (one per line)</label>
-                            <textarea id="gapCompetitors" rows="3"
-                                placeholder="https://competitor1.com&#10;https://competitor2.com&#10;https://competitor3.com"
-                                class="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 resize-none"></textarea>
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-300 mb-2">Number of Topics</label>
-                            <select id="gapNumTopics"
-                                class="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white focus:outline-none focus:border-purple-500">
-                                <option value="3">3 topics</option>
-                                <option value="5" selected>5 topics</option>
-                                <option value="10">10 topics</option>
-                            </select>
-                        </div>
-                        <button onclick="runGapAnalysis()" id="btnGapAnalysis"
-                            class="w-full py-4 bg-gradient-to-r from-red-600 to-orange-600 rounded-xl text-white font-bold hover:opacity-90 transition flex items-center justify-center gap-2">
-                            <i class="fas fa-crosshairs"></i> Find Content Gaps
+                        <button onclick="toggleGapSetup()" id="btnGapToggle" class="text-gray-400 hover:text-white transition text-sm">
+                            <i class="fas fa-cog mr-1"></i>Settings
                         </button>
                     </div>
 
-                    <div id="gapProgress" class="hidden mt-4 p-4 bg-white/5 rounded-xl">
-                        <div class="flex items-center gap-3">
-                            <div class="spinner w-6 h-6"></div>
-                            <span class="text-gray-300">Analyzing competitor content...</span>
+                    <!-- Setup (collapsible) -->
+                    <div id="gapSetup" class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-300 mb-2">Competitor URLs (one per line, max 5)</label>
+                            <textarea id="gapCompetitors" rows="3"
+                                placeholder="https://competitor1.com&#10;https://competitor2.com&#10;https://competitor3.com"
+                                class="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 resize-none"></textarea>
+                            <p class="text-xs text-gray-500 mt-1" id="gapAutoNote"></p>
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-300 mb-2">Number of Topics</label>
+                                <select id="gapNumTopics"
+                                    class="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white focus:outline-none focus:border-purple-500">
+                                    <option value="3">3 topics</option>
+                                    <option value="5" selected>5 topics</option>
+                                    <option value="10">10 topics</option>
+                                </select>
+                            </div>
+                            <div class="flex items-end">
+                                <button onclick="runDeepGapAnalysis()" id="btnGapAnalysis"
+                                    class="w-full py-3 bg-gradient-to-r from-red-600 to-orange-600 rounded-xl text-white font-bold hover:opacity-90 transition flex items-center justify-center gap-2">
+                                    <i class="fas fa-crosshairs"></i> Scan Competitors
+                                </button>
+                            </div>
                         </div>
                     </div>
 
-                    <div id="gapResults" class="hidden mt-6 space-y-3"></div>
+                    <!-- Progress -->
+                    <div id="gapProgress" class="hidden mt-4">
+                        <div class="p-4 bg-white/5 rounded-xl">
+                            <div class="flex items-center gap-3 mb-3">
+                                <div class="spinner w-6 h-6"></div>
+                                <span class="text-gray-300 font-medium" id="gapProgressText">Crawling competitor websites...</span>
+                            </div>
+                            <div class="w-full bg-white/10 rounded-full h-1.5">
+                                <div id="gapProgressBar" class="bg-gradient-to-r from-red-500 to-orange-500 h-1.5 rounded-full transition-all" style="width: 10%"></div>
+                            </div>
+                            <p class="text-xs text-gray-500 mt-2">Deep scan fetches sitemaps, service pages, blogs, and headings from each site. This takes 30–60 seconds.</p>
+                        </div>
+                    </div>
+
+                    <!-- Results -->
+                    <div id="gapResults" class="hidden mt-6 space-y-6">
+                        <!-- Executive Summary -->
+                        <div id="gapExecSummary" class="hidden p-4 bg-gradient-to-r from-purple-500/10 to-blue-500/10 rounded-xl border border-purple-500/20">
+                            <h4 class="text-sm font-bold text-purple-300 mb-2"><i class="fas fa-brain mr-2"></i>Executive Summary</h4>
+                            <p class="text-sm text-gray-300" id="gapExecText"></p>
+                        </div>
+
+                        <!-- Competitor Grid -->
+                        <div id="gapCompGrid" class="hidden">
+                            <h4 class="text-white font-bold mb-3"><i class="fas fa-th mr-2 text-orange-400"></i>Competitor Breakdown</h4>
+                            <div class="grid md:grid-cols-2 gap-3" id="gapCompGridCards"></div>
+                        </div>
+
+                        <!-- My Strengths & Weaknesses -->
+                        <div id="gapMyAnalysis" class="hidden grid md:grid-cols-2 gap-4">
+                            <div class="p-4 bg-green-500/10 rounded-xl border border-green-500/20">
+                                <h4 class="text-sm font-bold text-green-400 mb-2"><i class="fas fa-shield-alt mr-2"></i>Your Strengths</h4>
+                                <ul class="space-y-1" id="gapMyStrengths"></ul>
+                            </div>
+                            <div class="p-4 bg-red-500/10 rounded-xl border border-red-500/20">
+                                <h4 class="text-sm font-bold text-red-400 mb-2"><i class="fas fa-exclamation-triangle mr-2"></i>Your Gaps</h4>
+                                <ul class="space-y-1" id="gapMyWeaknesses"></ul>
+                            </div>
+                        </div>
+
+                        <!-- Gap Topics with Generate -->
+                        <div id="gapTopicsSection" class="hidden">
+                            <div class="flex items-center justify-between mb-3">
+                                <h4 class="text-white font-bold"><i class="fas fa-lightbulb mr-2 text-yellow-400"></i><span id="gapTopicCount">0</span> Content Gap Topics</h4>
+                                <button onclick="generateAllGapBlogs()" class="px-4 py-2 bg-gradient-to-r from-green-600 to-emerald-600 rounded-lg text-white text-sm font-medium hover:opacity-90 transition">
+                                    <i class="fas fa-magic mr-2"></i>Generate All
+                                </button>
+                            </div>
+                            <div class="space-y-3" id="gapTopicsList"></div>
+                        </div>
+                    </div>
                 </div>
+
+                <!-- Legacy gap analysis hidden input for compatibility -->
+                <input type="hidden" id="gapMySite" value="">
             </div>
 
             <!-- Blogs Panel -->
@@ -6913,9 +6965,10 @@
                 loadOverviewData();
             }
 
-            // Populate keyword dropdown when generate tab is shown
+            // Populate keyword dropdown and competitor URLs when generate tab is shown
             if (tab === 'generate') {
                 populateKeywordDropdown();
+                autoPopulateGapCompetitors();
                 // Clear stale bulk-generate progress from any previous run
                 const oldBulkProg = document.getElementById('oldBulkProgress');
                 if (oldBulkProg) oldBulkProg.classList.add('hidden');
@@ -13519,7 +13572,12 @@
                     method: 'POST',
                     headers: { 'Authorization': 'Bearer ' + AUTH_TOKEN, 'Content-Type': 'application/json' }
                 });
-                var data = await response.json();
+                var data;
+                try {
+                    data = await response.json();
+                } catch (jsonErr) {
+                    throw new Error('Server returned invalid response (HTTP ' + response.status + '). Please try again.');
+                }
                 if (data.success && data.fact_check_report) {
                     // Update the in-memory blog object
                     currentBlog.fact_check_report = data.fact_check_report;
@@ -15907,92 +15965,239 @@
         // COMPETITOR GAP ANALYSIS
         // ==========================================
 
-        async function runGapAnalysis() {
+        // Store last gap analysis results for "Generate All"
+        let _lastGapTopics = [];
+
+        function toggleGapSetup() {
+            const setup = document.getElementById('gapSetup');
+            if (setup) setup.classList.toggle('hidden');
+        }
+
+        function autoPopulateGapCompetitors() {
+            // Auto-fill competitor URLs from client settings
+            if (!currentClient) return;
+            const textarea = document.getElementById('gapCompetitors');
+            const note = document.getElementById('gapAutoNote');
+            if (!textarea) return;
+
+            let competitors = [];
+            try {
+                if (currentClient.competitors) {
+                    if (Array.isArray(currentClient.competitors)) {
+                        competitors = currentClient.competitors;
+                    } else if (typeof currentClient.competitors === 'string') {
+                        try { competitors = JSON.parse(currentClient.competitors); } catch(e) {
+                            competitors = currentClient.competitors.split(',').map(s => s.trim()).filter(Boolean);
+                        }
+                    }
+                }
+            } catch(e) {}
+
+            if (competitors.length > 0 && !textarea.value.trim()) {
+                textarea.value = competitors.slice(0, 5).join('\n');
+                if (note) note.textContent = `Auto-filled ${competitors.length} competitor(s) from client settings`;
+            } else if (!competitors.length && note) {
+                note.textContent = 'No competitors configured. Add them in Settings → Client Info, or enter URLs above.';
+            }
+        }
+
+        async function runDeepGapAnalysis() {
             if (!currentClient) {
-                alert('Please select a client first');
+                showToast('Please select a client first', 'warning');
                 return;
             }
 
-            var mySite = document.getElementById('gapMySite').value.trim() || (currentClient.website_url || '');
-            var competitorText = document.getElementById('gapCompetitors').value.trim();
-            var numTopics = parseInt(document.getElementById('gapNumTopics').value) || 5;
+            const competitorText = document.getElementById('gapCompetitors').value.trim();
+            const numTopics = parseInt(document.getElementById('gapNumTopics').value) || 5;
+            const competitorUrls = competitorText ? competitorText.split('\n').map(u => u.trim()).filter(Boolean) : [];
 
-            var competitorUrls = competitorText ? competitorText.split('\n').map(function(u) { return u.trim(); }).filter(Boolean) : [];
+            const btn = document.getElementById('btnGapAnalysis');
+            const progress = document.getElementById('gapProgress');
+            const results = document.getElementById('gapResults');
+            const progressText = document.getElementById('gapProgressText');
+            const progressBar = document.getElementById('gapProgressBar');
 
-            if (!mySite && !competitorUrls.length) {
-                showToast('Please enter your website and at least one competitor URL', 'error');
-                return;
-            }
-
-            var btn = document.getElementById('btnGapAnalysis');
             btn.disabled = true;
-            btn.innerHTML = '<div class="spinner w-5 h-5 mr-2"></div>Analyzing...';
-            document.getElementById('gapProgress').classList.remove('hidden');
-            document.getElementById('gapResults').classList.add('hidden');
+            btn.innerHTML = '<div class="spinner w-5 h-5 mr-2"></div>Scanning...';
+            progress.classList.remove('hidden');
+            results.classList.add('hidden');
+
+            // Animate progress
+            let pct = 10;
+            const steps = [
+                [15, 'Crawling competitor sitemaps...'],
+                [30, 'Extracting service pages and blog topics...'],
+                [50, 'Analyzing competitor content...'],
+                [70, 'Running AI competitive intelligence...'],
+                [85, 'Building gap report...'],
+            ];
+            let stepIdx = 0;
+            const progressInterval = setInterval(() => {
+                if (stepIdx < steps.length) {
+                    pct = steps[stepIdx][0];
+                    if (progressText) progressText.textContent = steps[stepIdx][1];
+                    if (progressBar) progressBar.style.width = pct + '%';
+                    stepIdx++;
+                }
+            }, 6000);
 
             try {
-                var res = await fetch(API_URL + '/api/content/gap-analysis', {
+                const res = await fetch(API_URL + '/api/content/deep-gap-analysis', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + AUTH_TOKEN },
                     body: JSON.stringify({
                         client_id: currentClient.id,
-                        my_site: mySite,
                         competitor_urls: competitorUrls,
                         num_topics: numTopics
                     })
                 });
 
-                var data = await res.json();
-                if (!res.ok) throw new Error(data.error || 'Gap analysis failed');
+                clearInterval(progressInterval);
+                if (progressBar) progressBar.style.width = '100%';
+                if (progressText) progressText.textContent = 'Analysis complete!';
 
-                renderGapResults(data);
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Analysis failed');
+
+                setTimeout(() => {
+                    progress.classList.add('hidden');
+                    renderDeepGapResults(data);
+                }, 500);
+
+                showToast('Competitor intelligence scan complete!', 'success');
             } catch (error) {
+                clearInterval(progressInterval);
+                progress.classList.add('hidden');
                 showToast('Error: ' + error.message, 'error');
             } finally {
                 btn.disabled = false;
-                btn.innerHTML = '<i class="fas fa-crosshairs"></i> Find Content Gaps';
-                document.getElementById('gapProgress').classList.add('hidden');
+                btn.innerHTML = '<i class="fas fa-crosshairs"></i> Scan Competitors';
             }
         }
 
-        function renderGapResults(data) {
-            var container = document.getElementById('gapResults');
-            var topics = data.topics || [];
-
-            if (!topics.length && data.raw_response) {
-                container.innerHTML = '<div class="bg-white/10 rounded-xl p-4 text-gray-300 text-sm whitespace-pre-wrap">' + data.raw_response.substring(0, 2000) + '</div>';
-                container.classList.remove('hidden');
-                return;
-            }
-
-            if (!topics.length) {
-                container.innerHTML = '<p class="text-gray-400 text-center py-4">No topics found. Try different competitor URLs.</p>';
-                container.classList.remove('hidden');
-                return;
-            }
-
-            var html = '<h4 class="text-white font-bold mb-3"><i class="fas fa-lightbulb text-yellow-400 mr-2"></i>' + topics.length + ' Content Gap Topics Found</h4>';
-
-            topics.forEach(function(topic, i) {
-                var volColor = topic.search_volume === 'high' ? 'text-green-400' : topic.search_volume === 'medium' ? 'text-yellow-400' : 'text-gray-400';
-                var diffColor = topic.difficulty === 'easy' ? 'text-green-400' : topic.difficulty === 'medium' ? 'text-yellow-400' : 'text-red-400';
-
-                html += '<div class="bg-white/5 border border-white/10 rounded-xl p-4">';
-                html += '<div class="flex items-start justify-between gap-3 mb-2">';
-                html += '<h5 class="text-white font-semibold">' + (i + 1) + '. ' + (topic.title || 'Untitled') + '</h5>';
-                html += '<button onclick="generateBlogFromGap(\'' + (topic.keyword || topic.title || '').replace(/'/g, "\\'") + '\')" class="px-3 py-1 bg-green-500/80 hover:bg-green-500 text-white rounded-lg text-xs font-medium whitespace-nowrap transition"><i class="fas fa-magic mr-1"></i>Generate</button>';
-                html += '</div>';
-                html += '<div class="flex gap-3 mb-2 text-xs">';
-                html += '<span class="text-gray-400">Keyword: <span class="text-purple-300">' + (topic.keyword || 'N/A') + '</span></span>';
-                html += '<span class="' + volColor + '">Vol: ' + (topic.search_volume || 'N/A') + '</span>';
-                html += '<span class="' + diffColor + '">Diff: ' + (topic.difficulty || 'N/A') + '</span>';
-                html += '</div>';
-                html += '<p class="text-gray-400 text-sm">' + (topic.reason || '') + '</p>';
-                html += '</div>';
-            });
-
-            container.innerHTML = html;
+        function renderDeepGapResults(data) {
+            const container = document.getElementById('gapResults');
             container.classList.remove('hidden');
+
+            // Handle raw/fallback response
+            if (data.raw_response && !data.gap_topics) {
+                container.innerHTML = '<div class="bg-white/10 rounded-xl p-4 text-gray-300 text-sm whitespace-pre-wrap">' + (data.raw_response || '').substring(0, 3000) + '</div>';
+                return;
+            }
+
+            // Executive Summary
+            const execEl = document.getElementById('gapExecSummary');
+            const execText = document.getElementById('gapExecText');
+            if (data.executive_summary && execEl && execText) {
+                execText.textContent = data.executive_summary;
+                execEl.classList.remove('hidden');
+            }
+
+            // Competitor Grid
+            const gridSection = document.getElementById('gapCompGrid');
+            const gridCards = document.getElementById('gapCompGridCards');
+            const compGrid = data.competitor_grid || [];
+            if (compGrid.length > 0 && gridSection && gridCards) {
+                gridCards.innerHTML = compGrid.map(comp => {
+                    const threatColor = comp.threat_level === 'high' ? 'border-red-500/40 bg-red-500/5' : comp.threat_level === 'medium' ? 'border-yellow-500/40 bg-yellow-500/5' : 'border-green-500/40 bg-green-500/5';
+                    const threatBadge = comp.threat_level === 'high' ? '<span class="px-2 py-0.5 bg-red-500/20 text-red-400 text-[10px] rounded-full font-bold">HIGH THREAT</span>' : comp.threat_level === 'medium' ? '<span class="px-2 py-0.5 bg-yellow-500/20 text-yellow-400 text-[10px] rounded-full font-bold">MEDIUM</span>' : '<span class="px-2 py-0.5 bg-green-500/20 text-green-400 text-[10px] rounded-full font-bold">LOW</span>';
+
+                    return `<div class="p-4 rounded-xl border ${threatColor}">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-white font-semibold text-sm">${comp.domain || ''}</span>
+                            ${threatBadge}
+                        </div>
+                        <p class="text-xs text-gray-400 mb-3">${comp.summary || ''}</p>
+                        <div class="grid grid-cols-2 gap-2 text-xs">
+                            <div>
+                                <span class="text-green-400 font-medium">Strengths:</span>
+                                <ul class="mt-1 space-y-0.5">${(comp.strengths || []).slice(0, 3).map(s => `<li class="text-gray-400">• ${s}</li>`).join('')}</ul>
+                            </div>
+                            <div>
+                                <span class="text-red-400 font-medium">Weaknesses:</span>
+                                <ul class="mt-1 space-y-0.5">${(comp.weaknesses || []).slice(0, 3).map(w => `<li class="text-gray-400">• ${w}</li>`).join('')}</ul>
+                            </div>
+                        </div>
+                        ${(comp.services_they_cover || []).length ? `<div class="mt-2 flex flex-wrap gap-1">${comp.services_they_cover.slice(0, 6).map(s => `<span class="px-1.5 py-0.5 bg-white/10 text-gray-400 text-[10px] rounded">${s}</span>`).join('')}</div>` : ''}
+                    </div>`;
+                }).join('');
+                gridSection.classList.remove('hidden');
+            }
+
+            // My Strengths & Weaknesses
+            const myAnalysis = document.getElementById('gapMyAnalysis');
+            const myStrengths = document.getElementById('gapMyStrengths');
+            const myWeaknesses = document.getElementById('gapMyWeaknesses');
+            if ((data.my_strengths || data.my_weaknesses) && myAnalysis) {
+                if (myStrengths) myStrengths.innerHTML = (data.my_strengths || []).map(s => `<li class="text-xs text-gray-300">✓ ${s}</li>`).join('');
+                if (myWeaknesses) myWeaknesses.innerHTML = (data.my_weaknesses || []).map(w => `<li class="text-xs text-gray-300">✗ ${w}</li>`).join('');
+                myAnalysis.classList.remove('hidden');
+            }
+
+            // Gap Topics
+            const topicsSection = document.getElementById('gapTopicsSection');
+            const topicsList = document.getElementById('gapTopicsList');
+            const topicCount = document.getElementById('gapTopicCount');
+            const topics = data.gap_topics || data.topics || [];
+            _lastGapTopics = topics;
+
+            if (topics.length > 0 && topicsSection && topicsList) {
+                if (topicCount) topicCount.textContent = topics.length;
+
+                topicsList.innerHTML = topics.map((topic, i) => {
+                    const volColor = topic.search_volume === 'high' ? 'text-green-400' : topic.search_volume === 'medium' ? 'text-yellow-400' : 'text-gray-400';
+                    const diffColor = topic.difficulty === 'easy' ? 'text-green-400' : topic.difficulty === 'medium' ? 'text-yellow-400' : 'text-red-400';
+                    const priorityBadge = topic.priority <= 2 ? '<span class="px-1.5 py-0.5 bg-red-500/20 text-red-400 text-[10px] rounded font-bold">TOP PRIORITY</span>' : '';
+                    const competitorsList = (topic.competitors_covering || []).join(', ');
+                    const safeKw = (topic.keyword || topic.title || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+
+                    return `<div class="bg-white/5 border border-white/10 rounded-xl p-4 hover:border-orange-500/30 transition">
+                        <div class="flex items-start justify-between gap-3 mb-2">
+                            <div class="flex-1">
+                                <div class="flex items-center gap-2 mb-1">
+                                    <span class="text-xs font-bold text-orange-400">#${i + 1}</span>
+                                    ${priorityBadge}
+                                </div>
+                                <h5 class="text-white font-semibold">${topic.title || 'Untitled'}</h5>
+                            </div>
+                            <button onclick="generateBlogFromGap('${safeKw}')" class="px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 hover:opacity-90 text-white rounded-lg text-xs font-bold whitespace-nowrap transition shadow-lg">
+                                <i class="fas fa-magic mr-1"></i>Generate Blog
+                            </button>
+                        </div>
+                        <div class="flex flex-wrap gap-3 mb-2 text-xs">
+                            <span class="text-gray-400">Keyword: <span class="text-purple-300 font-medium">${topic.keyword || 'N/A'}</span></span>
+                            <span class="${volColor}"><i class="fas fa-chart-bar mr-1"></i>Vol: ${topic.search_volume || 'N/A'}</span>
+                            <span class="${diffColor}"><i class="fas fa-signal mr-1"></i>Diff: ${topic.difficulty || 'N/A'}</span>
+                            ${topic.estimated_traffic ? `<span class="text-blue-400"><i class="fas fa-users mr-1"></i>${topic.estimated_traffic}</span>` : ''}
+                        </div>
+                        <p class="text-gray-400 text-sm mb-2">${topic.reason || ''}</p>
+                        ${competitorsList ? `<div class="text-xs text-gray-500"><i class="fas fa-building mr-1"></i>Covered by: ${competitorsList}</div>` : ''}
+                        ${topic.cta_angle ? `<div class="mt-2 text-xs text-cyan-400/80 bg-cyan-500/10 px-2 py-1 rounded"><i class="fas fa-bullhorn mr-1"></i>${topic.cta_angle}</div>` : ''}
+                    </div>`;
+                }).join('');
+                topicsSection.classList.remove('hidden');
+            }
+        }
+
+        async function generateAllGapBlogs() {
+            if (!_lastGapTopics.length) {
+                showToast('No gap topics to generate. Run a scan first.', 'warning');
+                return;
+            }
+            const count = _lastGapTopics.length;
+            if (!confirm(`Generate ${count} blog posts from gap analysis? This will create ${count} drafts using your client's brand voice and CTAs.`)) return;
+
+            for (let i = 0; i < _lastGapTopics.length; i++) {
+                const topic = _lastGapTopics[i];
+                const keyword = topic.keyword || topic.title || '';
+                showToast(`Generating ${i + 1}/${count}: "${keyword}"...`, 'info');
+                await generateBlogFromGap(keyword);
+                // Small delay between generations to avoid rate limits
+                if (i < _lastGapTopics.length - 1) {
+                    await new Promise(r => setTimeout(r, 2000));
+                }
+            }
+            showToast(`All ${count} blog drafts generated!`, 'success');
         }
 
         async function generateBlogFromGap(keyword) {
