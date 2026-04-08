@@ -1143,6 +1143,7 @@ def get_rankings(current_user):
             device = 'desktop'
 
         # run_serp_check uses tracked keywords, calls SEMrush, saves snapshots
+        # It will auto-import from SEMrush Position Tracking if no keywords exist
         result = rank_tracking_service.run_serp_check(
             client_id=client_id,
             domain=domain,
@@ -1152,6 +1153,7 @@ def get_rankings(current_user):
 
         if result.get('error'):
             # Still return the error payload so the frontend can display it
+            logger.warning(f"Rankings check returned error for {client_id}: {result.get('error')}")
             return jsonify(result), 200 if result.get('keywords') else 400
 
         return jsonify(result)

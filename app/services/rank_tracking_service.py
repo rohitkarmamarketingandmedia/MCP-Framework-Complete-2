@@ -893,7 +893,25 @@ class RankTrackingService:
             # Try without device filter as fallback
             keywords = self.get_tracked_keywords(client_id)
         if not keywords:
-            return {'error': 'No tracked keywords', 'checked': 0}
+            # Auto-import from SEMrush Position Tracking before giving up
+            logger.info(f"[SERP-CHECK] No tracked keywords for client {client_id}, attempting auto-import from SEMrush...")
+            from app.models.db_models import DBClient
+            client = DBClient.query.get(client_id)
+            if client:
+                semrush_pid = getattr(client, 'semrush_project_id', None)
+                import_result = self.import_tracked_keywords_from_semrush(
+                    client_id, domain,
+                    semrush_project_id=semrush_pid
+                )
+                if import_result.get('imported', 0) > 0 or import_result.get('total', 0) > 0:
+                    logger.info(f"[SERP-CHECK] Auto-imported {import_result.get('imported', 0)} keywords, proceeding with SERP check")
+                    keywords = self.get_tracked_keywords(client_id, device=device)
+                    if not keywords:
+                        keywords = self.get_tracked_keywords(client_id)
+                else:
+                    logger.warning(f"[SERP-CHECK] Auto-import found no keywords: {import_result}")
+        if not keywords:
+            return {'error': 'No tracked keywords found. Import keywords from SEMrush Position Tracking or add them manually in the Keywords tab.', 'checked': 0}
 
         # Resolve the SEMrush database for this device
         # SEMrush mobile format: mobile_us (prefix)

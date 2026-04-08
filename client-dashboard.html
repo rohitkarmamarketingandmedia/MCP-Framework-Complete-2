@@ -2279,11 +2279,18 @@
                     <div class="lg:col-span-2 glass rounded-2xl p-6">
                         <div class="flex items-center justify-between mb-6">
                             <h3 class="text-lg font-bold text-white">Keyword Rankings</h3>
-                            <button onclick="refreshRankings()"
-                                class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium rounded-lg transition"
-                                id="refreshRankBtn">
-                                <i class="fas fa-sync-alt mr-2"></i>Check Rankings
-                            </button>
+                            <div class="flex gap-2">
+                                <button onclick="importSemrushKeywords()"
+                                    class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition"
+                                    id="importKwBtn" title="Pull keywords from SEMrush Position Tracking">
+                                    <i class="fas fa-download mr-2"></i>Import from SEMrush
+                                </button>
+                                <button onclick="refreshRankings()"
+                                    class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium rounded-lg transition"
+                                    id="refreshRankBtn">
+                                    <i class="fas fa-sync-alt mr-2"></i>Check Rankings
+                                </button>
+                            </div>
                         </div>
 
                         <div class="overflow-x-auto">
@@ -3271,8 +3278,6 @@
                                     <div class="text-xs text-gray-400 p-2 bg-white/5 rounded-lg">
                                         <i class="fas fa-server mr-1"></i> Configured via environment variable
                                         <code class="text-purple-400 ml-1">SEMRUSH_API_KEY</code>
-                                    </div>
-                                        <p class="text-xs text-gray-500 mt-1"></p>
                                     </div>
                                 </div>
 
@@ -19013,15 +19018,20 @@
                 if (!response.ok) {
                     const err = await response.json();
                     if (response.status === 403) {
-                        // Check if user needs admin fix
                         const fixAdmin = confirm('Access denied. This may be a permission issue.\\n\\nWould you like to try fixing your admin role?\\n\\n(Click OK to attempt fix, Cancel to dismiss)');
                         if (fixAdmin) {
                             await attemptAdminFix();
                         }
                         throw new Error('Access denied. Your account may need admin permissions.');
                     }
-                    if (response.status === 400 && err.error?.includes('keywords')) {
-                        throw new Error('No keywords configured. Add keywords in Settings first.');
+                    if (response.status === 400 && err.error?.includes('keyword')) {
+                        // Offer to manually trigger import from SEMrush
+                        const doImport = confirm('No tracked keywords found for this client.\\n\\nWould you like to import keywords from SEMrush Position Tracking now?');
+                        if (doImport) {
+                            await importSemrushKeywords();
+                            return;
+                        }
+                        throw new Error('No keywords tracked. Use "Import from SEMrush" to pull in keywords.');
                     }
                     throw new Error(err.error || `Failed to check rankings (${response.status})`);
                 }
@@ -19036,6 +19046,31 @@
             } finally {
                 btn.innerHTML = originalText;
                 btn.disabled = false;
+            }
+        }
+
+        async function importSemrushKeywords() {
+            if (!currentClient) {
+                showToast('Please select a client first', 'warning');
+                return;
+            }
+            showToast('Importing keywords from SEMrush...', 'info');
+            try {
+                const resp = await fetch(`${API_URL}/api/monitoring/tracked-keywords/${currentClient.id}/import`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${AUTH_TOKEN}`, 'Content-Type': 'application/json' }
+                });
+                const data = await resp.json();
+                if (data.error) {
+                    showToast('Import failed: ' + data.error, 'error');
+                    return;
+                }
+                showToast(`Imported ${data.imported || 0} keywords from SEMrush (${data.source || 'position_tracking'})`, 'success');
+                // Now run the rankings check with imported keywords
+                await refreshRankings();
+            } catch (e) {
+                console.error('Import error:', e);
+                showToast('Failed to import keywords: ' + e.message, 'error');
             }
         }
 
