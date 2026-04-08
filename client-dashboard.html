@@ -7716,9 +7716,13 @@
                         }
 
                         // Use content recommendations as opportunities if available (AI-refined)
-                        const displayOpportunities = insights.content_recommendations && insights.content_recommendations.length > 0
-                            ? insights.content_recommendations.slice(0, 6)
-                            : opportunities;
+                        // Prioritize actual services over content recommendations for this slot
+                        // Only fall back to content_recommendations when no services were found
+                        const displayOpportunities = opportunities.length > 0
+                            ? opportunities
+                            : (insights.content_recommendations && insights.content_recommendations.length > 0
+                                ? insights.content_recommendations.slice(0, 6)
+                                : opportunities);
 
                         updateExtractedUI(
                             (insights.top_questions || []).map(q => {

@@ -662,11 +662,33 @@ class InteractionIntelligenceService:
         pain_counts = Counter(all_pain_points)
         keyword_counts = Counter(all_keywords)
         service_counts = Counter(all_services)
-        
+
+        # Fallback: if no services detected by regex, infer from keywords
+        # Keywords like "outlet repair", "dimmer switch", "EV charger installation"
+        # are clearly service-related
+        if not service_counts:
+            SERVICE_ACTION_WORDS = {
+                'repair', 'installation', 'replacement', 'upgrade', 'service',
+                'inspection', 'maintenance', 'estimate', 'fix', 'install',
+                'replace', 'troubleshooting', 'conversion', 'cleaning',
+            }
+            for kw in all_keywords:
+                kw_lower = kw.lower().strip()
+                words = kw_lower.split()
+                # Multi-word keywords containing an action word are likely services
+                if len(words) >= 2 and any(w in SERVICE_ACTION_WORDS for w in words):
+                    service_counts[kw.strip().title()] += 1
+                # Also include specific known service terms
+                elif kw_lower in ('landscape lighting', 'led lighting', 'dimmer switch',
+                                   'ev charger', 'electrical panel', 'circuit breaker',
+                                   'underground conversion', 'ceiling fan', 'generator',
+                                   'surge protector', 'smoke detector', 'gfci outlet'):
+                    service_counts[kw.strip().title()] += 1
+
         return {
             'total_calls_analyzed': len(transcripts),
             'top_questions': [
-                {'question': q, 'count': c} 
+                {'question': q, 'count': c}
                 for q, c in question_counts.most_common(20)
             ],
             'top_pain_points': [
@@ -1444,14 +1466,36 @@ class InteractionIntelligenceService:
                 r'\b(emergency)\s*(plumbing|plumber)',
             ],
             'electrical': [
-                r'\b(electrical)\s*(repair|service|installation|inspection)',
-                r'\b(outlet)\s*(repair|replacement|installation)',
-                r'\b(panel)\s*(upgrade|repair|replacement)',
-                r'\b(wiring)\s*(repair|replacement|installation)',
-                r'\b(lighting)\s*(installation|repair)',
-                r'\b(generator)\s*(installation|repair|service)',
-                r'\b(ev charger)\s*(installation)',
-                r'\b(circuit breaker)\s*(repair|replacement)',
+                # Bidirectional: "outlet repair" OR "repair outlet(s)"
+                r'\b(electrical)\s*(repair|service|installation|inspection|work|estimate|bid)',
+                r'\b(repair|replace|fix|install|service|inspect)\w*\s+(?:\w+\s+)*?(electrical)',
+                r'\b(outlet|receptacle)s?\s*(repair|replace\w*|install\w*|fix\w*|not\s*working|dead|stopped)',
+                r'\b(repair|replace|fix|install)\w*\s+(?:\w+\s+)*?(outlet|receptacle)s?\b',
+                r'\b(panel|electrical\s*panel|breaker\s*panel|breaker\s*box)\s*(upgrade|repair|replace\w*|install\w*)',
+                r'\b(upgrade|repair|replace|install)\w*\s+(?:\w+\s+)*?(panel|breaker\s*box)',
+                r'\b(wiring|rewir\w*)\s*(repair|replace\w*|install\w*|upgrade|new)',
+                r'\b(repair|replace|install|upgrade|new)\w*\s+(?:\w+\s+)*?(wiring)\b',
+                r'\b(lighting|light\s*fixture|landscape\s*light\w*|outdoor\s*light\w*|led\s*light\w*|recessed\s*light\w*|under.?cabinet\s*light\w*)\s*(install\w*|repair|replace\w*|fix\w*|not\s*working|stopped)',
+                r'\b(install|repair|replace|fix)\w*\s+(?:\w+\s+)*?(lighting|light\s*fixture|landscape\s*light\w*|led\s*light\w*|recessed\s*light\w*)',
+                r'\b(generator)\s*(install\w*|repair|service|maintenance)',
+                r'\b(ev\s*charger|electric\s*vehicle\s*charg\w*|charger)\s*(install\w*)',
+                r'\b(install)\w*\s+(?:\w+\s+)*?(ev\s*charger|electric\s*vehicle\s*charg\w*)',
+                r'\b(circuit\s*breaker|breaker)\s*(repair|replace\w*|trip\w*|keep\w*\s*trip\w*)',
+                r'\b(dimmer\s*switch|dimmer|light\s*switch|switch)\s*(install\w*|replace\w*|repair|add)',
+                r'\b(install|replace|add|repair)\w*\s+(?:\w+\s+)*?(dimmer\s*switch|dimmer|switch)\b',
+                r'\b(ceiling\s*fan)\s*(install\w*|repair|replace\w*)',
+                r'\b(underground)\s*(conversion|wiring|electric\w*)',
+                r'\b(whole.?house\s*surge|surge\s*protect\w*)',
+                r'\b(smoke\s*detector|carbon\s*monoxide\s*detector)\s*(install\w*|replace\w*)',
+                r'\b(landscape\s*lighting)',
+                r'\b(led\s*lighting|led\s*upgrade|led\s*conversion)',
+                r'\b(electrical\s*estimate|electrical\s*bid)',
+                r'\b(circuit)\s*(install\w*|add|new|repair)',
+                r'\b(add|new|install)\w*\s+(?:\w+\s+)*?(circuit)\b',
+                r'\b(gfci|gfi)\s*(outlet|install\w*|replace\w*)',
+                r'\b(knob.?and.?tube|aluminum\s*wiring)',
+                r'\b(code\s*violation|electrical\s*code|bring.?up.?to.?code)',
+                r'\b(troubleshoot\w*|diagnos\w*)\s+(?:\w+\s+)*?(electric\w*|circuit|outlet|wiring)',
             ],
             'roofing': [
                 r'\b(roof)\s*(repair|replacement|inspection|installation)',
@@ -1527,7 +1571,8 @@ class InteractionIntelligenceService:
         INDUSTRY_ALIASES = {
             'dentist': 'dental', 'dentistry': 'dental', 'orthodontist': 'dental',
             'hvac contractor': 'hvac', 'air conditioning': 'hvac',
-            'plumber': 'plumbing', 'electrician': 'electrical', 'roofer': 'roofing',
+            'plumber': 'plumbing', 'electrician': 'electrical', 'electrical services': 'electrical',
+            'electrical contractor': 'electrical', 'roofer': 'roofing',
             'lawyer': 'legal', 'attorney': 'legal', 'law firm': 'legal',
             'accountant': 'accounting', 'cpa': 'accounting',
             'realtor': 'real_estate', 'realty': 'real_estate',
