@@ -290,6 +290,43 @@ def debug_fetch(current_user):
         return jsonify({'error': str(e)}), 500
 
 
+@accessibility_bp.route('/check-widget/<client_id>', methods=['GET'])
+@token_required
+def check_widget_installed(current_user, client_id):
+    """Check if the accessibility widget JS is installed on the client's website"""
+    if not current_user.has_access_to_client(client_id):
+        return jsonify({'error': 'Access denied'}), 403
+
+    client = DBClient.query.get(client_id)
+    if not client:
+        return jsonify({'error': 'Client not found'}), 404
+
+    url = client.website_url
+    if not url:
+        return jsonify({'installed': False, 'reason': 'no_url', 'message': 'No website URL configured'})
+
+    if not url.startswith('http'):
+        url = 'https://' + url
+
+    try:
+        fetch_result = _fetch_page_html(url, timeout=20)
+        html = fetch_result['html']
+        has_widget = 'accessibility-widget.js' in html or 'MCPAccessibility' in html
+        return jsonify({
+            'installed': has_widget,
+            'url': url,
+            'reason': 'found' if has_widget else 'not_found',
+            'message': 'Widget detected' if has_widget else 'Widget not found in page HTML'
+        })
+    except Exception as e:
+        return jsonify({
+            'installed': False,
+            'url': url,
+            'reason': 'fetch_error',
+            'message': f'Could not check: {str(e)}'
+        })
+
+
 @accessibility_bp.route('/report/<client_id>', methods=['GET'])
 @token_required
 def get_report(current_user, client_id):

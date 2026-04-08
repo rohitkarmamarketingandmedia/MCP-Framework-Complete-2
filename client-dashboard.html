@@ -4581,7 +4581,10 @@
                                 <i class="fas fa-universal-access mr-2 text-blue-400"></i>Accessibility Widget
                             </h3>
                             <p class="text-sm text-gray-400 mb-4">Embeddable ADA compliance widget for your website. Visitors can customize text size, contrast, fonts, and more.</p>
-                            
+
+                            <!-- Widget Installation Status -->
+                            <div id="a11yWidgetStatus" class="mb-4"></div>
+
                             <div class="space-y-4">
                                 <div class="flex items-center justify-between">
                                     <span class="text-sm text-gray-300">Enable Widget</span>
@@ -6434,6 +6437,28 @@
             // previous client's data from showing while new client's data loads
             clearCallIntelligenceUI();
 
+            // Clear ADA / Accessibility cached data on client switch
+            _a11yChecks = [];
+            const a11yScoreCard = document.getElementById('a11yScoreCard');
+            if (a11yScoreCard) a11yScoreCard.classList.add('hidden');
+            const a11yResults = document.getElementById('a11yResults');
+            if (a11yResults) a11yResults.innerHTML = '<p class="text-gray-500 text-sm text-center py-6">Click "Run Scan" to check your website for accessibility issues.</p>';
+            const a11yScanDate = document.getElementById('a11yScanDate');
+            if (a11yScanDate) a11yScanDate.textContent = '';
+            const a11yFilterLabel = document.getElementById('a11yFilterLabel');
+            if (a11yFilterLabel) a11yFilterLabel.classList.add('hidden');
+            const a11yWidgetStatus = document.getElementById('a11yWidgetStatus');
+            if (a11yWidgetStatus) a11yWidgetStatus.innerHTML = '';
+            // Reset widget config UI
+            const a11yEnabled = document.getElementById('a11yEnabled');
+            if (a11yEnabled) a11yEnabled.checked = false;
+            const a11yPosition = document.getElementById('a11yPosition');
+            if (a11yPosition) a11yPosition.value = 'left';
+            const a11yColor = document.getElementById('a11yColor');
+            if (a11yColor) a11yColor.value = '#0064fe';
+            const a11yColorText = document.getElementById('a11yColorText');
+            if (a11yColorText) a11yColorText.value = '#0064fe';
+
             try {
                 // Load client details
                 updateLoadingProgress(40, 'Loading client details...');
@@ -6982,6 +7007,7 @@
             // Load accessibility when ADA tab is shown
             if (tab === 'accessibility') {
                 loadA11yConfig();
+                checkWidgetInstalled();
             }
 
             // Load blogs when blogs tab is shown
@@ -22115,7 +22141,7 @@
             const scoreCard = document.getElementById('a11yScoreCard');
             if (scoreCard) scoreCard.classList.add('hidden');
             const resultsContainer = document.getElementById('a11yResults');
-            if (resultsContainer) resultsContainer.innerHTML = '';
+            _a11yChecks = [];
 
             try {
                 const response = await fetch(`${API_URL}/api/accessibility/report/${currentClient.id}`, {
@@ -22125,9 +22151,22 @@
                     const data = await response.json();
                     if (data.has_report && data.results && data.results.summary) {
                         renderA11yReport(data.results);
+                        return;
                     }
                 }
-            } catch (e) { console.error(e); }
+                // No saved report — show prompt with client website info
+                if (resultsContainer) {
+                    const siteUrl = currentClient.website_url || '';
+                    resultsContainer.innerHTML = siteUrl
+                        ? `<p class="text-gray-500 text-sm text-center py-6">No scan results yet for <strong class="text-gray-300">${siteUrl}</strong>. Click "Run Scan" to check for accessibility issues.</p>`
+                        : `<p class="text-gray-500 text-sm text-center py-6">No website URL configured for this client. Set it in Settings first, then run a scan.</p>`;
+                }
+            } catch (e) {
+                console.error(e);
+                if (resultsContainer) {
+                    resultsContainer.innerHTML = '<p class="text-gray-500 text-sm text-center py-6">Click "Run Scan" to check your website for accessibility issues.</p>';
+                }
+            }
         }
 
         // Store scan data for filtering
@@ -22146,13 +22185,17 @@
             document.getElementById('a11yPassedCount').textContent = summary.passed;
             document.getElementById('a11yFailedCount').textContent = summary.failed;
             document.getElementById('a11yNACount').textContent = summary.not_applicable;
-            var scanDateText = results.scanned_at ? 'Scanned: ' + new Date(results.scanned_at).toLocaleString() : '';
-            // Show fetch method info if available
+            var scanDateText = '';
+            if (results.url) {
+                scanDateText += results.url + ' · ';
+            }
+            if (results.scanned_at) {
+                scanDateText += new Date(results.scanned_at).toLocaleString();
+            }
             if (results.fetch_info) {
                 var fi = results.fetch_info;
-                scanDateText += ' | Fetched via ' + fi.method + ' (' + fi.html_length + ' chars)';
                 if (!fi.has_title_tag || !fi.has_body) {
-                    scanDateText += ' ⚠️ Page may need JS rendering';
+                    scanDateText += ' · ⚠️ Page may need JS rendering';
                 }
             }
             document.getElementById('a11yScanDate').textContent = scanDateText;
@@ -22169,24 +22212,27 @@
 
         function renderA11yChecks(checks) {
             const container = document.getElementById('a11yResults');
-            
+
             if (!checks.length) {
                 container.innerHTML = '<p class="text-gray-500 text-center py-4">No results match this filter</p>';
                 return;
             }
-            
+
             container.innerHTML = checks.map(check => {
                 const scoreColor = !check.relevant ? 'text-gray-500' : check.score >= 100 ? 'text-green-400' : check.score >= 70 ? 'text-yellow-400' : 'text-red-400';
                 const scoreBg = !check.relevant ? 'bg-gray-500/10' : check.score >= 100 ? 'bg-green-500/10' : check.score >= 70 ? 'bg-yellow-500/10' : 'bg-red-500/10';
                 const icon = !check.relevant ? 'fa-minus text-gray-500' : check.score >= 100 ? 'fa-check-circle text-green-400' : 'fa-exclamation-triangle text-red-400';
-                
+                const wcagInfo = A11Y_WCAG_MAP[check.name] || {};
+                const wcagBadge = wcagInfo.wcag ? `<span class="ml-2 px-1.5 py-0.5 text-[10px] font-mono rounded bg-blue-500/20 text-blue-300" title="WCAG ${wcagInfo.wcag} Level ${wcagInfo.level}">WCAG ${wcagInfo.wcag} (${wcagInfo.level})</span>` : '';
+                const showFix = wcagInfo.fix && check.relevant && check.score < 100;
+
                 return `
-                    <div class="p-3 bg-white/5 rounded-lg border border-white/10">
+                    <div class="p-3 bg-white/5 rounded-lg border border-white/10 ${check.relevant && check.score < 100 ? 'border-l-2 border-l-red-500' : ''}">
                         <div class="flex items-start justify-between gap-3">
                             <div class="flex items-start gap-3 flex-1">
                                 <i class="fas ${icon} mt-1"></i>
                                 <div class="flex-1">
-                                    <div class="text-sm font-medium text-white">${check.name}</div>
+                                    <div class="text-sm font-medium text-white">${check.name}${wcagBadge}</div>
                                     <div class="text-xs text-gray-400 mt-0.5">${check.description}</div>
                                     ${check.relevant ? `<div class="text-xs text-gray-500 mt-1">${check.successes} passed · ${check.failures} failed</div>` : '<div class="text-xs text-gray-600 mt-1">Not applicable</div>'}
                                     ${check.details && check.details.length ? `
@@ -22195,6 +22241,10 @@
                                             ${check.details.length > 3 ? `<div class="text-xs text-gray-500">+${check.details.length - 3} more</div>` : ''}
                                         </div>
                                     ` : ''}
+                                    ${showFix ? `<div class="mt-2 flex items-start gap-2 p-2 rounded bg-cyan-500/10 border border-cyan-500/20">
+                                        <i class="fas fa-lightbulb text-cyan-400 mt-0.5 text-xs"></i>
+                                        <span class="text-xs text-cyan-300"><strong>Fix:</strong> ${wcagInfo.fix}</span>
+                                    </div>` : ''}
                                     ${check.note ? `<div class="text-xs text-blue-400/70 mt-1 italic">${check.note}</div>` : ''}
                                 </div>
                             </div>
@@ -22206,6 +22256,91 @@
                 `;
             }).join('');
         }
+
+        async function checkWidgetInstalled() {
+            const statusEl = document.getElementById('a11yWidgetStatus');
+            if (!statusEl || !currentClient) {
+                if (statusEl) statusEl.innerHTML = '';
+                return;
+            }
+            const url = currentClient.website_url;
+            if (!url) {
+                statusEl.innerHTML = `<div class="flex items-center gap-2 p-3 rounded-lg bg-yellow-500/10 border border-yellow-500/20">
+                    <i class="fas fa-exclamation-circle text-yellow-400"></i>
+                    <span class="text-xs text-yellow-300">No website URL configured for this client. Set it in Settings → Client Info.</span>
+                </div>`;
+                return;
+            }
+            statusEl.innerHTML = `<div class="flex items-center gap-2 p-3 rounded-lg bg-white/5 border border-white/10">
+                <i class="fas fa-spinner fa-spin text-blue-400"></i>
+                <span class="text-xs text-gray-400">Checking if widget is installed on ${url}...</span>
+            </div>`;
+
+            try {
+                const resp = await fetch(`${API_URL}/api/accessibility/check-widget/${currentClient.id}`, {
+                    headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
+                });
+                if (resp.ok) {
+                    const data = await resp.json();
+                    if (data.installed) {
+                        statusEl.innerHTML = `<div class="flex items-center gap-2 p-3 rounded-lg bg-green-500/10 border border-green-500/20">
+                            <i class="fas fa-check-circle text-green-400"></i>
+                            <span class="text-xs text-green-300">Widget is <strong>installed</strong> on ${data.url}</span>
+                        </div>`;
+                    } else if (data.reason === 'no_url') {
+                        statusEl.innerHTML = `<div class="flex items-center gap-2 p-3 rounded-lg bg-yellow-500/10 border border-yellow-500/20">
+                            <i class="fas fa-exclamation-circle text-yellow-400"></i>
+                            <span class="text-xs text-yellow-300">No website URL configured. Set it in Settings → Client Info.</span>
+                        </div>`;
+                    } else if (data.reason === 'fetch_error') {
+                        statusEl.innerHTML = `<div class="flex items-center gap-2 p-3 rounded-lg bg-gray-500/10 border border-white/10">
+                            <i class="fas fa-question-circle text-gray-400"></i>
+                            <span class="text-xs text-gray-400">Could not reach ${data.url} — site may be blocking requests.</span>
+                        </div>`;
+                    } else {
+                        statusEl.innerHTML = `<div class="flex items-center gap-2 p-3 rounded-lg bg-red-500/10 border border-red-500/20">
+                            <i class="fas fa-times-circle text-red-400"></i>
+                            <span class="text-xs text-red-300">Widget <strong>not detected</strong> on ${data.url}. Copy the embed code below and add it to the site.</span>
+                        </div>`;
+                    }
+                } else {
+                    statusEl.innerHTML = `<div class="flex items-center gap-2 p-3 rounded-lg bg-gray-500/10 border border-white/10">
+                        <i class="fas fa-question-circle text-gray-400"></i>
+                        <span class="text-xs text-gray-400">Could not check widget status.</span>
+                    </div>`;
+                }
+            } catch (e) {
+                statusEl.innerHTML = `<div class="flex items-center gap-2 p-3 rounded-lg bg-gray-500/10 border border-white/10">
+                    <i class="fas fa-question-circle text-gray-400"></i>
+                    <span class="text-xs text-gray-400">Could not check widget status.</span>
+                </div>`;
+            }
+        }
+
+        // WCAG references and fix suggestions for each check
+        const A11Y_WCAG_MAP = {
+            'Image Alt Text': { wcag: '1.1.1', level: 'A', fix: 'Add descriptive alt="" to every <img>. Use alt="" (empty) for decorative images.' },
+            'Page Language': { wcag: '3.1.1', level: 'A', fix: 'Add lang="en" (or appropriate code) to the <html> tag.' },
+            'Page Title': { wcag: '2.4.2', level: 'A', fix: 'Add a descriptive <title> in the <head> section.' },
+            'Heading Structure': { wcag: '1.3.1', level: 'A', fix: 'Use headings in order (H1→H2→H3). Have exactly one H1. Don\'t skip levels.' },
+            'Link Text': { wcag: '2.4.4', level: 'A', fix: 'Replace generic text like "click here" with descriptive link text explaining where the link goes.' },
+            'Form Labels': { wcag: '1.3.1', level: 'A', fix: 'Add <label for="inputId"> for every form control, or use aria-label.' },
+            'Button Labels': { wcag: '4.1.2', level: 'A', fix: 'Add text content or aria-label to every <button>.' },
+            'Navigation Landmarks': { wcag: '1.3.1', level: 'A', fix: 'Wrap navigation menus in <nav> elements. Add aria-label when multiple navs exist.' },
+            'Main Landmark': { wcag: '1.3.1', level: 'A', fix: 'Wrap main content in a <main> element. There should be exactly one per page.' },
+            'ARIA Hidden Usage': { wcag: '4.1.2', level: 'A', fix: 'Only use aria-hidden="true" on decorative elements. Never hide focusable content.' },
+            'Color Contrast (Basic)': { wcag: '1.4.3', level: 'AA', fix: 'Ensure text has at least 4.5:1 contrast ratio. Use a contrast checker tool.' },
+            'Viewport Zoom': { wcag: '1.4.4', level: 'AA', fix: 'Remove user-scalable=no and maximum-scale=1 from viewport meta tag.' },
+            'Iframe Titles': { wcag: '2.4.1', level: 'A', fix: 'Add a title attribute to every <iframe> describing its content.' },
+            'Skip Navigation': { wcag: '2.4.1', level: 'A', fix: 'Add a skip nav link as the first focusable element: <a href="#main">Skip to content</a>.' },
+            'Tab Order': { wcag: '2.4.3', level: 'A', fix: 'Remove tabindex values greater than 0. Use 0 or -1 instead.' },
+            'No Autofocus': { wcag: '3.2.1', level: 'A', fix: 'Remove autofocus attributes. Let users navigate naturally.' },
+            'Non-Empty Links': { wcag: '2.4.4', level: 'A', fix: 'Add text or aria-label to empty links. For icon links, use aria-label.' },
+            'Non-Empty Buttons': { wcag: '4.1.2', level: 'A', fix: 'Add text or aria-label to empty buttons. For icon buttons, use aria-label.' },
+            'Unique IDs': { wcag: '4.1.1', level: 'A', fix: 'Ensure every id attribute is unique across the page.' },
+            'Footer Landmark': { wcag: '1.3.1', level: 'A', fix: 'Wrap footer content in a <footer> element or use role="contentinfo".' },
+            'Viewport Meta': { wcag: '1.4.4', level: 'AA', fix: 'Add <meta name="viewport" content="width=device-width, initial-scale=1"> to <head>.' },
+        };
 
         function filterA11y(type) {
             const label = document.getElementById('a11yFilterLabel');
