@@ -13755,25 +13755,64 @@
                 return;
             }
 
-            // Save the updated body
+            // Update the fact-check report: move this claim from flagged to verified
+            let updatedReport = null;
+            if (currentBlog.fact_check_report) {
+                updatedReport = JSON.parse(JSON.stringify(currentBlog.fact_check_report));
+                if (updatedReport.flagged_claims && Array.isArray(updatedReport.flagged_claims)) {
+                    const removed = updatedReport.flagged_claims.splice(idx, 1);
+                    // Add to verified_claims
+                    if (!updatedReport.verified_claims) updatedReport.verified_claims = [];
+                    if (removed.length > 0) {
+                        updatedReport.verified_claims.push({
+                            claim: cleanReplacement,
+                            verdict: 'fixed',
+                            source: 'User applied fact-check fix'
+                        });
+                    }
+                    // Recalculate accuracy score and summary counts
+                    const totalClaims = (updatedReport.verified_claims || []).length + (updatedReport.flagged_claims || []).length;
+                    if (totalClaims > 0) {
+                        updatedReport.accuracy_score = Math.round(((updatedReport.verified_claims || []).length / totalClaims) * 100);
+                    }
+                    updatedReport.total_verified = (updatedReport.verified_claims || []).length;
+                    updatedReport.total_flagged = (updatedReport.flagged_claims || []).length;
+                    updatedReport.high_severity_count = (updatedReport.flagged_claims || []).filter(f => (f.severity || '').toLowerCase() === 'high').length;
+                }
+            }
+
+            // Save the updated body AND fact-check report
             fixBtn.disabled = true;
             fixBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i>Applying...';
+
+            const savePayload = { body: body };
+            if (updatedReport) {
+                savePayload.fact_check_report = updatedReport;
+            }
 
             try {
                 const response = await fetch(API_URL + '/api/content/' + currentBlog.id, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + AUTH_TOKEN },
-                    body: JSON.stringify({ body: body })
+                    body: JSON.stringify(savePayload)
                 });
                 const data = await response.json();
                 if (response.ok) {
                     // Update local state
                     currentBlog.body = body;
                     currentBlog.seo_score = data.seo_score || currentBlog.seo_score;
+                    if (updatedReport) {
+                        currentBlog.fact_check_report = updatedReport;
+                        currentBlog.fact_check_score = updatedReport.accuracy_score;
+                    }
                     const blogIdx = allBlogs.findIndex(b => b.id === currentBlog.id);
                     if (blogIdx >= 0) {
                         allBlogs[blogIdx].body = body;
                         allBlogs[blogIdx].seo_score = currentBlog.seo_score;
+                        if (updatedReport) {
+                            allBlogs[blogIdx].fact_check_report = updatedReport;
+                            allBlogs[blogIdx].fact_check_score = updatedReport.accuracy_score;
+                        }
                     }
 
                     // Update body display if modal is showing it
@@ -13789,6 +13828,9 @@
                     fixTextEl.disabled = true;
                     fixTextEl.classList.add('opacity-50');
 
+                    // Update the fact-check summary display
+                    _updateFactCheckSummary();
+
                     showToast('Fix applied successfully', 'success');
                 } else {
                     throw new Error(data.error || 'Save failed');
@@ -13797,6 +13839,48 @@
                 showToast('Failed to apply fix: ' + err.message, 'error');
                 fixBtn.disabled = false;
                 fixBtn.innerHTML = '<i class="fas fa-check mr-1"></i>Apply Fix';
+            }
+        }
+
+        function _updateFactCheckSummary() {
+            // Re-render the fact-check summary counters from currentBlog's updated report
+            if (!currentBlog || !currentBlog.fact_check_report) return;
+            const report = currentBlog.fact_check_report;
+            const verified = report.verified_claims || [];
+            const flagged = report.flagged_claims || [];
+            const highCount = flagged.filter(f => (f.severity || '').toLowerCase() === 'high').length;
+
+            const verifiedEl = document.getElementById('factCheckVerifiedCount');
+            const flaggedEl = document.getElementById('factCheckFlaggedCount');
+            const highEl = document.getElementById('factCheckHighCount');
+            if (verifiedEl) verifiedEl.textContent = verified.length;
+            if (flaggedEl) flaggedEl.textContent = flagged.length;
+            if (highEl) highEl.textContent = highCount;
+
+            // Update score display
+            const score = report.accuracy_score;
+            const scoreEl = document.getElementById('factCheckScoreValue');
+            const barEl = document.getElementById('factCheckBar');
+            if (scoreEl) scoreEl.textContent = score;
+            if (barEl) barEl.style.width = `${score}%`;
+
+            if (scoreEl) {
+                if (score >= 80) {
+                    scoreEl.className = 'text-3xl font-bold text-green-400';
+                    if (barEl) barEl.className = 'bg-gradient-to-r from-green-500 to-emerald-400 h-2 rounded-full transition-all';
+                } else if (score >= 60) {
+                    scoreEl.className = 'text-3xl font-bold text-yellow-400';
+                    if (barEl) barEl.className = 'bg-gradient-to-r from-yellow-500 to-orange-400 h-2 rounded-full transition-all';
+                } else {
+                    scoreEl.className = 'text-3xl font-bold text-red-400';
+                    if (barEl) barEl.className = 'bg-gradient-to-r from-red-500 to-orange-400 h-2 rounded-full transition-all';
+                }
+            }
+
+            // Hide flagged section if no more flagged claims
+            const flaggedSection = document.getElementById('factCheckFlagged');
+            if (flaggedSection && flagged.length === 0) {
+                flaggedSection.classList.add('hidden');
             }
         }
 
@@ -13919,24 +14003,76 @@
                 return;
             }
 
-            // Save the updated body in one API call
+            // Update the fact-check report: move applied claims from flagged to verified
+            let updatedReport = null;
+            if (currentBlog.fact_check_report) {
+                updatedReport = JSON.parse(JSON.stringify(currentBlog.fact_check_report));
+                if (updatedReport.flagged_claims && Array.isArray(updatedReport.flagged_claims)) {
+                    if (!updatedReport.verified_claims) updatedReport.verified_claims = [];
+                    // Remove applied claims (iterate backwards so indices stay valid)
+                    const appliedIndices = [];
+                    for (let idx = 0; idx < flagged.length; idx++) {
+                        const ce = document.getElementById('fcClaim_' + idx);
+                        const fb = document.getElementById('fcFixBtn_' + idx);
+                        if (fb && fb.disabled && fb.innerHTML.includes('Applied')) {
+                            appliedIndices.push(idx);
+                        }
+                    }
+                    for (let i = appliedIndices.length - 1; i >= 0; i--) {
+                        const removed = updatedReport.flagged_claims.splice(appliedIndices[i], 1);
+                        if (removed.length > 0) {
+                            updatedReport.verified_claims.push({
+                                claim: removed[0].claim,
+                                verdict: 'fixed',
+                                source: 'User applied fact-check fix'
+                            });
+                        }
+                    }
+                    // Recalculate accuracy score and summary counts
+                    const totalClaims = (updatedReport.verified_claims || []).length + (updatedReport.flagged_claims || []).length;
+                    if (totalClaims > 0) {
+                        updatedReport.accuracy_score = Math.round(((updatedReport.verified_claims || []).length / totalClaims) * 100);
+                    }
+                    updatedReport.total_verified = (updatedReport.verified_claims || []).length;
+                    updatedReport.total_flagged = (updatedReport.flagged_claims || []).length;
+                    updatedReport.high_severity_count = (updatedReport.flagged_claims || []).filter(f => (f.severity || '').toLowerCase() === 'high').length;
+                }
+            }
+
+            // Save the updated body AND fact-check report in one API call
+            const savePayload = { body: body };
+            if (updatedReport) {
+                savePayload.fact_check_report = updatedReport;
+            }
+
             try {
                 const response = await fetch(API_URL + '/api/content/' + currentBlog.id, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + AUTH_TOKEN },
-                    body: JSON.stringify({ body: body })
+                    body: JSON.stringify(savePayload)
                 });
                 const data = await response.json();
                 if (response.ok) {
                     currentBlog.body = body;
                     currentBlog.seo_score = data.seo_score || currentBlog.seo_score;
+                    if (updatedReport) {
+                        currentBlog.fact_check_report = updatedReport;
+                        currentBlog.fact_check_score = updatedReport.accuracy_score;
+                    }
                     const blogIdx = allBlogs.findIndex(b => b.id === currentBlog.id);
                     if (blogIdx >= 0) {
                         allBlogs[blogIdx].body = body;
                         allBlogs[blogIdx].seo_score = currentBlog.seo_score;
+                        if (updatedReport) {
+                            allBlogs[blogIdx].fact_check_report = updatedReport;
+                            allBlogs[blogIdx].fact_check_score = updatedReport.accuracy_score;
+                        }
                     }
                     const bodyDisplay = document.getElementById('modalBody');
                     if (bodyDisplay) bodyDisplay.innerHTML = DOMPurify.sanitize(body);
+
+                    // Update the fact-check summary display
+                    _updateFactCheckSummary();
 
                     let msg = appliedCount + ' fix' + (appliedCount > 1 ? 'es' : '') + ' applied';
                     if (failedCount > 0) msg += ', ' + failedCount + ' could not be matched';

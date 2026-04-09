@@ -1464,6 +1464,22 @@ def update_content(current_user, content_id):
         elif isinstance(val, str):
             content.faq_content = val
 
+    # Handle fact_check_report updates (e.g. after applying fixes)
+    if 'fact_check_report' in data:
+        val = data['fact_check_report']
+        if isinstance(val, dict):
+            content.fact_check_report = _json_mod.dumps(val)
+            content.fact_check_score = val.get('accuracy_score', content.fact_check_score)
+        elif isinstance(val, str):
+            content.fact_check_report = val
+            try:
+                parsed_fc = _json_mod.loads(val)
+                content.fact_check_score = parsed_fc.get('accuracy_score', content.fact_check_score)
+            except (ValueError, TypeError):
+                pass
+    if 'fact_check_score' in data:
+        content.fact_check_score = data['fact_check_score']
+
     # Auto-extract FAQs from body if faq_content is still empty
     if 'body' in data and not content.faq_content:
         body_text = data['body'] or ''
