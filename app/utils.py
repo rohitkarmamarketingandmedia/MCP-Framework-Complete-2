@@ -90,3 +90,61 @@ def get_date_range_params(request, default_days=30, max_days=365):
         int: Number of days for the range
     """
     return safe_int(request.args.get('days'), default_days, min_val=1, max_val=max_days)
+
+
+# ==========================================
+# AI Prompt Injection Defense
+# ==========================================
+
+import re as _re
+
+def sanitize_for_prompt(text: str, max_length: int = 500) -> str:
+    """
+    Sanitize user-supplied text before inserting into AI prompts.
+    Strips common prompt injection patterns while keeping natural text.
+
+    Use this for: keywords, company names, city/state, industry,
+    review text, FAQ questions, and any other user-controlled strings
+    that get interpolated into Claude API prompts.
+
+    Args:
+        text: Raw user input
+        max_length: Maximum allowed length (default 500)
+
+    Returns:
+        Sanitized string safe for prompt interpolation
+    """
+    if not text:
+        return ''
+
+    text = str(text).strip()
+
+    # Truncate to max length
+    if len(text) > max_length:
+        text = text[:max_length]
+
+    # Remove common prompt injection patterns (case-insensitive)
+    # These patterns attempt to override system instructions
+    injection_patterns = [
+        r'(?i)\bignore\s+(all\s+)?(previous|above|prior)\s+(instructions?|prompts?|rules?)\b',
+        r'(?i)\b(system|admin|root|developer)\s*:\s*',
+        r'(?i)\bnew\s+instructions?\s*:',
+        r'(?i)\byou\s+are\s+now\b',
+        r'(?i)\bact\s+as\s+(if|though)\b',
+        r'(?i)\bpretend\s+(you\s+are|to\s+be)\b',
+        r'(?i)\bforget\s+(all|everything|your)\b',
+        r'(?i)\boverride\s+(your|the|all)\b',
+        r'(?i)\b(disregard|bypass)\s+(the|your|all|above|previous)\b',
+        r'(?i)\bdo\s+not\s+follow\s+(the|your)\b',
+        r'(?i)\[SYSTEM\]',
+        r'(?i)\[INST\]',
+        r'(?i)<<SYS>>',
+    ]
+
+    for pattern in injection_patterns:
+        text = _re.sub(pattern, '[filtered]', text)
+
+    # Remove excessive newlines (potential delimiter injection)
+    text = _re.sub(r'\n{3,}', '\n\n', text)
+
+    return text.strip()

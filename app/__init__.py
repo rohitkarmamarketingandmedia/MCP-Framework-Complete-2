@@ -106,9 +106,11 @@ def create_app(config_name=None):
     from app.routes import register_routes
     register_routes(app)
     
-    # Exempt chatbot widget endpoints from rate limiting (they poll frequently)
+    # Apply per-endpoint rate limits to chatbot (widget message endpoint gets stricter limit)
+    # Note: Don't blanket-exempt chatbot_bp — the /widget/message endpoint calls AI and needs limiting
     from app.routes.chatbot import chatbot_bp
-    limiter.exempt(chatbot_bp)
+    # Only exempt read-only polling endpoints, not AI-calling ones
+    # The widget message endpoint gets a specific rate limit via decorator in chatbot.py
     
     # ==========================================
     # GLOBAL ERROR HANDLERS

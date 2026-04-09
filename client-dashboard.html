@@ -3962,6 +3962,11 @@
                             class="px-4 py-2 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg text-white text-sm font-medium hover:opacity-90 transition ml-2">
                             <i class="fas fa-file-upload mr-1"></i>Import Spreadsheet
                         </button>
+                        <button onclick="importFromCallTranscripts()"
+                            id="btnImportCalls"
+                            class="px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-500 rounded-lg text-white text-sm font-medium hover:opacity-90 transition ml-2">
+                            <i class="fas fa-phone-alt mr-1"></i>Import from Calls
+                        </button>
                     </div>
 
                     <!-- Add/Edit Form (hidden by default) -->
@@ -5007,7 +5012,13 @@
                             <div class="relative">
                                 <img id="modalFeaturedImage" src="" alt="Featured Image"
                                     class="w-full h-auto max-h-[400px] object-contain rounded-lg border-2 border-green-400 bg-gray-100"
-                                    onerror="this.style.display='none'; this.parentElement.insertAdjacentHTML('afterbegin', '<div class=\'w-full h-32 flex items-center justify-center bg-gray-200 rounded-lg border-2 border-dashed border-gray-400\'><div class=\'text-center text-gray-500\'><i class=\'fas fa-image text-3xl mb-2\'></i><p class=\'text-sm\'>Image failed to load</p></div></div>')">
+                                    onerror="this.classList.add('hidden'); document.getElementById('featuredImageError').classList.remove('hidden');">
+                                <div id="featuredImageError" class="hidden w-full h-32 flex items-center justify-center bg-gray-200 rounded-lg border-2 border-dashed border-gray-400">
+                                    <div class="text-center text-gray-500">
+                                        <i class="fas fa-image text-3xl mb-2"></i>
+                                        <p class="text-sm">Image failed to load</p>
+                                    </div>
+                                </div>
                                 <button onclick="removeFeaturedImage()"
                                     class="absolute top-2 right-2 w-8 h-8 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center">
                                     <i class="fas fa-times"></i>
@@ -13011,6 +13022,7 @@
                 const looksLikeImage = imgUrl && (
                     /\.(jpg|jpeg|png|gif|webp|svg|avif|bmp)(\?|$)/i.test(imgUrl) ||
                     imgUrl.includes('/wp-content/uploads/') ||
+                    imgUrl.includes('/static/uploads/') ||
                     imgUrl.includes('images.unsplash.com') ||
                     imgUrl.includes('cloudinary.com') ||
                     imgUrl.includes('/api/images/') ||
@@ -13882,6 +13894,7 @@
             const imageLoading = document.getElementById('featuredImageLoading');
 
             imageLoading.classList.add('hidden');
+            resetFeaturedImageState();
 
             if (currentBlog.featured_image_url) {
                 document.getElementById('modalFeaturedImage').src = currentBlog.featured_image_url;
@@ -14512,6 +14525,7 @@
                     if (updateResponse.ok) {
                         // Update UI
                         currentBlog.featured_image_url = result.url;
+                        resetFeaturedImageState();
                         document.getElementById('modalFeaturedImage').src = result.url;
                         imagePreview.classList.remove('hidden');
 
@@ -14593,6 +14607,7 @@
 
                     if (updateResponse.ok) {
                         currentBlog.featured_image_url = imageUrl;
+                        resetFeaturedImageState();
 
                         // Update UI
                         const imgEl = document.getElementById('modalFeaturedImage');
@@ -14633,6 +14648,18 @@
                 loading.classList.add('hidden');
                 input.value = ''; // Reset input
             }
+        }
+
+        function resetFeaturedImageState() {
+            // Reset the img element so it can display a new image after a prior onerror
+            const img = document.getElementById('modalFeaturedImage');
+            if (img) {
+                img.classList.remove('hidden');
+                img.style.display = '';  // clear any legacy inline display:none
+            }
+            // Hide the error placeholder
+            const err = document.getElementById('featuredImageError');
+            if (err) err.classList.add('hidden');
         }
 
         async function removeFeaturedImage() {
@@ -14805,6 +14832,7 @@
 
                 if (response.ok) {
                     currentBlog.featured_image_url = imageUrl;
+                    resetFeaturedImageState();
                     document.getElementById('modalFeaturedImage').src = imageUrl;
                     document.getElementById('featuredImageDownloadLink').href = imageUrl;
                     preview.classList.remove('hidden');
@@ -14905,6 +14933,7 @@
 
                 if (data.success) {
                     // Show the featured image
+                    resetFeaturedImageState();
                     document.getElementById('modalFeaturedImage').src = data.file_url;
                     document.getElementById('featuredImageDownloadLink').href = data.file_url;
                     document.getElementById('featuredImagePreview').classList.remove('hidden');
@@ -22464,9 +22493,173 @@
         }
 
         // ==========================================
+        // Import from Call Transcripts
+        // ==========================================
+
+        async function importFromCallTranscripts() {
+            if (!currentClient) return;
+
+            const btn = document.getElementById('btnImportCalls');
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i>Analyzing calls...';
+            }
+
+            try {
+                const response = await fetch(`${API_URL}/api/chatbot/knowledge/${currentClient.id}/import-from-calls`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${AUTH_TOKEN}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ days: 30, auto_approve: false })
+                });
+
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.error || 'Failed to extract Q&A from calls');
+
+                const candidates = data.candidates || [];
+                if (candidates.length === 0) {
+                    showToast(data.message || 'No Q&A pairs found in recent calls', 'warning');
+                    return;
+                }
+
+                // Show modal with extracted Q&A for review
+                _showCallQAReviewModal(candidates, data.total_calls_analyzed);
+
+            } catch (err) {
+                showToast('Error: ' + err.message, 'error');
+            } finally {
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fas fa-phone-alt mr-1"></i>Import from Calls';
+                }
+            }
+        }
+
+        function _showCallQAReviewModal(candidates, callCount) {
+            const modal = document.createElement('div');
+            modal.id = 'callQAModal';
+            modal.className = 'fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center';
+            modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
+
+            const nonDupes = candidates.filter(c => !c.is_duplicate);
+            const dupes = candidates.filter(c => c.is_duplicate);
+
+            let html = `
+            <div class="bg-gray-900 border border-white/10 rounded-2xl p-6 max-w-3xl w-full max-h-[80vh] overflow-y-auto mx-4">
+                <div class="flex justify-between items-center mb-4">
+                    <div>
+                        <h3 class="text-lg font-bold text-white"><i class="fas fa-phone-alt mr-2 text-green-400"></i>Q&A from Call Transcripts</h3>
+                        <p class="text-sm text-gray-400 mt-1">Analyzed ${callCount} calls — found ${candidates.length} Q&A pairs (${dupes.length} duplicates excluded)</p>
+                    </div>
+                    <button onclick="document.getElementById('callQAModal').remove()" class="text-gray-400 hover:text-white"><i class="fas fa-times"></i></button>
+                </div>
+                <div id="callQAStatus" class="hidden mb-4 p-3 rounded-lg text-sm"></div>
+                <div class="space-y-3 mb-4">`;
+
+            nonDupes.forEach((qa, i) => {
+                const conf = (qa.confidence * 100).toFixed(0);
+                const confColor = qa.confidence >= 0.9 ? 'green' : qa.confidence >= 0.7 ? 'yellow' : 'red';
+                html += `
+                <div class="p-3 bg-white/5 border border-white/10 rounded-xl">
+                    <div class="flex items-start gap-3">
+                        <input type="checkbox" id="callQA_${i}" checked class="mt-1 accent-green-500" />
+                        <div class="flex-1">
+                            <div class="flex items-center gap-2 mb-1">
+                                <span class="text-xs px-2 py-0.5 rounded bg-${confColor}-500/20 text-${confColor}-400 font-medium">${conf}%</span>
+                                <span class="text-xs text-gray-500">${qa.category || 'General'}</span>
+                            </div>
+                            <p class="text-sm font-medium text-white mb-1">Q: ${_escHtml(qa.question)}</p>
+                            <p class="text-sm text-gray-300">A: ${_escHtml(qa.answer)}</p>
+                        </div>
+                    </div>
+                </div>`;
+            });
+
+            html += `
+                </div>
+                <div class="flex justify-between items-center">
+                    <label class="text-sm text-gray-400">
+                        <input type="checkbox" id="callQASelectAll" checked onchange="_toggleAllCallQA(this.checked)" class="mr-1 accent-green-500" />
+                        Select All (${nonDupes.length})
+                    </label>
+                    <div class="flex gap-2">
+                        <button onclick="document.getElementById('callQAModal').remove()" class="px-4 py-2 rounded-lg text-sm text-gray-400 hover:text-white border border-white/10">Cancel</button>
+                        <button onclick="_approveSelectedCallQA()" id="btnApproveCallQA" class="px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-500 rounded-lg text-white text-sm font-medium hover:opacity-90">
+                            <i class="fas fa-check mr-1"></i>Import Selected
+                        </button>
+                    </div>
+                </div>
+            </div>`;
+
+            modal.innerHTML = html;
+            document.body.appendChild(modal);
+
+            // Store candidates for later
+            window._callQACandidates = nonDupes;
+        }
+
+        function _escHtml(s) {
+            const d = document.createElement('div');
+            d.textContent = s || '';
+            return d.innerHTML;
+        }
+
+        function _toggleAllCallQA(checked) {
+            const cands = window._callQACandidates || [];
+            for (let i = 0; i < cands.length; i++) {
+                const cb = document.getElementById('callQA_' + i);
+                if (cb) cb.checked = checked;
+            }
+        }
+
+        async function _approveSelectedCallQA() {
+            const cands = window._callQACandidates || [];
+            const selected = [];
+            for (let i = 0; i < cands.length; i++) {
+                const cb = document.getElementById('callQA_' + i);
+                if (cb && cb.checked) {
+                    selected.push(cands[i]);
+                }
+            }
+
+            if (selected.length === 0) {
+                showToast('No entries selected', 'error');
+                return;
+            }
+
+            const btn = document.getElementById('btnApproveCallQA');
+            if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i>Importing...'; }
+
+            try {
+                const response = await fetch(`${API_URL}/api/chatbot/knowledge/${currentClient.id}/approve-call-qa`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${AUTH_TOKEN}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ entries: selected })
+                });
+
+                const data = await response.json();
+                if (response.ok || response.status === 201) {
+                    showToast(`${data.entries?.length || selected.length} Q&A entries imported to chatbot!`, 'success');
+                    document.getElementById('callQAModal')?.remove();
+                    loadKnowledgeEntries();
+                } else {
+                    throw new Error(data.error || 'Import failed');
+                }
+            } catch (err) {
+                showToast('Error: ' + err.message, 'error');
+                if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-check mr-1"></i>Import Selected'; }
+            }
+        }
+
+        // ==========================================
         // Accessibility / ADA
         // ==========================================
-        
+
         let a11yConfig = {};
 
         async function loadA11yConfig() {

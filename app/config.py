@@ -63,6 +63,13 @@ class BaseConfig:
     # Google Business Profile
     GBP_LOCATION_ID = os.environ.get('GBP_LOCATION_ID', '')
     GBP_API_KEY = os.environ.get('GBP_API_KEY', '')
+
+    # Google Business Profile OAuth (used by gbp_service.py and oauth_service.py)
+    # Note: GBP_CLIENT_ID/GBP_CLIENT_SECRET and GOOGLE_CLIENT_ID/GOOGLE_CLIENT_SECRET
+    # both point to the same Google Cloud OAuth credentials
+    GBP_CLIENT_ID = os.environ.get('GBP_CLIENT_ID', os.environ.get('GOOGLE_CLIENT_ID', ''))
+    GBP_CLIENT_SECRET = os.environ.get('GBP_CLIENT_SECRET', os.environ.get('GOOGLE_CLIENT_SECRET', ''))
+    GOOGLE_PLACES_API_KEY = os.environ.get('GOOGLE_PLACES_API_KEY', '')
     
     # Google Analytics 4
     GA4_PROPERTY_ID = os.environ.get('GA4_PROPERTY_ID', '')

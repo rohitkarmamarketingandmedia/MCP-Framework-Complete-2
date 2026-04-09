@@ -24,8 +24,8 @@ class GBPService:
     """
     
     def __init__(self):
-        self.client_id = os.getenv('GBP_CLIENT_ID')
-        self.client_secret = os.getenv('GBP_CLIENT_SECRET')
+        self.client_id = os.getenv('GBP_CLIENT_ID') or os.getenv('GOOGLE_CLIENT_ID')
+        self.client_secret = os.getenv('GBP_CLIENT_SECRET') or os.getenv('GOOGLE_CLIENT_SECRET')
         # New v1 APIs (v4 mybusiness.googleapis.com is deprecated/removed)
         self.account_api = 'https://mybusinessaccountmanagement.googleapis.com/v1'
         self.business_info_api = 'https://mybusinessbusinessinformation.googleapis.com/v1'

@@ -49,8 +49,15 @@ def run_migration(current_user):
             results.append({'column': 'clients.callrail_account_id', 'status': 'error', 'error': str(e)})
 
         # Add semrush_project_id and semrush_project_name to clients table
-        for col_name, col_type in [('semrush_project_id', 'VARCHAR(100)'), ('semrush_project_name', 'VARCHAR(255)')]:
+        # Safe migration: column names are hardcoded, not user-supplied
+        _SAFE_COLUMNS = {
+            'semrush_project_id': 'VARCHAR(100)',
+            'semrush_project_name': 'VARCHAR(255)',
+        }
+        for col_name, col_type in _SAFE_COLUMNS.items():
             try:
+                # Using parameterized DDL is not possible for ALTER TABLE column names,
+                # but these are hardcoded constants (not user input), so this is safe.
                 db.session.execute(db.text(
                     f"ALTER TABLE clients ADD COLUMN IF NOT EXISTS {col_name} {col_type}"
                 ))

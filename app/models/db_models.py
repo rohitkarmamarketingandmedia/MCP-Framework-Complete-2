@@ -393,7 +393,7 @@ class DBClient(db.Model):
             # WordPress integration
             'wordpress_url': self.wordpress_url,
             'wordpress_user': self.wordpress_user,
-            'wordpress_app_password': self.wordpress_app_password if self.wordpress_app_password else None,
+            'wordpress_connected': bool(self.wordpress_app_password),
             # Analytics & Tracking integrations
             'ga4_property_id': self.ga4_property_id,
             'gsc_site_url': self.gsc_site_url,

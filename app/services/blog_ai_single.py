@@ -18,6 +18,7 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
 import anthropic
+from app.utils import sanitize_for_prompt
 
 logger = logging.getLogger(__name__)
 
@@ -1391,24 +1392,33 @@ OUTPUT RULES:
         custom_faq_instruction = ''
         if custom_faqs:
             # Sanitize questions to prevent prompt injection or broken formatting
-            safe_questions = [q.replace('\n', ' ').replace('\r', ' ').strip() for q in custom_faqs[:faq_count] if q and len(q.strip()) > 5]
+            safe_questions = [sanitize_for_prompt(q, max_length=300) for q in custom_faqs[:faq_count] if q and len(q.strip()) > 5]
             custom_faq_instruction = f"""
 CUSTOM FAQ QUESTIONS FROM REAL CUSTOMER CALLS (MANDATORY):
 The following questions were asked by REAL CUSTOMERS on phone calls. You MUST use these exact questions (or very close paraphrases) as your FAQ questions. Answer them as {req.company_name} would:
 {chr(10).join(f'- {q}' for q in safe_questions)}
 """
 
+        # Sanitize all user-supplied inputs before prompt interpolation
+        s_keyword = sanitize_for_prompt(keyword, max_length=200)
+        s_company = sanitize_for_prompt(req.company_name, max_length=200)
+        s_industry = sanitize_for_prompt(req.industry or 'Local Services', max_length=100)
+        s_city = sanitize_for_prompt(req.city, max_length=100)
+        s_state = sanitize_for_prompt(req.state, max_length=100)
+        s_phone = sanitize_for_prompt(req.phone, max_length=30)
+        s_email = sanitize_for_prompt(req.email, max_length=100)
+
         return f"""Generate a long-form SEO blog post using the following inputs:
 
 ===== INPUT VARIABLES (DO NOT ALTER) =====
-PRIMARY KEYWORD: {keyword}
-BUSINESS NAME: {req.company_name}
-INDUSTRY: {req.industry or 'Local Services'}
-CITY: {req.city}
-STATE: {req.state}
+PRIMARY KEYWORD: {s_keyword}
+BUSINESS NAME: {s_company}
+INDUSTRY: {s_industry}
+CITY: {s_city}
+STATE: {s_state}
 TARGET WORD COUNT: {req.target_words}
-PHONE: {req.phone}
-EMAIL: {req.email}
+PHONE: {s_phone}
+EMAIL: {s_email}
 CURRENT YEAR: {current_year}
 
 {f"*** CRITICAL CITY WARNING ***" if keyword_has_city else ""}

@@ -8,6 +8,7 @@ import time
 from datetime import datetime
 from typing import Optional, Dict, List, Any
 import logging
+from app.utils import sanitize_for_prompt
 
 logger = logging.getLogger(__name__)
 
@@ -155,25 +156,26 @@ Remember: Your goal is to be helpful, capture leads, and create a positive impre
         text = "KNOWLEDGE BASE (Use this information to answer visitor questions accurately):\n"
         
         for category, items in sections.items():
-            text += f"\n--- {category} ---\n"
+            text += f"\n--- {sanitize_for_prompt(category, 100)} ---\n"
             for item in items:
                 entry_type = item.get('entry_type', 'qa')
-                if entry_type == 'qa' and item.get('question'):
-                    text += f"Q: {item['question']}\nA: {item.get('answer', '')}\n\n"
+                # Sanitize all user-supplied knowledge base content before prompt injection
+                s_question = sanitize_for_prompt(item.get('question', ''), 500)
+                s_answer = sanitize_for_prompt(item.get('answer', ''), 2000)
+                s_title = sanitize_for_prompt(item.get('title', ''), 200)
+                if entry_type == 'qa' and s_question:
+                    text += f"Q: {s_question}\nA: {s_answer}\n\n"
                 elif entry_type == 'info':
-                    title = item.get('title', 'Info')
-                    text += f"{title}: {item.get('answer', '')}\n\n"
+                    text += f"{s_title or 'Info'}: {s_answer}\n\n"
                 elif entry_type == 'service':
-                    title = item.get('title', 'Service')
-                    text += f"Service - {title}: {item.get('answer', '')}\n\n"
+                    text += f"Service - {s_title or 'Service'}: {s_answer}\n\n"
                 elif entry_type == 'policy':
-                    title = item.get('title', 'Policy')
-                    text += f"Policy - {title}: {item.get('answer', '')}\n\n"
+                    text += f"Policy - {s_title or 'Policy'}: {s_answer}\n\n"
                 else:
-                    if item.get('question'):
-                        text += f"Q: {item['question']}\nA: {item.get('answer', '')}\n\n"
+                    if s_question:
+                        text += f"Q: {s_question}\nA: {s_answer}\n\n"
                     else:
-                        text += f"{item.get('title', '')}: {item.get('answer', '')}\n\n"
+                        text += f"{s_title}: {s_answer}\n\n"
         
         return text.strip()
     

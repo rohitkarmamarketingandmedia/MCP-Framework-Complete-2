@@ -11,6 +11,7 @@ import json
 
 from app.database import db
 from app.models.db_models import DBReview, DBClient, DBLead
+from app.utils import sanitize_for_prompt
 
 logger = logging.getLogger(__name__)
 
@@ -418,14 +419,18 @@ Thank you! 🙏"""
         """Generate AI response for a review using agent config"""
         if ai_service:
             # Build the user input for the agent
+            # Sanitize external review data before prompt interpolation
+            s_reviewer = sanitize_for_prompt(review.reviewer_name or 'Anonymous', max_length=100)
+            s_review_text = sanitize_for_prompt(review.review_text or 'No comment provided', max_length=2000)
+
             user_input = f"""Generate a response to this review:
 
-Business: {client.business_name}
-Industry: {client.industry}
-Location: {client.geo}
+Business: {sanitize_for_prompt(client.business_name, 200)}
+Industry: {sanitize_for_prompt(client.industry, 100)}
+Location: {sanitize_for_prompt(client.geo, 100)}
 Rating: {review.rating}/5 stars
-Reviewer: {review.reviewer_name or 'Anonymous'}
-Review: {review.review_text or 'No comment provided'}
+Reviewer: {s_reviewer}
+Review: {s_review_text}
 
 Respond with just the response text, no JSON formatting needed."""
             

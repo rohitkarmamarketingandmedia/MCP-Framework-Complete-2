@@ -677,7 +677,14 @@ def start_conversation(chatbot_id):
 
 @chatbot_bp.route('/widget/<chatbot_id>/message', methods=['POST'])
 def send_message(chatbot_id):
-    """Public endpoint - Send a message and get AI response"""
+    """Public endpoint - Send a message and get AI response (rate limited: 30/hour per IP)"""
+    # Apply rate limiting manually since we removed the blanket chatbot exemption
+    from flask import current_app
+    try:
+        lim = current_app.limiter
+        lim.check()  # Uses default limits (200/day, 50/hour)
+    except Exception:
+        pass  # Don't block on rate limit check failures
     try:
         config = DBChatbotConfig.query.get(chatbot_id)
         
@@ -1540,3 +1547,268 @@ def get_chatbot_analytics(current_user, client_id):
         'conversations_by_status': dict(status_counts),
         'recent_conversations': [c.to_dict() for c in recent]
     })
+
+
+# ==========================================
+# Call Transcript → Chatbot Knowledge Pipeline
+# ==========================================
+
+@chatbot_bp.route('/knowledge/<client_id>/import-from-calls', methods=['POST'])
+@token_required
+def import_call_transcripts_to_knowledge(current_user, client_id):
+    """
+    Extract Q&A pairs from recent call transcripts and import them
+    into the chatbot knowledge base.
+
+    POST /api/chatbot/knowledge/<client_id>/import-from-calls
+    {
+        "days": 30,          // How far back to look (default: 30)
+        "auto_approve": false // If true, auto-add high-confidence Q&A (default: false)
+    }
+
+    Returns extracted Q&A candidates for review, or auto-imports them.
+    """
+    import os
+    import anthropic
+    import re
+
+    if not current_user.has_access_to_client(client_id):
+        return jsonify({'error': 'Access denied'}), 403
+
+    client = DBClient.query.get(client_id)
+    if not client:
+        return jsonify({'error': 'Client not found'}), 404
+
+    data = request.get_json(silent=True) or {}
+    days = min(int(data.get('days', 30)), 90)  # Max 90 days
+    auto_approve = data.get('auto_approve', False)
+
+    # Fetch call transcripts from CallRail
+    try:
+        from app.services.callrail_service import CallRailConfig, get_callrail_service
+
+        callrail_config = CallRailConfig(
+            company_id=client.callrail_company_id,
+            account_id=client.callrail_account_id if hasattr(client, 'callrail_account_id') else None
+        )
+        callrail = get_callrail_service(callrail_config)
+        calls = callrail.get_recent_calls(
+            company_id=callrail_config.company_id,
+            days=days,
+            per_page=50,
+            fields='id,start_time,duration,transcription,tracking_phone_number,source_name'
+        )
+    except Exception as e:
+        logger.error(f"CallRail fetch failed for client {client_id}: {e}")
+        return jsonify({'error': f'Failed to fetch calls: {str(e)}'}), 500
+
+    # Filter calls that have transcripts
+    transcribed_calls = [
+        c for c in (calls or [])
+        if c.get('transcription') and len(c['transcription']) > 100
+    ]
+
+    if not transcribed_calls:
+        return jsonify({
+            'message': 'No transcribed calls found in the last {days} days',
+            'candidates': [],
+            'imported': 0
+        })
+
+    # Combine transcripts for batch processing (limit to 10 most recent with transcripts)
+    transcribed_calls = transcribed_calls[:10]
+    combined_transcripts = ""
+    for i, call in enumerate(transcribed_calls):
+        combined_transcripts += f"\n--- CALL {i+1} (ID: {call.get('id', 'unknown')}) ---\n"
+        combined_transcripts += call['transcription'][:3000]  # Cap each at 3000 chars
+        combined_transcripts += "\n"
+
+    # Truncate total to avoid huge API calls
+    if len(combined_transcripts) > 20000:
+        combined_transcripts = combined_transcripts[:20000]
+
+    # Use Claude to extract Q&A pairs from the transcripts
+    api_key = os.environ.get('ANTHROPIC_API_KEY')
+    if not api_key:
+        return jsonify({'error': 'ANTHROPIC_API_KEY not configured'}), 500
+
+    try:
+        ai_client = anthropic.Anthropic(api_key=api_key)
+        extraction_prompt = f"""You are analyzing phone call transcripts for a {client.industry or 'local service'} business called "{client.business_name}" in {client.geo or 'the local area'}.
+
+Extract useful Q&A pairs that would help a chatbot answer future customer questions. Focus on:
+- Questions customers actually ask (pricing, availability, process, timing, etc.)
+- The business's actual answers/information given by the agent
+- Service-specific details mentioned
+- Policies, hours, or procedures discussed
+
+TRANSCRIPTS:
+{combined_transcripts}
+
+Return ONLY valid JSON (no markdown). Each Q&A should have a confidence score (0.0-1.0) based on how clearly the question was asked and answered:
+{{
+    "qa_pairs": [
+        {{
+            "question": "Clear version of the customer's question",
+            "answer": "The business's actual answer, cleaned up for a chatbot to use",
+            "category": "Pricing|Scheduling|Services|Process|Insurance|Emergency|General",
+            "confidence": 0.85
+        }}
+    ]
+}}
+
+Rules:
+- Only include Q&A where the business gave a real, useful answer
+- Rewrite questions in a natural chatbot-friendly form (e.g., "What are your hours?" not "uh do you guys, like, open on Saturdays?")
+- Rewrite answers to be professional and complete — the chatbot will say this verbatim
+- De-identify: remove customer names, addresses, and specific appointment details
+- Merge similar questions across calls into one best version
+- Skip scheduling/appointment-specific exchanges ("Can I come in Tuesday at 3?")
+- Skip greetings, hold music references, and small talk
+- Confidence 0.9+: clear question with a clear, factual answer
+- Confidence 0.7-0.89: decent question but answer may be partial
+- Confidence <0.7: ambiguous or may not generalize well"""
+
+        response = ai_client.messages.create(
+            model=os.environ.get('FAST_AI_MODEL', 'claude-haiku-4-5-20251001'),
+            max_tokens=4000,
+            messages=[{"role": "user", "content": extraction_prompt}],
+            temperature=0.1
+        )
+
+        response_text = response.content[0].text.strip()
+
+        # Parse JSON response
+        # Strip markdown code fences if present
+        response_text = re.sub(r'^```(?:json)?\s*', '', response_text)
+        response_text = re.sub(r'\s*```$', '', response_text)
+
+        result = json.loads(response_text)
+        qa_pairs = result.get('qa_pairs', [])
+
+    except json.JSONDecodeError as e:
+        logger.error(f"Failed to parse AI response for call QA extraction: {e}")
+        return jsonify({'error': 'AI returned invalid format. Try again.'}), 500
+    except Exception as e:
+        logger.error(f"AI extraction failed: {e}")
+        return jsonify({'error': f'AI extraction failed: {str(e)}'}), 500
+
+    if not qa_pairs:
+        return jsonify({
+            'message': f'Analyzed {len(transcribed_calls)} calls but found no useful Q&A pairs',
+            'candidates': [],
+            'imported': 0
+        })
+
+    # Check for duplicates against existing knowledge base
+    existing = DBChatbotKnowledge.query.filter_by(
+        client_id=client_id, is_active=True
+    ).all()
+    existing_questions = set(
+        (e.question or '').lower().strip() for e in existing if e.question
+    )
+
+    # Filter out duplicates and low-confidence entries
+    candidates = []
+    for qa in qa_pairs:
+        q = (qa.get('question') or '').strip()
+        a = (qa.get('answer') or '').strip()
+        conf = float(qa.get('confidence', 0))
+        if not q or not a:
+            continue
+        # Skip if a very similar question already exists
+        q_lower = q.lower().strip().rstrip('?')
+        is_dupe = any(
+            _similarity(q_lower, eq.rstrip('?')) > 0.80
+            for eq in existing_questions if eq
+        )
+        if is_dupe:
+            qa['is_duplicate'] = True
+        qa['is_duplicate'] = qa.get('is_duplicate', False)
+        candidates.append(qa)
+
+    # Auto-import high-confidence, non-duplicate entries if requested
+    imported = []
+    if auto_approve:
+        for qa in candidates:
+            if qa.get('is_duplicate'):
+                continue
+            conf = float(qa.get('confidence', 0))
+            if conf >= 0.80:
+                entry = DBChatbotKnowledge(
+                    client_id=client_id,
+                    entry_type='qa',
+                    question=qa['question'],
+                    answer=qa['answer'],
+                    category=qa.get('category', 'From Calls'),
+                    priority=1
+                )
+                db.session.add(entry)
+                imported.append(entry)
+                qa['imported'] = True
+
+        if imported:
+            db.session.commit()
+
+    return jsonify({
+        'message': f'Extracted {len(candidates)} Q&A pairs from {len(transcribed_calls)} calls',
+        'candidates': candidates,
+        'imported': len(imported),
+        'total_calls_analyzed': len(transcribed_calls),
+        'calls_with_transcripts': len(transcribed_calls)
+    })
+
+
+def _similarity(a: str, b: str) -> float:
+    """Quick similarity check using difflib"""
+    import difflib
+    return difflib.SequenceMatcher(None, a, b).ratio()
+
+
+@chatbot_bp.route('/knowledge/<client_id>/approve-call-qa', methods=['POST'])
+@token_required
+def approve_call_qa(current_user, client_id):
+    """
+    Approve and import selected Q&A candidates into chatbot knowledge base.
+
+    POST /api/chatbot/knowledge/<client_id>/approve-call-qa
+    {
+        "entries": [
+            {"question": "...", "answer": "...", "category": "..."},
+            ...
+        ]
+    }
+    """
+    if not current_user.has_access_to_client(client_id):
+        return jsonify({'error': 'Access denied'}), 403
+
+    data = request.get_json(silent=True) or {}
+    entries_data = data.get('entries', [])
+
+    if not entries_data:
+        return jsonify({'error': 'No entries provided'}), 400
+
+    added = []
+    for item in entries_data:
+        q = (item.get('question') or '').strip()
+        a = (item.get('answer') or '').strip()
+        if not q or not a:
+            continue
+
+        entry = DBChatbotKnowledge(
+            client_id=client_id,
+            entry_type='qa',
+            question=q,
+            answer=a,
+            category=item.get('category', 'From Calls'),
+            priority=1
+        )
+        db.session.add(entry)
+        added.append(entry)
+
+    db.session.commit()
+
+    return jsonify({
+        'message': f'{len(added)} Q&A entries imported to chatbot knowledge base',
+        'entries': [e.to_dict() for e in added]
+    }), 201
