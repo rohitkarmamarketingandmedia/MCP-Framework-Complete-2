@@ -1464,6 +1464,37 @@ def update_content(current_user, content_id):
             content.faq_content = _json_mod.dumps(extracted_faqs)
             logger.info(f"Auto-extracted {len(extracted_faqs)} FAQs from body for content {content_id}")
 
+    # Enhance body HTML if it's missing heading tags or links
+    if content.body and len(content.body) > 200:
+        body_html = content.body
+        has_headings = bool(re.search(r'<h[1-6][^>]*>', body_html, re.IGNORECASE))
+        has_links = bool(re.search(r'<a\s[^>]*href=', body_html, re.IGNORECASE))
+        has_html = bool(re.search(r'<(?:p|div|span|strong|em)\b', body_html, re.IGNORECASE))
+
+        if not has_headings:
+            if has_html:
+                # Body has HTML (from WYSIWYG editor) but no headings
+                # Promote short standalone lines to headings
+                body_html = _promote_headings_in_html(body_html)
+            elif re.search(r'^#{1,6}\s+', body_html, re.MULTILINE):
+                body_html = _markdown_to_html(body_html)
+            else:
+                body_html = _plaintext_to_html(body_html)
+            content.body = body_html
+            logger.info(f"Enhanced body with HTML headings for content {content_id}")
+
+        if not has_links:
+            # Try to inject internal links from stored metadata
+            stored_links = []
+            if content.internal_links:
+                try:
+                    stored_links = _json_mod.loads(content.internal_links) if isinstance(content.internal_links, str) else content.internal_links
+                except (ValueError, TypeError):
+                    pass
+            if stored_links:
+                content.body = _inject_internal_links(content.body, stored_links)
+                logger.info(f"Injected {len(stored_links)} internal links into body for content {content_id}")
+
     # Recalculate SEO score if body or title changed
     if 'body' in data or 'title' in data or 'meta_title' in data or 'meta_description' in data:
         try:
@@ -1482,9 +1513,21 @@ def update_content(current_user, content_id):
                 location=location
             )
             content.seo_score = seo_result.get('total_score', 0)
-            logger.info(f"Recalculated SEO score for {content_id}: {content.seo_score}")
+            # Log full breakdown for debugging
+            factors = seo_result.get('factors', {})
+            breakdown_log = ' | '.join([f"{k}: {v.get('score',0)}/{v.get('max',0)}" for k, v in factors.items()])
+            logger.info(f"SEO score for {content_id}: {content.seo_score}/100 | {breakdown_log}")
         except Exception as e:
             logger.warning(f"SEO score recalculation failed for {content_id}: {e}")
+            import traceback
+            traceback.print_exc()
+
+    # Store SEO breakdown for frontend display
+    _seo_breakdown = {}
+    try:
+        _seo_breakdown = seo_result.get('factors', {})
+    except NameError:
+        pass
 
     data_service.save_blog_post(content)
 
@@ -1516,10 +1559,14 @@ def update_content(current_user, content_id):
             import traceback
             traceback.print_exc()
     
-    return jsonify({
+    resp = {
         'message': 'Content updated',
-        'content': content.to_dict()
-    })
+        'content': content.to_dict(),
+        'seo_score': content.seo_score
+    }
+    if _seo_breakdown:
+        resp['seo_breakdown'] = {k: {'score': v.get('score', 0), 'max': v.get('max', 0), 'message': v.get('message', '')} for k, v in _seo_breakdown.items()}
+    return jsonify(resp)
 
 
 @content_bp.route('/<content_id>', methods=['DELETE'])
@@ -3719,6 +3766,94 @@ def _plaintext_to_html(text: str) -> str:
         html_lines.append('</ul>')
 
     return '\n'.join(html_lines)
+
+
+def _promote_headings_in_html(body_html: str) -> str:
+    """
+    Promote short <p> or <strong> or <b> paragraphs to proper <h2>/<h3> headings.
+    Handles WYSIWYG editor output where headings are just bold text in paragraphs.
+
+    Heading detection patterns:
+    - <p><strong>Step 1: ...</strong></p> → <h2>Step 1: ...</h2>
+    - <p><b>What Is ...?</b></p> → <h2>What Is ...?</h2>
+    - <p>Frequently Asked Questions</p> (short, no period) → <h2>...</h2>
+    - Short paragraphs (≤12 words, no period) before longer paragraphs
+    """
+    heading_patterns = [
+        # Step N: ...
+        r'^Step\s+\d+\s*[:\-–—]\s*.+',
+        # Question-style headings
+        r'^(?:What|How|Why|When|Where|Who|Which|Do|Does|Is|Are|Can|Should|Will)\s+.{10,80}\??$',
+        # Known section headers
+        r'^(?:Frequently\s+Asked\s+Questions|FAQ|During\s+the\s+Storm|After\s+the\s+Storm|Why\s+.+Choose)',
+    ]
+    heading_re = re.compile('|'.join(heading_patterns), re.IGNORECASE)
+
+    def is_heading_text(text):
+        text = text.strip()
+        if not text or len(text) > 150:
+            return False
+        # Explicit pattern match
+        if heading_re.match(text):
+            return True
+        # Short text without period ending
+        words = text.split()
+        if 2 <= len(words) <= 12 and not text.endswith('.') and not text.endswith(','):
+            return True
+        return False
+
+    def determine_level(text):
+        text = text.strip()
+        if re.match(r'^Step\s+\d+', text, re.IGNORECASE):
+            return 2
+        if re.match(r'^(?:What|How|Why|When|Where|Who)\s+', text, re.IGNORECASE) and len(text.split()) <= 10:
+            return 3
+        if any(kw in text.lower() for kw in ['frequently asked', 'faq', 'during the storm', 'after the storm']):
+            return 2
+        if len(text.split()) <= 6:
+            return 3
+        return 2
+
+    # Pattern 1: <p><strong>Heading Text</strong></p> or <p><b>Heading</b></p>
+    def replace_bold_headings(match):
+        full = match.group(0)
+        inner = match.group(1).strip()
+        # Strip nested tags to get plain text
+        plain = re.sub(r'<[^>]+>', '', inner).strip()
+        if is_heading_text(plain):
+            level = determine_level(plain)
+            return f'<h{level}>{plain}</h{level}>'
+        return full
+
+    body_html = re.sub(
+        r'<p[^>]*>\s*<(?:strong|b)>(.+?)</(?:strong|b)>\s*</p>',
+        replace_bold_headings,
+        body_html,
+        flags=re.IGNORECASE | re.DOTALL
+    )
+
+    # Pattern 2: Plain <p>short text</p> that looks like a heading
+    # Only promote if no nested HTML and text matches heading patterns
+    def replace_plain_headings(match):
+        full = match.group(0)
+        inner = match.group(1).strip()
+        # Skip if it contains HTML tags (except <br>)
+        if re.search(r'<(?!br)[a-z]', inner, re.IGNORECASE):
+            return full
+        plain = re.sub(r'<br\s*/?>', ' ', inner).strip()
+        if is_heading_text(plain) and heading_re.match(plain):
+            level = determine_level(plain)
+            return f'<h{level}>{plain}</h{level}>'
+        return full
+
+    body_html = re.sub(
+        r'<p[^>]*>(.+?)</p>',
+        replace_plain_headings,
+        body_html,
+        flags=re.IGNORECASE | re.DOTALL
+    )
+
+    return body_html
 
 
 def _inject_internal_links(body_html: str, links: list) -> str:
