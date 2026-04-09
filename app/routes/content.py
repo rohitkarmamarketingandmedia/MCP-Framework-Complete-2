@@ -2051,6 +2051,225 @@ def run_fact_check(current_user, blog_id):
         return jsonify({'error': f'Fact-check failed: {str(e)}'}), 500
 
 
+# ==========================================
+# Fact-Check Fix Application (server-side matching)
+# ==========================================
+
+def _find_and_replace_claim(body: str, claim_text: str, replacement: str) -> tuple:
+    """
+    Robustly find a fact-check claim in blog HTML body and replace it.
+    Returns (new_body, found_bool).
+    Uses multiple strategies with increasing fuzziness.
+    """
+    import unicodedata
+
+    if not body or not claim_text or not replacement:
+        return body, False
+
+    # Normalize helper: smart quotes → straight, em/en dashes → --, collapse whitespace
+    def normalize(s):
+        s = s.replace('\u2018', "'").replace('\u2019', "'")
+        s = s.replace('\u201C', '"').replace('\u201D', '"')
+        s = s.replace('\u2013', '--').replace('\u2014', '--')
+        s = re.sub(r'\s+', ' ', s).strip()
+        return s
+
+    # Strip HTML tags for plain-text matching
+    plain_body = re.sub(r'<[^>]+>', '', body)
+
+    # Strategy 1: Exact match in HTML
+    if claim_text in body:
+        return body.replace(claim_text, replacement, 1), True
+
+    # Strategy 2: Exact match in plain text → flexible HTML regex
+    if claim_text in plain_body:
+        words = claim_text.split()
+        if len(words) >= 3:
+            flex_pat = r'(?:\s*(?:<[^>]*>)?\s*)'.join(
+                re.escape(w) for w in words
+            )
+            m = re.search(flex_pat, body, re.IGNORECASE)
+            if m:
+                return body[:m.start()] + replacement + body[m.end():], True
+
+    # Strategy 3: Normalized exact match in plain text
+    norm_claim = normalize(claim_text)
+    norm_plain = normalize(plain_body)
+    if norm_claim in norm_plain:
+        # Find position in normalized plain text, then map to HTML
+        words = norm_claim.split()
+        if len(words) >= 3:
+            flex_pat = r'(?:\s*(?:<[^>]*>)?\s*)'.join(
+                re.escape(w) for w in words
+            )
+            m = re.search(flex_pat, body, re.IGNORECASE)
+            if m:
+                return body[:m.start()] + replacement + body[m.end():], True
+
+    # Strategy 4: Anchor matching — first 5 + last 5 significant words
+    sig_words = [w for w in normalize(claim_text).split() if len(w) > 2]
+    if len(sig_words) >= 6:
+        start_anchor = r'[\s\S]*?'.join(re.escape(w) for w in sig_words[:5])
+        end_anchor = r'[\s\S]*?'.join(re.escape(w) for w in sig_words[-5:])
+        anchor_pat = start_anchor + r'[\s\S]*?' + end_anchor
+        m = re.search(anchor_pat, body, re.IGNORECASE)
+        if m and len(m.group(0)) < len(claim_text) * 5 and len(m.group(0)) < 2000:
+            return body[:m.start()] + replacement + body[m.end():], True
+
+    # Strategy 5: Find the <p> tag with highest keyword overlap (≥70%)
+    claim_words = set(w.lower() for w in normalize(claim_text).split() if len(w) > 3)
+    if claim_words:
+        best_match = None
+        best_score = 0
+        for m in re.finditer(r'<p[^>]*>[\s\S]*?</p>', body, re.IGNORECASE):
+            p_text = re.sub(r'<[^>]+>', '', m.group(0)).lower()
+            p_words = set(w for w in p_text.split() if len(w) > 3)
+            if not p_words:
+                continue
+            overlap = len(claim_words & p_words) / len(claim_words)
+            if overlap > best_score and overlap >= 0.70:
+                best_score = overlap
+                best_match = m
+        if best_match:
+            return (body[:best_match.start()] + '<p>' + replacement + '</p>' +
+                    body[best_match.end():], True)
+
+    return body, False
+
+
+@content_bp.route('/blog/<blog_id>/apply-fact-fixes', methods=['POST'])
+@token_required
+def apply_fact_fixes(current_user, blog_id):
+    """
+    Apply one or more fact-check fixes server-side.
+    Handles text matching, body replacement, and fact-check report update atomically.
+
+    POST /api/content/blog/<blog_id>/apply-fact-fixes
+    Body: {
+        "fixes": [
+            {"claim_index": 0, "replacement": "corrected text here"},
+            {"claim_index": 2, "replacement": "another correction"}
+        ]
+    }
+    """
+    from app.database import db
+
+    blog = DBBlogPost.query.get(blog_id)
+    if not blog:
+        return jsonify({'error': 'Blog post not found'}), 404
+    if not current_user.has_access_to_client(blog.client_id):
+        return jsonify({'error': 'Access denied'}), 403
+
+    data = request.get_json(silent=True) or {}
+    fixes = data.get('fixes', [])
+    if not fixes:
+        return jsonify({'error': 'No fixes provided'}), 400
+
+    # Load current fact-check report
+    report = None
+    if blog.fact_check_report:
+        try:
+            report = json.loads(blog.fact_check_report) if isinstance(blog.fact_check_report, str) else blog.fact_check_report
+        except (ValueError, TypeError):
+            report = None
+
+    flagged = (report or {}).get('flagged_claims', [])
+    body = blog.body or ''
+    applied = []
+    failed = []
+
+    # Sort fixes by descending index so removals don't shift indices
+    sorted_fixes = sorted(fixes, key=lambda f: f.get('claim_index', 0), reverse=True)
+
+    for fix in sorted_fixes:
+        idx = fix.get('claim_index')
+        replacement = (fix.get('replacement') or '').strip()
+
+        # Strip "Change to:" prefix
+        replacement = re.sub(r'^Change\s+to:\s*', '', replacement, flags=re.IGNORECASE)
+        replacement = replacement.strip("'\"")
+
+        if idx is None or idx < 0 or idx >= len(flagged) or not replacement:
+            failed.append({'index': idx, 'reason': 'Invalid index or empty replacement'})
+            continue
+
+        claim_text = flagged[idx].get('claim', '')
+        new_body, found = _find_and_replace_claim(body, claim_text, replacement)
+
+        if found:
+            body = new_body
+            applied.append({'index': idx, 'claim': claim_text})
+        else:
+            failed.append({'index': idx, 'claim': claim_text, 'reason': 'Claim text not found in body'})
+
+    # Update the blog body
+    blog.body = body
+    blog.word_count = len(body.split())
+
+    # Update fact-check report: move applied claims from flagged to verified
+    if report and applied:
+        if 'verified_claims' not in report:
+            report['verified_claims'] = []
+
+        # Remove applied claims (by index, already sorted descending)
+        applied_indices = sorted([a['index'] for a in applied], reverse=True)
+        for idx in applied_indices:
+            if idx < len(report.get('flagged_claims', [])):
+                removed = report['flagged_claims'].pop(idx)
+                report['verified_claims'].append({
+                    'claim': removed.get('claim', ''),
+                    'verdict': 'fixed',
+                    'source': 'User applied fact-check fix'
+                })
+
+        # Recalculate summary counts
+        verified_count = len(report.get('verified_claims', []))
+        flagged_count = len(report.get('flagged_claims', []))
+        total = verified_count + flagged_count
+        report['total_verified'] = verified_count
+        report['total_flagged'] = flagged_count
+        report['high_severity_count'] = len(
+            [f for f in report.get('flagged_claims', []) if (f.get('severity') or '').lower() == 'high']
+        )
+        if total > 0:
+            report['accuracy_score'] = round((verified_count / total) * 100)
+
+        blog.fact_check_report = json.dumps(report)
+        blog.fact_check_score = report.get('accuracy_score', blog.fact_check_score)
+
+    # Recalculate SEO score
+    try:
+        client = DBClient.query.get(blog.client_id)
+        location = client.geo if client else ''
+        seo_result = seo_scoring_engine.score_content(
+            content={
+                'title': blog.title or '',
+                'meta_title': blog.meta_title or '',
+                'meta_description': blog.meta_description or '',
+                'h1': blog.title or '',
+                'body': blog.body or ''
+            },
+            target_keyword=blog.primary_keyword or '',
+            location=location
+        )
+        blog.seo_score = seo_result.get('total_score', 0)
+    except Exception as e:
+        logger.warning(f"SEO score recalculation failed after fact-fix: {e}")
+
+    db.session.commit()
+
+    return jsonify({
+        'success': True,
+        'applied_count': len(applied),
+        'failed_count': len(failed),
+        'applied': applied,
+        'failed': failed,
+        'blog': blog.to_dict(),
+        'fact_check_report': report,
+        'seo_score': blog.seo_score
+    })
+
+
 @content_bp.route('/social/generate', methods=['POST'])
 @token_required
 def generate_social_simple(current_user):

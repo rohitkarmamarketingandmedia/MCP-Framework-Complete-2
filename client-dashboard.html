@@ -13638,202 +13638,65 @@
         // ---- Fact-Check Fix Application ----
 
         async function applyFactCheckFix(idx) {
+            // Single fact-check fix — delegates to server-side matching via API
             if (!currentBlog || !currentBlog.id) return;
 
-            const claimEl = document.getElementById('fcClaim_' + idx);
             const fixTextEl = document.getElementById('fcFixText_' + idx);
             const fixBtn = document.getElementById('fcFixBtn_' + idx);
-            if (!claimEl || !fixTextEl) return;
+            const claimEl = document.getElementById('fcClaim_' + idx);
+            if (!fixTextEl || !fixBtn || !claimEl) return;
 
-            // Get the original claim text and the replacement
-            const originalClaim = decodeURIComponent(escape(atob(claimEl.dataset.originalClaim)));
             const replacement = fixTextEl.value.trim();
-
             if (!replacement) {
                 showToast('Please enter replacement text', 'error');
                 return;
             }
 
-            // Strip "Change to: " prefix if present
-            let cleanReplacement = replacement.replace(/^Change\s+to:\s*/i, '').replace(/^['"]|['"]$/g, '');
-
-            // Find and replace in the blog body
-            let body = currentBlog.body || '';
-            let found = false;
-
-            // Strategy 1: Exact match in HTML body
-            if (body.includes(originalClaim)) {
-                body = body.replace(originalClaim, cleanReplacement);
-                found = true;
-            }
-
-            // Strategy 2: Match in plain text, then locate in HTML with flexible regex
-            if (!found) {
-                const plainBody = body.replace(/<[^>]+>/g, '');
-                if (plainBody.includes(originalClaim)) {
-                    const words = originalClaim.split(/\s+/);
-                    if (words.length >= 3) {
-                        const flexPattern = words.map(w => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('(?:\\s*(?:<[^>]*>)?\\s*)');
-                        const flexRe = new RegExp(flexPattern, 'i');
-                        const match = body.match(flexRe);
-                        if (match) {
-                            body = body.replace(match[0], cleanReplacement);
-                            found = true;
-                        }
-                    }
-                }
-            }
-
-            // Strategy 3: Normalized matching — handle smart quotes, dashes, whitespace differences
-            if (!found) {
-                const normalize = (s) => s
-                    .replace(/[\u2018\u2019\u201C\u201D]/g, m => ({'\u2018':"'",'\u2019':"'",'\u201C':'"','\u201D':'"'}[m]))
-                    .replace(/[\u2013\u2014]/g, '--')
-                    .replace(/\s+/g, ' ')
-                    .trim();
-                const normClaim = normalize(originalClaim);
-                const normPlain = normalize(body.replace(/<[^>]+>/g, ''));
-                if (normPlain.includes(normClaim)) {
-                    // Rebuild flexible regex from normalized words
-                    const words = normClaim.split(/\s+/);
-                    if (words.length >= 2) {
-                        // Allow smart quotes, dashes, HTML tags, and whitespace variations between words
-                        const flexPattern = words.map(w => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('[\\s\\S]*?');
-                        const flexRe = new RegExp(flexPattern, 'i');
-                        const match = body.match(flexRe);
-                        if (match && match[0].length < originalClaim.length * 3) {
-                            body = body.replace(match[0], cleanReplacement);
-                            found = true;
-                        }
-                    }
-                }
-            }
-
-            // Strategy 4: Longest-common-subsequence keyword anchoring
-            // Use the first 4 and last 4 words of the claim as anchor points
-            if (!found) {
-                const claimWords = originalClaim.split(/\s+/).filter(w => w.length > 2);
-                if (claimWords.length >= 5) {
-                    const startAnchor = claimWords.slice(0, 4).map(w => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('[\\s\\S]*?');
-                    const endAnchor = claimWords.slice(-4).map(w => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('[\\s\\S]*?');
-                    const anchorPattern = startAnchor + '[\\s\\S]*?' + endAnchor;
-                    const anchorRe = new RegExp(anchorPattern, 'i');
-                    const match = body.match(anchorRe);
-                    // Only accept if match length is reasonable (not matching half the document)
-                    if (match && match[0].length < originalClaim.length * 4 && match[0].length < 1000) {
-                        body = body.replace(match[0], cleanReplacement);
-                        found = true;
-                    }
-                }
-            }
-
-            // Strategy 5: Find the enclosing <p> tag that contains most claim words
-            if (!found) {
-                const claimWords = originalClaim.toLowerCase().split(/\s+/).filter(w => w.length > 3);
-                const pTagRegex = /<p[^>]*>[\s\S]*?<\/p>/gi;
-                let bestMatch = null;
-                let bestScore = 0;
-                let pMatch;
-                while ((pMatch = pTagRegex.exec(body)) !== null) {
-                    const pText = pMatch[0].replace(/<[^>]+>/g, '').toLowerCase();
-                    const matchCount = claimWords.filter(w => pText.includes(w)).length;
-                    const score = matchCount / claimWords.length;
-                    if (score > bestScore && score >= 0.7) {
-                        bestScore = score;
-                        bestMatch = pMatch;
-                    }
-                }
-                if (bestMatch) {
-                    // Replace the entire <p> tag content with the fix wrapped in <p>
-                    body = body.replace(bestMatch[0], '<p>' + cleanReplacement + '</p>');
-                    found = true;
-                }
-            }
-
-            if (!found) {
-                showToast('Could not find claim text in article body. You may need to edit manually.', 'error');
-                return;
-            }
-
-            // Update the fact-check report: move this claim from flagged to verified
-            let updatedReport = null;
-            if (currentBlog.fact_check_report) {
-                updatedReport = JSON.parse(JSON.stringify(currentBlog.fact_check_report));
-                if (updatedReport.flagged_claims && Array.isArray(updatedReport.flagged_claims)) {
-                    const removed = updatedReport.flagged_claims.splice(idx, 1);
-                    // Add to verified_claims
-                    if (!updatedReport.verified_claims) updatedReport.verified_claims = [];
-                    if (removed.length > 0) {
-                        updatedReport.verified_claims.push({
-                            claim: cleanReplacement,
-                            verdict: 'fixed',
-                            source: 'User applied fact-check fix'
-                        });
-                    }
-                    // Recalculate accuracy score and summary counts
-                    const totalClaims = (updatedReport.verified_claims || []).length + (updatedReport.flagged_claims || []).length;
-                    if (totalClaims > 0) {
-                        updatedReport.accuracy_score = Math.round(((updatedReport.verified_claims || []).length / totalClaims) * 100);
-                    }
-                    updatedReport.total_verified = (updatedReport.verified_claims || []).length;
-                    updatedReport.total_flagged = (updatedReport.flagged_claims || []).length;
-                    updatedReport.high_severity_count = (updatedReport.flagged_claims || []).filter(f => (f.severity || '').toLowerCase() === 'high').length;
-                }
-            }
-
-            // Save the updated body AND fact-check report
             fixBtn.disabled = true;
             fixBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i>Applying...';
 
-            const savePayload = { body: body };
-            if (updatedReport) {
-                savePayload.fact_check_report = updatedReport;
-            }
-
             try {
-                const response = await fetch(API_URL + '/api/content/' + currentBlog.id, {
-                    method: 'PUT',
+                const response = await fetch(API_URL + '/api/content/blog/' + currentBlog.id + '/apply-fact-fixes', {
+                    method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + AUTH_TOKEN },
-                    body: JSON.stringify(savePayload)
+                    body: JSON.stringify({ fixes: [{ claim_index: idx, replacement: replacement }] })
                 });
                 const data = await response.json();
-                if (response.ok) {
-                    // Update local state
-                    currentBlog.body = body;
-                    currentBlog.seo_score = data.seo_score || currentBlog.seo_score;
-                    if (updatedReport) {
-                        currentBlog.fact_check_report = updatedReport;
-                        currentBlog.fact_check_score = updatedReport.accuracy_score;
-                    }
+
+                if (response.ok && data.success) {
+                    // Update local state from server response
+                    const blog = data.blog;
+                    currentBlog.body = blog.body;
+                    currentBlog.seo_score = data.seo_score || blog.seo_score;
+                    currentBlog.fact_check_report = data.fact_check_report;
+                    currentBlog.fact_check_score = (data.fact_check_report || {}).accuracy_score;
+
                     const blogIdx = allBlogs.findIndex(b => b.id === currentBlog.id);
-                    if (blogIdx >= 0) {
-                        allBlogs[blogIdx].body = body;
-                        allBlogs[blogIdx].seo_score = currentBlog.seo_score;
-                        if (updatedReport) {
-                            allBlogs[blogIdx].fact_check_report = updatedReport;
-                            allBlogs[blogIdx].fact_check_score = updatedReport.accuracy_score;
-                        }
-                    }
+                    if (blogIdx >= 0) Object.assign(allBlogs[blogIdx], currentBlog);
 
-                    // Update body display if modal is showing it
+                    // Update body display
                     const bodyDisplay = document.getElementById('modalBody');
-                    if (bodyDisplay) bodyDisplay.innerHTML = DOMPurify.sanitize(body);
+                    if (bodyDisplay) bodyDisplay.innerHTML = DOMPurify.sanitize(blog.body || '');
 
-                    // Mark this claim as applied
-                    claimEl.classList.remove('border-red-500', 'bg-red-500/10', 'border-yellow-500', 'bg-yellow-500/10', 'border-gray-500', 'bg-gray-500/10');
-                    claimEl.classList.add('border-green-500', 'bg-green-500/10');
-                    fixBtn.innerHTML = '<i class="fas fa-check mr-1"></i>Applied';
-                    fixBtn.classList.remove('bg-cyan-600', 'hover:bg-cyan-500');
-                    fixBtn.classList.add('bg-green-600');
-                    fixTextEl.disabled = true;
-                    fixTextEl.classList.add('opacity-50');
-
-                    // Update the fact-check summary display
-                    _updateFactCheckSummary();
-
-                    showToast('Fix applied successfully', 'success');
+                    if (data.applied_count > 0) {
+                        // Mark claim as applied
+                        claimEl.classList.remove('border-red-500', 'bg-red-500/10', 'border-yellow-500', 'bg-yellow-500/10', 'border-gray-500', 'bg-gray-500/10');
+                        claimEl.classList.add('border-green-500', 'bg-green-500/10');
+                        fixBtn.innerHTML = '<i class="fas fa-check mr-1"></i>Applied';
+                        fixBtn.classList.remove('bg-cyan-600', 'hover:bg-cyan-500');
+                        fixBtn.classList.add('bg-green-600');
+                        fixTextEl.disabled = true;
+                        fixTextEl.classList.add('opacity-50');
+                        _updateFactCheckSummary();
+                        showToast('Fix applied successfully', 'success');
+                    } else {
+                        const reason = (data.failed && data.failed[0]) ? data.failed[0].reason : 'Claim text not found in body';
+                        showToast(reason + '. You may need to edit manually.', 'error');
+                        fixBtn.disabled = false;
+                        fixBtn.innerHTML = '<i class="fas fa-check mr-1"></i>Apply Fix';
+                    }
                 } else {
-                    throw new Error(data.error || 'Save failed');
+                    throw new Error(data.error || 'Server error');
                 }
             } catch (err) {
                 showToast('Failed to apply fix: ' + err.message, 'error');
@@ -13899,189 +13762,89 @@
         }
 
         async function applyAllFactCheckFixes() {
+            // Batch apply all fact-check fixes — delegates to server-side matching via API
             if (!currentBlog || !currentBlog.fact_check_report) return;
             const flagged = currentBlog.fact_check_report.flagged_claims || [];
             if (flagged.length === 0) return;
 
-            let body = currentBlog.body || '';
-            let appliedCount = 0;
-            let failedCount = 0;
-
+            // Collect all pending fixes
+            const fixes = [];
             for (let idx = 0; idx < flagged.length; idx++) {
-                const claimEl = document.getElementById('fcClaim_' + idx);
                 const fixTextEl = document.getElementById('fcFixText_' + idx);
                 const fixBtn = document.getElementById('fcFixBtn_' + idx);
-
-                // Skip if already applied or skipped
+                // Skip already applied or skipped
                 if (!fixTextEl || fixTextEl.disabled || !fixBtn || fixBtn.disabled) continue;
                 if (!fixTextEl.value.trim()) continue;
-
-                const originalClaim = decodeURIComponent(escape(atob(claimEl.dataset.originalClaim)));
-                let cleanReplacement = fixTextEl.value.trim().replace(/^Change\s+to:\s*/i, '').replace(/^['"]|['"]$/g, '');
-
-                let found = false;
-
-                // Strategy 1: Exact match
-                if (body.includes(originalClaim)) {
-                    body = body.replace(originalClaim, cleanReplacement);
-                    found = true;
-                }
-
-                // Strategy 2: Flexible regex allowing HTML tags between words
-                if (!found) {
-                    const words = originalClaim.split(/\s+/);
-                    if (words.length >= 3) {
-                        const flexPattern = words.map(w => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('(?:\\s*(?:<[^>]*>)?\\s*)');
-                        const flexRe = new RegExp(flexPattern, 'i');
-                        const match = body.match(flexRe);
-                        if (match) {
-                            body = body.replace(match[0], cleanReplacement);
-                            found = true;
-                        }
-                    }
-                }
-
-                // Strategy 3: Normalized matching (smart quotes, dashes, whitespace)
-                if (!found) {
-                    const normalize = (s) => s
-                        .replace(/[\u2018\u2019\u201C\u201D]/g, m => ({'\u2018':"'",'\u2019':"'",'\u201C':'"','\u201D':'"'}[m]))
-                        .replace(/[\u2013\u2014]/g, '--')
-                        .replace(/\s+/g, ' ').trim();
-                    const normClaim = normalize(originalClaim);
-                    const words = normClaim.split(/\s+/).filter(w => w.length > 2);
-                    if (words.length >= 4) {
-                        const startAnchor = words.slice(0, 4).map(w => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('[\\s\\S]*?');
-                        const endAnchor = words.slice(-4).map(w => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('[\\s\\S]*?');
-                        const anchorRe = new RegExp(startAnchor + '[\\s\\S]*?' + endAnchor, 'i');
-                        const match = body.match(anchorRe);
-                        if (match && match[0].length < originalClaim.length * 4 && match[0].length < 1000) {
-                            body = body.replace(match[0], cleanReplacement);
-                            found = true;
-                        }
-                    }
-                }
-
-                // Strategy 4: Find <p> tag containing most claim keywords
-                if (!found) {
-                    const claimWords = originalClaim.toLowerCase().split(/\s+/).filter(w => w.length > 3);
-                    const pTagRegex = /<p[^>]*>[\s\S]*?<\/p>/gi;
-                    let bestMatch = null;
-                    let bestScore = 0;
-                    let pMatch;
-                    while ((pMatch = pTagRegex.exec(body)) !== null) {
-                        const pText = pMatch[0].replace(/<[^>]+>/g, '').toLowerCase();
-                        const score = claimWords.filter(w => pText.includes(w)).length / claimWords.length;
-                        if (score > bestScore && score >= 0.7) {
-                            bestScore = score;
-                            bestMatch = pMatch;
-                        }
-                    }
-                    if (bestMatch) {
-                        body = body.replace(bestMatch[0], '<p>' + cleanReplacement + '</p>');
-                        found = true;
-                    }
-                }
-
-                if (found) {
-                    // Visually mark as applied
-                    claimEl.classList.remove('border-red-500', 'bg-red-500/10', 'border-yellow-500', 'bg-yellow-500/10', 'border-gray-500', 'bg-gray-500/10');
-                    claimEl.classList.add('border-green-500', 'bg-green-500/10');
-                    fixBtn.innerHTML = '<i class="fas fa-check mr-1"></i>Applied';
-                    fixBtn.disabled = true;
-                    fixBtn.classList.remove('bg-cyan-600', 'hover:bg-cyan-500');
-                    fixBtn.classList.add('bg-green-600');
-                    fixTextEl.disabled = true;
-                    fixTextEl.classList.add('opacity-50');
-                    appliedCount++;
-                } else {
-                    failedCount++;
-                }
+                fixes.push({ claim_index: idx, replacement: fixTextEl.value.trim() });
             }
 
-            if (appliedCount === 0) {
-                showToast('No fixes could be applied — claims not found in body text', 'error');
+            if (fixes.length === 0) {
+                showToast('No pending fixes to apply', 'error');
                 return;
             }
 
-            // Update the fact-check report: move applied claims from flagged to verified
-            let updatedReport = null;
-            if (currentBlog.fact_check_report) {
-                updatedReport = JSON.parse(JSON.stringify(currentBlog.fact_check_report));
-                if (updatedReport.flagged_claims && Array.isArray(updatedReport.flagged_claims)) {
-                    if (!updatedReport.verified_claims) updatedReport.verified_claims = [];
-                    // Remove applied claims (iterate backwards so indices stay valid)
-                    const appliedIndices = [];
-                    for (let idx = 0; idx < flagged.length; idx++) {
-                        const ce = document.getElementById('fcClaim_' + idx);
-                        const fb = document.getElementById('fcFixBtn_' + idx);
-                        if (fb && fb.disabled && fb.innerHTML.includes('Applied')) {
-                            appliedIndices.push(idx);
-                        }
-                    }
-                    for (let i = appliedIndices.length - 1; i >= 0; i--) {
-                        const removed = updatedReport.flagged_claims.splice(appliedIndices[i], 1);
-                        if (removed.length > 0) {
-                            updatedReport.verified_claims.push({
-                                claim: removed[0].claim,
-                                verdict: 'fixed',
-                                source: 'User applied fact-check fix'
-                            });
-                        }
-                    }
-                    // Recalculate accuracy score and summary counts
-                    const totalClaims = (updatedReport.verified_claims || []).length + (updatedReport.flagged_claims || []).length;
-                    if (totalClaims > 0) {
-                        updatedReport.accuracy_score = Math.round(((updatedReport.verified_claims || []).length / totalClaims) * 100);
-                    }
-                    updatedReport.total_verified = (updatedReport.verified_claims || []).length;
-                    updatedReport.total_flagged = (updatedReport.flagged_claims || []).length;
-                    updatedReport.high_severity_count = (updatedReport.flagged_claims || []).filter(f => (f.severity || '').toLowerCase() === 'high').length;
-                }
-            }
-
-            // Save the updated body AND fact-check report in one API call
-            const savePayload = { body: body };
-            if (updatedReport) {
-                savePayload.fact_check_report = updatedReport;
-            }
+            // Show loading state on all fix buttons
+            fixes.forEach(f => {
+                const btn = document.getElementById('fcFixBtn_' + f.claim_index);
+                if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i>...'; }
+            });
 
             try {
-                const response = await fetch(API_URL + '/api/content/' + currentBlog.id, {
-                    method: 'PUT',
+                const response = await fetch(API_URL + '/api/content/blog/' + currentBlog.id + '/apply-fact-fixes', {
+                    method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + AUTH_TOKEN },
-                    body: JSON.stringify(savePayload)
+                    body: JSON.stringify({ fixes: fixes })
                 });
                 const data = await response.json();
-                if (response.ok) {
-                    currentBlog.body = body;
-                    currentBlog.seo_score = data.seo_score || currentBlog.seo_score;
-                    if (updatedReport) {
-                        currentBlog.fact_check_report = updatedReport;
-                        currentBlog.fact_check_score = updatedReport.accuracy_score;
-                    }
-                    const blogIdx = allBlogs.findIndex(b => b.id === currentBlog.id);
-                    if (blogIdx >= 0) {
-                        allBlogs[blogIdx].body = body;
-                        allBlogs[blogIdx].seo_score = currentBlog.seo_score;
-                        if (updatedReport) {
-                            allBlogs[blogIdx].fact_check_report = updatedReport;
-                            allBlogs[blogIdx].fact_check_score = updatedReport.accuracy_score;
-                        }
-                    }
-                    const bodyDisplay = document.getElementById('modalBody');
-                    if (bodyDisplay) bodyDisplay.innerHTML = DOMPurify.sanitize(body);
 
-                    // Update the fact-check summary display
+                if (response.ok && data.success) {
+                    // Update local state from server response
+                    const blog = data.blog;
+                    currentBlog.body = blog.body;
+                    currentBlog.seo_score = data.seo_score || blog.seo_score;
+                    currentBlog.fact_check_report = data.fact_check_report;
+                    currentBlog.fact_check_score = (data.fact_check_report || {}).accuracy_score;
+
+                    const blogIdx = allBlogs.findIndex(b => b.id === currentBlog.id);
+                    if (blogIdx >= 0) Object.assign(allBlogs[blogIdx], currentBlog);
+
+                    const bodyDisplay = document.getElementById('modalBody');
+                    if (bodyDisplay) bodyDisplay.innerHTML = DOMPurify.sanitize(blog.body || '');
+
+                    // Mark applied claims green, failed ones back to enabled
+                    const appliedSet = new Set((data.applied || []).map(a => a.index));
+                    fixes.forEach(f => {
+                        const claimEl = document.getElementById('fcClaim_' + f.claim_index);
+                        const fixBtn = document.getElementById('fcFixBtn_' + f.claim_index);
+                        const fixTextEl = document.getElementById('fcFixText_' + f.claim_index);
+
+                        if (appliedSet.has(f.claim_index)) {
+                            if (claimEl) {
+                                claimEl.classList.remove('border-red-500', 'bg-red-500/10', 'border-yellow-500', 'bg-yellow-500/10', 'border-gray-500', 'bg-gray-500/10');
+                                claimEl.classList.add('border-green-500', 'bg-green-500/10');
+                            }
+                            if (fixBtn) { fixBtn.innerHTML = '<i class="fas fa-check mr-1"></i>Applied'; fixBtn.classList.remove('bg-cyan-600', 'hover:bg-cyan-500'); fixBtn.classList.add('bg-green-600'); }
+                            if (fixTextEl) { fixTextEl.disabled = true; fixTextEl.classList.add('opacity-50'); }
+                        } else {
+                            if (fixBtn) { fixBtn.disabled = false; fixBtn.innerHTML = '<i class="fas fa-check mr-1"></i>Apply Fix'; }
+                        }
+                    });
+
                     _updateFactCheckSummary();
 
-                    let msg = appliedCount + ' fix' + (appliedCount > 1 ? 'es' : '') + ' applied';
-                    if (failedCount > 0) msg += ', ' + failedCount + ' could not be matched';
-                    showToast(msg, 'success');
+                    let msg = data.applied_count + ' fix' + (data.applied_count > 1 ? 'es' : '') + ' applied';
+                    if (data.failed_count > 0) msg += ', ' + data.failed_count + ' could not be matched';
+                    showToast(msg, data.failed_count > 0 ? 'warning' : 'success');
                 } else {
-                    throw new Error(data.error || 'Save failed');
+                    throw new Error(data.error || 'Server error');
                 }
             } catch (err) {
-                showToast('Failed to save fixes: ' + err.message, 'error');
+                showToast('Failed to apply fixes: ' + err.message, 'error');
+                // Re-enable all buttons
+                fixes.forEach(f => {
+                    const btn = document.getElementById('fcFixBtn_' + f.claim_index);
+                    if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-check mr-1"></i>Apply Fix'; }
+                });
             }
         }
 
