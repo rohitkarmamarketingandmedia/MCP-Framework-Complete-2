@@ -1865,6 +1865,79 @@ def get_blog_post(current_user, blog_id):
     return jsonify(blog.to_dict())
 
 
+@content_bp.route('/blog/<blog_id>/seo-debug', methods=['GET'])
+@token_required
+def seo_debug(current_user, blog_id):
+    """
+    Debug SEO score — shows full breakdown and body structure analysis.
+    GET /api/content/blog/{blog_id}/seo-debug
+    """
+    import json as _jmod
+    blog = DBBlogPost.query.get(blog_id)
+    if not blog:
+        return jsonify({'error': 'Blog post not found'}), 404
+    if not current_user.has_access_to_client(blog.client_id):
+        return jsonify({'error': 'Access denied'}), 403
+
+    body = blog.body or ''
+    client = DBClient.query.get(blog.client_id)
+    location = client.geo if client else ''
+    kw = blog.primary_keyword or ''
+
+    # Body structure analysis
+    h1_tags = re.findall(r'<h1[^>]*>(.*?)</h1>', body, re.IGNORECASE | re.DOTALL)
+    h2_tags = re.findall(r'<h2[^>]*>(.*?)</h2>', body, re.IGNORECASE | re.DOTALL)
+    h3_tags = re.findall(r'<h3[^>]*>(.*?)</h3>', body, re.IGNORECASE | re.DOTALL)
+    a_tags = re.findall(r'<a[^>]*href=["\']([^"\']*)["\'][^>]*>(.*?)</a>', body, re.IGNORECASE | re.DOTALL)
+    has_p_tags = bool(re.search(r'<p[^>]*>', body, re.IGNORECASE))
+    has_strong = bool(re.search(r'<strong[^>]*>', body, re.IGNORECASE))
+
+    # Run scoring
+    seo_result = seo_scoring_engine.score_content(
+        content={
+            'title': blog.title or '',
+            'meta_title': blog.meta_title or '',
+            'meta_description': blog.meta_description or '',
+            'h1': blog.title or '',
+            'body': body
+        },
+        target_keyword=kw,
+        location=location
+    )
+
+    # Stored internal links
+    stored_links = []
+    if blog.internal_links:
+        try:
+            stored_links = _jmod.loads(blog.internal_links) if isinstance(blog.internal_links, str) else blog.internal_links
+        except (ValueError, TypeError):
+            pass
+
+    return jsonify({
+        'blog_id': blog_id,
+        'keyword': kw,
+        'seo_score': seo_result.get('total_score', 0),
+        'body_analysis': {
+            'length': len(body),
+            'word_count': len(body.split()),
+            'has_p_tags': has_p_tags,
+            'has_strong_tags': has_strong,
+            'h1_count': len(h1_tags),
+            'h1_texts': [re.sub(r'<[^>]+>', '', h).strip() for h in h1_tags],
+            'h2_count': len(h2_tags),
+            'h2_texts': [re.sub(r'<[^>]+>', '', h).strip() for h in h2_tags],
+            'h3_count': len(h3_tags),
+            'h3_texts': [re.sub(r'<[^>]+>', '', h).strip() for h in h3_tags],
+            'a_tag_count': len(a_tags),
+            'a_tags': [{'href': href, 'text': re.sub(r'<[^>]+>', '', txt).strip()} for href, txt in a_tags[:20]],
+            'stored_links_count': len(stored_links),
+            'body_first_500': body[:500]
+        },
+        'factors': {k: {'score': v.get('score', 0), 'max': v.get('max', 0), 'message': v.get('message', '')} for k, v in seo_result.get('factors', {}).items()},
+        'recommendations': seo_result.get('recommendations', [])
+    })
+
+
 @content_bp.route('/blog/<blog_id>/fact-check', methods=['POST'])
 @token_required
 def run_fact_check(current_user, blog_id):
