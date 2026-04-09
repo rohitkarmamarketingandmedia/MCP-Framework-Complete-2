@@ -3051,6 +3051,8 @@ def smart_paste(current_user):
             blog.excerpt = parsed['excerpt']
         if parsed.get('target_city'):
             blog.target_city = parsed['target_city']
+        if parsed.get('faq_items'):
+            blog.faq_content = json.dumps(parsed['faq_items'])
 
         blog.updated_at = datetime.utcnow()
         from app.database import db as _db
@@ -3076,6 +3078,31 @@ def smart_paste(current_user):
         blog.tags = json.dumps(parsed.get('tags', []))
         blog.internal_links = json.dumps(parsed.get('internal_links', []))
         blog.schema_markup = json.dumps(parsed.get('schema_markup')) if parsed.get('schema_markup') else None
+
+        # FAQ content — store as JSON array of {question, answer} objects
+        faq_items = parsed.get('faq_items', [])
+        if faq_items:
+            blog.faq_content = json.dumps(faq_items)
+            # Also auto-generate FAQPage schema if not already provided
+            if not parsed.get('schema_markup'):
+                faq_schema = {
+                    "@context": "https://schema.org",
+                    "@type": "FAQPage",
+                    "mainEntity": [
+                        {
+                            "@type": "Question",
+                            "name": faq.get('question', ''),
+                            "acceptedAnswer": {
+                                "@type": "Answer",
+                                "text": faq.get('answer', '')
+                            }
+                        }
+                        for faq in faq_items
+                        if faq.get('question') and faq.get('answer')
+                    ]
+                }
+                blog.schema_markup = json.dumps(faq_schema)
+
         if parsed.get('target_city'):
             blog.target_city = parsed['target_city']
         blog.excerpt = parsed.get('excerpt', '')
@@ -3449,7 +3476,18 @@ def _parse_content_package(text: str) -> dict:
         logger.warning(f"Smart-paste: body too short ({len(body_text)} chars), not using. First 200: {repr(body_text[:200])}")
         result['body_warning'] = 'no_body' if len(body_text) < 10 else 'too_short'
 
-    # ---- STEP 8: Fallback title ----
+    # ---- STEP 8: Extract FAQs ----
+    # Look for FAQ Q&A pairs in the body text (before HTML conversion) or the original text
+    # Common formats:
+    #   Q: What is...?  A: Answer here.
+    #   What is...? Answer follows on same or next line.
+    #   Question line ending with ? followed by answer paragraph
+    faq_items = _extract_faqs_from_text(text)
+    if faq_items:
+        result['faq_items'] = faq_items
+        logger.info(f"Smart-paste: extracted {len(faq_items)} FAQ items")
+
+    # ---- STEP 9: Fallback title ----
     if not result.get('title') and not result.get('meta_title'):
         for line in lines:
             clean = line.strip().lstrip('#').strip()
@@ -3664,6 +3702,115 @@ def _inject_internal_links(body_html: str, links: list) -> str:
             logger.debug(f"Injected internal link: '{anchor}' → {url}")
 
     return body_html
+
+
+def _extract_faqs_from_text(text: str) -> list:
+    """
+    Extract FAQ question/answer pairs from pasted content.
+
+    Detects common FAQ formats:
+    1. Same-line: "Question here? Answer follows on same line."
+    2. Multi-line: Question? (newline) Answer paragraph
+    3. Q: Question? A: Answer
+    4. FAQPage schema JSON with mainEntity array
+    """
+    faq_items = []
+
+    # Strategy 1: Find a "Frequently Asked Questions" / "FAQ" section
+    faq_section_match = re.search(
+        r'(?:Frequently\s+Asked\s+Questions|FAQ\s*(?:Section|s)?)\s*\n([\s\S]+?)(?:\n={3,}|\n-{3,}|\nSCHEMA|\nCLIENT\s+SUMMARY|\nWhy\s+\w+\s+(?:Homeowners?|Clients?|Customers?)\s+Choose|\Z)',
+        text, re.IGNORECASE
+    )
+
+    if faq_section_match:
+        faq_text = faq_section_match.group(1).strip()
+        lines = faq_text.split('\n')
+
+        current_question = None
+        current_answer_lines = []
+
+        for line in lines:
+            stripped = line.strip()
+            if not stripped:
+                continue
+
+            # Format A: Same-line Q&A — "Question here? Answer starts with capital letter."
+            same_line_match = re.match(r'^(.{15,}?\?)\s+([A-Z].{20,})$', stripped)
+            if same_line_match:
+                # Save any previous Q&A pair first
+                if current_question and current_answer_lines:
+                    answer = ' '.join(current_answer_lines).strip()
+                    if len(answer) > 20:
+                        faq_items.append({
+                            'question': current_question,
+                            'answer': answer
+                        })
+                    current_question = None
+                    current_answer_lines = []
+
+                q = same_line_match.group(1).strip()
+                a = same_line_match.group(2).strip()
+                if len(q.split()) >= 4:
+                    faq_items.append({'question': q, 'answer': a})
+                continue
+
+            # Format B: Question-only line (ends with ?)
+            is_question = stripped.endswith('?') and len(stripped.split()) >= 4 and len(stripped) < 200
+
+            if is_question:
+                # Save previous Q&A pair
+                if current_question and current_answer_lines:
+                    answer = ' '.join(current_answer_lines).strip()
+                    if len(answer) > 20:
+                        faq_items.append({
+                            'question': current_question,
+                            'answer': answer
+                        })
+                current_question = stripped
+                current_answer_lines = []
+            else:
+                # This is answer text (continuation)
+                if current_question:
+                    current_answer_lines.append(stripped)
+
+        # Don't forget the last Q&A pair
+        if current_question and current_answer_lines:
+            answer = ' '.join(current_answer_lines).strip()
+            if len(answer) > 20:
+                faq_items.append({
+                    'question': current_question,
+                    'answer': answer
+                })
+
+    # Strategy 2: If no FAQ section found, try Q:/A: format
+    if not faq_items:
+        qa_matches = re.findall(
+            r'(?:^|\n)\s*Q\s*[:.\-)]\s*(.+?\?)\s*\n\s*A\s*[:.\-)]\s*(.+?)(?=\n\s*Q\s*[:.\-)]|\n\n|\Z)',
+            text, re.IGNORECASE | re.DOTALL
+        )
+        for q, a in qa_matches:
+            q_clean = q.strip()
+            a_clean = ' '.join(a.strip().split())
+            if len(q_clean) > 10 and len(a_clean) > 20:
+                faq_items.append({'question': q_clean, 'answer': a_clean})
+
+    # Strategy 3: Extract from FAQPage schema JSON if present
+    if not faq_items:
+        schema_match = re.search(r'"@type"\s*:\s*"FAQPage"[\s\S]*?"mainEntity"\s*:\s*\[([\s\S]*?)\]', text)
+        if schema_match:
+            try:
+                entities_text = '[' + schema_match.group(1) + ']'
+                entities = json.loads(entities_text)
+                for entity in entities:
+                    q = entity.get('name', '')
+                    accepted = entity.get('acceptedAnswer', {})
+                    a = accepted.get('text', '') if isinstance(accepted, dict) else ''
+                    if q and a:
+                        faq_items.append({'question': q, 'answer': a})
+            except (json.JSONDecodeError, KeyError):
+                pass
+
+    return faq_items
 
 
 # ==========================================
