@@ -1342,8 +1342,18 @@ def manual_create_blog(current_user):
         return jsonify({'error': 'Access denied'}), 403
     
     from app.models.db_models import DBBlogPost
+    from app.services.html_sanitizer import sanitize_html_for_seo, ensure_h1, fix_phone_links
     import json
-    
+
+    # Sanitize HTML: strip framework CSS classes, fix structure for SEO
+    body = sanitize_html_for_seo(body)
+    body = ensure_h1(body, title)
+
+    # Fix phone link inconsistencies
+    client_obj = DBClient.query.get(client_id)
+    if client_obj and getattr(client_obj, 'phone', None):
+        body = fix_phone_links(body, client_obj.phone)
+
     # Create the blog post
     blog_post = DBBlogPost(client_id=client_id, title=title)
     blog_post.body = body
@@ -1795,9 +1805,20 @@ def update_blog_post(current_user, blog_id):
             blog.faq_content = val
         updated_fields.append('faq_content')
 
+    # Sanitize body HTML if body was updated
+    if 'body' in data and data['body']:
+        from app.services.html_sanitizer import sanitize_html_for_seo, ensure_h1, fix_phone_links
+        sanitized = sanitize_html_for_seo(data['body'])
+        sanitized = ensure_h1(sanitized, blog.title or '')
+        # Fix phone links using client's phone
+        client_for_phone = DBClient.query.get(blog.client_id)
+        if client_for_phone and getattr(client_for_phone, 'phone', None):
+            sanitized = fix_phone_links(sanitized, client_for_phone.phone)
+        blog.body = sanitized
+
     # Recalculate word count if body changed
     if 'body' in data:
-        blog.word_count = len((data['body'] or '').split())
+        blog.word_count = len((blog.body or '').split())
 
     # Auto-extract FAQs from body if faq_content is still empty
     if 'body' in data and not blog.faq_content:
@@ -3183,6 +3204,18 @@ def smart_paste(current_user):
             'paste_newlines': paste_text.count('\n'),
             'paste_first_500': paste_text[:500]
         })
+
+    # Sanitize parsed body HTML for SEO (applies to both create and update)
+    from app.services.html_sanitizer import sanitize_html_for_seo, ensure_h1, fix_phone_links
+    if parsed.get('body'):
+        parsed['body'] = sanitize_html_for_seo(parsed['body'])
+        post_title = parsed.get('title') or parsed.get('meta_title') or ''
+        if post_title:
+            parsed['body'] = ensure_h1(parsed['body'], post_title)
+        # Fix phone links
+        sp_client = DBClient.query.get(client_id)
+        if sp_client and getattr(sp_client, 'phone', None):
+            parsed['body'] = fix_phone_links(parsed['body'], sp_client.phone)
 
     if blog_id:
         # Update existing blog post with parsed fields

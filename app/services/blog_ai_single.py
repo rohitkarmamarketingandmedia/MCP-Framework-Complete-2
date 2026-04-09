@@ -1988,6 +1988,10 @@ OUTPUT JSON:"""
         # Auto-link phone numbers and emails that aren't already inside <a> tags
         body = self._auto_link_phone_email(body)
 
+        # Strip framework CSS classes, inline styles, and data attributes for SEO
+        from app.services.html_sanitizer import sanitize_html_for_seo
+        body = sanitize_html_for_seo(body)
+
         return body.strip()
 
     def _auto_link_phone_email(self, html: str) -> str:

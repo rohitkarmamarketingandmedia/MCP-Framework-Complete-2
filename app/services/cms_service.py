@@ -77,6 +77,12 @@ class CMSService:
         }
         
         try:
+            # Final SEO sanitization before publishing — safety net
+            from app.services.html_sanitizer import sanitize_html_for_seo, ensure_h1
+            body = sanitize_html_for_seo(body)
+            if title:
+                body = ensure_h1(body, title)
+
             # Prepare post data
             post_data = {
                 'title': title,
