@@ -1445,6 +1445,24 @@ def update_content(current_user, content_id):
         else:
             content.scheduled_for = None
     
+    # Handle faq_content if provided
+    if 'faq_content' in data:
+        val = data['faq_content']
+        if isinstance(val, list):
+            content.faq_content = json.dumps(val)
+        elif isinstance(val, str):
+            content.faq_content = val
+
+    # Auto-extract FAQs from body if faq_content is still empty
+    if 'body' in data and not content.faq_content:
+        body_text = data['body'] or ''
+        plain_text = re.sub(r'<[^>]+>', '\n', body_text)
+        plain_text = re.sub(r'\n{3,}', '\n\n', plain_text)
+        extracted_faqs = _extract_faqs_from_text(plain_text)
+        if extracted_faqs:
+            content.faq_content = json.dumps(extracted_faqs)
+            logger.info(f"Auto-extracted {len(extracted_faqs)} FAQs from body for content {content_id}")
+
     # Recalculate SEO score if body or title changed
     if 'body' in data or 'title' in data or 'meta_title' in data or 'meta_description' in data:
         try:
@@ -1706,18 +1724,45 @@ def update_blog_post(current_user, blog_id):
     updatable_fields = [
         'title', 'body', 'meta_title', 'meta_description',
         'featured_image_url', 'status', 'primary_keyword',
-        'slug', 'excerpt'
+        'slug', 'excerpt', 'tags', 'secondary_keywords',
+        'internal_links', 'target_city'
     ]
-    
+
     updated_fields = []
     for field in updatable_fields:
         if field in data:
-            setattr(blog, field, data[field])
+            val = data[field]
+            # JSON-encode list/dict fields
+            if field in ('tags', 'secondary_keywords', 'internal_links') and isinstance(val, (list, dict)):
+                val = json.dumps(val)
+            setattr(blog, field, val)
             updated_fields.append(field)
+
+    # Handle faq_content — accept direct JSON or extract from body
+    if 'faq_content' in data:
+        val = data['faq_content']
+        if isinstance(val, list):
+            blog.faq_content = json.dumps(val)
+        elif isinstance(val, str):
+            blog.faq_content = val
+        updated_fields.append('faq_content')
 
     # Recalculate word count if body changed
     if 'body' in data:
         blog.word_count = len((data['body'] or '').split())
+
+    # Auto-extract FAQs from body if faq_content is still empty
+    if 'body' in data and not blog.faq_content:
+        body_text = data['body'] or ''
+        # Strip HTML tags to get plain text for FAQ extraction
+        plain_text = re.sub(r'<[^>]+>', '\n', body_text)
+        plain_text = re.sub(r'\n{3,}', '\n\n', plain_text)
+        extracted_faqs = _extract_faqs_from_text(plain_text)
+        if extracted_faqs:
+            blog.faq_content = json.dumps(extracted_faqs)
+            if 'faq_content' not in updated_fields:
+                updated_fields.append('faq_content')
+            logger.info(f"Auto-extracted {len(extracted_faqs)} FAQs from body for blog {blog_id}")
 
     # Recalculate SEO score if content fields changed
     content_changed = any(f in updated_fields for f in ['body', 'title', 'meta_title', 'meta_description', 'primary_keyword'])

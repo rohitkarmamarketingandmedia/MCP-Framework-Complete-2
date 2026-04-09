@@ -13511,19 +13511,38 @@
             const flagged = report.flagged_claims || [];
             if (flagged.length > 0) {
                 document.getElementById('factCheckFlagged').classList.remove('hidden');
-                flaggedList.innerHTML = flagged.map(f => {
-                    const sevColor = f.severity === 'high' ? 'border-red-500 bg-red-500/10' : 
-                                     f.severity === 'medium' ? 'border-yellow-500 bg-yellow-500/10' : 
+                // Add "Apply All Fixes" button at top
+                let applyAllBtn = `<div class="flex justify-end mb-2">
+                    <button onclick="applyAllFactCheckFixes()" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-cyan-600 hover:bg-cyan-500 text-white transition-colors">
+                        <i class="fas fa-magic mr-1"></i>Apply All Fixes
+                    </button>
+                </div>`;
+                flaggedList.innerHTML = applyAllBtn + flagged.map((f, idx) => {
+                    const sevColor = f.severity === 'high' ? 'border-red-500 bg-red-500/10' :
+                                     f.severity === 'medium' ? 'border-yellow-500 bg-yellow-500/10' :
                                      'border-gray-500 bg-gray-500/10';
-                    const sevIcon = f.severity === 'high' ? 'text-red-400' : 
+                    const sevIcon = f.severity === 'high' ? 'text-red-400' :
                                     f.severity === 'medium' ? 'text-yellow-400' : 'text-gray-400';
-                    return `<div class="p-3 rounded-lg border-l-4 ${sevColor}">
+                    const suggestionHtml = f.suggestion ? `
+                        <div class="mt-2 space-y-1.5">
+                            <label class="text-xs text-cyan-400 font-medium"><i class="fas fa-lightbulb mr-1"></i>Suggested Fix:</label>
+                            <textarea id="fcFixText_${idx}" rows="2" class="w-full text-xs bg-gray-800/80 text-cyan-200 border border-cyan-700/40 rounded-md px-2 py-1.5 resize-y focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500/30">${escapeHtml(f.suggestion)}</textarea>
+                            <div class="flex gap-2">
+                                <button onclick="applyFactCheckFix(${idx})" id="fcFixBtn_${idx}" class="px-2.5 py-1 rounded text-xs font-semibold bg-cyan-600 hover:bg-cyan-500 text-white transition-colors">
+                                    <i class="fas fa-check mr-1"></i>Apply Fix
+                                </button>
+                                <button onclick="skipFactCheckFix(${idx})" class="px-2.5 py-1 rounded text-xs font-semibold bg-gray-600 hover:bg-gray-500 text-gray-300 transition-colors">
+                                    <i class="fas fa-forward mr-1"></i>Skip
+                                </button>
+                            </div>
+                        </div>` : '';
+                    return `<div class="p-3 rounded-lg border-l-4 ${sevColor}" id="fcClaim_${idx}" data-claim="${escapeHtml(f.claim || '')}" data-original-claim="${btoa(unescape(encodeURIComponent(f.claim || '')))}">
                         <div class="flex items-start gap-2">
                             <i class="fas fa-exclamation-triangle ${sevIcon} mt-1 flex-shrink-0"></i>
                             <div class="flex-1 min-w-0">
                                 <p class="text-sm text-white font-medium">${escapeHtml(f.claim || '')}</p>
                                 <p class="text-xs text-gray-400 mt-1">${escapeHtml(f.issue || '')}</p>
-                                ${f.suggestion ? `<p class="text-xs text-cyan-300 mt-1"><i class="fas fa-lightbulb mr-1"></i>${escapeHtml(f.suggestion)}</p>` : ''}
+                                ${suggestionHtml}
                             </div>
                             <span class="px-2 py-0.5 rounded text-xs font-bold ${f.severity === 'high' ? 'bg-red-500/30 text-red-300' : f.severity === 'medium' ? 'bg-yellow-500/30 text-yellow-300' : 'bg-gray-500/30 text-gray-300'}">${f.severity || 'low'}</span>
                         </div>
@@ -13613,6 +13632,209 @@
             } else {
                 details.classList.add('hidden');
                 toggle.style.transform = '';
+            }
+        }
+
+        // ---- Fact-Check Fix Application ----
+
+        async function applyFactCheckFix(idx) {
+            if (!currentBlog || !currentBlog.id) return;
+
+            const claimEl = document.getElementById('fcClaim_' + idx);
+            const fixTextEl = document.getElementById('fcFixText_' + idx);
+            const fixBtn = document.getElementById('fcFixBtn_' + idx);
+            if (!claimEl || !fixTextEl) return;
+
+            // Get the original claim text and the replacement
+            const originalClaim = decodeURIComponent(escape(atob(claimEl.dataset.originalClaim)));
+            const replacement = fixTextEl.value.trim();
+
+            if (!replacement) {
+                showToast('Please enter replacement text', 'error');
+                return;
+            }
+
+            // Strip "Change to: " prefix if present
+            let cleanReplacement = replacement.replace(/^Change\s+to:\s*/i, '').replace(/^['"]|['"]$/g, '');
+
+            // Find and replace in the blog body
+            let body = currentBlog.body || '';
+            let found = false;
+
+            // Try exact match first
+            if (body.includes(originalClaim)) {
+                body = body.replace(originalClaim, cleanReplacement);
+                found = true;
+            } else {
+                // Try matching inside HTML tags (claim might be split across <p>, <strong> etc.)
+                const plainBody = body.replace(/<[^>]+>/g, '');
+                if (plainBody.includes(originalClaim)) {
+                    // Find the claim position in plain text, then locate in HTML
+                    const escapedClaim = originalClaim.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                    // Build a regex that allows HTML tags between words
+                    const words = originalClaim.split(/\s+/);
+                    if (words.length >= 3) {
+                        const flexPattern = words.map(w => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('(?:\\s*(?:<[^>]*>)?\\s*)');
+                        const flexRe = new RegExp(flexPattern, 'i');
+                        const match = body.match(flexRe);
+                        if (match) {
+                            body = body.replace(match[0], cleanReplacement);
+                            found = true;
+                        }
+                    }
+                }
+            }
+
+            if (!found) {
+                showToast('Could not find claim text in article body. You may need to edit manually.', 'error');
+                return;
+            }
+
+            // Save the updated body
+            fixBtn.disabled = true;
+            fixBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i>Applying...';
+
+            try {
+                const response = await fetch(API_URL + '/api/content/' + currentBlog.id, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + AUTH_TOKEN },
+                    body: JSON.stringify({ body: body })
+                });
+                const data = await response.json();
+                if (response.ok) {
+                    // Update local state
+                    currentBlog.body = body;
+                    currentBlog.seo_score = data.seo_score || currentBlog.seo_score;
+                    const blogIdx = allBlogs.findIndex(b => b.id === currentBlog.id);
+                    if (blogIdx >= 0) {
+                        allBlogs[blogIdx].body = body;
+                        allBlogs[blogIdx].seo_score = currentBlog.seo_score;
+                    }
+
+                    // Update body display if modal is showing it
+                    const bodyDisplay = document.getElementById('modalBody');
+                    if (bodyDisplay) bodyDisplay.innerHTML = DOMPurify.sanitize(body);
+
+                    // Mark this claim as applied
+                    claimEl.classList.remove('border-red-500', 'bg-red-500/10', 'border-yellow-500', 'bg-yellow-500/10', 'border-gray-500', 'bg-gray-500/10');
+                    claimEl.classList.add('border-green-500', 'bg-green-500/10');
+                    fixBtn.innerHTML = '<i class="fas fa-check mr-1"></i>Applied';
+                    fixBtn.classList.remove('bg-cyan-600', 'hover:bg-cyan-500');
+                    fixBtn.classList.add('bg-green-600');
+                    fixTextEl.disabled = true;
+                    fixTextEl.classList.add('opacity-50');
+
+                    showToast('Fix applied successfully', 'success');
+                } else {
+                    throw new Error(data.error || 'Save failed');
+                }
+            } catch (err) {
+                showToast('Failed to apply fix: ' + err.message, 'error');
+                fixBtn.disabled = false;
+                fixBtn.innerHTML = '<i class="fas fa-check mr-1"></i>Apply Fix';
+            }
+        }
+
+        function skipFactCheckFix(idx) {
+            const claimEl = document.getElementById('fcClaim_' + idx);
+            if (!claimEl) return;
+            claimEl.classList.remove('border-red-500', 'bg-red-500/10', 'border-yellow-500', 'bg-yellow-500/10');
+            claimEl.classList.add('border-gray-600', 'bg-gray-600/10', 'opacity-50');
+            const fixBtn = document.getElementById('fcFixBtn_' + idx);
+            if (fixBtn) {
+                fixBtn.innerHTML = '<i class="fas fa-forward mr-1"></i>Skipped';
+                fixBtn.disabled = true;
+                fixBtn.classList.remove('bg-cyan-600');
+                fixBtn.classList.add('bg-gray-600');
+            }
+        }
+
+        async function applyAllFactCheckFixes() {
+            if (!currentBlog || !currentBlog.fact_check_report) return;
+            const flagged = currentBlog.fact_check_report.flagged_claims || [];
+            if (flagged.length === 0) return;
+
+            let body = currentBlog.body || '';
+            let appliedCount = 0;
+            let failedCount = 0;
+
+            for (let idx = 0; idx < flagged.length; idx++) {
+                const claimEl = document.getElementById('fcClaim_' + idx);
+                const fixTextEl = document.getElementById('fcFixText_' + idx);
+                const fixBtn = document.getElementById('fcFixBtn_' + idx);
+
+                // Skip if already applied or skipped
+                if (!fixTextEl || fixTextEl.disabled || !fixBtn || fixBtn.disabled) continue;
+                if (!fixTextEl.value.trim()) continue;
+
+                const originalClaim = decodeURIComponent(escape(atob(claimEl.dataset.originalClaim)));
+                let cleanReplacement = fixTextEl.value.trim().replace(/^Change\s+to:\s*/i, '').replace(/^['"]|['"]$/g, '');
+
+                let found = false;
+                if (body.includes(originalClaim)) {
+                    body = body.replace(originalClaim, cleanReplacement);
+                    found = true;
+                } else {
+                    const words = originalClaim.split(/\s+/);
+                    if (words.length >= 3) {
+                        const flexPattern = words.map(w => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('(?:\\s*(?:<[^>]*>)?\\s*)');
+                        const flexRe = new RegExp(flexPattern, 'i');
+                        const match = body.match(flexRe);
+                        if (match) {
+                            body = body.replace(match[0], cleanReplacement);
+                            found = true;
+                        }
+                    }
+                }
+
+                if (found) {
+                    // Visually mark as applied
+                    claimEl.classList.remove('border-red-500', 'bg-red-500/10', 'border-yellow-500', 'bg-yellow-500/10', 'border-gray-500', 'bg-gray-500/10');
+                    claimEl.classList.add('border-green-500', 'bg-green-500/10');
+                    fixBtn.innerHTML = '<i class="fas fa-check mr-1"></i>Applied';
+                    fixBtn.disabled = true;
+                    fixBtn.classList.remove('bg-cyan-600', 'hover:bg-cyan-500');
+                    fixBtn.classList.add('bg-green-600');
+                    fixTextEl.disabled = true;
+                    fixTextEl.classList.add('opacity-50');
+                    appliedCount++;
+                } else {
+                    failedCount++;
+                }
+            }
+
+            if (appliedCount === 0) {
+                showToast('No fixes could be applied — claims not found in body text', 'error');
+                return;
+            }
+
+            // Save the updated body in one API call
+            try {
+                const response = await fetch(API_URL + '/api/content/' + currentBlog.id, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + AUTH_TOKEN },
+                    body: JSON.stringify({ body: body })
+                });
+                const data = await response.json();
+                if (response.ok) {
+                    currentBlog.body = body;
+                    currentBlog.seo_score = data.seo_score || currentBlog.seo_score;
+                    const blogIdx = allBlogs.findIndex(b => b.id === currentBlog.id);
+                    if (blogIdx >= 0) {
+                        allBlogs[blogIdx].body = body;
+                        allBlogs[blogIdx].seo_score = currentBlog.seo_score;
+                    }
+                    const bodyDisplay = document.getElementById('modalBody');
+                    if (bodyDisplay) bodyDisplay.innerHTML = DOMPurify.sanitize(body);
+
+                    let msg = appliedCount + ' fix' + (appliedCount > 1 ? 'es' : '') + ' applied';
+                    if (failedCount > 0) msg += ', ' + failedCount + ' could not be matched';
+                    showToast(msg, 'success');
+                } else {
+                    throw new Error(data.error || 'Save failed');
+                }
+            } catch (err) {
+                showToast('Failed to save fixes: ' + err.message, 'error');
             }
         }
 
