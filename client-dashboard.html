@@ -4175,6 +4175,9 @@
                         <button onclick="loadLeads()" class="px-4 py-2 glass text-white rounded-lg text-sm font-medium hover:bg-white/10 transition">
                             <i class="fas fa-sync-alt mr-2"></i>Refresh All
                         </button>
+                        <button onclick="downloadLeadReport()" class="px-4 py-2 bg-gradient-to-r from-indigo-500 to-purple-500 text-white rounded-lg text-sm font-medium hover:opacity-90 transition">
+                            <i class="fas fa-file-pdf mr-2"></i>Download Report
+                        </button>
                         <div class="ml-auto flex items-center gap-2">
                             <select id="leadSourceFilter" onchange="loadLeads()" class="bg-white/10 border border-white/20 rounded-lg text-white text-sm px-3 py-2 focus:outline-none">
                                 <option value="">All Sources</option>
@@ -8779,7 +8782,9 @@
                                 voicemail: call.voicemail,
                                 first_call: call.first_call,
                                 recording_url: call.recording_url,
+                                recording_mp3: call.recording_mp3 || '',
                                 has_transcript: call.has_transcript,
+                                transcript: call.transcript || '',
                                 transcript_preview: call.transcript_preview || '',
                                 lead_quality: call.lead_quality || (call.answered && call.duration > 120 ? 'good' : (call.answered ? 'ok' : 'missed')),
                                 booked: false
@@ -8924,14 +8929,26 @@
                             <div class="text-sm ${lead.answered ? 'text-green-400' : 'text-red-400'}">${lead.duration_formatted || ''}</div>
                         </div>
                     </div>
-                    ${lead.recording_url ? `<div id="${uid}_audio" class="hidden mt-2"><audio controls class="w-full h-8" style="max-height:32px"><source src="${lead.recording_url}" type="audio/mpeg"></audio></div>` : ''}
+                    ${lead.recording_url ? `
+                        <div id="${uid}_audio" class="hidden mt-2">
+                            ${lead.recording_mp3 ?
+                                `<audio controls class="w-full h-8" style="max-height:32px"><source src="${lead.recording_mp3}" type="audio/mpeg"></audio>` :
+                                `<iframe src="${lead.recording_url}" class="w-full rounded" style="height:65px;border:none;" allow="autoplay"></iframe>`
+                            }
+                        </div>
+                    ` : ''}
                     ${lead.has_transcript ? `
                         <div id="${uid}_transcript" class="hidden mt-2 p-3 bg-black/20 rounded-lg">
                             <div class="flex justify-between items-center mb-2">
                                 <span class="text-xs text-gray-500 font-medium">Transcript</span>
-                                <button onclick="copyTranscript('${uid}_transcript_text')" class="text-xs text-purple-400 hover:text-purple-300"><i class="fas fa-copy mr-1"></i>Copy</button>
+                                <div class="flex gap-2">
+                                    ${lead.transcript && lead.transcript.length > 150 ? `<button onclick="toggleFullTranscript('${uid}')" id="${uid}_expand_btn" class="text-xs text-blue-400 hover:text-blue-300"><i class="fas fa-expand-alt mr-1"></i>Full Transcript</button>` : ''}
+                                    <button onclick="copyTranscript('${uid}_transcript_text')" class="text-xs text-purple-400 hover:text-purple-300"><i class="fas fa-copy mr-1"></i>Copy</button>
+                                </div>
                             </div>
-                            <div id="${uid}_transcript_text" class="text-sm text-gray-300 max-h-40 overflow-y-auto whitespace-pre-wrap">${lead.transcript_preview || 'Transcript available'}</div>
+                            <div id="${uid}_transcript_preview" class="text-sm text-gray-300 whitespace-pre-wrap">${lead.transcript_preview || 'Transcript available'}</div>
+                            <div id="${uid}_transcript_full" class="hidden text-sm text-gray-300 max-h-96 overflow-y-auto whitespace-pre-wrap">${(lead.transcript || lead.transcript_preview || '').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>
+                            <div id="${uid}_transcript_text" class="hidden">${(lead.transcript || lead.transcript_preview || '').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>
                         </div>
                     ` : ''}
                 </div>
@@ -8996,6 +9013,32 @@
                 filter.value = source === 'all' ? '' : source;
             }
             loadLeads();
+        }
+
+        function downloadLeadReport() {
+            if (!currentClient) { showToast('Select a client first', 'error'); return; }
+            const days = document.getElementById('leadDaysFilter')?.value || '30';
+            const url = `${API_URL}/api/leads/report/pdf?client_id=${currentClient.id}&days=${days}`;
+            // Use fetch so the auth token is included
+            fetch(url, { headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` } })
+                .then(resp => {
+                    if (!resp.ok) throw new Error('Report generation failed');
+                    return resp.blob();
+                })
+                .then(blob => {
+                    const a = document.createElement('a');
+                    a.href = URL.createObjectURL(blob);
+                    const safeName = (currentClient.business_name || 'client').replace(/\s+/g, '_');
+                    a.download = `Lead_Activity_Report_${safeName}.pdf`;
+                    document.body.appendChild(a);
+                    a.click();
+                    a.remove();
+                    showToast('Report downloaded!', 'success');
+                })
+                .catch(err => {
+                    console.error('Report download failed:', err);
+                    showToast('Failed to generate report', 'error');
+                });
         }
 
         async function syncWufooLeads() {
@@ -10245,7 +10288,7 @@
                                 </div>
                             </div>
                             ${call.has_transcript ? `
-                                <div id="callTranscript${idx}" class="hidden mt-3 p-3 bg-black/20 rounded-lg text-sm text-gray-300 max-h-48 overflow-y-auto whitespace-pre-wrap">${call.transcript || call.transcript_preview || 'No transcript text'}</div>
+                                <div id="callTranscript${idx}" class="hidden mt-3 p-3 bg-black/20 rounded-lg text-sm text-gray-300 max-h-96 overflow-y-auto whitespace-pre-wrap">${call.transcript || call.transcript_preview || 'No transcript text'}</div>
                             ` : ''}
                             <div class="flex items-center gap-3 mt-2 flex-wrap">
                                 ${call.recording_url ? `<button onclick="event.stopPropagation(); toggleAudioPlayer('callAudio${idx}', '${call.recording_url}')" class="text-xs text-blue-400 hover:text-blue-300 transition"><i class="fas fa-play mr-1"></i>Recording</button>` : ''}
@@ -10253,7 +10296,14 @@
                                 <span class="text-xs text-gray-500">${call.source || 'Direct'}</span>
                                 ${call.tracking_number ? `<span class="text-xs text-gray-600">Tracking: ${call.tracking_number}</span>` : ''}
                             </div>
-                            ${call.recording_url ? `<div id="callAudio${idx}" class="hidden mt-2"><audio controls class="w-full h-8" style="max-height:32px"><source src="${call.recording_url}" type="audio/mpeg">Your browser does not support audio.</audio></div>` : ''}
+                            ${call.recording_url ? `
+                                <div id="callAudio${idx}" class="hidden mt-2">
+                                    ${call.recording_mp3 ?
+                                        `<audio controls class="w-full h-8" style="max-height:32px"><source src="${call.recording_mp3}" type="audio/mpeg"></audio>` :
+                                        `<iframe src="${call.recording_url}" class="w-full rounded" style="height:65px;border:none;" allow="autoplay"></iframe>`
+                                    }
+                                </div>
+                            ` : ''}
                         </div>
                     `;
                 }).join('');
@@ -10742,6 +10792,24 @@
         function toggleLeadTranscript(id) {
             const el = document.getElementById(id);
             if (el) el.classList.toggle('hidden');
+        }
+
+        function toggleFullTranscript(uid) {
+            const preview = document.getElementById(uid + '_transcript_preview');
+            const full = document.getElementById(uid + '_transcript_full');
+            const btn = document.getElementById(uid + '_expand_btn');
+            if (!preview || !full) return;
+
+            const isExpanded = !full.classList.contains('hidden');
+            if (isExpanded) {
+                full.classList.add('hidden');
+                preview.classList.remove('hidden');
+                if (btn) btn.innerHTML = '<i class="fas fa-expand-alt mr-1"></i>Full Transcript';
+            } else {
+                preview.classList.add('hidden');
+                full.classList.remove('hidden');
+                if (btn) btn.innerHTML = '<i class="fas fa-compress-alt mr-1"></i>Collapse';
+            }
         }
 
         function getCallPeakHours(calls) {

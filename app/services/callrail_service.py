@@ -484,8 +484,9 @@ class CallRailService:
                 'voicemail': call.get('voicemail', False),
                 'first_call': call.get('first_call', False),
                 'source': call.get('source', 'Direct'),
-                # Use recording_player (has access key) instead of recording (requires auth)
+                # recording_player = hosted player page (iframe), recording = direct MP3 (may need auth)
                 'recording_url': call.get('recording_player') or call.get('recording'),
+                'recording_mp3': call.get('recording'),
                 'has_transcript': bool(full_transcript),
                 'transcript': full_transcript,  # Full transcript for analysis
                 'transcript_preview': self._get_transcript_preview(call),  # Short preview for UI

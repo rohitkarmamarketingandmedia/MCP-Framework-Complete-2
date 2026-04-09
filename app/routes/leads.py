@@ -370,6 +370,80 @@ def get_lead_trends(current_user):
 
 
 # ==========================================
+# Lead Activity Report — PDF Download
+# ==========================================
+
+@leads_bp.route('/report/pdf', methods=['GET'])
+@token_required
+def download_lead_report_pdf(current_user):
+    """
+    GET /api/leads/report/pdf?client_id=xxx&days=30
+    Returns a downloadable Lead Activity Report PDF.
+    """
+    from flask import Response
+    import logging
+    logger = logging.getLogger(__name__)
+
+    client_id = request.args.get('client_id')
+    if not client_id:
+        return jsonify({'error': 'client_id is required'}), 400
+
+    if not current_user.has_access_to_client(client_id):
+        return jsonify({'error': 'Access denied'}), 403
+
+    days = request.args.get('days', 30, type=int)
+    days = max(1, min(days, 365))
+
+    # Fetch client
+    client = DBClient.query.get(client_id)
+    if not client:
+        return jsonify({'error': 'Client not found'}), 404
+
+    client_dict = {
+        'business_name': client.business_name,
+        'industry': client.industry or '',
+        'geo': client.geo or '',
+    }
+
+    # Fetch leads
+    from sqlalchemy import text
+    cutoff = datetime.utcnow() - __import__('datetime').timedelta(days=days)
+    result = db.session.execute(
+        text("""SELECT id, name, email, phone, source, status, created_at,
+                message, source_detail, service_requested,
+                notes, estimated_value, landing_page
+                FROM leads WHERE client_id = :cid AND created_at >= :cutoff
+                ORDER BY created_at DESC LIMIT 500"""),
+        {'cid': client_id, 'cutoff': cutoff}
+    )
+
+    leads = []
+    for row in result:
+        leads.append({
+            'id': row[0], 'name': row[1], 'email': row[2], 'phone': row[3],
+            'source': row[4], 'status': row[5],
+            'created_at': row[6].isoformat() if row[6] else None,
+            'message': row[7], 'source_detail': row[8],
+            'service_requested': row[9], 'notes': row[10],
+            'estimated_value': row[11], 'landing_page': row[12],
+        })
+
+    logger.info(f"Generating Lead Activity Report PDF for {client.business_name}: {len(leads)} leads, {days} days")
+
+    from app.services.lead_report_pdf import generate_lead_report_pdf
+    pdf_bytes = generate_lead_report_pdf(client_dict, leads, days=days)
+
+    safe_name = (client.business_name or 'client').replace(' ', '_')
+    filename = f'Lead_Activity_Report_{safe_name}_{datetime.utcnow().strftime("%Y%m%d")}.pdf'
+
+    return Response(
+        pdf_bytes,
+        mimetype='application/pdf',
+        headers={'Content-Disposition': f'attachment; filename="{filename}"'}
+    )
+
+
+# ==========================================
 # Form Builder
 # ==========================================
 
