@@ -13833,7 +13833,11 @@
                     _updateFactCheckSummary();
 
                     let msg = data.applied_count + ' fix' + (data.applied_count > 1 ? 'es' : '') + ' applied';
-                    if (data.failed_count > 0) msg += ', ' + data.failed_count + ' could not be matched';
+                    if (data.failed_count > 0) {
+                        msg += ', ' + data.failed_count + ' could not be matched';
+                        // Log diagnostic data for debugging
+                        console.error('[FACT-FIX DEBUG] Failed fixes:', JSON.stringify(data.failed, null, 2));
+                    }
                     showToast(msg, data.failed_count > 0 ? 'warning' : 'success');
                 } else {
                     throw new Error(data.error || 'Server error');

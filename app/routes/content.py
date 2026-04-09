@@ -2059,64 +2059,74 @@ def _find_and_replace_claim(body: str, claim_text: str, replacement: str) -> tup
     """
     Robustly find a fact-check claim in blog HTML body and replace it.
     Returns (new_body, found_bool).
-    Uses multiple strategies with increasing fuzziness.
+
+    Uses 6 strategies with increasing fuzziness, culminating in difflib
+    sequence matching that handles AI paraphrasing.
     """
-    import unicodedata
+    import difflib
 
     if not body or not claim_text or not replacement:
+        logger.warning(f"[FACT-FIX] Empty input: body={len(body or '')} claim={len(claim_text or '')} repl={len(replacement or '')}")
         return body, False
+
+    logger.info(f"[FACT-FIX] Attempting match for claim ({len(claim_text)} chars): {claim_text[:100]}...")
+    logger.info(f"[FACT-FIX] Body length: {len(body)} chars")
 
     # Normalize helper: smart quotes → straight, em/en dashes → --, collapse whitespace
     def normalize(s):
         s = s.replace('\u2018', "'").replace('\u2019', "'")
         s = s.replace('\u201C', '"').replace('\u201D', '"')
         s = s.replace('\u2013', '--').replace('\u2014', '--')
+        s = s.replace('&mdash;', '--').replace('&ndash;', '--')
+        s = s.replace('&rsquo;', "'").replace('&lsquo;', "'")
+        s = s.replace('&rdquo;', '"').replace('&ldquo;', '"')
+        s = s.replace('&amp;', '&').replace('&#39;', "'")
         s = re.sub(r'\s+', ' ', s).strip()
         return s
 
     # Strip HTML tags for plain-text matching
-    plain_body = re.sub(r'<[^>]+>', '', body)
+    plain_body = re.sub(r'<[^>]+>', ' ', body)
+    plain_body = re.sub(r'\s+', ' ', plain_body).strip()
 
-    # Strategy 1: Exact match in HTML
+    # ---- Strategy 1: Exact match in HTML ----
     if claim_text in body:
+        logger.info(f"[FACT-FIX] ✓ Strategy 1: Exact HTML match")
         return body.replace(claim_text, replacement, 1), True
 
-    # Strategy 2: Exact match in plain text → flexible HTML regex
+    # ---- Strategy 2: Exact match in plain text → flexible HTML regex ----
     if claim_text in plain_body:
         words = claim_text.split()
         if len(words) >= 3:
-            flex_pat = r'(?:\s*(?:<[^>]*>)?\s*)'.join(
-                re.escape(w) for w in words
-            )
+            flex_pat = r'(?:\s*(?:<[^>]*>)?\s*)'.join(re.escape(w) for w in words)
             m = re.search(flex_pat, body, re.IGNORECASE)
             if m:
+                logger.info(f"[FACT-FIX] ✓ Strategy 2: Flex regex matched")
                 return body[:m.start()] + replacement + body[m.end():], True
 
-    # Strategy 3: Normalized exact match in plain text
+    # ---- Strategy 3: Normalized match in plain text ----
     norm_claim = normalize(claim_text)
     norm_plain = normalize(plain_body)
     if norm_claim in norm_plain:
-        # Find position in normalized plain text, then map to HTML
         words = norm_claim.split()
         if len(words) >= 3:
-            flex_pat = r'(?:\s*(?:<[^>]*>)?\s*)'.join(
-                re.escape(w) for w in words
-            )
+            flex_pat = r'(?:[\s\S]{0,20})'.join(re.escape(w) for w in words)
             m = re.search(flex_pat, body, re.IGNORECASE)
-            if m:
+            if m and len(m.group(0)) < len(claim_text) * 5:
+                logger.info(f"[FACT-FIX] ✓ Strategy 3: Normalized flex matched")
                 return body[:m.start()] + replacement + body[m.end():], True
 
-    # Strategy 4: Anchor matching — first 5 + last 5 significant words
+    # ---- Strategy 4: Anchor matching — first 5 + last 5 significant words ----
     sig_words = [w for w in normalize(claim_text).split() if len(w) > 2]
     if len(sig_words) >= 6:
-        start_anchor = r'[\s\S]*?'.join(re.escape(w) for w in sig_words[:5])
-        end_anchor = r'[\s\S]*?'.join(re.escape(w) for w in sig_words[-5:])
-        anchor_pat = start_anchor + r'[\s\S]*?' + end_anchor
+        start_anchor = r'[\s\S]{0,50}'.join(re.escape(w) for w in sig_words[:5])
+        end_anchor = r'[\s\S]{0,50}'.join(re.escape(w) for w in sig_words[-5:])
+        anchor_pat = start_anchor + r'[\s\S]{0,500}' + end_anchor
         m = re.search(anchor_pat, body, re.IGNORECASE)
         if m and len(m.group(0)) < len(claim_text) * 5 and len(m.group(0)) < 2000:
+            logger.info(f"[FACT-FIX] ✓ Strategy 4: Anchor matched")
             return body[:m.start()] + replacement + body[m.end():], True
 
-    # Strategy 5: Find the <p> tag with highest keyword overlap (≥70%)
+    # ---- Strategy 5: <p> tag keyword overlap (≥50%) ----
     claim_words = set(w.lower() for w in normalize(claim_text).split() if len(w) > 3)
     if claim_words:
         best_match = None
@@ -2127,13 +2137,88 @@ def _find_and_replace_claim(body: str, claim_text: str, replacement: str) -> tup
             if not p_words:
                 continue
             overlap = len(claim_words & p_words) / len(claim_words)
-            if overlap > best_score and overlap >= 0.70:
+            if overlap > best_score:
                 best_score = overlap
                 best_match = m
-        if best_match:
+        if best_match and best_score >= 0.50:
+            logger.info(f"[FACT-FIX] ✓ Strategy 5: Paragraph keyword overlap {best_score:.0%}")
             return (body[:best_match.start()] + '<p>' + replacement + '</p>' +
                     body[best_match.end():], True)
 
+    # ---- Strategy 6: difflib sentence-level fuzzy matching ----
+    # This catches AI paraphrasing by comparing claim against every sentence
+    # in the body and finding the best match above a similarity threshold.
+    logger.info(f"[FACT-FIX] Trying Strategy 6: difflib sentence matching...")
+    norm_claim_lower = normalize(claim_text).lower()
+
+    # Split plain body into sentences (period/question/exclamation followed by space + capital or end)
+    sentences = re.split(r'(?<=[.!?])\s+', plain_body)
+    # Also try splitting by <p> tags for paragraph-level matching
+    paragraphs = re.findall(r'<p[^>]*>([\s\S]*?)</p>', body, re.IGNORECASE)
+    paragraphs_plain = [re.sub(r'<[^>]+>', ' ', p).strip() for p in paragraphs]
+
+    # Combine sentences and paragraphs as candidates, tracking which is which
+    candidates = []
+    for s in sentences:
+        s_clean = s.strip()
+        if len(s_clean) > 20:  # skip very short fragments
+            candidates.append(('sentence', s_clean))
+    for i, p in enumerate(paragraphs_plain):
+        if len(p) > 20:
+            candidates.append(('paragraph', p, i))
+
+    best_candidate = None
+    best_ratio = 0
+    for cand in candidates:
+        cand_text = cand[1]
+        cand_norm = normalize(cand_text).lower()
+        ratio = difflib.SequenceMatcher(None, norm_claim_lower, cand_norm).ratio()
+        if ratio > best_ratio:
+            best_ratio = ratio
+            best_candidate = cand
+
+    logger.info(f"[FACT-FIX] Strategy 6: Best match ratio={best_ratio:.2f}, type={best_candidate[0] if best_candidate else 'none'}, text={best_candidate[1][:80] if best_candidate else 'N/A'}...")
+
+    # Threshold 0.40 — generous because AI can heavily paraphrase
+    if best_candidate and best_ratio >= 0.40:
+        if best_candidate[0] == 'paragraph':
+            # Replace the whole <p> tag
+            p_idx = best_candidate[2]
+            p_matches = list(re.finditer(r'<p[^>]*>[\s\S]*?</p>', body, re.IGNORECASE))
+            if p_idx < len(p_matches):
+                pm = p_matches[p_idx]
+                logger.info(f"[FACT-FIX] ✓ Strategy 6: Paragraph match (ratio={best_ratio:.2f})")
+                return (body[:pm.start()] + '<p>' + replacement + '</p>' +
+                        body[pm.end():], True)
+
+        # For sentence matches, find it in the HTML body using key words
+        cand_text = best_candidate[1]
+        cand_words = cand_text.split()
+        if len(cand_words) >= 3:
+            # Build a flexible regex from the ACTUAL body words (not claim words)
+            key_words = [w for w in cand_words if len(w) > 2][:8]
+            if key_words:
+                flex_pat = r'(?:[\s\S]{0,30})'.join(re.escape(w) for w in key_words)
+                m = re.search(flex_pat, body, re.IGNORECASE)
+                if m and len(m.group(0)) < 3000:
+                    logger.info(f"[FACT-FIX] ✓ Strategy 6: Sentence match via flex regex (ratio={best_ratio:.2f})")
+                    return body[:m.start()] + replacement + body[m.end():], True
+
+        # Fallback: find the candidate text directly in plain body, locate the
+        # encompassing <p> tag, and replace that
+        cand_pos = plain_body.find(cand_text[:50])
+        if cand_pos >= 0:
+            # Map plain text position back to an approximate HTML position
+            # Find the <p> tag that contains text near this position
+            running_plain = ''
+            for pm in re.finditer(r'<p[^>]*>([\s\S]*?)</p>', body, re.IGNORECASE):
+                p_plain = re.sub(r'<[^>]+>', ' ', pm.group(0)).strip()
+                if cand_text[:40] in p_plain or p_plain[:40] in cand_text:
+                    logger.info(f"[FACT-FIX] ✓ Strategy 6: Fallback <p> match (ratio={best_ratio:.2f})")
+                    return (body[:pm.start()] + '<p>' + replacement + '</p>' +
+                            body[pm.end():], True)
+
+    logger.warning(f"[FACT-FIX] ALL STRATEGIES FAILED for claim ({best_ratio:.2f} best ratio): {claim_text[:100]}")
     return body, False
 
 
@@ -2194,13 +2279,22 @@ def apply_fact_fixes(current_user, blog_id):
             continue
 
         claim_text = flagged[idx].get('claim', '')
+        logger.info(f"[FACT-FIX] Processing fix {idx}: claim='{claim_text[:60]}...' replacement='{replacement[:60]}...'")
         new_body, found = _find_and_replace_claim(body, claim_text, replacement)
 
         if found:
             body = new_body
             applied.append({'index': idx, 'claim': claim_text})
         else:
-            failed.append({'index': idx, 'claim': claim_text, 'reason': 'Claim text not found in body'})
+            failed.append({
+                'index': idx,
+                'claim': claim_text,
+                'claim_len': len(claim_text),
+                'body_len': len(body),
+                'reason': 'Claim text not found in body',
+                'claim_first_50': claim_text[:50],
+                'body_first_200': body[:200]
+            })
 
     # Update the blog body
     blog.body = body
