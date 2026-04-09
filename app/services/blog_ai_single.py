@@ -698,14 +698,20 @@ INSTRUCTIONS:
 3. Check industry-specific claims (building codes, regulations, certifications, pricing ranges, technical specs).
 4. Verify any referenced organizations, certifications, or standards actually exist.
 
+CRITICAL RULE FOR "claim" FIELDS:
+The "claim" value MUST be the EXACT text copied verbatim from the content above — character for character.
+Do NOT paraphrase, summarize, or shorten. Copy-paste the exact sentence(s) containing the claim.
+This is essential because the claim text is used for automated find-and-replace in the article body.
+If you paraphrase, the system cannot locate and fix the text.
+
 Return ONLY valid JSON (no markdown):
 {{
     "accuracy_score": <number 0-100>,
     "verified_claims": [
-        {{"claim": "claim text", "verdict": "verified", "source": "source URL or name"}}
+        {{"claim": "EXACT verbatim text from content", "verdict": "verified", "source": "source URL or name"}}
     ],
     "flagged_claims": [
-        {{"claim": "claim text", "issue": "why it's wrong or unverifiable", "severity": "high|medium|low", "suggestion": "corrected version or recommendation"}}
+        {{"claim": "EXACT verbatim text from content", "issue": "why it's wrong or unverifiable", "severity": "high|medium|low", "suggestion": "corrected version or recommendation"}}
     ],
     "summary": "1-2 sentence overall assessment"
 }}"""
