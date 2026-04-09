@@ -1413,9 +1413,11 @@ def update_content(current_user, content_id):
     if not current_user.has_access_to_client(content.client_id):
         return jsonify({'error': 'Access denied'}), 403
     
+    import json as _json_mod
+
     data = request.get_json(silent=True) or {}
     old_status = content.status
-    
+
     # Update allowed fields
     if 'title' in data:
         content.title = data['title']
@@ -1429,8 +1431,7 @@ def update_content(current_user, content_id):
     if 'status' in data:
         content.status = data['status']
     if 'tags' in data:
-        import json
-        content.tags = json.dumps(data['tags']) if isinstance(data['tags'], list) else data['tags']
+        content.tags = _json_mod.dumps(data['tags']) if isinstance(data['tags'], list) else data['tags']
     if 'scheduled_for' in data:
         from datetime import datetime
         scheduled = data['scheduled_for']
@@ -1449,7 +1450,7 @@ def update_content(current_user, content_id):
     if 'faq_content' in data:
         val = data['faq_content']
         if isinstance(val, list):
-            content.faq_content = json.dumps(val)
+            content.faq_content = _json_mod.dumps(val)
         elif isinstance(val, str):
             content.faq_content = val
 
@@ -1460,7 +1461,7 @@ def update_content(current_user, content_id):
         plain_text = re.sub(r'\n{3,}', '\n\n', plain_text)
         extracted_faqs = _extract_faqs_from_text(plain_text)
         if extracted_faqs:
-            content.faq_content = json.dumps(extracted_faqs)
+            content.faq_content = _json_mod.dumps(extracted_faqs)
             logger.info(f"Auto-extracted {len(extracted_faqs)} FAQs from body for content {content_id}")
 
     # Recalculate SEO score if body or title changed
