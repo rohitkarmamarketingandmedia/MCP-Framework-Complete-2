@@ -2447,3 +2447,47 @@ class DBClientImage(db.Model):
             'is_active': self.is_active,
             'created_at': self.created_at.isoformat() if self.created_at else None
         }
+
+
+# ============================================
+# Token Usage / Cost Tracking
+# ============================================
+
+class DBTokenUsage(db.Model):
+    """Tracks AI token usage and cost per API call for LiteLLM-based cost reporting"""
+    __tablename__ = 'token_usage'
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    client_id: Mapped[Optional[str]] = mapped_column(String(50), nullable=True, index=True)
+
+    # What triggered this call
+    feature: Mapped[str] = mapped_column(String(50), index=True)  # 'blog_generation', 'fact_check', 'chatbot', 'call_qa', 'review_reply', 'intelligence', 'agent', 'health_check'
+    model: Mapped[str] = mapped_column(String(80))  # e.g. 'claude-sonnet-4-6'
+
+    # Token counts
+    input_tokens: Mapped[int] = mapped_column(Integer, default=0)
+    output_tokens: Mapped[int] = mapped_column(Integer, default=0)
+    total_tokens: Mapped[int] = mapped_column(Integer, default=0)
+
+    # Cost (USD) — computed via litellm.completion_cost()
+    cost_usd: Mapped[float] = mapped_column(Float, default=0.0)
+
+    # Optional metadata
+    request_id: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    duration_ms: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
+
+    def to_dict(self) -> dict:
+        return {
+            'id': self.id,
+            'client_id': self.client_id,
+            'feature': self.feature,
+            'model': self.model,
+            'input_tokens': self.input_tokens,
+            'output_tokens': self.output_tokens,
+            'total_tokens': self.total_tokens,
+            'cost_usd': round(self.cost_usd, 6),
+            'duration_ms': self.duration_ms,
+            'created_at': self.created_at.isoformat() if self.created_at else None
+        }

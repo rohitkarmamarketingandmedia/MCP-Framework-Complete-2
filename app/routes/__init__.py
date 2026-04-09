@@ -38,7 +38,8 @@ def register_routes(app: Flask):
     from app.routes.accessibility import accessibility_bp
     from app.routes.intelligence_automation import intelligence_auto_bp
     from app.routes.content_schedule import content_schedule_bp
-    
+    from app.routes.token_usage import token_usage_bp
+
     # Register with /api prefix
     app.register_blueprint(auth_bp, url_prefix='/api/auth')
     app.register_blueprint(content_bp, url_prefix='/api/content')
@@ -70,3 +71,4 @@ def register_routes(app: Flask):
     app.register_blueprint(accessibility_bp, url_prefix='/api/accessibility')
     app.register_blueprint(intelligence_auto_bp, url_prefix='/api/ai')
     app.register_blueprint(content_schedule_bp, url_prefix='/api/schedule')
+    app.register_blueprint(token_usage_bp, url_prefix='/api/usage')

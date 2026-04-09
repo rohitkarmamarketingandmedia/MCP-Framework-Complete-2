@@ -1371,6 +1371,16 @@ REMEMBER: Body must have {word_count}+ words, at least 5 internal <a href> links
                     'output_tokens': response.usage.output_tokens,
                 }
 
+            # Track token usage via LiteLLM
+            if usage_data:
+                try:
+                    from app.services.token_tracker import track_usage
+                    track_usage(model=actual_model, input_tokens=usage_data.get('input_tokens', 0),
+                                output_tokens=usage_data.get('output_tokens', 0),
+                                feature='blog_generation')
+                except Exception:
+                    pass
+
             # Check for truncation
             if stop_reason == 'max_tokens':
                 logger.warning(f"Anthropic response was truncated (stop_reason=max_tokens)")

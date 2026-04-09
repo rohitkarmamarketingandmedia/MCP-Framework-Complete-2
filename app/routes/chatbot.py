@@ -1669,12 +1669,23 @@ Rules:
 - Confidence 0.7-0.89: decent question but answer may be partial
 - Confidence <0.7: ambiguous or may not generalize well"""
 
+        qa_model = os.environ.get('FAST_AI_MODEL', 'claude-haiku-4-5-20251001')
         response = ai_client.messages.create(
-            model=os.environ.get('FAST_AI_MODEL', 'claude-haiku-4-5-20251001'),
+            model=qa_model,
             max_tokens=4000,
             messages=[{"role": "user", "content": extraction_prompt}],
             temperature=0.1
         )
+
+        # Track token usage
+        if hasattr(response, 'usage') and response.usage:
+            try:
+                from app.services.token_tracker import track_usage
+                track_usage(model=qa_model, input_tokens=response.usage.input_tokens,
+                            output_tokens=response.usage.output_tokens, feature='call_qa',
+                            client_id=client_id)
+            except Exception:
+                pass
 
         response_text = response.content[0].text.strip()
 

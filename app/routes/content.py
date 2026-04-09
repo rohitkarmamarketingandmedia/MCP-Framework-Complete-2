@@ -275,6 +275,16 @@ def test_ai_generation(current_user):
         )
 
         elapsed = time.time() - start_time
+
+        # Track health check token usage
+        if hasattr(response, 'usage') and response.usage:
+            try:
+                from app.services.token_tracker import track_usage
+                track_usage(model='claude-haiku-4-5-20251001', input_tokens=response.usage.input_tokens,
+                            output_tokens=response.usage.output_tokens, feature='health_check')
+            except Exception:
+                pass
+
         return jsonify({
             'success': True,
             'response': response.content[0].text,
@@ -339,6 +349,7 @@ def _generate_blog_background(task_id, app, client_id, keyword, word_count, incl
 
             # Use BlogAISingle - same as sync endpoint
             blog_gen = get_blog_ai_single()
+            blog_gen._tracking_client_id = client_id
             blog_request = BlogRequest(
                 keyword=keyword,
                 company_name=client.business_name or 'Our Company',
@@ -531,9 +542,10 @@ def generate_blog_sync(current_user):
         
         # Use the new robust blog generator
         from app.services.blog_ai_single import get_blog_ai_single, BlogRequest
-        
+
         blog_gen = get_blog_ai_single()
-        
+        blog_gen._tracking_client_id = client_id
+
         # Parse geo into city/state - use selected_city if provided
         geo = client.geo or ''
         geo_parts = geo.split(',') if geo else ['', '']
@@ -947,6 +959,7 @@ def generate_content(current_user):
     _svc_areas2 = [c.strip() for c in (getattr(client, 'service_areas', '') or '').split(',') if c.strip()]
 
     blog_gen = get_blog_ai_single()
+    blog_gen._tracking_client_id = client_id
     blog_request = BlogRequest(
         keyword=data['keyword'],
         company_name=client.business_name or 'Our Company',
@@ -1140,7 +1153,8 @@ def bulk_generate(current_user):
     
     results = []
     blog_gen = get_blog_ai_single()
-    
+    blog_gen._tracking_client_id = client_id
+
     for topic in topics[:5]:  # Limit to 5 to avoid timeout
         keyword = topic.get('keyword', '')
         if not keyword:
@@ -2029,6 +2043,8 @@ def run_fact_check(current_user, blog_id):
             result['faq_items'] = blog_dict['faq_items']
 
         blog_ai = get_blog_ai_single()
+        blog_ai._tracking_client_id = client_id
+        blog_ai._tracking_feature = 'fact_check'
         fact_check = blog_ai._verify_content(result, blog_request)
 
         if fact_check and isinstance(fact_check, dict):

@@ -514,6 +514,16 @@ RULES for content_recommendations (return 3-5):
                     system="You are a business intelligence analyst. Return ONLY valid JSON, no markdown.",
                     messages=[{"role": "user", "content": prompt}],
                 )
+                # Track token usage
+                if hasattr(response, 'usage') and response.usage:
+                    try:
+                        from app.services.token_tracker import track_usage
+                        track_usage(model=model, input_tokens=response.usage.input_tokens,
+                                    output_tokens=response.usage.output_tokens, feature='intelligence',
+                                    client_id=client_id)
+                    except Exception:
+                        pass
+
                 text = "".join(b.text for b in response.content if hasattr(b, 'text')).strip()
 
                 # Strip possible markdown fences

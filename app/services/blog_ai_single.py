@@ -82,6 +82,9 @@ class BlogAISingle:
         self.model_fallback = model_fallback
         self._settings_city = ""
         self._keyword_city = ""
+        # Token tracking context — set by caller before generate()
+        self._tracking_client_id = None
+        self._tracking_feature = 'blog_generation'
 
     def generate(self, req: BlogRequest) -> Dict[str, Any]:
         """Main entry point for blog generation"""
@@ -326,7 +329,16 @@ CRITICAL:
                 ],
                 temperature=0.1,
             )
-            
+            # Track token usage for cleanup call
+            if hasattr(response, 'usage') and response.usage:
+                try:
+                    from app.services.token_tracker import track_usage
+                    track_usage(model=self.model_fallback, input_tokens=response.usage.input_tokens,
+                                output_tokens=response.usage.output_tokens, feature='blog_cleanup',
+                                client_id=self._tracking_client_id)
+                except Exception:
+                    pass
+
             cleanup_text = response.content[0].text.strip()
             logger.info(f"AI cleanup response: {cleanup_text[:400]}...")
             
@@ -773,6 +785,16 @@ Return ONLY valid JSON (no markdown):
                     logger.error(f"Fact-check: all attempts failed. Last error: {fallback_err}")
                     return {'status': 'error', 'reason': f'all_models_failed: {str(fallback_err)[:100]}'}
             
+            # Track fact-check token usage
+            if hasattr(response, 'usage') and response.usage:
+                try:
+                    from app.services.token_tracker import track_usage
+                    track_usage(model=response.model or fact_check_model, input_tokens=response.usage.input_tokens,
+                                output_tokens=response.usage.output_tokens, feature='fact_check',
+                                client_id=self._tracking_client_id)
+                except Exception:
+                    pass
+
             # Extract the text response (may have multiple content blocks due to tool use)
             response_text = ""
             for block in response.content:
@@ -1020,6 +1042,20 @@ Return ONLY valid JSON (no markdown):
 
                 content = content.strip()
                 logger.info(f"Got {len(content)} chars from Claude {model} (stop_reason={stop_reason}, usage={usage_info})")
+
+                # Track token usage
+                if usage_info:
+                    try:
+                        from app.services.token_tracker import track_usage
+                        track_usage(
+                            model=model,
+                            input_tokens=usage_info.input_tokens,
+                            output_tokens=usage_info.output_tokens,
+                            feature=self._tracking_feature,
+                            client_id=self._tracking_client_id,
+                        )
+                    except Exception as e:
+                        logger.debug(f"Token tracking skipped: {e}")
 
                 # Warn if response was truncated
                 if stop_reason == "max_tokens":

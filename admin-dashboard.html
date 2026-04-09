@@ -170,6 +170,10 @@
                     <i class="fas fa-history w-5"></i>
                     <span>Audit Log</span>
                 </a>
+                <a href="#" onclick="showTab('token-usage')" class="sidebar-item flex items-center gap-3 px-4 py-3 rounded-lg text-gray-300" data-tab="token-usage">
+                    <i class="fas fa-coins w-5"></i>
+                    <span>Token Costs</span>
+                </a>
             </nav>
             
             <div class="border-t border-white/10 pt-4 mt-4">
@@ -679,9 +683,125 @@
                     </div>
                 </div>
             </div>
+
+            <!-- Token Cost Tracking Tab -->
+            <div id="tab-token-usage" class="tab-content fade-in hidden">
+                <!-- Period Selector -->
+                <div class="flex items-center gap-4 mb-6">
+                    <label class="text-sm text-gray-400">Period:</label>
+                    <select id="usagePeriod" onchange="loadTokenUsage()" class="px-4 py-2 input-dark rounded-lg">
+                        <option value="7">Last 7 days</option>
+                        <option value="30" selected>Last 30 days</option>
+                        <option value="90">Last 90 days</option>
+                    </select>
+                    <button onclick="loadTokenUsage()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm">
+                        <i class="fas fa-sync-alt mr-1"></i>Refresh
+                    </button>
+                </div>
+
+                <!-- Summary Cards -->
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                    <div class="card rounded-xl p-4">
+                        <div class="text-sm text-gray-400 mb-1">Total Cost</div>
+                        <div class="text-2xl font-bold text-green-400" id="usageTotalCost">$0.00</div>
+                    </div>
+                    <div class="card rounded-xl p-4">
+                        <div class="text-sm text-gray-400 mb-1">API Calls</div>
+                        <div class="text-2xl font-bold" id="usageTotalCalls">0</div>
+                    </div>
+                    <div class="card rounded-xl p-4">
+                        <div class="text-sm text-gray-400 mb-1">Input Tokens</div>
+                        <div class="text-2xl font-bold text-blue-400" id="usageTotalInput">0</div>
+                    </div>
+                    <div class="card rounded-xl p-4">
+                        <div class="text-sm text-gray-400 mb-1">Output Tokens</div>
+                        <div class="text-2xl font-bold text-purple-400" id="usageTotalOutput">0</div>
+                    </div>
+                </div>
+
+                <!-- Cost by Feature & Model -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                    <!-- By Feature -->
+                    <div class="card rounded-xl overflow-hidden">
+                        <div class="p-4 border-b border-white/10">
+                            <h3 class="font-semibold">Cost by Feature</h3>
+                        </div>
+                        <div class="p-4">
+                            <table class="w-full text-sm">
+                                <thead>
+                                    <tr class="text-gray-400 border-b border-white/10">
+                                        <th class="text-left py-2">Feature</th>
+                                        <th class="text-right py-2">Calls</th>
+                                        <th class="text-right py-2">Tokens</th>
+                                        <th class="text-right py-2">Cost</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="usageByFeature">
+                                    <tr><td colspan="4" class="py-4 text-center text-gray-500">Loading...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- By Model -->
+                    <div class="card rounded-xl overflow-hidden">
+                        <div class="p-4 border-b border-white/10">
+                            <h3 class="font-semibold">Cost by Model</h3>
+                        </div>
+                        <div class="p-4">
+                            <table class="w-full text-sm">
+                                <thead>
+                                    <tr class="text-gray-400 border-b border-white/10">
+                                        <th class="text-left py-2">Model</th>
+                                        <th class="text-right py-2">Calls</th>
+                                        <th class="text-right py-2">In / Out</th>
+                                        <th class="text-right py-2">Cost</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="usageByModel">
+                                    <tr><td colspan="4" class="py-4 text-center text-gray-500">Loading...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Cost by Client -->
+                <div class="card rounded-xl overflow-hidden mb-6">
+                    <div class="p-4 border-b border-white/10">
+                        <h3 class="font-semibold">Cost by Client</h3>
+                    </div>
+                    <div class="p-4">
+                        <table class="w-full text-sm">
+                            <thead>
+                                <tr class="text-gray-400 border-b border-white/10">
+                                    <th class="text-left py-2">Client</th>
+                                    <th class="text-right py-2">API Calls</th>
+                                    <th class="text-right py-2">Total Tokens</th>
+                                    <th class="text-right py-2">Cost (USD)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="usageByClient">
+                                <tr><td colspan="4" class="py-4 text-center text-gray-500">Loading...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Daily Chart (simple bar representation) -->
+                <div class="card rounded-xl overflow-hidden">
+                    <div class="p-4 border-b border-white/10">
+                        <h3 class="font-semibold">Daily Spend</h3>
+                    </div>
+                    <div class="p-4" id="usageDailyChart">
+                        <div class="text-center text-gray-500 py-4">Loading...</div>
+                    </div>
+                </div>
+            </div>
+
         </main>
     </div>
-    
+
     <!-- Add/Edit User Modal -->
     <div id="userModal" class="fixed inset-0 bg-black/60 flex items-center justify-center z-50 hidden">
         <div class="glass rounded-2xl p-6 w-full max-w-md mx-4">
@@ -1284,7 +1404,8 @@
                 settings: ['Settings', 'Configure system preferences'],
                 integrations: ['Integrations', 'Connect external services'],
                 agents: ['AI Agents', 'Configure AI agent behavior and prompts'],
-                audit: ['Audit Log', 'Track all system activity']
+                audit: ['Audit Log', 'Track all system activity'],
+                'token-usage': ['Token Costs', 'AI token usage and cost tracking via LiteLLM']
             };
             
             document.getElementById('page-title').textContent = titles[tabName][0];
@@ -1293,6 +1414,11 @@
             // Load audit logs when tab is shown
             if (tabName === 'audit') {
                 loadAuditLogs();
+            }
+
+            // Load token usage when tab is shown
+            if (tabName === 'token-usage') {
+                loadTokenUsage();
             }
             
             // Load agents when tab is shown
@@ -1848,6 +1974,136 @@
         document.getElementById('loginPassword').addEventListener('keypress', e => {
             if (e.key === 'Enter') doLogin();
         });
+
+        // ==========================================
+        // TOKEN USAGE / COST TRACKING
+        // ==========================================
+
+        function _fmtNum(n) {
+            if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M';
+            if (n >= 1000) return (n / 1000).toFixed(1) + 'K';
+            return n.toString();
+        }
+
+        function _featureLabel(f) {
+            const labels = {
+                'blog_generation': 'Blog Generation',
+                'blog_cleanup': 'Blog Cleanup',
+                'fact_check': 'Fact-Check',
+                'chatbot': 'Chatbot',
+                'call_qa': 'Call Q&A Import',
+                'review_reply': 'Review Replies',
+                'intelligence': 'Business Intel',
+                'agent': 'AI Agents',
+                'health_check': 'Health Check'
+            };
+            return labels[f] || f;
+        }
+
+        async function loadTokenUsage() {
+            const days = document.getElementById('usagePeriod').value;
+            const headers = { 'Authorization': `Bearer ${token}` };
+
+            try {
+                const [summaryRes, featureRes, modelRes, clientRes, dailyRes] = await Promise.all([
+                    fetch(`${API_URL}/api/usage/summary?days=${days}`, { headers }),
+                    fetch(`${API_URL}/api/usage/by-feature?days=${days}`, { headers }),
+                    fetch(`${API_URL}/api/usage/by-model?days=${days}`, { headers }),
+                    fetch(`${API_URL}/api/usage/by-client?days=${days}`, { headers }),
+                    fetch(`${API_URL}/api/usage/daily?days=${days}`, { headers }),
+                ]);
+
+                const summary = await summaryRes.json();
+                const features = await featureRes.json();
+                const models = await modelRes.json();
+                const clients = await clientRes.json();
+                const daily = await dailyRes.json();
+
+                // Summary cards
+                document.getElementById('usageTotalCost').textContent = '$' + (summary.total_cost_usd || 0).toFixed(2);
+                document.getElementById('usageTotalCalls').textContent = _fmtNum(summary.total_calls || 0);
+                document.getElementById('usageTotalInput').textContent = _fmtNum(summary.total_input_tokens || 0);
+                document.getElementById('usageTotalOutput').textContent = _fmtNum(summary.total_output_tokens || 0);
+
+                // By Feature table
+                const featureTbody = document.getElementById('usageByFeature');
+                if (features.features && features.features.length) {
+                    featureTbody.innerHTML = features.features.map(f => `
+                        <tr class="border-b border-white/5">
+                            <td class="py-2">${_featureLabel(f.feature)}</td>
+                            <td class="text-right">${f.calls}</td>
+                            <td class="text-right">${_fmtNum(f.total_tokens)}</td>
+                            <td class="text-right font-medium text-green-400">$${f.cost_usd.toFixed(4)}</td>
+                        </tr>
+                    `).join('');
+                } else {
+                    featureTbody.innerHTML = '<tr><td colspan="4" class="py-4 text-center text-gray-500">No usage data yet</td></tr>';
+                }
+
+                // By Model table
+                const modelTbody = document.getElementById('usageByModel');
+                if (models.models && models.models.length) {
+                    modelTbody.innerHTML = models.models.map(m => `
+                        <tr class="border-b border-white/5">
+                            <td class="py-2 font-mono text-xs">${m.model}</td>
+                            <td class="text-right">${m.calls}</td>
+                            <td class="text-right text-xs">${_fmtNum(m.input_tokens)} / ${_fmtNum(m.output_tokens)}</td>
+                            <td class="text-right font-medium text-green-400">$${m.cost_usd.toFixed(4)}</td>
+                        </tr>
+                    `).join('');
+                } else {
+                    modelTbody.innerHTML = '<tr><td colspan="4" class="py-4 text-center text-gray-500">No usage data yet</td></tr>';
+                }
+
+                // By Client table
+                const clientTbody = document.getElementById('usageByClient');
+                if (clients.clients && clients.clients.length) {
+                    // Try to resolve client names from allClients
+                    clientTbody.innerHTML = clients.clients.map(c => {
+                        const clientObj = allClients.find(ac => ac.id === c.client_id);
+                        const name = clientObj ? (clientObj.business_name || clientObj.name || c.client_id) : c.client_id;
+                        return `
+                            <tr class="border-b border-white/5">
+                                <td class="py-2">${name}</td>
+                                <td class="text-right">${c.calls}</td>
+                                <td class="text-right">${_fmtNum(c.total_tokens)}</td>
+                                <td class="text-right font-medium text-green-400">$${c.cost_usd.toFixed(4)}</td>
+                            </tr>
+                        `;
+                    }).join('');
+                } else {
+                    clientTbody.innerHTML = '<tr><td colspan="4" class="py-4 text-center text-gray-500">No client-specific usage yet</td></tr>';
+                }
+
+                // Daily chart (simple horizontal bars)
+                const chartDiv = document.getElementById('usageDailyChart');
+                if (daily.daily && daily.daily.length) {
+                    const maxCost = Math.max(...daily.daily.map(d => d.cost_usd), 0.001);
+                    chartDiv.innerHTML = daily.daily.map(d => {
+                        const pct = Math.max((d.cost_usd / maxCost) * 100, 1);
+                        const dateStr = new Date(d.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                        return `
+                            <div class="flex items-center gap-3 mb-2">
+                                <span class="text-xs text-gray-400 w-16 text-right flex-shrink-0">${dateStr}</span>
+                                <div class="flex-1 h-6 bg-white/5 rounded overflow-hidden">
+                                    <div class="h-full bg-gradient-to-r from-blue-500 to-green-500 rounded flex items-center px-2"
+                                         style="width: ${pct}%">
+                                        <span class="text-xs text-white font-medium whitespace-nowrap">${d.cost_usd >= 0.01 ? '$' + d.cost_usd.toFixed(2) : ''}</span>
+                                    </div>
+                                </div>
+                                <span class="text-xs text-gray-500 w-12 text-right">${d.calls} calls</span>
+                            </div>
+                        `;
+                    }).join('');
+                } else {
+                    chartDiv.innerHTML = '<div class="text-center text-gray-500 py-4">No daily data yet</div>';
+                }
+
+            } catch (err) {
+                console.error('Failed to load token usage:', err);
+            }
+        }
+
     </script>
 </body>
 </html>

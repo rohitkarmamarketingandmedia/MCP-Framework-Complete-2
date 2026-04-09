@@ -20,6 +20,7 @@ requests>=2.31.0
 # AI Providers
 openai>=1.0.0
 anthropic>=0.18.0
+litellm>=1.83.0
 
 # Web Scraping / Parsing
 beautifulsoup4>=4.12.0

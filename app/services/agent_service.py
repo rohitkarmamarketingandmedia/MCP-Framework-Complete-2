@@ -558,7 +558,16 @@ class AgentService:
                 {"role": "user", "content": user_input}
             ]
         )
-        
+
+        # Track token usage
+        if hasattr(response, 'usage') and response.usage:
+            try:
+                from app.services.token_tracker import track_usage
+                track_usage(model=model, input_tokens=response.usage.input_tokens,
+                            output_tokens=response.usage.output_tokens, feature='agent')
+            except Exception:
+                pass
+
         return response.content[0].text
     
     def duplicate_agent(self, agent_id: str, new_name: str, new_display_name: str) -> Dict:

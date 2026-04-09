@@ -274,6 +274,15 @@ If asked about something outside MCP, politely redirect to MCP-related help or s
             content = response.content[0].text
             tokens = response.usage.input_tokens + response.usage.output_tokens
 
+            # Track token usage
+            try:
+                from app.services.token_tracker import track_usage
+                track_usage(model=self.model, input_tokens=response.usage.input_tokens,
+                            output_tokens=response.usage.output_tokens, feature='chatbot',
+                            duration_ms=response_time)
+            except Exception:
+                pass
+
             return {
                 'content': content,
                 'tokens_used': tokens,
@@ -324,6 +333,15 @@ If asked about something outside MCP, politely redirect to MCP-related help or s
             response_time = int((time.time() - start_time) * 1000)
             content = response.content[0].text
             tokens = response.usage.input_tokens + response.usage.output_tokens
+
+            # Track token usage
+            try:
+                from app.services.token_tracker import track_usage
+                track_usage(model=self.model, input_tokens=response.usage.input_tokens,
+                            output_tokens=response.usage.output_tokens, feature='chatbot',
+                            duration_ms=response_time)
+            except Exception:
+                pass
 
             return {
                 'content': content,
