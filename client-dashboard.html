@@ -9258,18 +9258,11 @@
                             <div class="flex items-center gap-2 mb-1">
                                 <i class="fas fa-headphones text-blue-400 text-xs"></i>
                                 <span class="text-xs text-gray-500 font-medium">Call Recording</span>
-                                <a href="${lead.recording_mp3 || lead.recording_url}" target="_blank" class="ml-auto text-xs text-blue-400 hover:text-blue-300"><i class="fas fa-external-link-alt mr-1"></i>Open</a>
+                                <a href="${getRecordingProxyUrl(lead.recording_mp3 || lead.recording_url)}" target="_blank" class="ml-auto text-xs text-blue-400 hover:text-blue-300"><i class="fas fa-external-link-alt mr-1"></i>Open</a>
                             </div>
-                            ${lead.recording_mp3 ?
-                                `<audio controls preload="metadata" class="w-full h-8" style="max-height:32px">
-                                    <source src="${lead.recording_mp3}" type="audio/mpeg">
-                                    <source src="${lead.recording_url}" type="audio/mpeg">
-                                </audio>` :
-                                `<audio controls preload="metadata" class="w-full h-8" style="max-height:32px">
-                                    <source src="${lead.recording_url}">
-                                </audio>
-                                <p class="text-xs text-gray-600 mt-1"><i class="fas fa-info-circle mr-1"></i>If audio doesn't play, click "Open" above</p>`
-                            }
+                            <audio controls preload="metadata" class="w-full h-8" style="max-height:32px">
+                                <source src="${getRecordingProxyUrl(lead.recording_mp3 || lead.recording_url)}" type="audio/mpeg">
+                            </audio>
                         </div>
                     ` : ''}
                     ${lead.has_transcript ? `
@@ -10633,10 +10626,7 @@
                             </div>
                             ${call.recording_url ? `
                                 <div id="callAudio${idx}" class="hidden mt-2">
-                                    ${call.recording_mp3 ?
-                                        `<audio controls class="w-full h-8" style="max-height:32px"><source src="${call.recording_mp3}" type="audio/mpeg"></audio>` :
-                                        `<iframe src="${call.recording_url}" class="w-full rounded" style="height:65px;border:none;" allow="autoplay"></iframe>`
-                                    }
+                                    <audio controls class="w-full h-8" style="max-height:32px"><source src="${getRecordingProxyUrl(call.recording_mp3 || call.recording_url)}" type="audio/mpeg"></audio>
                                 </div>
                             ` : ''}
                         </div>
@@ -11094,6 +11084,19 @@
             });
         }
 
+        /**
+         * Convert a raw CallRail recording URL to our streaming proxy URL.
+         * Input:  https://api.callrail.com/v3/a/ACC.../calls/CAL.../recording
+         * Output: /api/client/calls/recording/CAL.../stream
+         * If the URL isn't a CallRail API URL, returns the original URL.
+         */
+        function getRecordingProxyUrl(url) {
+            if (!url) return url;
+            const m = url.match(/\/calls\/(CAL[a-f0-9]+)\/recording/i);
+            if (m) return '/api/client/calls/recording/' + m[1] + '/stream';
+            return url;  // Not a CallRail API URL — use as-is
+        }
+
         function toggleAudioPlayer(id, url) {
             const el = document.getElementById(id);
             if (!el) return;
@@ -11105,7 +11108,10 @@
                 // If the container is empty or only has a failed iframe, rebuild the player
                 let audio = el.querySelector('audio');
                 if (!audio && url) {
-                    // Build a proper audio element with multiple source fallbacks
+                    // Route through our proxy to add CallRail auth header
+                    const proxyUrl = getRecordingProxyUrl(url);
+
+                    // Build a proper audio element
                     el.innerHTML = '';
                     const playerWrap = document.createElement('div');
                     playerWrap.className = 'flex items-center gap-2';
@@ -11116,24 +11122,15 @@
                     audioEl.className = 'w-full h-8';
                     audioEl.style.maxHeight = '32px';
 
-                    // Try mp3 source first, then original URL
-                    const mp3Url = url.replace(/\?.*$/, '') + '.mp3';
-                    if (url.includes('.mp3') || url.includes('recording')) {
-                        const src1 = document.createElement('source');
-                        src1.src = url;
-                        src1.type = 'audio/mpeg';
-                        audioEl.appendChild(src1);
-                    } else {
-                        const src1 = document.createElement('source');
-                        src1.src = url;
-                        audioEl.appendChild(src1);
-                    }
+                    const src1 = document.createElement('source');
+                    src1.src = proxyUrl;
+                    src1.type = 'audio/mpeg';
+                    audioEl.appendChild(src1);
 
                     // Error handler — fall back to iframe embed
                     audioEl.onerror = function() {
                         el.innerHTML = `
-                            <iframe src="${url}" class="w-full rounded" style="height:65px;border:none;" allow="autoplay" sandbox="allow-scripts allow-same-origin"></iframe>
-                            <p class="text-xs text-gray-600 mt-1"><i class="fas fa-info-circle mr-1"></i>If audio doesn't play, <a href="${url}" target="_blank" class="text-blue-400 hover:underline">open in new tab</a></p>
+                            <p class="text-xs text-gray-600 mt-1"><i class="fas fa-info-circle mr-1"></i>Recording could not be loaded. <a href="${proxyUrl}" target="_blank" class="text-blue-400 hover:underline">Try opening in new tab</a></p>
                         `;
                     };
 

@@ -447,21 +447,93 @@ def get_hot_leads(current_user, client_id):
 def get_call_recording(current_user, call_id):
     """
     Get recording URL for a specific call
-    
+
     GET /api/client/calls/recording/{call_id}
     """
     from app.services.callrail_service import CallRailConfig, get_callrail_service
-    
+
     if not CallRailConfig.is_configured():
         return jsonify({'error': 'CallRail not configured'}), 400
-    
+
     callrail = get_callrail_service()
     url = callrail.get_call_recording_url(call_id)
-    
+
     if url:
         return jsonify({'recording_url': url})
     else:
         return jsonify({'error': 'Recording not found'}), 404
+
+
+@client_exp_bp.route('/calls/recording/<call_id>/stream', methods=['GET'])
+@token_required
+def stream_call_recording(current_user, call_id):
+    """
+    Stream call recording audio as a proxy.
+
+    CallRail direct MP3 URLs require an Authorization header that browsers
+    cannot attach on <audio> src or direct link opens. This endpoint fetches
+    the audio server-side and streams it back to the browser.
+
+    GET /api/client/calls/recording/{call_id}/stream
+    """
+    import requests as req
+    from flask import Response
+    from app.services.callrail_service import CallRailConfig, get_callrail_service
+
+    if not CallRailConfig.is_configured():
+        return jsonify({'error': 'CallRail not configured'}), 400
+
+    callrail = get_callrail_service()
+
+    # Build the CallRail recording URL with auth
+    account_id = callrail.account_id
+    recording_api_url = f"https://api.callrail.com/v3/a/{account_id}/calls/{call_id}/recording.json"
+
+    try:
+        resp = req.get(
+            recording_api_url,
+            headers={
+                'Authorization': f'Token token={callrail.api_key}',
+                'Content-Type': 'application/json',
+            },
+            timeout=10,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        mp3_url = data.get('url')
+
+        if not mp3_url:
+            return jsonify({'error': 'No recording URL returned by CallRail'}), 404
+
+        # Stream the actual MP3 file
+        audio_resp = req.get(mp3_url, stream=True, timeout=30)
+        audio_resp.raise_for_status()
+
+        def generate():
+            for chunk in audio_resp.iter_content(chunk_size=8192):
+                if chunk:
+                    yield chunk
+
+        content_type = audio_resp.headers.get('Content-Type', 'audio/mpeg')
+        content_length = audio_resp.headers.get('Content-Length')
+
+        headers = {
+            'Content-Type': content_type,
+            'Accept-Ranges': 'bytes',
+            'Cache-Control': 'private, max-age=3600',
+        }
+        if content_length:
+            headers['Content-Length'] = content_length
+
+        return Response(generate(), status=200, headers=headers)
+
+    except req.exceptions.HTTPError as e:
+        status = e.response.status_code if e.response is not None else 500
+        logger.error(f"CallRail recording stream error: {e}")
+        return jsonify({'error': f'CallRail returned HTTP {status}'}), status
+    except Exception as e:
+        logger.error(f"Recording stream error: {e}")
+        return jsonify({'error': 'Failed to stream recording'}), 500
 
 
 # ==========================================
