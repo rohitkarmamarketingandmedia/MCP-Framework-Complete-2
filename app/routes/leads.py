@@ -405,7 +405,7 @@ def download_lead_report_pdf(current_user):
         'geo': client.geo or '',
     }
 
-    # Fetch leads
+    # Fetch DB leads (forms, chat, etc.)
     from sqlalchemy import text
     cutoff = datetime.utcnow() - __import__('datetime').timedelta(days=days)
     result = db.session.execute(
@@ -427,6 +427,59 @@ def download_lead_report_pdf(current_user):
             'service_requested': row[9], 'notes': row[10],
             'estimated_value': row[11], 'landing_page': row[12],
         })
+
+    # Fetch CallRail phone calls and merge into leads list
+    try:
+        callrail_id = client.callrail_company_id
+        if callrail_id:
+            from app.services.callrail_service import CallRailConfig, get_callrail_service
+            if CallRailConfig.is_configured():
+                callrail = get_callrail_service()
+                if callrail:
+                    calls = callrail.get_recent_calls(
+                        callrail_id,
+                        account_id=client.callrail_account_id,
+                        days=days,
+                        limit=250,
+                        include_recordings=False,
+                        include_transcripts=False
+                    )
+                    logger.info(f"CallRail returned {len(calls)} calls for PDF report")
+                    for call in calls:
+                        # Determine status based on call quality
+                        call_status = 'new'
+                        quality = call.get('lead_quality', '')
+                        if quality == 'good':
+                            call_status = 'qualified'
+                        elif call.get('answered'):
+                            call_status = 'contacted'
+
+                        leads.append({
+                            'id': call.get('id'),
+                            'name': call.get('caller_name', 'Unknown'),
+                            'email': '',
+                            'phone': call.get('caller_number', ''),
+                            'source': 'call',
+                            'status': call_status,
+                            'created_at': call.get('date', ''),
+                            'message': '',
+                            'source_detail': call.get('source', 'Direct'),
+                            'service_requested': '',
+                            'notes': '',
+                            'estimated_value': None,
+                            'landing_page': '',
+                            'duration': call.get('duration', 0),
+                            'duration_formatted': call.get('duration_formatted', ''),
+                            'answered': call.get('answered', False),
+                        })
+    except Exception as e:
+        logger.warning(f"Could not fetch CallRail calls for PDF report: {e}")
+
+    # Sort combined leads by date descending
+    def _sort_key(lead):
+        dt = lead.get('created_at', '') or ''
+        return dt
+    leads.sort(key=_sort_key, reverse=True)
 
     logger.info(f"Generating Lead Activity Report PDF for {client.business_name}: {len(leads)} leads, {days} days")
 

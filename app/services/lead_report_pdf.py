@@ -291,7 +291,7 @@ def generate_lead_report_pdf(client, leads, days=30):
         Paragraph('<b>Email</b>', styles['CellText']),
         Paragraph('<b>Source</b>', styles['CellText']),
         Paragraph('<b>Status</b>', styles['CellText']),
-        Paragraph('<b>Service</b>', styles['CellText']),
+        Paragraph('<b>Service / Dur.</b>', styles['CellText']),
     ]
 
     table_data = [header_row]
@@ -310,7 +310,13 @@ def generate_lead_report_pdf(client, leads, days=30):
         email = lead.get('email', '') or ''
         source = SOURCE_LABELS.get(lead.get('source', ''), lead.get('source', '') or '')
         status = (lead.get('status', '') or 'new').title()
+        # For phone calls, show duration instead of service requested
         service = lead.get('service_requested', '') or ''
+        if lead.get('source') == 'call' and lead.get('duration_formatted'):
+            service = lead['duration_formatted']
+        elif lead.get('source') == 'call' and lead.get('duration'):
+            mins, secs = divmod(int(lead['duration']), 60)
+            service = f'{mins}:{secs:02d}'
 
         table_data.append([
             Paragraph(date_str, styles['CellTextSmall']),
