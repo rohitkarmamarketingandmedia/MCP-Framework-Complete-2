@@ -10,7 +10,7 @@ from app.routes.auth import token_required, admin_required
 from app.database import db
 from app.models.db_models import (
     DBClient, DBCompetitor, DBCompetitorPage, DBRankHistory,
-    DBContentQueue, DBAlert, DBBlogPost, DBSocialPost, ContentStatus
+    DBContentQueue, DBAlert, DBBlogPost, DBSocialPost, DBLead, ContentStatus
 )
 
 agency_bp = Blueprint('agency', __name__)
@@ -181,6 +181,34 @@ def get_all_clients_status(current_user):
         # Content stats
         total_blogs = DBBlogPost.query.filter_by(client_id=client.id).count()
         total_social = DBSocialPost.query.filter_by(client_id=client.id).count()
+
+        # Leads (last 30 days from DB)
+        thirty_days_ago = datetime.utcnow() - timedelta(days=30)
+        leads_30d = DBLead.query.filter(
+            DBLead.client_id == client.id,
+            DBLead.created_at >= thirty_days_ago
+        ).count()
+
+        # Also count CallRail calls if configured
+        callrail_calls_30d = 0
+        try:
+            if client.callrail_company_id:
+                from app.services.callrail_service import CallRailConfig, get_callrail_service
+                if CallRailConfig.is_configured():
+                    callrail = get_callrail_service()
+                    if callrail:
+                        calls = callrail.get_recent_calls(
+                            client.callrail_company_id,
+                            account_id=client.callrail_account_id,
+                            days=30, limit=250,
+                            include_recordings=False,
+                            include_transcripts=False
+                        )
+                        callrail_calls_30d = len(calls)
+        except Exception:
+            pass
+
+        total_leads_30d = leads_30d + callrail_calls_30d
         
         # Determine health status
         health = 'green'
@@ -217,7 +245,10 @@ def get_all_clients_status(current_user):
                 'top_10_keywords': top_10_count,
                 'total_blogs': total_blogs,
                 'total_social': total_social,
-                'total_keywords': len(client.get_primary_keywords()) + len(client.get_secondary_keywords())
+                'total_keywords': len(client.get_primary_keywords()) + len(client.get_secondary_keywords()),
+                'leads_30d': total_leads_30d,
+                'leads_form': leads_30d,
+                'leads_calls': callrail_calls_30d
             },
             'created_at': client.created_at.isoformat() if client.created_at else None
         })

@@ -299,6 +299,7 @@
                                     <tr class="text-left text-sm text-gray-400">
                                         <th class="px-4 py-3 font-medium">Client</th>
                                         <th class="px-4 py-3 font-medium">Status</th>
+                                        <th class="px-4 py-3 font-medium text-center">Leads</th>
                                         <th class="px-4 py-3 font-medium text-center">Content</th>
                                         <th class="px-4 py-3 font-medium text-center">Rankings</th>
                                         <th class="px-4 py-3 font-medium text-center">Alerts</th>
@@ -307,7 +308,7 @@
                                 </thead>
                                 <tbody id="clientsTable">
                                     <tr>
-                                        <td colspan="6" class="px-4 py-8 text-center text-gray-400">
+                                        <td colspan="7" class="px-4 py-8 text-center text-gray-400">
                                             <div class="w-8 h-8 border-2 border-blue-500/30 border-t-blue-500 rounded-full animate-spin mx-auto mb-3"></div>
                                             Loading clients...
                                         </td>
@@ -496,7 +497,7 @@
             } catch (e) {
                 console.error('Failed to load clients:', e);
                 document.getElementById('clientsTable').innerHTML = `
-                    <tr><td colspan="6" class="px-4 py-8 text-center text-red-400">Failed to load clients</td></tr>
+                    <tr><td colspan="7" class="px-4 py-8 text-center text-red-400">Failed to load clients</td></tr>
                 `;
             }
         }
@@ -507,7 +508,7 @@
             if (clients.length === 0) {
                 tbody.innerHTML = `
                     <tr>
-                        <td colspan="6" class="px-4 py-8 text-center">
+                        <td colspan="7" class="px-4 py-8 text-center">
                             <i class="fas fa-building text-4xl text-gray-600 mb-3"></i>
                             <p class="text-gray-400">No clients yet</p>
                             <a href="/intake" class="inline-block mt-3 px-4 py-2 bg-emerald-500/20 text-emerald-400 rounded-lg text-sm">
@@ -546,7 +547,13 @@
                             </span>
                         </td>
                         <td class="px-4 py-3 text-center">
-                            ${client.stats.pending_content > 0 ? 
+                            ${client.stats.leads_30d > 0 ?
+                                `<span class="inline-flex items-center justify-center min-w-[24px] h-6 px-1.5 bg-emerald-500/20 text-emerald-400 rounded-full text-xs font-bold">${client.stats.leads_30d}</span>` :
+                                `<span class="text-gray-500">0</span>`
+                            }
+                        </td>
+                        <td class="px-4 py-3 text-center">
+                            ${client.stats.pending_content > 0 ?
                                 `<span class="inline-flex items-center justify-center w-6 h-6 bg-purple-500/20 text-purple-400 rounded-full text-xs font-bold">${client.stats.pending_content}</span>` :
                                 `<span class="text-gray-500">0</span>`
                             }
