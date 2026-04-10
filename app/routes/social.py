@@ -252,6 +252,10 @@ def update_social_post(current_user, post_id):
         post.content = data['content']
     if 'hashtags' in data:
         post.hashtags = json.dumps(data['hashtags'])
+    if 'media_urls' in data:
+        post.media_urls = json.dumps(data['media_urls'])
+    if 'link_url' in data:
+        post.link_url = data['link_url']
     if 'cta_type' in data:
         post.cta_type = data['cta_type']
     if 'status' in data:

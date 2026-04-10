@@ -9245,24 +9245,35 @@
                         </div>
                     </div>
                     ${lead.recording_url ? `
-                        <div id="${uid}_audio" class="hidden mt-2">
+                        <div id="${uid}_audio" class="hidden mt-3 p-3 bg-black/20 rounded-lg">
+                            <div class="flex items-center gap-2 mb-1">
+                                <i class="fas fa-headphones text-blue-400 text-xs"></i>
+                                <span class="text-xs text-gray-500 font-medium">Call Recording</span>
+                                <a href="${lead.recording_mp3 || lead.recording_url}" target="_blank" class="ml-auto text-xs text-blue-400 hover:text-blue-300"><i class="fas fa-external-link-alt mr-1"></i>Open</a>
+                            </div>
                             ${lead.recording_mp3 ?
-                                `<audio controls class="w-full h-8" style="max-height:32px"><source src="${lead.recording_mp3}" type="audio/mpeg"></audio>` :
-                                `<iframe src="${lead.recording_url}" class="w-full rounded" style="height:65px;border:none;" allow="autoplay"></iframe>`
+                                `<audio controls preload="metadata" class="w-full h-8" style="max-height:32px">
+                                    <source src="${lead.recording_mp3}" type="audio/mpeg">
+                                    <source src="${lead.recording_url}" type="audio/mpeg">
+                                </audio>` :
+                                `<audio controls preload="metadata" class="w-full h-8" style="max-height:32px">
+                                    <source src="${lead.recording_url}">
+                                </audio>
+                                <p class="text-xs text-gray-600 mt-1"><i class="fas fa-info-circle mr-1"></i>If audio doesn't play, click "Open" above</p>`
                             }
                         </div>
                     ` : ''}
                     ${lead.has_transcript ? `
-                        <div id="${uid}_transcript" class="hidden mt-2 p-3 bg-black/20 rounded-lg">
-                            <div class="flex justify-between items-center mb-2">
-                                <span class="text-xs text-gray-500 font-medium">Transcript</span>
+                        <div id="${uid}_transcript" class="hidden mt-3 p-3 bg-black/20 rounded-lg">
+                            <div class="flex justify-between items-center mb-3">
+                                <span class="text-xs text-gray-500 font-medium"><i class="fas fa-comment-dots mr-1"></i>Transcript</span>
                                 <div class="flex gap-2">
                                     ${lead.transcript && lead.transcript.length > 150 ? `<button onclick="toggleFullTranscript('${uid}')" id="${uid}_expand_btn" class="text-xs text-blue-400 hover:text-blue-300"><i class="fas fa-expand-alt mr-1"></i>Full Transcript</button>` : ''}
                                     <button onclick="copyTranscript('${uid}_transcript_text')" class="text-xs text-purple-400 hover:text-purple-300"><i class="fas fa-copy mr-1"></i>Copy</button>
                                 </div>
                             </div>
-                            <div id="${uid}_transcript_preview" class="text-sm text-gray-300 whitespace-pre-wrap">${lead.transcript_preview || 'Transcript available'}</div>
-                            <div id="${uid}_transcript_full" class="hidden text-sm text-gray-300 max-h-96 overflow-y-auto whitespace-pre-wrap">${(lead.transcript || lead.transcript_preview || '').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>
+                            <div id="${uid}_transcript_preview">${formatTranscript(lead.transcript_preview || lead.transcript || '', true)}</div>
+                            <div id="${uid}_transcript_full" class="hidden max-h-96 overflow-y-auto">${formatTranscript(lead.transcript || lead.transcript_preview || '', false)}</div>
                             <div id="${uid}_transcript_text" class="hidden">${(lead.transcript || lead.transcript_preview || '').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>
                         </div>
                     ` : ''}
@@ -10603,7 +10614,7 @@
                                 </div>
                             </div>
                             ${call.has_transcript ? `
-                                <div id="callTranscript${idx}" class="hidden mt-3 p-3 bg-black/20 rounded-lg text-sm text-gray-300 max-h-96 overflow-y-auto whitespace-pre-wrap">${call.transcript || call.transcript_preview || 'No transcript text'}</div>
+                                <div id="callTranscript${idx}" class="hidden mt-3 p-3 bg-black/20 rounded-lg max-h-96 overflow-y-auto">${formatTranscript(call.transcript || call.transcript_preview || 'No transcript text', false)}</div>
                             ` : ''}
                             <div class="flex items-center gap-3 mt-2 flex-wrap">
                                 ${call.recording_url ? `<button onclick="event.stopPropagation(); toggleAudioPlayer('callAudio${idx}', '${call.recording_url}')" class="text-xs text-blue-400 hover:text-blue-300 transition"><i class="fas fa-play mr-1"></i>Recording</button>` : ''}
@@ -11077,14 +11088,130 @@
         function toggleAudioPlayer(id, url) {
             const el = document.getElementById(id);
             if (!el) return;
+
+            const wasHidden = el.classList.contains('hidden');
             el.classList.toggle('hidden');
-            // Auto-play when opening
-            if (!el.classList.contains('hidden')) {
-                const audio = el.querySelector('audio');
+
+            if (wasHidden) {
+                // If the container is empty or only has a failed iframe, rebuild the player
+                let audio = el.querySelector('audio');
+                if (!audio && url) {
+                    // Build a proper audio element with multiple source fallbacks
+                    el.innerHTML = '';
+                    const playerWrap = document.createElement('div');
+                    playerWrap.className = 'flex items-center gap-2';
+
+                    const audioEl = document.createElement('audio');
+                    audioEl.controls = true;
+                    audioEl.preload = 'metadata';
+                    audioEl.className = 'w-full h-8';
+                    audioEl.style.maxHeight = '32px';
+
+                    // Try mp3 source first, then original URL
+                    const mp3Url = url.replace(/\?.*$/, '') + '.mp3';
+                    if (url.includes('.mp3') || url.includes('recording')) {
+                        const src1 = document.createElement('source');
+                        src1.src = url;
+                        src1.type = 'audio/mpeg';
+                        audioEl.appendChild(src1);
+                    } else {
+                        const src1 = document.createElement('source');
+                        src1.src = url;
+                        audioEl.appendChild(src1);
+                    }
+
+                    // Error handler — fall back to iframe embed
+                    audioEl.onerror = function() {
+                        el.innerHTML = `
+                            <iframe src="${url}" class="w-full rounded" style="height:65px;border:none;" allow="autoplay" sandbox="allow-scripts allow-same-origin"></iframe>
+                            <p class="text-xs text-gray-600 mt-1"><i class="fas fa-info-circle mr-1"></i>If audio doesn't play, <a href="${url}" target="_blank" class="text-blue-400 hover:underline">open in new tab</a></p>
+                        `;
+                    };
+
+                    playerWrap.appendChild(audioEl);
+                    el.appendChild(playerWrap);
+                    audio = audioEl;
+                }
+
+                // Try to play
                 if (audio) {
-                    audio.play().catch(() => {});
+                    audio.play().catch(err => {
+                        console.log('Autoplay blocked:', err.message);
+                    });
+                }
+            } else {
+                // Pause when hiding
+                const audio = el.querySelector('audio');
+                if (audio) audio.pause();
+            }
+        }
+
+        /**
+         * Format a raw transcript string into styled HTML with speaker bubbles.
+         * Handles patterns like "Agent: ...", "Caller: ...", "Customer: ...", etc.
+         * @param {string} raw - The raw transcript text
+         * @param {boolean} isPreview - If true, show only first ~3 exchanges
+         * @returns {string} Formatted HTML
+         */
+        function formatTranscript(raw, isPreview = false) {
+            if (!raw) return '<span class="text-gray-500 italic">No transcript available</span>';
+
+            // Split by speaker labels — supports "Agent:", "Caller:", "Customer:", "Rep:", "Receptionist:", etc.
+            const speakerPattern = /(?:^|\s)((?:Agent|Caller|Customer|Rep|Receptionist|Doctor|Staff|Patient|Client|Operator|Bot|AI|Voicemail)\s*:)/gi;
+
+            // Split the text at speaker boundaries
+            const parts = [];
+            let lastIdx = 0;
+            let match;
+            const regex = new RegExp(speakerPattern.source, 'gi');
+
+            // Find all speaker labels and their positions
+            const labels = [];
+            while ((match = regex.exec(raw)) !== null) {
+                labels.push({ label: match[1].trim(), index: match.index + (match[0].length - match[1].length) });
+            }
+
+            if (labels.length === 0) {
+                // No speaker labels found — return as-is with basic formatting
+                return `<div class="text-sm text-gray-300 leading-relaxed">${raw.replace(/</g, '&lt;')}</div>`;
+            }
+
+            // Extract segments
+            for (let i = 0; i < labels.length; i++) {
+                const start = labels[i].index + labels[i].label.length;
+                const end = i + 1 < labels.length ? labels[i + 1].index : raw.length;
+                const speaker = labels[i].label.replace(':', '').trim();
+                const text = raw.substring(start, end).trim();
+                if (text) {
+                    parts.push({ speaker, text });
                 }
             }
+
+            // If preview mode, limit to first 3 exchanges
+            const displayParts = isPreview ? parts.slice(0, 3) : parts;
+
+            const html = displayParts.map(part => {
+                const isAgent = /^(agent|rep|receptionist|doctor|staff|operator|bot|ai)$/i.test(part.speaker);
+                const speakerColor = isAgent ? 'text-blue-400' : 'text-green-400';
+                const bgColor = isAgent ? 'bg-blue-500/5 border-l-2 border-blue-500/30' : 'bg-green-500/5 border-l-2 border-green-500/30';
+                const icon = isAgent ? 'fa-headset' : 'fa-user';
+
+                return `
+                    <div class="${bgColor} rounded-r-lg p-2.5 mb-1.5">
+                        <div class="flex items-center gap-1.5 mb-1">
+                            <i class="fas ${icon} text-[10px] ${speakerColor}"></i>
+                            <span class="text-xs font-semibold ${speakerColor}">${part.speaker}</span>
+                        </div>
+                        <p class="text-sm text-gray-300 leading-relaxed pl-4">${part.text.replace(/</g, '&lt;')}</p>
+                    </div>
+                `;
+            }).join('');
+
+            const truncatedNote = isPreview && parts.length > 3
+                ? `<p class="text-xs text-gray-500 mt-1 italic">... ${parts.length - 3} more exchange${parts.length - 3 > 1 ? 's' : ''} — click Full Transcript to see all</p>`
+                : '';
+
+            return `<div class="space-y-0">${html}${truncatedNote}</div>`;
         }
 
         function copyTranscript(elementId) {
@@ -17353,6 +17480,8 @@
             document.getElementById('countAll').textContent = allSocial.length;
             document.getElementById('countGbp').textContent = allSocial.filter(s => s.platform === 'gbp').length;
             document.getElementById('countFacebook').textContent = allSocial.filter(s => s.platform === 'facebook').length;
+            const igEl = document.getElementById('countInstagram');
+            if (igEl) igEl.textContent = allSocial.filter(s => s.platform === 'instagram').length;
 
             const filtered = socialFilter === 'all' ? allSocial : allSocial.filter(s => s.platform === socialFilter);
 
@@ -17373,51 +17502,112 @@
                     'approved': 'bg-green-500/20 text-green-300',
                     'published': 'bg-emerald-500/20 text-emerald-300'
                 };
+                const platformBorderColors = {
+                    'gbp': 'border-blue-500/40',
+                    'facebook': 'border-blue-600/40',
+                    'instagram': 'border-pink-500/40',
+                    'linkedin': 'border-blue-700/40'
+                };
                 const scheduledInfo = post.scheduled_for
                     ? `<span class="text-xs text-blue-400"><i class="fas fa-calendar mr-1"></i>${new Date(post.scheduled_for).toLocaleDateString()}</span>
                        <button onclick="event.stopPropagation(); cancelSocialSchedule('${post.id}')" class="text-red-400 hover:text-red-300 text-xs ml-1" title="Cancel schedule"><i class="fas fa-times-circle"></i></button>`
                     : '';
 
-                // Show publish button only for draft/approved posts
                 const showPublish = post.status !== 'published';
+                const mediaUrls = post.media_urls || [];
+                const hasImage = mediaUrls.length > 0;
+                const platformDims = { 'gbp': '1200x900', 'facebook': '1200x630', 'instagram': '1080x1080', 'linkedin': '1200x627' };
+                const charLimits = { 'gbp': 1500, 'facebook': 500, 'instagram': 2200, 'linkedin': 700, 'twitter': 280 };
+                const charUsed = (post.content || '').length;
+                const charLimit = charLimits[post.platform] || 500;
+                const charPct = Math.min(100, Math.round((charUsed / charLimit) * 100));
+                const charColor = charPct > 90 ? 'bg-red-500' : charPct > 70 ? 'bg-yellow-500' : 'bg-green-500';
 
                 return `
-                <div class="glass rounded-xl p-4 social-${post.platform} ${selectedSocialIds.has(post.id) ? 'ring-2 ring-purple-500' : ''}">
-                    <div class="flex items-center gap-2 mb-3">
-                        ${USER_ROLE !== 'client' && USER_ROLE !== 'viewer' ? `
-                        <input type="checkbox" class="social-select-cb w-4 h-4 rounded accent-purple-500 cursor-pointer flex-shrink-0"
-                               data-post-id="${post.id}"
-                               ${selectedSocialIds.has(post.id) ? 'checked' : ''}
-                               onchange="toggleSocialSelect('${post.id}', this.checked)">
-                        ` : ''}
-                        ${getPlatformIcon(post.platform)}
-                        <span class="text-sm font-medium text-white">${getPlatformName(post.platform)}</span>
-                        <span class="ml-auto px-2 py-1 ${statusColors[post.status] || statusColors.draft} rounded text-xs">
-                            ${post.status || 'draft'}
-                        </span>
-                    </div>
-                    <p class="text-gray-300 text-sm mb-3">${post.content || ''}</p>
-                    ${post.hashtags?.length > 0 ? `
-                        <div class="flex flex-wrap gap-1 mb-3">
-                            ${post.hashtags.map(h => `<span class="text-xs text-purple-400">#${h}</span>`).join(' ')}
+                <div class="glass rounded-xl overflow-hidden social-${post.platform} border-l-4 ${platformBorderColors[post.platform] || 'border-purple-500/40'} ${selectedSocialIds.has(post.id) ? 'ring-2 ring-purple-500' : ''} hover:bg-white/[0.03] transition cursor-pointer" onclick="openSocialEditModal('${post.id}')">
+                    <!-- Image Section -->
+                    ${hasImage ? `
+                    <div class="relative w-full" style="aspect-ratio: ${post.platform === 'instagram' ? '1/1' : '16/9'}; max-height: 200px;">
+                        <img src="${mediaUrls[0]}" alt="Post image" class="w-full h-full object-cover" onerror="this.parentElement.innerHTML='<div class=\\'flex items-center justify-center h-full bg-white/5 text-gray-500\\' ><i class=\\'fas fa-image-slash text-2xl\\'></i></div>'">
+                        <div class="absolute top-2 right-2 flex gap-1">
+                            <span class="px-2 py-0.5 bg-black/60 backdrop-blur-sm text-white text-[10px] rounded-full">${platformDims[post.platform] || ''}</span>
                         </div>
-                    ` : ''}
-                    <div class="flex items-center justify-between pt-3 border-t border-white/10">
-                        ${scheduledInfo}
-                        <div class="flex items-center gap-1 ml-auto">
-                            ${showPublish ? `
-                            <button onclick="publishSocialPost('${post.id}', '${post.platform}')" 
-                                    class="px-2 py-1 text-xs bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded hover:opacity-90 transition" 
-                                    title="Publish Now">
-                                <i class="fas fa-paper-plane mr-1"></i>Publish
-                            </button>
+                        ${mediaUrls.length > 1 ? `<span class="absolute bottom-2 right-2 px-2 py-0.5 bg-black/60 backdrop-blur-sm text-white text-[10px] rounded-full"><i class="fas fa-images mr-1"></i>${mediaUrls.length}</span>` : ''}
+                    </div>
+                    ` : `
+                    <div class="relative w-full bg-gradient-to-br from-white/[0.03] to-white/[0.01] flex items-center justify-center cursor-pointer hover:from-white/[0.06] transition" style="height: 100px;" onclick="event.stopPropagation(); openSocialImagePicker('${post.id}')">
+                        <div class="text-center">
+                            <i class="fas fa-cloud-upload-alt text-2xl text-gray-600 mb-1"></i>
+                            <p class="text-xs text-gray-500">Click to add image</p>
+                            <p class="text-[10px] text-gray-600">${platformDims[post.platform] || 'Recommended'}</p>
+                        </div>
+                    </div>
+                    `}
+
+                    <div class="p-4">
+                        <!-- Header -->
+                        <div class="flex items-center gap-2 mb-3">
+                            ${USER_ROLE !== 'client' && USER_ROLE !== 'viewer' ? `
+                            <input type="checkbox" class="social-select-cb w-4 h-4 rounded accent-purple-500 cursor-pointer flex-shrink-0"
+                                   data-post-id="${post.id}"
+                                   ${selectedSocialIds.has(post.id) ? 'checked' : ''}
+                                   onclick="event.stopPropagation()"
+                                   onchange="toggleSocialSelect('${post.id}', this.checked)">
                             ` : ''}
-                            <button onclick="copySocialPost('${post.id}')" class="p-1.5 text-gray-400 hover:text-white hover:bg-white/10 rounded transition" title="Copy">
-                                <i class="fas fa-copy text-xs"></i>
-                            </button>
-                            <button onclick="deleteSocialPost('${post.id}')" class="p-1.5 text-gray-400 hover:text-red-400 hover:bg-red-500/10 rounded transition" title="Delete" ${USER_ROLE === 'client' || USER_ROLE === 'viewer' ? 'style="display:none"' : ''}>
-                                <i class="fas fa-trash text-xs"></i>
-                            </button>
+                            ${getPlatformIcon(post.platform)}
+                            <span class="text-sm font-medium text-white">${getPlatformName(post.platform)}</span>
+                            <span class="ml-auto px-2 py-1 ${statusColors[post.status] || statusColors.draft} rounded text-xs">
+                                ${post.status || 'draft'}
+                            </span>
+                        </div>
+
+                        <!-- Content Preview -->
+                        <p class="text-gray-300 text-sm mb-2 line-clamp-4" style="display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden;">${(post.content || '').replace(/</g, '&lt;')}</p>
+
+                        <!-- Character Count Bar -->
+                        <div class="flex items-center gap-2 mb-2">
+                            <div class="flex-1 h-1 bg-white/10 rounded-full overflow-hidden">
+                                <div class="${charColor} h-full rounded-full transition-all" style="width:${charPct}%"></div>
+                            </div>
+                            <span class="text-[10px] text-gray-500">${charUsed}/${charLimit}</span>
+                        </div>
+
+                        <!-- Hashtags -->
+                        ${post.hashtags?.length > 0 ? `
+                            <div class="flex flex-wrap gap-1 mb-3">
+                                ${post.hashtags.map(h => `<span class="text-xs px-1.5 py-0.5 bg-purple-500/10 text-purple-400 rounded">#${h}</span>`).join(' ')}
+                            </div>
+                        ` : ''}
+
+                        <!-- CTA Preview -->
+                        ${post.cta_type ? `<p class="text-xs text-cyan-400 mb-3"><i class="fas fa-bullhorn mr-1"></i>${post.cta_type}</p>` : ''}
+
+                        <!-- Footer Actions -->
+                        <div class="flex items-center justify-between pt-3 border-t border-white/10">
+                            ${scheduledInfo}
+                            <div class="flex items-center gap-1 ml-auto" onclick="event.stopPropagation()">
+                                <button onclick="openSocialImagePicker('${post.id}')"
+                                        class="p-1.5 text-gray-400 hover:text-pink-400 hover:bg-pink-500/10 rounded transition" title="Add/Change Image">
+                                    <i class="fas fa-image text-xs"></i>
+                                </button>
+                                <button onclick="openSocialEditModal('${post.id}')"
+                                        class="p-1.5 text-gray-400 hover:text-blue-400 hover:bg-blue-500/10 rounded transition" title="Edit Post">
+                                    <i class="fas fa-edit text-xs"></i>
+                                </button>
+                                ${showPublish ? `
+                                <button onclick="publishSocialPost('${post.id}', '${post.platform}')"
+                                        class="px-2 py-1 text-xs bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded hover:opacity-90 transition"
+                                        title="Publish Now">
+                                    <i class="fas fa-paper-plane mr-1"></i>Publish
+                                </button>
+                                ` : ''}
+                                <button onclick="copySocialPost('${post.id}')" class="p-1.5 text-gray-400 hover:text-white hover:bg-white/10 rounded transition" title="Copy">
+                                    <i class="fas fa-copy text-xs"></i>
+                                </button>
+                                <button onclick="deleteSocialPost('${post.id}')" class="p-1.5 text-gray-400 hover:text-red-400 hover:bg-red-500/10 rounded transition" title="Delete" ${USER_ROLE === 'client' || USER_ROLE === 'viewer' ? 'style="display:none"' : ''}>
+                                    <i class="fas fa-trash text-xs"></i>
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -23897,6 +24087,506 @@
             div.textContent = content;
             container.appendChild(div);
             container.scrollTop = container.scrollHeight;
+        }
+    </script>
+
+    <!-- Social Post Edit Modal -->
+    <div id="socialEditModal" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50" onclick="if(event.target===this)closeSocialEditModal()">
+        <div class="bg-gray-900 border border-white/10 rounded-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto mx-4 shadow-2xl">
+            <!-- Modal Header -->
+            <div class="flex items-center justify-between p-5 border-b border-white/10">
+                <div class="flex items-center gap-3">
+                    <span id="socialEditPlatformIcon"></span>
+                    <div>
+                        <h3 id="socialEditTitle" class="text-lg font-bold text-white">Edit Social Post</h3>
+                        <p id="socialEditSubtitle" class="text-sm text-gray-400">Editing draft post</p>
+                    </div>
+                </div>
+                <button onclick="closeSocialEditModal()" class="p-2 hover:bg-white/10 rounded-lg transition text-gray-400 hover:text-white">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+
+            <div class="p-5 space-y-5">
+                <!-- Image Section -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-300 mb-2"><i class="fas fa-image mr-2 text-pink-400"></i>Post Image</label>
+                    <div id="socialEditImageArea">
+                        <!-- Populated dynamically -->
+                    </div>
+                </div>
+
+                <!-- Content -->
+                <div>
+                    <div class="flex items-center justify-between mb-2">
+                        <label class="text-sm font-medium text-gray-300"><i class="fas fa-align-left mr-2 text-blue-400"></i>Content</label>
+                        <span id="socialEditCharCount" class="text-xs text-gray-500">0/500</span>
+                    </div>
+                    <textarea id="socialEditContent" rows="6"
+                        class="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 resize-y"
+                        oninput="updateSocialEditCharCount()"
+                        placeholder="Write your post content..."></textarea>
+                </div>
+
+                <!-- Hashtags -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-300 mb-2"><i class="fas fa-hashtag mr-2 text-purple-400"></i>Hashtags</label>
+                    <input type="text" id="socialEditHashtags"
+                        class="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-purple-500"
+                        placeholder="keyword1, keyword2, keyword3 (comma separated, no #)">
+                </div>
+
+                <!-- CTA & Link -->
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-300 mb-2"><i class="fas fa-bullhorn mr-2 text-cyan-400"></i>Call to Action</label>
+                        <input type="text" id="socialEditCta"
+                            class="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-purple-500"
+                            placeholder="e.g., Book your appointment today!">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-300 mb-2"><i class="fas fa-link mr-2 text-green-400"></i>Link URL</label>
+                        <input type="text" id="socialEditLink"
+                            class="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-purple-500"
+                            placeholder="https://...">
+                    </div>
+                </div>
+
+                <!-- Status & Schedule -->
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-300 mb-2"><i class="fas fa-flag mr-2 text-yellow-400"></i>Status</label>
+                        <select id="socialEditStatus"
+                            class="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white focus:outline-none focus:border-purple-500">
+                            <option value="draft">Draft</option>
+                            <option value="approved">Approved</option>
+                            <option value="scheduled">Scheduled</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-300 mb-2"><i class="fas fa-calendar mr-2 text-blue-400"></i>Schedule For</label>
+                        <input type="datetime-local" id="socialEditSchedule"
+                            class="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white focus:outline-none focus:border-purple-500">
+                    </div>
+                </div>
+
+                <!-- Platform Preview -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-300 mb-2"><i class="fas fa-eye mr-2 text-emerald-400"></i>Preview</label>
+                    <div id="socialEditPreview" class="rounded-xl border border-white/10 overflow-hidden bg-white/[0.02]">
+                        <!-- Live preview rendered here -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Modal Footer -->
+            <div class="flex items-center justify-between p-5 border-t border-white/10">
+                <button onclick="closeSocialEditModal()" class="px-4 py-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-lg transition">Cancel</button>
+                <div class="flex gap-2">
+                    <button onclick="saveSocialEdit()" id="btnSaveSocialEdit"
+                        class="px-6 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white font-medium rounded-lg hover:opacity-90 transition">
+                        <i class="fas fa-save mr-2"></i>Save Changes
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Social Image Picker Modal -->
+    <div id="socialImagePickerModal" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-[60]" onclick="if(event.target===this)closeSocialImagePicker()">
+        <div class="bg-gray-900 border border-white/10 rounded-2xl w-full max-w-lg max-h-[80vh] overflow-y-auto mx-4 shadow-2xl">
+            <div class="flex items-center justify-between p-5 border-b border-white/10">
+                <h3 class="text-lg font-bold text-white"><i class="fas fa-image mr-2 text-pink-400"></i>Add Image to Post</h3>
+                <button onclick="closeSocialImagePicker()" class="p-2 hover:bg-white/10 rounded-lg transition text-gray-400 hover:text-white">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="p-5 space-y-4">
+                <!-- Upload New -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-300 mb-2">Upload New Image</label>
+                    <div class="border-2 border-dashed border-white/20 rounded-xl p-6 text-center hover:border-pink-500/50 transition cursor-pointer"
+                        onclick="document.getElementById('socialImageUploadInput').click()"
+                        ondragover="event.preventDefault(); this.classList.add('border-pink-500')"
+                        ondragleave="this.classList.remove('border-pink-500')"
+                        ondrop="handleSocialImageDrop(event)">
+                        <input type="file" id="socialImageUploadInput" accept="image/*" class="hidden" onchange="uploadSocialImage(event)">
+                        <i class="fas fa-cloud-upload-alt text-3xl text-gray-500 mb-2"></i>
+                        <p class="text-gray-400 text-sm">Click to upload or drag & drop</p>
+                        <p class="text-xs text-gray-600 mt-1">JPG, PNG, WebP (max 10MB)</p>
+                    </div>
+                    <div id="socialImageUploadProgress" class="hidden mt-2">
+                        <div class="flex items-center gap-2">
+                            <div class="flex-1 bg-white/10 rounded-full h-2">
+                                <div id="socialImageUploadBar" class="bg-pink-500 h-2 rounded-full transition-all" style="width:0%"></div>
+                            </div>
+                            <span id="socialImageUploadText" class="text-xs text-gray-400">Uploading...</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Enter URL -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-300 mb-2">Or Enter Image URL</label>
+                    <div class="flex gap-2">
+                        <input type="text" id="socialImageUrlInput"
+                            class="flex-1 px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-pink-500"
+                            placeholder="https://example.com/image.jpg">
+                        <button onclick="attachSocialImageUrl()" class="px-4 py-3 bg-pink-600 text-white rounded-xl hover:opacity-90 transition">
+                            <i class="fas fa-check"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Library Selection -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-300 mb-2">Or Select from Library</label>
+                    <div id="socialImageLibraryGrid" class="grid grid-cols-3 gap-2 max-h-48 overflow-y-auto">
+                        <p class="col-span-3 text-center text-gray-500 text-sm py-4">Loading library...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ==========================================
+        // SOCIAL POST EDIT MODAL & IMAGE PICKER
+        // ==========================================
+
+        let socialEditPostId = null;
+        let socialPickerPostId = null;
+        let socialEditPlatform = null;
+
+        function openSocialEditModal(postId) {
+            const post = allSocial.find(p => p.id === postId);
+            if (!post) return;
+
+            socialEditPostId = postId;
+            socialEditPlatform = post.platform;
+
+            // Populate fields
+            document.getElementById('socialEditPlatformIcon').innerHTML = getPlatformIcon(post.platform);
+            document.getElementById('socialEditTitle').textContent = `Edit ${getPlatformName(post.platform)} Post`;
+            document.getElementById('socialEditSubtitle').textContent = `Status: ${post.status || 'draft'} | Created: ${post.created_at ? new Date(post.created_at).toLocaleDateString() : 'N/A'}`;
+            document.getElementById('socialEditContent').value = post.content || '';
+            document.getElementById('socialEditHashtags').value = (post.hashtags || []).join(', ');
+            document.getElementById('socialEditCta').value = post.cta_type || '';
+            document.getElementById('socialEditLink').value = post.link_url || '';
+            document.getElementById('socialEditStatus').value = post.status || 'draft';
+            document.getElementById('socialEditSchedule').value = post.scheduled_for ? post.scheduled_for.slice(0, 16) : '';
+
+            // Image area
+            const mediaUrls = post.media_urls || [];
+            renderSocialEditImageArea(mediaUrls);
+
+            // Update char count
+            updateSocialEditCharCount();
+
+            // Update preview
+            updateSocialEditPreview();
+
+            // Show modal
+            document.getElementById('socialEditModal').classList.remove('hidden');
+            document.getElementById('socialEditModal').classList.add('flex');
+
+            // Listen for live preview updates
+            document.getElementById('socialEditContent').addEventListener('input', updateSocialEditPreview);
+            document.getElementById('socialEditHashtags').addEventListener('input', updateSocialEditPreview);
+        }
+
+        function closeSocialEditModal() {
+            document.getElementById('socialEditModal').classList.add('hidden');
+            document.getElementById('socialEditModal').classList.remove('flex');
+            socialEditPostId = null;
+            socialEditPlatform = null;
+        }
+
+        function renderSocialEditImageArea(mediaUrls) {
+            const area = document.getElementById('socialEditImageArea');
+            if (mediaUrls && mediaUrls.length > 0) {
+                area.innerHTML = `
+                    <div class="grid grid-cols-${Math.min(mediaUrls.length, 3)} gap-2">
+                        ${mediaUrls.map((url, idx) => `
+                            <div class="relative rounded-lg overflow-hidden group" style="aspect-ratio:16/9;">
+                                <img src="${url}" alt="Post image ${idx+1}" class="w-full h-full object-cover">
+                                <div class="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition flex items-center justify-center gap-2">
+                                    <button onclick="removeSocialEditImage(${idx})" class="p-2 bg-red-600 text-white rounded-lg text-xs hover:bg-red-700">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                    <button onclick="openSocialImagePicker('${socialEditPostId}')" class="mt-2 w-full py-2 border border-dashed border-white/20 rounded-lg text-gray-400 hover:text-pink-400 hover:border-pink-500/50 transition text-sm">
+                        <i class="fas fa-plus mr-2"></i>Add Another Image
+                    </button>
+                `;
+            } else {
+                area.innerHTML = `
+                    <div class="border-2 border-dashed border-white/20 rounded-xl p-8 text-center hover:border-pink-500/50 transition cursor-pointer"
+                         onclick="openSocialImagePicker('${socialEditPostId}')">
+                        <i class="fas fa-cloud-upload-alt text-3xl text-gray-500 mb-2"></i>
+                        <p class="text-gray-400">Click to add an image</p>
+                        <p class="text-xs text-gray-600 mt-1">Upload, enter a URL, or pick from your library</p>
+                    </div>
+                `;
+            }
+        }
+
+        function removeSocialEditImage(idx) {
+            const post = allSocial.find(p => p.id === socialEditPostId);
+            if (!post) return;
+            const mediaUrls = [...(post.media_urls || [])];
+            mediaUrls.splice(idx, 1);
+            post.media_urls = mediaUrls;
+            renderSocialEditImageArea(mediaUrls);
+            updateSocialEditPreview();
+        }
+
+        function updateSocialEditCharCount() {
+            const content = document.getElementById('socialEditContent').value;
+            const charLimits = { 'gbp': 1500, 'facebook': 500, 'instagram': 2200, 'linkedin': 700, 'twitter': 280 };
+            const limit = charLimits[socialEditPlatform] || 500;
+            const count = content.length;
+            const el = document.getElementById('socialEditCharCount');
+            el.textContent = `${count}/${limit}`;
+            if (count > limit) { el.className = 'text-xs text-red-400 font-bold'; }
+            else if (count > limit * 0.9) { el.className = 'text-xs text-yellow-400'; }
+            else { el.className = 'text-xs text-gray-500'; }
+        }
+
+        function updateSocialEditPreview() {
+            const content = document.getElementById('socialEditContent').value || '';
+            const hashtagsStr = document.getElementById('socialEditHashtags').value || '';
+            const hashtags = hashtagsStr.split(',').map(h => h.trim()).filter(h => h);
+            const post = allSocial.find(p => p.id === socialEditPostId);
+            const mediaUrls = post ? (post.media_urls || []) : [];
+            const platform = socialEditPlatform || 'facebook';
+
+            const platformStyles = {
+                'facebook': { bg: '#1a1a2e', accent: '#1877f2', name: 'Facebook', icon: 'fab fa-facebook' },
+                'instagram': { bg: '#1a1a2e', accent: '#e4405f', name: 'Instagram', icon: 'fab fa-instagram' },
+                'gbp': { bg: '#1a1a2e', accent: '#4285f4', name: 'Google Business', icon: 'fab fa-google' },
+                'linkedin': { bg: '#1a1a2e', accent: '#0A66C2', name: 'LinkedIn', icon: 'fab fa-linkedin' }
+            };
+            const style = platformStyles[platform] || platformStyles.facebook;
+
+            document.getElementById('socialEditPreview').innerHTML = `
+                <div class="p-4" style="background:${style.bg};">
+                    <div class="flex items-center gap-2 mb-3">
+                        <div class="w-10 h-10 rounded-full flex items-center justify-center" style="background:${style.accent}20;">
+                            <i class="${style.icon}" style="color:${style.accent};"></i>
+                        </div>
+                        <div>
+                            <p class="text-white text-sm font-semibold">${currentClient?.business_name || 'Business Name'}</p>
+                            <p class="text-gray-500 text-xs">${style.name} Preview</p>
+                        </div>
+                    </div>
+                    ${mediaUrls.length > 0 ? `<img src="${mediaUrls[0]}" alt="" class="w-full rounded-lg mb-3 object-cover" style="max-height:250px;" onerror="this.style.display='none'">` : ''}
+                    <p class="text-gray-200 text-sm whitespace-pre-wrap mb-2">${content.replace(/</g, '&lt;').substring(0, 300)}${content.length > 300 ? '...' : ''}</p>
+                    ${hashtags.length > 0 ? `<p class="text-sm" style="color:${style.accent};">${hashtags.map(h => '#' + h).join(' ')}</p>` : ''}
+                </div>
+            `;
+        }
+
+        async function saveSocialEdit() {
+            if (!socialEditPostId) return;
+            const btn = document.getElementById('btnSaveSocialEdit');
+            const origHtml = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Saving...';
+
+            const post = allSocial.find(p => p.id === socialEditPostId);
+            const content = document.getElementById('socialEditContent').value.trim();
+            const hashtagsStr = document.getElementById('socialEditHashtags').value;
+            const hashtags = hashtagsStr.split(',').map(h => h.trim().replace(/^#/, '')).filter(h => h);
+            const cta = document.getElementById('socialEditCta').value.trim();
+            const linkUrl = document.getElementById('socialEditLink').value.trim();
+            const status = document.getElementById('socialEditStatus').value;
+            const schedule = document.getElementById('socialEditSchedule').value;
+
+            const payload = {
+                content,
+                hashtags,
+                cta_type: cta,
+                link_url: linkUrl || null,
+                status,
+                media_urls: post ? (post.media_urls || []) : [],
+                scheduled_for: schedule ? new Date(schedule).toISOString() : null
+            };
+
+            try {
+                const response = await fetch(`${API_URL}/api/social/${socialEditPostId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${AUTH_TOKEN}` },
+                    body: JSON.stringify(payload)
+                });
+                const result = await response.json();
+                if (response.ok) {
+                    showToast('Post updated!', 'success');
+                    // Update local data
+                    if (post) {
+                        post.content = content;
+                        post.hashtags = hashtags;
+                        post.cta_type = cta;
+                        post.link_url = linkUrl || null;
+                        post.status = status;
+                        post.scheduled_for = schedule ? new Date(schedule).toISOString() : null;
+                    }
+                    closeSocialEditModal();
+                    renderSocial();
+                } else {
+                    showToast(result.error || 'Failed to save', 'error');
+                }
+            } catch (err) {
+                console.error('Save error:', err);
+                showToast('Error saving: ' + err.message, 'error');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = origHtml;
+            }
+        }
+
+        // ---- Image Picker ----
+        function openSocialImagePicker(postId) {
+            socialPickerPostId = postId;
+            document.getElementById('socialImagePickerModal').classList.remove('hidden');
+            document.getElementById('socialImagePickerModal').classList.add('flex');
+            document.getElementById('socialImageUrlInput').value = '';
+            loadSocialImageLibrary();
+        }
+
+        function closeSocialImagePicker() {
+            document.getElementById('socialImagePickerModal').classList.add('hidden');
+            document.getElementById('socialImagePickerModal').classList.remove('flex');
+            socialPickerPostId = null;
+        }
+
+        async function loadSocialImageLibrary() {
+            const grid = document.getElementById('socialImageLibraryGrid');
+            if (!currentClient) {
+                grid.innerHTML = '<p class="col-span-3 text-center text-gray-500 text-sm py-4">No client selected</p>';
+                return;
+            }
+            try {
+                const response = await fetch(`${API_URL}/api/images/library/${currentClient.id}`, {
+                    headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
+                });
+                const result = await response.json();
+                const images = result.images || result.library || [];
+                if (images.length === 0) {
+                    grid.innerHTML = '<p class="col-span-3 text-center text-gray-500 text-sm py-4">No images in library. Upload one above.</p>';
+                    return;
+                }
+                grid.innerHTML = images.map(img => {
+                    const url = img.url || img.path || '';
+                    return `
+                        <div class="relative rounded-lg overflow-hidden cursor-pointer group hover:ring-2 hover:ring-pink-500 transition" style="aspect-ratio:1/1;"
+                             onclick="selectLibraryImageForSocial('${url.replace(/'/g, "\\'")}')">
+                            <img src="${url}" alt="${img.filename || 'library image'}" class="w-full h-full object-cover">
+                            <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center">
+                                <i class="fas fa-check-circle text-2xl text-pink-400"></i>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            } catch (err) {
+                grid.innerHTML = '<p class="col-span-3 text-center text-red-400 text-sm py-4">Failed to load library</p>';
+            }
+        }
+
+        function selectLibraryImageForSocial(url) {
+            attachImageToSocialPost(url);
+        }
+
+        function attachSocialImageUrl() {
+            const url = document.getElementById('socialImageUrlInput').value.trim();
+            if (!url) { showToast('Please enter a URL', 'warning'); return; }
+            attachImageToSocialPost(url);
+        }
+
+        async function attachImageToSocialPost(imageUrl) {
+            const postId = socialPickerPostId;
+            const post = allSocial.find(p => p.id === postId);
+            if (!post) return;
+
+            const mediaUrls = [...(post.media_urls || [])];
+            mediaUrls.push(imageUrl);
+
+            try {
+                const response = await fetch(`${API_URL}/api/social/${postId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${AUTH_TOKEN}` },
+                    body: JSON.stringify({ media_urls: mediaUrls })
+                });
+                if (response.ok) {
+                    post.media_urls = mediaUrls;
+                    showToast('Image attached!', 'success');
+                    closeSocialImagePicker();
+                    renderSocial();
+                    // If edit modal is open, refresh it
+                    if (socialEditPostId === postId) {
+                        renderSocialEditImageArea(mediaUrls);
+                        updateSocialEditPreview();
+                    }
+                } else {
+                    const r = await response.json();
+                    showToast(r.error || 'Failed to attach image', 'error');
+                }
+            } catch (err) {
+                showToast('Error: ' + err.message, 'error');
+            }
+        }
+
+        async function uploadSocialImage(event) {
+            const file = event.target.files[0];
+            if (!file || !currentClient) return;
+
+            const progress = document.getElementById('socialImageUploadProgress');
+            const bar = document.getElementById('socialImageUploadBar');
+            const text = document.getElementById('socialImageUploadText');
+            progress.classList.remove('hidden');
+            bar.style.width = '30%';
+            text.textContent = 'Uploading...';
+
+            const formData = new FormData();
+            formData.append('image', file);
+            formData.append('category', 'social');
+
+            try {
+                bar.style.width = '60%';
+                const response = await fetch(`${API_URL}/api/images/library/${currentClient.id}/upload`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` },
+                    body: formData
+                });
+                bar.style.width = '90%';
+                const result = await response.json();
+                if (response.ok && result.url) {
+                    bar.style.width = '100%';
+                    text.textContent = 'Done!';
+                    await attachImageToSocialPost(result.url);
+                } else {
+                    text.textContent = result.error || 'Upload failed';
+                    bar.classList.remove('bg-pink-500');
+                    bar.classList.add('bg-red-500');
+                }
+            } catch (err) {
+                text.textContent = 'Error: ' + err.message;
+            } finally {
+                setTimeout(() => { progress.classList.add('hidden'); bar.style.width = '0%'; bar.classList.remove('bg-red-500'); bar.classList.add('bg-pink-500'); }, 2000);
+                event.target.value = '';
+            }
+        }
+
+        function handleSocialImageDrop(event) {
+            event.preventDefault();
+            event.currentTarget.classList.remove('border-pink-500');
+            const files = event.dataTransfer.files;
+            if (files.length > 0) {
+                uploadSocialImage({ target: { files: files } });
+            }
         }
     </script>
 
