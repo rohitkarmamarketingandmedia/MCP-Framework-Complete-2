@@ -2043,7 +2043,7 @@ def run_fact_check(current_user, blog_id):
             result['faq_items'] = blog_dict['faq_items']
 
         blog_ai = get_blog_ai_single()
-        blog_ai._tracking_client_id = client_id
+        blog_ai._tracking_client_id = blog.client_id
         blog_ai._tracking_feature = 'fact_check'
         fact_check = blog_ai._verify_content(result, blog_request)
 
