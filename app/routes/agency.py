@@ -113,38 +113,43 @@ def get_all_clients_status(current_user):
         - Ranking trend
         - Competitors tracked
     """
+    # Get period filter (days) — 0 means all time
+    days = request.args.get('days', 30, type=int)
+    if days not in (0, 30, 60, 90):
+        days = 30
+
     # Get all clients
     clients = get_user_clients(current_user)
     # Sort by business name
     clients = sorted(clients, key=lambda c: c.business_name or '')
-    
+
     result = []
-    
+
     for client in clients:
         # Pending content
         pending = DBContentQueue.query.filter_by(
             client_id=client.id,
             status='pending'
         ).count()
-        
+
         # Unread alerts
         alerts = DBAlert.query.filter_by(
             client_id=client.id,
             is_read=False
         ).count()
-        
+
         urgent_alerts = DBAlert.query.filter_by(
             client_id=client.id,
             is_read=False,
             priority='high'
         ).count()
-        
+
         # Competitors tracked
         competitors = DBCompetitor.query.filter_by(
             client_id=client.id,
             is_active=True
         ).count()
-        
+
         # New competitor content (last 7 days)
         seven_days_ago = datetime.utcnow() - timedelta(days=7)
         new_competitor_pages = DBCompetitorPage.query.filter(
@@ -152,11 +157,13 @@ def get_all_clients_status(current_user):
             DBCompetitorPage.discovered_at >= seven_days_ago,
             DBCompetitorPage.is_new == True
         ).count()
-        
-        # Ranking trend (average change over last 7 days)
+
+        # Ranking trend (average change over selected period or last 7 days)
+        ranking_lookback = min(days, 7) if days > 0 else 7
+        ranking_cutoff = datetime.utcnow() - timedelta(days=ranking_lookback)
         recent_rankings = DBRankHistory.query.filter(
             DBRankHistory.client_id == client.id,
-            DBRankHistory.checked_at >= seven_days_ago
+            DBRankHistory.checked_at >= ranking_cutoff
         ).all()
         
         avg_change = 0
@@ -182,33 +189,36 @@ def get_all_clients_status(current_user):
         total_blogs = DBBlogPost.query.filter_by(client_id=client.id).count()
         total_social = DBSocialPost.query.filter_by(client_id=client.id).count()
 
-        # Leads (last 30 days from DB)
-        thirty_days_ago = datetime.utcnow() - timedelta(days=30)
-        leads_30d = DBLead.query.filter(
-            DBLead.client_id == client.id,
-            DBLead.created_at >= thirty_days_ago
-        ).count()
+        # Leads count for selected period
+        if days > 0:
+            leads_cutoff = datetime.utcnow() - timedelta(days=days)
+            db_leads_count = DBLead.query.filter(
+                DBLead.client_id == client.id,
+                DBLead.created_at >= leads_cutoff
+            ).count()
+        else:
+            db_leads_count = DBLead.query.filter_by(client_id=client.id).count()
 
         # Also count CallRail calls if configured
-        callrail_calls_30d = 0
+        callrail_calls_count = 0
         try:
             if client.callrail_company_id:
                 from app.services.callrail_service import CallRailConfig, get_callrail_service
                 if CallRailConfig.is_configured():
-                    callrail = get_callrail_service()
-                    if callrail:
-                        calls = callrail.get_recent_calls(
+                    callrail_svc = get_callrail_service()
+                    if callrail_svc:
+                        calls = callrail_svc.get_recent_calls(
                             client.callrail_company_id,
                             account_id=client.callrail_account_id,
-                            days=30, limit=250,
+                            days=days, limit=250,
                             include_recordings=False,
                             include_transcripts=False
                         )
-                        callrail_calls_30d = len(calls)
+                        callrail_calls_count = len(calls)
         except Exception:
             pass
 
-        total_leads_30d = leads_30d + callrail_calls_30d
+        total_leads_period = db_leads_count + callrail_calls_count
         
         # Determine health status
         health = 'green'
@@ -246,9 +256,9 @@ def get_all_clients_status(current_user):
                 'total_blogs': total_blogs,
                 'total_social': total_social,
                 'total_keywords': len(client.get_primary_keywords()) + len(client.get_secondary_keywords()),
-                'leads_30d': total_leads_30d,
-                'leads_form': leads_30d,
-                'leads_calls': callrail_calls_30d
+                'leads_total': total_leads_period,
+                'leads_form': db_leads_count,
+                'leads_calls': callrail_calls_count
             },
             'created_at': client.created_at.isoformat() if client.created_at else None
         })

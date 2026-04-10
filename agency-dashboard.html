@@ -290,6 +290,12 @@
                                 <option value="yellow">Warning</option>
                                 <option value="green">Healthy</option>
                             </select>
+                            <select id="periodFilter" onchange="changePeriod()" class="px-3 py-1.5 bg-white/5 border border-white/10 rounded-lg text-sm focus:outline-none">
+                                <option value="30">Last 30 days</option>
+                                <option value="60">Last 60 days</option>
+                                <option value="90">Last 90 days</option>
+                                <option value="0">All Time</option>
+                            </select>
                         </div>
                     </div>
                     <div class="glass-card rounded-xl overflow-hidden">
@@ -486,7 +492,8 @@
 
         async function loadClients() {
             try {
-                const res = await fetch(`${API_URL}/api/agency/clients`, {
+                const days = document.getElementById('periodFilter')?.value || 30;
+                const res = await fetch(`${API_URL}/api/agency/clients?days=${days}`, {
                     headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
                 });
                 const data = await res.json();
@@ -500,6 +507,17 @@
                     <tr><td colspan="7" class="px-4 py-8 text-center text-red-400">Failed to load clients</td></tr>
                 `;
             }
+        }
+
+        function changePeriod() {
+            // Show loading state
+            document.getElementById('clientsTable').innerHTML = `
+                <tr><td colspan="7" class="px-4 py-8 text-center text-gray-400">
+                    <div class="w-8 h-8 border-2 border-blue-500/30 border-t-blue-500 rounded-full animate-spin mx-auto mb-3"></div>
+                    Updating...
+                </td></tr>
+            `;
+            loadClients();
         }
 
         function renderClients(clients) {
@@ -547,8 +565,8 @@
                             </span>
                         </td>
                         <td class="px-4 py-3 text-center">
-                            ${client.stats.leads_30d > 0 ?
-                                `<span class="inline-flex items-center justify-center min-w-[24px] h-6 px-1.5 bg-emerald-500/20 text-emerald-400 rounded-full text-xs font-bold">${client.stats.leads_30d}</span>` :
+                            ${client.stats.leads_total > 0 ?
+                                `<span class="inline-flex items-center justify-center min-w-[24px] h-6 px-1.5 bg-emerald-500/20 text-emerald-400 rounded-full text-xs font-bold" title="${client.stats.leads_form || 0} forms, ${client.stats.leads_calls || 0} calls">${client.stats.leads_total}</span>` :
                                 `<span class="text-gray-500">0</span>`
                             }
                         </td>
