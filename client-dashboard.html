@@ -868,8 +868,8 @@
             <!-- Overview Panel - Client Home Dashboard -->
             <div id="panel-overview" class="fade-in">
                 <div class="grid lg:grid-cols-4 gap-6 mb-8">
-                    <!-- Health Score -->
-                    <div class="glass rounded-2xl p-6 text-center glow-green">
+                    <!-- Health Score (clickable) -->
+                    <div class="glass rounded-2xl p-6 text-center glow-green cursor-pointer hover:ring-2 hover:ring-emerald-500/30 transition group" onclick="openHealthBreakdown()" title="Click for full breakdown">
                         <div class="relative w-32 h-32 mx-auto mb-4">
                             <svg class="w-full h-full transform -rotate-90">
                                 <circle cx="64" cy="64" r="56" stroke="rgba(255,255,255,0.1)" stroke-width="10"
@@ -885,6 +885,7 @@
                         </div>
                         <div class="text-emerald-400 font-bold text-lg" id="health-grade">Loading...</div>
                         <div class="text-sm text-gray-400">Marketing Health Score</div>
+                        <div class="text-xs text-gray-500 mt-1 opacity-0 group-hover:opacity-100 transition"><i class="fas fa-info-circle mr-1"></i>Click for details</div>
                     </div>
 
                     <!-- Leads This Month -->
@@ -4741,6 +4742,44 @@
 
         </div>
     </div>
+    <!-- Health Score Breakdown Modal -->
+    <div id="healthModal" class="hidden fixed inset-0 bg-black/80 z-50 flex items-center justify-center" onclick="if(event.target === this) closeHealthBreakdown()">
+        <div class="max-w-lg w-full mx-4 glass-light rounded-2xl overflow-hidden fade-in" onclick="event.stopPropagation()">
+            <!-- Header -->
+            <div class="bg-gradient-to-r from-emerald-600 to-teal-600 p-6">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h2 class="text-xl font-bold text-white">Marketing Health Score</h2>
+                        <p class="text-emerald-100 text-sm mt-1">How your marketing is performing across 5 key areas</p>
+                    </div>
+                    <div class="text-center">
+                        <div class="text-4xl font-bold text-white" id="modal-health-total">--</div>
+                        <div class="text-emerald-200 text-xs font-medium" id="modal-health-grade">--</div>
+                    </div>
+                </div>
+            </div>
+            <!-- Breakdown Categories -->
+            <div class="p-6 space-y-5" id="healthBreakdownBody">
+                <div class="text-center text-gray-400 py-4">Loading breakdown...</div>
+            </div>
+            <!-- Footer -->
+            <div class="px-6 pb-6">
+                <div class="bg-white/5 rounded-xl p-4" id="healthTipBox">
+                    <div class="flex items-start gap-3">
+                        <i class="fas fa-lightbulb text-yellow-400 mt-0.5"></i>
+                        <div>
+                            <div class="text-sm font-medium text-white mb-1">Top Priority</div>
+                            <div class="text-sm text-gray-400" id="healthTopTip">Focus on the lowest-scoring area for the biggest impact.</div>
+                        </div>
+                    </div>
+                </div>
+                <button onclick="closeHealthBreakdown()" class="w-full mt-4 px-4 py-2.5 bg-white/5 hover:bg-white/10 rounded-xl text-sm text-gray-300 transition">
+                    Close
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- Blog View/Edit Modal -->
     <div id="blogModal" class="hidden fixed inset-0 bg-black/90 z-50 overflow-y-auto"
         onclick="if(event.target === this) closeBlogModal()">
@@ -7127,6 +7166,11 @@
             }
         }
 
+        // Store health breakdown data for modal
+        let healthBreakdownData = null;
+        let healthScoreTotal = 0;
+        let healthGradeLabel = '';
+
         async function loadHealthScore() {
             try {
                 // Try the correct health score endpoint
@@ -7138,6 +7182,8 @@
                 if (response.ok) {
                     const data = await response.json();
                     score = data.score || data.health_score || 0;
+                    healthBreakdownData = data.breakdown || null;
+                    healthScoreTotal = score;
                 } else {
                     // Try analytics health endpoint as fallback
                     const altResponse = await fetch(`${API_URL}/api/analytics/health/${currentClient.id}`, {
@@ -7146,9 +7192,12 @@
                     if (altResponse.ok) {
                         const altData = await altResponse.json();
                         score = altData.score || altData.health_score || 0;
+                        healthBreakdownData = altData.breakdown || null;
+                        healthScoreTotal = score;
                     } else {
                         // Calculate fallback score from available data
                         score = calculateFallbackHealthScore();
+                        healthScoreTotal = score;
                     }
                 }
 
@@ -7170,19 +7219,24 @@
                 const gradeEl = document.getElementById('health-grade');
                 if (gradeEl) {
                     if (score >= 90) {
-                        gradeEl.textContent = 'A+ Excellent!';
+                        healthGradeLabel = 'A+ Excellent!';
+                        gradeEl.textContent = healthGradeLabel;
                         gradeEl.className = 'text-emerald-400 font-bold text-lg';
                     } else if (score >= 80) {
-                        gradeEl.textContent = 'A Grade';
+                        healthGradeLabel = 'A Grade';
+                        gradeEl.textContent = healthGradeLabel;
                         gradeEl.className = 'text-emerald-400 font-bold text-lg';
                     } else if (score >= 70) {
-                        gradeEl.textContent = 'B Grade';
+                        healthGradeLabel = 'B Grade';
+                        gradeEl.textContent = healthGradeLabel;
                         gradeEl.className = 'text-blue-400 font-bold text-lg';
                     } else if (score >= 60) {
-                        gradeEl.textContent = 'C Grade';
+                        healthGradeLabel = 'C Grade';
+                        gradeEl.textContent = healthGradeLabel;
                         gradeEl.className = 'text-yellow-400 font-bold text-lg';
                     } else {
-                        gradeEl.textContent = 'Needs Work';
+                        healthGradeLabel = 'Needs Work';
+                        gradeEl.textContent = healthGradeLabel;
                         gradeEl.className = 'text-orange-400 font-bold text-lg';
                     }
                 }
@@ -7190,13 +7244,93 @@
                 console.error('Error loading health score:', error);
                 // Show fallback score
                 const fallbackScore = calculateFallbackHealthScore();
+                healthScoreTotal = fallbackScore;
                 animateNumber('health-score-value', 0, fallbackScore, 2000);
                 const gradeEl = document.getElementById('health-grade');
                 if (gradeEl) {
-                    gradeEl.textContent = fallbackScore >= 70 ? 'Good' : 'Getting Started';
+                    healthGradeLabel = fallbackScore >= 70 ? 'Good' : 'Getting Started';
+                    gradeEl.textContent = healthGradeLabel;
                     gradeEl.className = 'text-blue-400 font-bold text-lg';
                 }
             }
+        }
+
+        // ── Health Score Breakdown Modal ──────────────────
+        const healthCategoryMeta = {
+            rankings: { icon: 'fa-chart-line', label: 'Rankings', color: '#10b981', tip: 'Add more keywords and publish content targeting them to boost rankings.' },
+            content:  { icon: 'fa-newspaper', label: 'Content', color: '#8b5cf6', tip: 'Publish more blog posts and keep a steady content schedule.' },
+            leads:    { icon: 'fa-user-plus', label: 'Leads', color: '#3b82f6', tip: 'Improve calls-to-action and landing pages to generate more leads.' },
+            reviews:  { icon: 'fa-star', label: 'Reviews', color: '#f59e0b', tip: 'Ask happy customers for reviews and respond to all reviews promptly.' },
+            engagement: { icon: 'fa-share-alt', label: 'Engagement', color: '#ec4899', tip: 'Post regularly on social media and Google Business Profile.' },
+        };
+
+        function openHealthBreakdown() {
+            const modal = document.getElementById('healthModal');
+            modal.classList.remove('hidden');
+            document.getElementById('modal-health-total').textContent = healthScoreTotal;
+            document.getElementById('modal-health-grade').textContent = healthGradeLabel;
+
+            const body = document.getElementById('healthBreakdownBody');
+
+            if (!healthBreakdownData) {
+                body.innerHTML = `<div class="text-center text-gray-400 py-4">
+                    <i class="fas fa-info-circle text-2xl mb-2"></i>
+                    <p>Detailed breakdown is not available yet.</p>
+                    <p class="text-xs mt-1">Score is based on rankings, content, leads, reviews, and engagement.</p>
+                </div>`;
+                return;
+            }
+
+            // Find the weakest category for the tip
+            let weakest = null;
+            let weakestPct = 101;
+
+            let html = '';
+            for (const [key, data] of Object.entries(healthBreakdownData)) {
+                const meta = healthCategoryMeta[key] || { icon: 'fa-circle', label: key, color: '#6b7280', tip: '' };
+                const pct = data.percent || 0;
+                const barColor = pct >= 80 ? '#10b981' : pct >= 50 ? '#f59e0b' : '#ef4444';
+                const statusLabel = pct >= 80 ? 'Strong' : pct >= 50 ? 'Fair' : 'Needs Work';
+                const statusClass = pct >= 80 ? 'text-emerald-400' : pct >= 50 ? 'text-yellow-400' : 'text-red-400';
+
+                if (pct < weakestPct) {
+                    weakestPct = pct;
+                    weakest = key;
+                }
+
+                html += `
+                    <div>
+                        <div class="flex items-center justify-between mb-1.5">
+                            <div class="flex items-center gap-2">
+                                <div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background:${meta.color}20">
+                                    <i class="fas ${meta.icon} text-sm" style="color:${meta.color}"></i>
+                                </div>
+                                <div>
+                                    <span class="text-sm font-medium text-white">${meta.label}</span>
+                                    <span class="text-xs text-gray-500 ml-2">${data.score}/${data.max} pts</span>
+                                </div>
+                            </div>
+                            <span class="text-xs font-medium ${statusClass}">${statusLabel}</span>
+                        </div>
+                        <div class="w-full h-2 bg-white/10 rounded-full overflow-hidden">
+                            <div class="h-full rounded-full transition-all duration-700" style="width:${pct}%; background:${barColor}"></div>
+                        </div>
+                        <p class="text-xs text-gray-500 mt-1">${data.detail || ''}</p>
+                    </div>
+                `;
+            }
+            body.innerHTML = html;
+
+            // Set the tip to the weakest area
+            const tipEl = document.getElementById('healthTopTip');
+            if (weakest && healthCategoryMeta[weakest]) {
+                const wMeta = healthCategoryMeta[weakest];
+                tipEl.innerHTML = `<strong class="text-white">${wMeta.label}</strong> is your lowest area (${weakestPct}%). ${wMeta.tip}`;
+            }
+        }
+
+        function closeHealthBreakdown() {
+            document.getElementById('healthModal').classList.add('hidden');
         }
 
         function calculateFallbackHealthScore() {
