@@ -126,9 +126,46 @@ class CMSService:
 
             # Create post (with SGCaptcha handling)
             response = self._wp_request(session, 'POST', f'{api_url}/posts', wp_url, json=post_data)
-            
+
+            # Check for non-JSON responses (WAF, CAPTCHA, empty body, server errors)
+            content_type = response.headers.get('Content-Type', '')
+            if 'application/json' not in content_type:
+                text = (response.text or '').lower()
+                if 'sgcaptcha' in text or '.well-known/sgcaptcha' in text:
+                    return {
+                        'error': 'SiteGround CAPTCHA is blocking the WordPress API. '
+                                 'Whitelist the server IP in SiteGround Site Tools > Security > Access Control, '
+                                 'or temporarily disable SG Security Bot Protection.'
+                    }
+                if 'cloudflare' in text and ('challenge' in text or 'checking your browser' in text):
+                    return {
+                        'error': 'Cloudflare is blocking the WordPress API. '
+                                 'Add the server IP to the Cloudflare firewall allowlist.'
+                    }
+                return {
+                    'error': f'WordPress returned non-JSON response (HTTP {response.status_code}). '
+                             f'Content-Type: {content_type}. '
+                             f'This usually means a security plugin, firewall, or server error is intercepting the request. '
+                             f'Response preview: {(response.text or "")[:300]}'
+                }
+
             response.raise_for_status()
-            post = response.json()
+
+            # Guard against empty JSON body
+            if not response.text or not response.text.strip():
+                return {
+                    'error': f'WordPress returned an empty response (HTTP {response.status_code}). '
+                             'The server accepted the request but returned no data. '
+                             'Check server error logs and ensure no security plugin is stripping response bodies.'
+                }
+
+            try:
+                post = response.json()
+            except ValueError as json_err:
+                return {
+                    'error': f'WordPress returned invalid JSON (HTTP {response.status_code}): {json_err}. '
+                             f'Response preview: {response.text[:300]}'
+                }
             
             post_id = post['id']
             post_url = post['link']
@@ -184,6 +221,14 @@ class CMSService:
         kwargs.setdefault('timeout', 30)
         response = session.request(method, url, **kwargs)
 
+        # Log response details for debugging publish failures
+        logger.info(
+            f"CMS WP request: {method} {url} -> "
+            f"HTTP {response.status_code}, "
+            f"Content-Type: {response.headers.get('Content-Type', 'N/A')}, "
+            f"Body length: {len(response.text) if response.text else 0}"
+        )
+
         # Check for SGCaptcha and handle it
         if is_sgcaptcha_response(response) and handle_sgcaptcha:
             logger.info("CMS: SGCaptcha detected — attempting bypass")
@@ -224,8 +269,24 @@ class CMSService:
             response = self._wp_request(session, 'POST',
                 f'{api_url}/posts/{post_id}', wp_url, json=updates)
 
+            # Validate response before parsing JSON
+            content_type = response.headers.get('Content-Type', '')
+            if 'application/json' not in content_type:
+                return {
+                    'error': f'WordPress returned non-JSON response (HTTP {response.status_code}). '
+                             f'A security plugin or firewall may be blocking the request. '
+                             f'Response preview: {(response.text or "")[:300]}'
+                }
+
             response.raise_for_status()
-            post = response.json()
+
+            if not response.text or not response.text.strip():
+                return {'error': f'WordPress returned an empty response (HTTP {response.status_code}).'}
+
+            try:
+                post = response.json()
+            except ValueError as json_err:
+                return {'error': f'WordPress returned invalid JSON: {json_err}. Preview: {response.text[:300]}'}
 
             return {
                 'success': True,
@@ -258,8 +319,24 @@ class CMSService:
                 f'{api_url}/posts', wp_url,
                 params={'per_page': per_page, 'status': status})
 
+            # Validate response before parsing JSON
+            content_type = response.headers.get('Content-Type', '')
+            if 'application/json' not in content_type:
+                return {
+                    'error': f'WordPress returned non-JSON response (HTTP {response.status_code}). '
+                             f'A security plugin or firewall may be blocking the request. '
+                             f'Response preview: {(response.text or "")[:300]}'
+                }
+
             response.raise_for_status()
-            posts = response.json()
+
+            if not response.text or not response.text.strip():
+                return {'error': f'WordPress returned an empty response (HTTP {response.status_code}).'}
+
+            try:
+                posts = response.json()
+            except ValueError as json_err:
+                return {'error': f'WordPress returned invalid JSON: {json_err}. Preview: {response.text[:300]}'}
 
             return {
                 'posts': [
