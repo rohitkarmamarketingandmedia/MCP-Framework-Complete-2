@@ -168,7 +168,14 @@ class WordPressService:
         # Set a default timeout
         kwargs.setdefault('timeout', 30)
 
+        logger.info(f"WP _request: {method} {url}")
         response = self.session.request(method, url, **kwargs)
+        logger.info(
+            f"WP _request response: {method} {url} -> "
+            f"HTTP {response.status_code}, "
+            f"Content-Type: {response.headers.get('Content-Type', 'N/A')}, "
+            f"Body length: {len(response.text) if response.text else 0}"
+        )
 
         # Check for SGCaptcha and handle it
         if is_sgcaptcha_response(response) and not self._sgcaptcha_resolved:
@@ -189,7 +196,54 @@ class WordPressService:
                 logger.error("SGCaptcha bypass failed")
 
         return response
-    
+
+    def _safe_json(self, response, context=''):
+        """
+        Safely parse JSON from a WordPress response.
+        Returns (parsed_data, None) on success, or (None, error_string) on failure.
+        Handles empty bodies, HTML responses (WAF/CAPTCHA), and malformed JSON.
+        """
+        content_type = response.headers.get('Content-Type', '')
+
+        # Check for non-JSON Content-Type (WAF, CAPTCHA, server error page)
+        if response.text and 'application/json' not in content_type:
+            text_lower = response.text.lower()
+            if 'sgcaptcha' in text_lower or '.well-known/sgcaptcha' in text_lower:
+                return None, (
+                    'SiteGround CAPTCHA is blocking the WordPress API. '
+                    'Whitelist the server IP in SiteGround Site Tools > Security > Access Control.'
+                )
+            if 'cloudflare' in text_lower and ('challenge' in text_lower or 'checking your browser' in text_lower):
+                return None, (
+                    'Cloudflare is blocking the WordPress API. '
+                    'Add the server IP to the Cloudflare firewall allowlist.'
+                )
+            preview = response.text[:300]
+            return None, (
+                f'WordPress returned non-JSON response (HTTP {response.status_code}, '
+                f'Content-Type: {content_type}). '
+                f'A security plugin or firewall may be intercepting. '
+                f'Preview: {preview}'
+            )
+
+        # Empty body
+        if not response.text or not response.text.strip():
+            return None, (
+                f'WordPress returned an empty response body (HTTP {response.status_code}). '
+                f'Context: {context}. '
+                'Check server error logs — a security plugin may be stripping responses.'
+            )
+
+        # Try to parse
+        try:
+            return response.json(), None
+        except (ValueError, Exception) as e:
+            return None, (
+                f'WordPress returned invalid JSON (HTTP {response.status_code}): {e}. '
+                f'Context: {context}. '
+                f'Preview: {response.text[:300]}'
+            )
+
     def test_connection(self) -> Dict[str, Any]:
         """Test the WordPress connection using multiple methods"""
         try:
@@ -647,70 +701,36 @@ class WordPressService:
                 timeout=30
             )
             
-            # Check for CAPTCHA/WAF response (returns HTML instead of JSON)
-            content_type = response.headers.get('Content-Type', '')
-            if 'text/html' in content_type and 'application/json' not in content_type:
-                text = response.text.lower()
-                
-                # SiteGround CAPTCHA - VERY specific detection
-                is_sg_captcha = (
-                    ('sgcaptcha' in text or 'sg-captcha-form' in text) and 
-                    ('<form' in text or 'data-captcha' in text)
-                )
-                
-                if is_sg_captcha:
-                    return {
-                        'success': False,
-                        'error': 'SiteGround CAPTCHA blocking API',
-                        'message': 'SiteGround security is blocking the request. Please go to SiteGround Site Tools > Security > Access Control and whitelist the server IP, or disable SG Security plugin Bot Protection temporarily.',
-                        'response_preview': response.text[:500]
-                    }
-                
-                # Cloudflare detection
-                is_cloudflare = (
-                    'checking your browser' in text or 
-                    'cf-browser-verification' in text or
-                    ('cloudflare' in text and 'challenge' in text)
-                )
-                
-                if is_cloudflare:
-                    return {
-                        'success': False,
-                        'error': 'Cloudflare blocking API',
-                        'message': 'Cloudflare is blocking the request. Add the server IP to Cloudflare firewall allowlist.',
-                        'response_preview': response.text[:500]
-                    }
-                
-                # Generic HTML error (not CAPTCHA) - provide the actual response for debugging
+            # Log response details for debugging
+            logger.info(
+                f"WP create_post response: HTTP {response.status_code}, "
+                f"Content-Type: {response.headers.get('Content-Type', 'N/A')}, "
+                f"Body length: {len(response.text) if response.text else 0}"
+            )
+
+            # Use safe JSON parsing — handles empty body, HTML/CAPTCHA, malformed JSON
+            post, json_err = self._safe_json(response, 'create_post')
+            if json_err:
+                # If we also got an error status code, include it
                 if response.status_code not in [200, 201]:
                     return {
                         'success': False,
-                        'error': f'WordPress returned HTML error (HTTP {response.status_code})',
-                        'message': f'Expected JSON but got HTML. This could be a server error page, security plugin, or misconfigured REST API. Response preview: {response.text[:300]}',
-                        'response_preview': response.text[:500]
+                        'error': f'Failed to create post (HTTP {response.status_code})',
+                        'message': json_err
                     }
-            
+                return {
+                    'success': False,
+                    'error': 'Invalid response from WordPress',
+                    'message': json_err
+                }
+
+            # Check HTTP status for JSON error responses
             if response.status_code not in [200, 201]:
-                # Try to get error message
-                try:
-                    error_data = response.json()
-                    error_msg = error_data.get('message', response.text[:500])
-                except:
-                    error_msg = response.text[:500] if response.text else f'HTTP {response.status_code}'
+                error_msg = post.get('message', str(post)) if isinstance(post, dict) else str(post)
                 return {
                     'success': False,
                     'error': f"Failed to create post: {response.status_code}",
                     'message': error_msg
-                }
-            
-            # Try to parse JSON response
-            try:
-                post = response.json()
-            except Exception as json_err:
-                return {
-                    'success': False,
-                    'error': 'Invalid response from WordPress',
-                    'message': f'WordPress returned non-JSON response: {response.text[:300]}'
                 }
             
             post_id = post.get('id')
@@ -777,28 +797,25 @@ class WordPressService:
                         'message': 'SiteGround security is blocking the request. Whitelist the server IP in SiteGround Site Tools > Security.'
                     }
             
+            # Safe JSON parsing for update response
+            data, json_err = self._safe_json(response, 'update_post')
+
             if response.status_code == 200:
-                try:
-                    post = response.json()
-                except:
+                if json_err:
                     return {
                         'success': False,
                         'error': 'Invalid response',
-                        'message': f'WordPress returned non-JSON: {response.text[:200]}'
+                        'message': json_err
                     }
                 return {
                     'success': True,
                     'post_id': post_id,
-                    'post_url': post.get('link'),
-                    'url': post.get('link'),
+                    'post_url': data.get('link'),
+                    'url': data.get('link'),
                     'message': 'WordPress post updated successfully'
                 }
             else:
-                try:
-                    error_data = response.json()
-                    error_msg = error_data.get('message', response.text[:300])
-                except:
-                    error_msg = response.text[:300] if response.text else f'HTTP {response.status_code}'
+                error_msg = data.get('message', str(data)) if isinstance(data, dict) else (json_err or f'HTTP {response.status_code}')
                 return {
                     'success': False,
                     'error': f"Update failed: {response.status_code}",
@@ -810,70 +827,82 @@ class WordPressService:
     def _resolve_categories(self, categories: list) -> list:
         """Convert category names to IDs, creating if needed"""
         category_ids = []
-        
+
         for cat in categories:
             if isinstance(cat, int):
                 category_ids.append(cat)
             else:
-                # Search for category by name
-                response = self._request('GET',
-                    f"{self.api_url}/categories",
-                    
-                    params={'search': cat},
-                    timeout=10
-                )
-                
-                if response.status_code == 200:
-                    results = response.json()
-                    if results:
-                        category_ids.append(results[0]['id'])
-                    else:
-                        # Create category
-                        create_response = self._request('POST',
-                            f"{self.api_url}/categories",
-                            
-                            json={'name': cat},
-                            timeout=10
-                        )
-                        if create_response.status_code in [200, 201]:
-                            category_ids.append(create_response.json()['id'])
-        
+                try:
+                    # Search for category by name
+                    response = self._request('GET',
+                        f"{self.api_url}/categories",
+                        params={'search': cat},
+                        timeout=10
+                    )
+
+                    if response.status_code == 200:
+                        results, err = self._safe_json(response, f'search category "{cat}"')
+                        if err:
+                            logger.warning(f"Failed to search category '{cat}': {err}")
+                            continue
+                        if results:
+                            category_ids.append(results[0]['id'])
+                        else:
+                            # Create category
+                            create_response = self._request('POST',
+                                f"{self.api_url}/categories",
+                                json={'name': cat},
+                                timeout=10
+                            )
+                            if create_response.status_code in [200, 201]:
+                                data, err = self._safe_json(create_response, f'create category "{cat}"')
+                                if data:
+                                    category_ids.append(data['id'])
+                                else:
+                                    logger.warning(f"Failed to create category '{cat}': {err}")
+                except Exception as e:
+                    logger.warning(f"Failed to resolve category '{cat}': {e}")
+
         return category_ids
     
     def _resolve_tags(self, tags: list) -> list:
         """Convert tag names to IDs, creating if needed"""
         tag_ids = []
-        
+
         for tag in tags:
             if isinstance(tag, int):
                 tag_ids.append(tag)
             else:
-                # Search for tag by name
                 try:
                     response = self._request('GET',
                         f"{self.api_url}/tags",
-                        
                         params={'search': tag},
                         timeout=10
                     )
-                    
+
                     if response.status_code == 200:
-                        results = response.json()
+                        results, err = self._safe_json(response, f'search tag "{tag}"')
+                        if err:
+                            logger.warning(f"Failed to search tag '{tag}': {err}")
+                            continue
                         if results:
                             tag_ids.append(results[0]['id'])
                         else:
                             # Create tag
                             create_response = self._request('POST',
                                 f"{self.api_url}/tags",
-                                
                                 json={'name': tag},
                                 timeout=10
                             )
                             if create_response.status_code in [200, 201]:
-                                tag_ids.append(create_response.json()['id'])
+                                data, err = self._safe_json(create_response, f'create tag "{tag}"')
+                                if data:
+                                    tag_ids.append(data['id'])
+                                else:
+                                    logger.warning(f"Failed to create tag '{tag}': {err}")
                 except Exception as e:
                     logger.warning(f"Failed to resolve tag '{tag}': {e}")
-        
+
         return tag_ids
     
     def _set_featured_image(self, post_id: int, image_url: str) -> Dict[str, Any]:
@@ -941,7 +970,11 @@ class WordPressService:
                 logger.error(f"Upload failed: HTTP {upload_response.status_code} - {upload_response.text[:200]}")
                 return {'success': False, 'error': f'Upload failed: {upload_response.status_code} - {upload_response.text[:100]}'}
             
-            media_id = upload_response.json().get('id')
+            media_data, img_json_err = self._safe_json(upload_response, 'upload featured image')
+            if img_json_err:
+                logger.error(f"Featured image upload returned invalid JSON: {img_json_err}")
+                return {'success': False, 'error': f'Featured image upload failed: {img_json_err}'}
+            media_id = media_data.get('id')
             logger.info(f"Image uploaded, media_id: {media_id}")
             
             # Set as featured image
