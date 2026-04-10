@@ -394,6 +394,7 @@ class DBClient(db.Model):
             'wordpress_url': self.wordpress_url,
             'wordpress_user': self.wordpress_user,
             'wordpress_connected': bool(self.wordpress_app_password),
+            'wordpress_app_password_masked': ('••••' + self.wordpress_app_password[-4:]) if self.wordpress_app_password and len(self.wordpress_app_password) >= 4 else ('••••' if self.wordpress_app_password else ''),
             # Analytics & Tracking integrations
             'ga4_property_id': self.ga4_property_id,
             'gsc_site_url': self.gsc_site_url,

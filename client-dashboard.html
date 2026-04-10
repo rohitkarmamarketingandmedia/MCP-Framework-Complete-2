@@ -2721,7 +2721,8 @@
                                 <input type="text" id="wpUsernameTop" placeholder="WordPress Username"
                                     class="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-sm mb-2 focus:outline-none focus:border-sky-500">
                                 <input type="password" id="wpAppPasswordTop" placeholder="Application Password"
-                                    class="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-sm mb-2 focus:outline-none focus:border-sky-500">
+                                    class="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-sm mb-2 focus:outline-none focus:border-sky-500"
+                                    onfocus="if(this.dataset.masked==='true'){this.value='';this.dataset.masked='false';}">
                                 <p class="text-xs text-gray-500">Users → Profile → Application Passwords</p>
                             </div>
 
@@ -3248,7 +3249,8 @@
                                         class="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-sm mb-2 focus:outline-none focus:border-sky-500">
                                     <input type="password" id="wpAppPassword" placeholder="Application Password"
                                         class="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-sm mb-2 focus:outline-none focus:border-sky-500"
-                                        onchange="saveIntegration('wordpress')">
+                                        onchange="saveIntegration('wordpress')"
+                                        onfocus="if(this.dataset.masked==='true'){this.value='';this.dataset.masked='false';}">
                                     <p class="text-xs text-gray-500">Users → Edit → Application Passwords</p>
                                 </div>
 
@@ -5859,7 +5861,8 @@
                                     <label class="block text-sm text-gray-400 mb-1">App Password</label>
                                     <input type="password" id="editWordpressPassword" autocomplete="off"
                                         class="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white focus:border-blue-500"
-                                        placeholder="xxxx xxxx xxxx xxxx">
+                                        placeholder="xxxx xxxx xxxx xxxx"
+                                        onfocus="if(this.dataset.masked==='true'){this.value='';this.dataset.masked='false';}">
                                 </div>
                             </div>
                             <div class="flex items-center gap-3">
@@ -6962,7 +6965,8 @@
             // WordPress fields
             document.getElementById('editWordpressUrl').value = currentClient.wordpress_url || '';
             document.getElementById('editWordpressUser').value = currentClient.wordpress_user || '';
-            document.getElementById('editWordpressPassword').value = currentClient.wordpress_app_password || '';
+            document.getElementById('editWordpressPassword').value = currentClient.wordpress_connected ? '••••••••' : '';
+            document.getElementById('editWordpressPassword').dataset.masked = currentClient.wordpress_connected ? 'true' : 'false';
             document.getElementById('wpTestResult').textContent = '';
             document.getElementById('wpTestResult').className = 'text-sm';
 
@@ -7052,9 +7056,14 @@
                 }).filter(p => p),
                 // WordPress fields
                 wordpress_url: document.getElementById('editWordpressUrl').value.trim(),
-                wordpress_user: document.getElementById('editWordpressUser').value.trim(),
-                wordpress_app_password: document.getElementById('editWordpressPassword').value.trim()
+                wordpress_user: document.getElementById('editWordpressUser').value.trim()
             };
+
+            // Only send password if user actually typed a new one (not the masked placeholder)
+            const wpPassEdit = document.getElementById('editWordpressPassword').value.trim();
+            if (wpPassEdit && !wpPassEdit.includes('••••')) {
+                updates.wordpress_app_password = wpPassEdit;
+            }
 
             try {
                 const response = await fetch(`${API_URL}/api/clients/${currentClient.id}`, {
@@ -12482,12 +12491,15 @@
             if (callrailInput) callrailInput.value = currentClient.callrail_company_id || '';
             if (wpUrlInput) wpUrlInput.value = currentClient.wordpress_url || '';
             if (wpUserInput) wpUserInput.value = currentClient.wordpress_user || '';
-            if (wpPasswordInput) wpPasswordInput.value = currentClient.wordpress_app_password ? '••••••••' : '';
+            if (wpPasswordInput) {
+                wpPasswordInput.value = currentClient.wordpress_connected ? '••••••••' : '';
+                wpPasswordInput.dataset.masked = currentClient.wordpress_connected ? 'true' : 'false';
+            }
 
             // Update status indicators
             updateIntegrationStatusTop('ga4', currentClient.ga4_property_id);
             updateIntegrationStatusTop('callrail', currentClient.callrail_company_id);
-            updateIntegrationStatusTop('wp', currentClient.wordpress_url);
+            updateIntegrationStatusTop('wp', currentClient.wordpress_connected ? currentClient.wordpress_url : null);
             updateIntegrationStatusTop('gbp', currentClient?.social_connections?.gbp?.connected);
 
             // Check server-side APIs
@@ -12601,13 +12613,16 @@
             if (callrailInput) callrailInput.value = currentClient.callrail_company_id || '';
             if (gscInput) gscInput.value = currentClient.gsc_site_url || '';
             if (wpUrlInput) wpUrlInput.value = currentClient.wordpress_url || '';
-            if (wpPasswordInput) wpPasswordInput.value = currentClient.wordpress_app_password ? '••••••••' : '';
+            if (wpPasswordInput) {
+                wpPasswordInput.value = currentClient.wordpress_connected ? '••••••••' : '';
+                wpPasswordInput.dataset.masked = currentClient.wordpress_connected ? 'true' : 'false';
+            }
 
             // Update status indicators
             updateIntegrationStatus('ga4', currentClient.ga4_property_id);
             updateIntegrationStatus('callrail', currentClient.callrail_company_id);
             updateIntegrationStatus('gsc', currentClient.gsc_site_url);
-            updateIntegrationStatus('wp', currentClient.wordpress_url);
+            updateIntegrationStatus('wp', currentClient.wordpress_connected ? currentClient.wordpress_url : null);
 
             // Check server-side integrations
             checkServerIntegrations();
@@ -17233,13 +17248,13 @@
             // Check if WordPress is configured (all 3 fields required)
             const wpUrl = currentClient?.wordpress_url;
             const wpUser = currentClient?.wordpress_user;
-            const wpPass = currentClient?.wordpress_app_password;
+            const wpPassSaved = currentClient?.wordpress_connected;
 
-            if (!wpUrl || !wpUser || !wpPass) {
+            if (!wpUrl || !wpUser || !wpPassSaved) {
                 const missing = [];
                 if (!wpUrl) missing.push('WordPress URL');
                 if (!wpUser) missing.push('Username');
-                if (!wpPass) missing.push('App Password');
+                if (!wpPassSaved) missing.push('App Password');
 
                 alert(`WordPress not configured for this client.\n\nMissing: ${missing.join(', ')}\n\nGo to Edit Client → Integrations to add your WordPress credentials.`);
                 return;

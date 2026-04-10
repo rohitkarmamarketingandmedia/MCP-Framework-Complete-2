@@ -200,8 +200,11 @@ def update_client(current_user, client_id):
         client.wordpress_url = data['wordpress_url']
     if 'wordpress_user' in data:
         client.wordpress_user = data['wordpress_user']
-    if 'wordpress_app_password' in data:
-        client.wordpress_app_password = data['wordpress_app_password']
+    if 'wordpress_app_password' in data and data['wordpress_app_password']:
+        # Only update if a real password is provided (not empty string or masked placeholder)
+        pw = data['wordpress_app_password']
+        if pw and '••••' not in pw:
+            client.wordpress_app_password = pw
     if 'service_pages' in data:
         client.set_service_pages(data['service_pages'])
     
@@ -335,10 +338,10 @@ def update_integrations(current_user, client_id):
         integrations['wordpress_url'] = data['wordpress_url']
     if 'wordpress_user' in data:
         integrations['wordpress_user'] = data['wordpress_user']
-    if 'wordpress_app_password' in data:
+    if 'wordpress_app_password' in data and data['wordpress_app_password'] and '••••' not in data['wordpress_app_password']:
         integrations['wordpress_app_password'] = data['wordpress_app_password']
     # Legacy field support
-    if 'wordpress_api_key' in data:
+    if 'wordpress_api_key' in data and data['wordpress_api_key']:
         integrations['wordpress_app_password'] = data['wordpress_api_key']
     
     # Other integrations
@@ -369,8 +372,8 @@ def update_integrations(current_user, client_id):
         client.wordpress_url = data['wordpress_url'] or None
     if 'wordpress_user' in data:
         client.wordpress_user = data['wordpress_user'] or None
-    if 'wordpress_app_password' in data:
-        client.wordpress_app_password = data['wordpress_app_password'] or None
+    if 'wordpress_app_password' in data and data['wordpress_app_password'] and '••••' not in data['wordpress_app_password']:
+        client.wordpress_app_password = data['wordpress_app_password']
     
     client.integrations = json.dumps(integrations)
     data_service.save_client(client)
