@@ -8,6 +8,11 @@ import requests
 from typing import Dict, List, Any, Optional
 from datetime import datetime
 
+# Modern User-Agent to avoid bot detection by security services (SiteGround, Cloudflare, etc.)
+# Must be kept up-to-date — hosting providers block outdated browser versions via ModSecurity rules.
+# Updated April 2026 to Chrome 136 (current stable).
+DEFAULT_USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36'
+
 
 class CMSService:
     """CMS publishing service (WordPress, Webflow, etc.)"""
@@ -68,14 +73,16 @@ class CMSService:
         wp_url = wp_url.rstrip('/')
         api_url = f'{wp_url}/wp-json/wp/v2'
         
-        # Create auth header
+        # Create auth header with modern User-Agent to avoid ModSecurity blocks
         credentials = f'{wp_username}:{wp_password}'
         token = base64.b64encode(credentials.encode()).decode()
         headers = {
             'Authorization': f'Basic {token}',
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
+            'User-Agent': DEFAULT_USER_AGENT,
+            'Accept': 'application/json',
         }
-        
+
         try:
             # Final SEO sanitization before publishing — safety net
             from app.services.html_sanitizer import sanitize_html_for_seo, ensure_h1
@@ -173,9 +180,11 @@ class CMSService:
         token = base64.b64encode(credentials.encode()).decode()
         headers = {
             'Authorization': f'Basic {token}',
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
+            'User-Agent': DEFAULT_USER_AGENT,
+            'Accept': 'application/json',
         }
-        
+
         try:
             response = requests.post(
                 f'{api_url}/posts/{post_id}',
@@ -214,8 +223,12 @@ class CMSService:
         
         credentials = f'{wp_username}:{wp_password}'
         token = base64.b64encode(credentials.encode()).decode()
-        headers = {'Authorization': f'Basic {token}'}
-        
+        headers = {
+            'Authorization': f'Basic {token}',
+            'User-Agent': DEFAULT_USER_AGENT,
+            'Accept': 'application/json',
+        }
+
         try:
             response = requests.get(
                 f'{api_url}/posts',

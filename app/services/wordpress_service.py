@@ -14,8 +14,9 @@ from datetime import datetime
 logger = logging.getLogger(__name__)
 
 # Modern User-Agent to avoid bot detection by security services (SiteGround, Cloudflare, etc.)
-# Updated to Chrome 145 as per SiteGround support recommendation (January 2026)
-DEFAULT_USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36'
+# Must be kept up-to-date — hosting providers block outdated browser versions via ModSecurity rules.
+# Updated April 2026 to Chrome 136 (current stable).
+DEFAULT_USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36'
 
 
 def retry_request(func, max_retries=3, delay=1):
