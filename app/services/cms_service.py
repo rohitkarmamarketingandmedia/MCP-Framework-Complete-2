@@ -3,20 +3,39 @@ MCP Framework - CMS Service
 WordPress and other CMS publishing
 """
 import os
+import re
 import base64
+import logging
 import requests
 from typing import Dict, List, Any, Optional
 from datetime import datetime
 
-# Modern User-Agent to avoid bot detection by security services (SiteGround, Cloudflare, etc.)
-# Must be kept up-to-date — hosting providers block outdated browser versions via ModSecurity rules.
-# Updated April 2026 to Chrome 136 (current stable).
-DEFAULT_USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36'
+logger = logging.getLogger(__name__)
+
+# Import shared browser headers and SGCaptcha handler from wordpress_service
+try:
+    from app.services.wordpress_service import BROWSER_HEADERS, handle_sgcaptcha, is_sgcaptcha_response
+except ImportError:
+    # Fallback if wordpress_service not available
+    BROWSER_HEADERS = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36',
+        'Accept': 'application/json, text/html, */*',
+        'Accept-Language': 'en-US,en;q=0.9',
+        'Accept-Encoding': 'gzip, deflate, br',
+        'Sec-Fetch-Dest': 'empty',
+        'Sec-Fetch-Mode': 'cors',
+        'Sec-Fetch-Site': 'same-origin',
+        'Sec-Ch-Ua': '"Chromium";v="136", "Google Chrome";v="136", "Not.A/Brand";v="99"',
+        'Sec-Ch-Ua-Mobile': '?0',
+        'Sec-Ch-Ua-Platform': '"Windows"',
+    }
+    handle_sgcaptcha = None
+    is_sgcaptcha_response = lambda r: 'sgcaptcha' in (r.text or '').lower()
 
 
 class CMSService:
     """CMS publishing service (WordPress, Webflow, etc.)"""
-    
+
     def __init__(self):
         self.wp_url = os.environ.get('WP_BASE_URL', '')
         self.wp_username = os.environ.get('WP_USERNAME', '')
@@ -72,16 +91,9 @@ class CMSService:
         # Clean URL
         wp_url = wp_url.rstrip('/')
         api_url = f'{wp_url}/wp-json/wp/v2'
-        
-        # Create auth header with modern User-Agent to avoid ModSecurity blocks
-        credentials = f'{wp_username}:{wp_password}'
-        token = base64.b64encode(credentials.encode()).decode()
-        headers = {
-            'Authorization': f'Basic {token}',
-            'Content-Type': 'application/json',
-            'User-Agent': DEFAULT_USER_AGENT,
-            'Accept': 'application/json',
-        }
+
+        # Use a Session for cookie persistence (required for SGCaptcha bypass)
+        session = self._create_wp_session(wp_username, wp_password)
 
         try:
             # Final SEO sanitization before publishing — safety net
@@ -96,29 +108,24 @@ class CMSService:
                 'content': body,
                 'status': status
             }
-            
+
             if slug:
                 post_data['slug'] = slug
-            
+
             # Handle categories
             if categories:
-                category_ids = self._get_or_create_categories(api_url, headers, categories)
+                category_ids = self._get_or_create_categories_session(api_url, session, categories)
                 if category_ids:
                     post_data['categories'] = category_ids
-            
+
             # Handle tags
             if tags:
-                tag_ids = self._get_or_create_tags(api_url, headers, tags)
+                tag_ids = self._get_or_create_tags_session(api_url, session, tags)
                 if tag_ids:
                     post_data['tags'] = tag_ids
-            
-            # Create post
-            response = requests.post(
-                f'{api_url}/posts',
-                headers=headers,
-                json=post_data,
-                timeout=30
-            )
+
+            # Create post (with SGCaptcha handling)
+            response = self._wp_request(session, 'POST', f'{api_url}/posts', wp_url, json=post_data)
             
             response.raise_for_status()
             post = response.json()
@@ -128,22 +135,19 @@ class CMSService:
             
             # Upload featured image if provided
             if featured_image_url:
-                media_id = self._upload_featured_image(
-                    api_url, headers, featured_image_url, post_id
+                media_id = self._upload_featured_image_session(
+                    api_url, session, featured_image_url, post_id
                 )
                 if media_id:
                     # Set as featured image
-                    requests.post(
-                        f'{api_url}/posts/{post_id}',
-                        headers=headers,
-                        json={'featured_media': media_id},
-                        timeout=30
-                    )
-            
+                    self._wp_request(session, 'POST',
+                        f'{api_url}/posts/{post_id}', wp_url,
+                        json={'featured_media': media_id})
+
             # Update SEO meta if using Yoast
             if meta_title or meta_description:
-                self._update_yoast_meta(
-                    api_url, headers, post_id, meta_title, meta_description
+                self._update_yoast_meta_session(
+                    api_url, session, post_id, meta_title, meta_description, wp_url
                 )
             
             return {
@@ -157,6 +161,45 @@ class CMSService:
         except requests.RequestException as e:
             return {'error': f'WordPress API error: {str(e)}'}
     
+    # ---- Session / SGCaptcha helpers ----
+
+    def _create_wp_session(self, wp_username, wp_password):
+        """Create a requests.Session with full browser headers + auth for WordPress"""
+        credentials = f'{wp_username}:{wp_password}'
+        token = base64.b64encode(credentials.encode()).decode()
+        session = requests.Session()
+        session.headers.update({
+            'Authorization': f'Basic {token}',
+            'Content-Type': 'application/json',
+            **BROWSER_HEADERS,
+        })
+        return session
+
+    def _wp_request(self, session, method, url, site_url, **kwargs):
+        """
+        Make a WordPress request with automatic SGCaptcha bypass.
+        If SiteGround returns a CAPTCHA challenge, follow it to get the
+        cookie, then retry the original request.
+        """
+        kwargs.setdefault('timeout', 30)
+        response = session.request(method, url, **kwargs)
+
+        # Check for SGCaptcha and handle it
+        if is_sgcaptcha_response(response) and handle_sgcaptcha:
+            logger.info("CMS: SGCaptcha detected — attempting bypass")
+            result = handle_sgcaptcha(session, response, site_url)
+            if result:
+                logger.info("CMS: Retrying request after SGCaptcha bypass")
+                response = session.request(method, url, **kwargs)
+                if is_sgcaptcha_response(response):
+                    logger.error("CMS: SGCaptcha still blocking after bypass")
+            else:
+                logger.error("CMS: SGCaptcha bypass failed")
+
+        return response
+
+    # ---- CRUD methods ----
+
     def update_wordpress_post(
         self,
         post_id: int,
@@ -169,42 +212,30 @@ class CMSService:
         wp_url = wp_url or self.wp_url
         wp_username = wp_username or self.wp_username
         wp_password = wp_password or self.wp_password
-        
+
         if not all([wp_url, wp_username, wp_password]):
             return {'error': 'WordPress credentials not configured'}
-        
+
         wp_url = wp_url.rstrip('/')
         api_url = f'{wp_url}/wp-json/wp/v2'
-        
-        credentials = f'{wp_username}:{wp_password}'
-        token = base64.b64encode(credentials.encode()).decode()
-        headers = {
-            'Authorization': f'Basic {token}',
-            'Content-Type': 'application/json',
-            'User-Agent': DEFAULT_USER_AGENT,
-            'Accept': 'application/json',
-        }
+        session = self._create_wp_session(wp_username, wp_password)
 
         try:
-            response = requests.post(
-                f'{api_url}/posts/{post_id}',
-                headers=headers,
-                json=updates,
-                timeout=30
-            )
-            
+            response = self._wp_request(session, 'POST',
+                f'{api_url}/posts/{post_id}', wp_url, json=updates)
+
             response.raise_for_status()
             post = response.json()
-            
+
             return {
                 'success': True,
                 'post_id': post_id,
                 'url': post['link']
             }
-            
+
         except requests.RequestException as e:
             return {'error': f'WordPress API error: {str(e)}'}
-    
+
     def get_wordpress_posts(
         self,
         wp_url: str = None,
@@ -217,29 +248,19 @@ class CMSService:
         wp_url = wp_url or self.wp_url
         wp_username = wp_username or self.wp_username
         wp_password = wp_password or self.wp_password
-        
+
         wp_url = wp_url.rstrip('/')
         api_url = f'{wp_url}/wp-json/wp/v2'
-        
-        credentials = f'{wp_username}:{wp_password}'
-        token = base64.b64encode(credentials.encode()).decode()
-        headers = {
-            'Authorization': f'Basic {token}',
-            'User-Agent': DEFAULT_USER_AGENT,
-            'Accept': 'application/json',
-        }
+        session = self._create_wp_session(wp_username, wp_password)
 
         try:
-            response = requests.get(
-                f'{api_url}/posts',
-                headers=headers,
-                params={'per_page': per_page, 'status': status},
-                timeout=30
-            )
-            
+            response = self._wp_request(session, 'GET',
+                f'{api_url}/posts', wp_url,
+                params={'per_page': per_page, 'status': status})
+
             response.raise_for_status()
             posts = response.json()
-            
+
             return {
                 'posts': [
                     {
@@ -252,144 +273,108 @@ class CMSService:
                     for p in posts
                 ]
             }
-            
+
         except requests.RequestException as e:
             return {'error': f'WordPress API error: {str(e)}'}
-    
-    def _get_or_create_categories(
-        self,
-        api_url: str,
-        headers: Dict,
-        category_names: List[str]
-    ) -> List[int]:
-        """Get or create WordPress categories"""
+
+    # ---- Session-based helpers (used by publish_to_wordpress) ----
+
+    def _get_or_create_categories_session(self, api_url, session, category_names):
+        """Get or create WordPress categories using a session"""
         category_ids = []
-        
         for name in category_names:
-            # Search for existing
-            response = requests.get(
-                f'{api_url}/categories',
-                headers=headers,
-                params={'search': name},
-                timeout=15
-            )
-            
+            response = session.get(f'{api_url}/categories', params={'search': name}, timeout=15)
             if response.ok:
                 categories = response.json()
                 if categories:
                     category_ids.append(categories[0]['id'])
                 else:
-                    # Create new category
-                    create_response = requests.post(
-                        f'{api_url}/categories',
-                        headers=headers,
-                        json={'name': name},
-                        timeout=15
-                    )
+                    create_response = session.post(f'{api_url}/categories', json={'name': name}, timeout=15)
                     if create_response.ok:
                         category_ids.append(create_response.json()['id'])
-        
         return category_ids
-    
-    def _get_or_create_tags(
-        self,
-        api_url: str,
-        headers: Dict,
-        tag_names: List[str]
-    ) -> List[int]:
-        """Get or create WordPress tags"""
+
+    def _get_or_create_tags_session(self, api_url, session, tag_names):
+        """Get or create WordPress tags using a session"""
         tag_ids = []
-        
         for name in tag_names:
-            response = requests.get(
-                f'{api_url}/tags',
-                headers=headers,
-                params={'search': name},
-                timeout=15
-            )
-            
+            response = session.get(f'{api_url}/tags', params={'search': name}, timeout=15)
             if response.ok:
                 tags = response.json()
                 if tags:
                     tag_ids.append(tags[0]['id'])
                 else:
-                    create_response = requests.post(
-                        f'{api_url}/tags',
-                        headers=headers,
-                        json={'name': name},
-                        timeout=15
-                    )
+                    create_response = session.post(f'{api_url}/tags', json={'name': name}, timeout=15)
                     if create_response.ok:
                         tag_ids.append(create_response.json()['id'])
-        
         return tag_ids
-    
-    def _upload_featured_image(
-        self,
-        api_url: str,
-        headers: Dict,
-        image_url: str,
-        post_id: int
-    ) -> Optional[int]:
-        """Upload image from URL and return media ID"""
+
+    def _upload_featured_image_session(self, api_url, session, image_url, post_id):
+        """Upload image from URL and return media ID, using a session"""
         try:
-            # Download image
-            img_response = requests.get(image_url, timeout=30)
+            img_response = requests.get(image_url, headers={'User-Agent': BROWSER_HEADERS['User-Agent']}, timeout=30)
             img_response.raise_for_status()
-            
-            # Determine filename
+
             filename = image_url.split('/')[-1].split('?')[0]
             if '.' not in filename:
                 filename = f'image_{post_id}.jpg'
-            
-            # Upload to WordPress
-            upload_headers = headers.copy()
-            upload_headers['Content-Disposition'] = f'attachment; filename="{filename}"'
-            upload_headers['Content-Type'] = img_response.headers.get('Content-Type', 'image/jpeg')
-            
-            upload_response = requests.post(
+
+            # For media upload, override Content-Type
+            upload_headers = {
+                'Content-Disposition': f'attachment; filename="{filename}"',
+                'Content-Type': img_response.headers.get('Content-Type', 'image/jpeg'),
+            }
+            upload_response = session.post(
                 f'{api_url}/media',
                 headers=upload_headers,
                 data=img_response.content,
                 timeout=60
             )
-            
             if upload_response.ok:
                 return upload_response.json()['id']
-            
-        except Exception:
-            pass
-        
+        except Exception as e:
+            logger.error(f"Featured image upload failed: {e}")
         return None
-    
-    def _update_yoast_meta(
-        self,
-        api_url: str,
-        headers: Dict,
-        post_id: int,
-        meta_title: str,
-        meta_description: str
-    ) -> bool:
-        """Update Yoast SEO meta fields"""
+
+    def _update_yoast_meta_session(self, api_url, session, post_id, meta_title, meta_description, wp_url):
+        """Update Yoast SEO meta fields using a session"""
         try:
-            # Yoast stores meta in post meta
             meta_update = {}
-            
             if meta_title:
                 meta_update['yoast_wpseo_title'] = meta_title
             if meta_description:
                 meta_update['yoast_wpseo_metadesc'] = meta_description
-            
             if meta_update:
-                response = requests.post(
-                    f'{api_url}/posts/{post_id}',
-                    headers=headers,
-                    json={'meta': meta_update},
-                    timeout=15
-                )
+                response = self._wp_request(session, 'POST',
+                    f'{api_url}/posts/{post_id}', wp_url,
+                    json={'meta': meta_update})
                 return response.ok
-            
         except Exception:
             pass
-        
         return False
+
+    # ---- Legacy helpers (kept for backward compatibility) ----
+
+    def _get_or_create_categories(self, api_url, headers, category_names):
+        """Legacy: Get or create categories with raw headers"""
+        session = requests.Session()
+        session.headers.update(headers)
+        return self._get_or_create_categories_session(api_url, session, category_names)
+
+    def _get_or_create_tags(self, api_url, headers, tag_names):
+        """Legacy: Get or create tags with raw headers"""
+        session = requests.Session()
+        session.headers.update(headers)
+        return self._get_or_create_tags_session(api_url, session, tag_names)
+
+    def _upload_featured_image(self, api_url, headers, image_url, post_id):
+        """Legacy: Upload featured image with raw headers"""
+        session = requests.Session()
+        session.headers.update(headers)
+        return self._upload_featured_image_session(api_url, session, image_url, post_id)
+
+    def _update_yoast_meta(self, api_url, headers, post_id, meta_title, meta_description):
+        """Legacy: Update Yoast meta with raw headers"""
+        session = requests.Session()
+        session.headers.update(headers)
+        return self._update_yoast_meta_session(api_url, session, post_id, meta_title, meta_description, '')

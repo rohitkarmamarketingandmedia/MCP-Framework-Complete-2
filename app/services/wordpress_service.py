@@ -18,6 +18,22 @@ logger = logging.getLogger(__name__)
 # Updated April 2026 to Chrome 136 (current stable).
 DEFAULT_USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36'
 
+# Full set of browser-like headers to pass SiteGround/Cloudflare bot detection.
+# Missing headers like Accept-Language, Sec-Fetch-* are a common reason for blocks.
+BROWSER_HEADERS = {
+    'User-Agent': DEFAULT_USER_AGENT,
+    'Accept': 'application/json, text/html, */*',
+    'Accept-Language': 'en-US,en;q=0.9',
+    'Accept-Encoding': 'gzip, deflate, br',
+    'Connection': 'keep-alive',
+    'Sec-Fetch-Dest': 'empty',
+    'Sec-Fetch-Mode': 'cors',
+    'Sec-Fetch-Site': 'same-origin',
+    'Sec-Ch-Ua': '"Chromium";v="136", "Google Chrome";v="136", "Not.A/Brand";v="99"',
+    'Sec-Ch-Ua-Mobile': '?0',
+    'Sec-Ch-Ua-Platform': '"Windows"',
+}
+
 
 def retry_request(func, max_retries=3, delay=1):
     """Retry a request with exponential backoff"""
@@ -35,13 +51,81 @@ def retry_request(func, max_retries=3, delay=1):
     raise last_error
 
 
+def handle_sgcaptcha(session, response, site_url):
+    """
+    Handle SiteGround's SGCaptcha challenge.
+
+    SiteGround uses a meta-refresh redirect to /.well-known/sgcaptcha/ which
+    sets a cookie upon "visit" and then redirects back. This simulates what a
+    real browser does when hitting the challenge.
+
+    Returns the cookie-enriched session (or None if bypass failed).
+    """
+    try:
+        text = response.text
+
+        # Extract the sgcaptcha URL from meta refresh
+        # Pattern: content="0;/.well-known/sgcaptcha/?r=...&y=..."
+        import re
+        match = re.search(r'content="0;(/\.well-known/sgcaptcha/[^"]+)"', text)
+        if not match:
+            # Try alternate pattern
+            match = re.search(r'url=(/\.well-known/sgcaptcha/[^"\'>\s]+)', text, re.IGNORECASE)
+
+        if not match:
+            logger.warning("SGCaptcha detected but could not extract challenge URL")
+            return None
+
+        captcha_path = match.group(1)
+        captcha_url = f"{site_url.rstrip('/')}{captcha_path}"
+
+        logger.info(f"Following SGCaptcha challenge: {captcha_url}")
+
+        # Visit the captcha URL — this should set a cookie
+        captcha_response = session.get(
+            captcha_url,
+            timeout=10,
+            allow_redirects=True
+        )
+
+        logger.info(f"SGCaptcha response: {captcha_response.status_code}, cookies: {dict(session.cookies)}")
+
+        # Check if we got cookies set
+        if session.cookies:
+            logger.info(f"SGCaptcha bypass successful — got {len(session.cookies)} cookies")
+            return session
+        else:
+            # Some SG setups return a second redirect or set cookies via headers
+            # Check Set-Cookie in response
+            if 'Set-Cookie' in captcha_response.headers:
+                logger.info("SGCaptcha set cookies via header")
+                return session
+
+            logger.warning("SGCaptcha challenge did not set any cookies")
+            return None
+
+    except Exception as e:
+        logger.error(f"SGCaptcha bypass error: {e}")
+        return None
+
+
+def is_sgcaptcha_response(response):
+    """Check if a response is a SiteGround CAPTCHA challenge page"""
+    content_type = response.headers.get('Content-Type', '')
+    if 'application/json' in content_type:
+        return False
+
+    text = response.text.lower() if response.text else ''
+    return 'sgcaptcha' in text or '.well-known/sgcaptcha' in text
+
+
 class WordPressService:
     """Handles publishing content to WordPress sites"""
-    
+
     def __init__(self, site_url: str, username: str, app_password: str):
         """
         Initialize WordPress connection
-        
+
         Args:
             site_url: WordPress site URL (e.g., https://example.com)
             username: WordPress username
@@ -53,29 +137,64 @@ class WordPressService:
         self.username = username.strip()
         # WordPress app passwords can have spaces - that's OK, but trim leading/trailing
         self.app_password = app_password.strip() if app_password else ''
-        
+
         # Create auth header - WordPress uses Basic auth with base64
         credentials = f"{self.username}:{self.app_password}"
         token = base64.b64encode(credentials.encode('utf-8')).decode('ascii')
-        
+
         # Use a Session to ensure headers are applied to ALL requests
-        # This prevents bot detection by security services (SiteGround, Cloudflare, etc.)
+        # The session persists cookies across requests, which is critical for
+        # SiteGround's SGCaptcha — it sets a cookie on the challenge page that
+        # must be present on subsequent requests.
         self.session = requests.Session()
         self.session.headers.update({
             'Authorization': f'Basic {token}',
             'Content-Type': 'application/json',
-            'User-Agent': DEFAULT_USER_AGENT,
-            'Accept': 'application/json',
+            **BROWSER_HEADERS,
         })
-        
+
+        # Track whether we've passed the SGCaptcha challenge
+        self._sgcaptcha_resolved = False
+
         # Keep headers dict for backward compatibility
         self.headers = dict(self.session.headers)
+
+    def _request(self, method, url, **kwargs):
+        """
+        Make a request with automatic SGCaptcha handling.
+        If SiteGround returns a CAPTCHA challenge, we follow it to get the
+        cookie, then retry the original request.
+        """
+        # Set a default timeout
+        kwargs.setdefault('timeout', 30)
+
+        response = self.session.request(method, url, **kwargs)
+
+        # Check for SGCaptcha and handle it
+        if is_sgcaptcha_response(response) and not self._sgcaptcha_resolved:
+            logger.info("SGCaptcha detected on request — attempting bypass")
+            result = handle_sgcaptcha(self.session, response, self.site_url)
+
+            if result:
+                self._sgcaptcha_resolved = True
+                # Retry the original request with the new cookies
+                logger.info(f"Retrying original request after SGCaptcha bypass: {method} {url}")
+                response = self.session.request(method, url, **kwargs)
+
+                if is_sgcaptcha_response(response):
+                    logger.error("SGCaptcha still blocking after bypass attempt")
+                else:
+                    logger.info(f"Post-bypass response: {response.status_code}")
+            else:
+                logger.error("SGCaptcha bypass failed")
+
+        return response
     
     def test_connection(self) -> Dict[str, Any]:
         """Test the WordPress connection using multiple methods"""
         try:
             # Method 1: Try /users/me endpoint (best for auth testing)
-            response = self.session.get(
+            response = self._request('GET',
                 f"{self.api_url}/users/me",
                 
                 timeout=15
@@ -88,18 +207,20 @@ class WordPressService:
             if 'text/html' in content_type and 'application/json' not in content_type:
                 text = response.text.lower()
                 
-                # SiteGround CAPTCHA detection - VERY specific patterns only
-                # Must have actual CAPTCHA form elements, not just "siteground" in the page
+                # SiteGround CAPTCHA detection - check for sgcaptcha patterns
                 is_sg_captcha = (
-                    ('sgcaptcha' in text or 'sg-captcha-form' in text) and 
-                    ('<form' in text or 'data-captcha' in text)
+                    'sgcaptcha' in text or
+                    'sg-captcha-form' in text or
+                    '.well-known/sgcaptcha' in text
                 )
-                
+
                 if is_sg_captcha:
+                    # The _request() method already tried to bypass SGCaptcha,
+                    # so if we're still here it means the bypass failed.
                     return {
                         'success': False,
                         'error': 'SiteGround CAPTCHA detected',
-                        'message': 'SiteGround CAPTCHA is blocking the request. Please whitelist the server IP in SiteGround Site Tools > Security > Access Control, or temporarily disable SG Security plugin Bot Protection.',
+                        'message': 'SiteGround security is blocking API access. Please whitelist the server IP in SiteGround Site Tools > Security > Access Control > Allow IP, or temporarily disable SG Security plugin Bot Protection.',
                         'response_preview': response.text[:500]
                     }
                 
@@ -228,12 +349,9 @@ class WordPressService:
             'tests': []
         }
         
-        # Create a separate session for no-auth tests (with User-Agent but no Authorization)
+        # Create a separate session for no-auth tests (full browser headers but no Authorization)
         noauth_session = requests.Session()
-        noauth_session.headers.update({
-            'User-Agent': DEFAULT_USER_AGENT,
-            'Accept': 'application/json',
-        })
+        noauth_session.headers.update(BROWSER_HEADERS)
         
         # Test 1: Basic site access (no auth)
         try:
@@ -288,7 +406,7 @@ class WordPressService:
         
         # Test 4: Users/me endpoint (with auth)
         try:
-            response = self.session.get(
+            response = self._request('GET',
                 f"{self.api_url}/users/me",
                 
                 timeout=10
@@ -310,7 +428,7 @@ class WordPressService:
         
         # Test 5: POST to posts endpoint (with auth) - dry run check
         try:
-            response = self.session.post(
+            response = self._request('POST',
                 f"{self.api_url}/posts",
                 
                 json={'title': 'Connection Test - DELETE ME', 'content': 'Test', 'status': 'draft'},
@@ -331,7 +449,7 @@ class WordPressService:
                     post_data = response.json()
                     post_id = post_data.get('id')
                     if post_id:
-                        delete_response = self.session.delete(
+                        delete_response = self._request('DELETE',
                             f"{self.api_url}/posts/{post_id}",
                             
                             params={'force': True},
@@ -393,7 +511,7 @@ class WordPressService:
         """Fallback connection test using posts endpoint with edit context"""
         try:
             # Try to access posts with edit context (requires auth)
-            response = self.session.get(
+            response = self._request('GET',
                 f"{self.api_url}/posts",
                 
                 params={'per_page': 1, 'context': 'edit'},
@@ -421,7 +539,7 @@ class WordPressService:
                 }
             elif response.status_code == 403:
                 # Check if public API works
-                public_check = self.session.get(
+                public_check = self._request('GET',
                     f"{self.site_url}/wp-json/wp/v2/posts",
                     params={'per_page': 1},
                     timeout=10
@@ -522,7 +640,7 @@ class WordPressService:
                     post_data['tags'] = tag_ids
             
             # Create the post
-            response = self.session.post(
+            response = self._request('POST',
                 f"{self.api_url}/posts",
                 
                 json=post_data,
@@ -641,7 +759,7 @@ class WordPressService:
     def update_post(self, post_id: int, **kwargs) -> Dict[str, Any]:
         """Update an existing post"""
         try:
-            response = self.session.post(
+            response = self._request('POST',
                 f"{self.api_url}/posts/{post_id}",
                 
                 json=kwargs,
@@ -698,7 +816,7 @@ class WordPressService:
                 category_ids.append(cat)
             else:
                 # Search for category by name
-                response = self.session.get(
+                response = self._request('GET',
                     f"{self.api_url}/categories",
                     
                     params={'search': cat},
@@ -711,7 +829,7 @@ class WordPressService:
                         category_ids.append(results[0]['id'])
                     else:
                         # Create category
-                        create_response = self.session.post(
+                        create_response = self._request('POST',
                             f"{self.api_url}/categories",
                             
                             json={'name': cat},
@@ -732,7 +850,7 @@ class WordPressService:
             else:
                 # Search for tag by name
                 try:
-                    response = self.session.get(
+                    response = self._request('GET',
                         f"{self.api_url}/tags",
                         
                         params={'search': tag},
@@ -745,7 +863,7 @@ class WordPressService:
                             tag_ids.append(results[0]['id'])
                         else:
                             # Create tag
-                            create_response = self.session.post(
+                            create_response = self._request('POST',
                                 f"{self.api_url}/tags",
                                 
                                 json={'name': tag},
@@ -917,7 +1035,7 @@ class WordPressService:
                     yoast_data['focuskw'] = focus_keyword
                 
                 if yoast_data:
-                    yoast_response = self.session.post(
+                    yoast_response = self._request('POST',
                         f"{self.site_url}/wp-json/yoast/v1/posts/{post_id}",
                         json=yoast_data,
                         timeout=10
@@ -931,7 +1049,7 @@ class WordPressService:
             
             # APPROACH 2: Try setting via WordPress post meta endpoint
             try:
-                response = self.session.post(
+                response = self._request('POST',
                     f"{self.api_url}/posts/{post_id}",
                     json={'meta': all_meta},
                     timeout=15
@@ -942,7 +1060,7 @@ class WordPressService:
                     logger.info(f"SEO meta set via REST API meta field")
                     
                     # Verify the meta was actually set
-                    verify_response = self.session.get(
+                    verify_response = self._request('GET',
                         f"{self.api_url}/posts/{post_id}",
                         params={'context': 'edit'},
                         timeout=10
@@ -973,7 +1091,7 @@ class WordPressService:
                         custom_fields['yoast_focuskw'] = focus_keyword
                     
                     if custom_fields:
-                        custom_response = self.session.post(
+                        custom_response = self._request('POST',
                             f"{self.api_url}/posts/{post_id}",
                             json=custom_fields,
                             timeout=10
@@ -990,7 +1108,7 @@ class WordPressService:
                 logger.info("Trying individual field updates...")
                 for field_name, field_value in all_meta.items():
                     try:
-                        individual_response = self.session.post(
+                        individual_response = self._request('POST',
                             f"{self.api_url}/posts/{post_id}",
                             json={'meta': {field_name: field_value}},
                             timeout=10
@@ -1051,7 +1169,7 @@ class WordPressService:
             
             logger.info(f"Setting schema for post {post_id}: {len(schema_clean)} chars")
             
-            response = self.session.post(
+            response = self._request('POST',
                 f"{self.api_url}/posts/{post_id}",
                 
                 json={'meta': meta_fields},
@@ -1074,7 +1192,7 @@ class WordPressService:
     def get_categories(self) -> list:
         """Get all categories"""
         try:
-            response = self.session.get(
+            response = self._request('GET',
                 f"{self.api_url}/categories",
                 
                 params={'per_page': 100},
@@ -1090,7 +1208,7 @@ class WordPressService:
     def get_posts(self, status: str = 'publish', per_page: int = 10) -> list:
         """Get recent posts"""
         try:
-            response = self.session.get(
+            response = self._request('GET',
                 f"{self.api_url}/posts",
                 
                 params={'status': status, 'per_page': per_page},
