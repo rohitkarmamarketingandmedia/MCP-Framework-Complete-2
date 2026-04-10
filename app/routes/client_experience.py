@@ -3,7 +3,7 @@ MCP Framework - Client Experience Routes
 Routes for health scores, call tracking, and reports
 VERSION: 2.0 - FIXED HEALTH SCORE
 """
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, Response
 import logging
 
 from app.routes.auth import token_required
@@ -477,7 +477,6 @@ def stream_call_recording(current_user, call_id):
     GET /api/client/calls/recording/{call_id}/stream
     """
     import requests as req
-    from flask import Response
     from app.services.callrail_service import CallRailConfig, get_callrail_service
 
     if not CallRailConfig.is_configured():

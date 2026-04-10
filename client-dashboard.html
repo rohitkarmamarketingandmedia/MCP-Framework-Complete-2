@@ -11087,13 +11087,19 @@
         /**
          * Convert a raw CallRail recording URL to our streaming proxy URL.
          * Input:  https://api.callrail.com/v3/a/ACC.../calls/CAL.../recording
-         * Output: /api/client/calls/recording/CAL.../stream
+         * Output: /api/client/calls/recording/CAL.../stream?token=JWT
+         * The ?token= query param is required because <audio> elements can't
+         * send Authorization headers — the backend token_required decorator
+         * already supports reading the token from query params.
          * If the URL isn't a CallRail API URL, returns the original URL.
          */
         function getRecordingProxyUrl(url) {
             if (!url) return url;
             const m = url.match(/\/calls\/(CAL[a-f0-9]+)\/recording/i);
-            if (m) return '/api/client/calls/recording/' + m[1] + '/stream';
+            if (m) {
+                const token = localStorage.getItem('mcp_auth_token') || AUTH_TOKEN || '';
+                return '/api/client/calls/recording/' + m[1] + '/stream' + (token ? '?token=' + encodeURIComponent(token) : '');
+            }
             return url;  // Not a CallRail API URL — use as-is
         }
 
