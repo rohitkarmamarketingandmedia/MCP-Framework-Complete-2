@@ -766,98 +766,33 @@
             </div>
         </div>
 
-        <!-- Tabs -->
+        <!-- Tabs (data-driven, drag-and-drop reorderable) -->
         <div class="max-w-7xl mx-auto px-4 mb-6">
-            <div class="flex gap-2 overflow-x-auto pb-2 scrollbar-thin">
-                <button onclick="showTab('overview')" id="tab-overview"
-                    class="tab-active px-3 sm:px-6 py-2 rounded-lg text-xs sm:text-sm font-medium transition whitespace-nowrap">
-                    <i class="fas fa-home sm:mr-2"></i><span class="hidden sm:inline">Overview</span><span
-                        class="sm:hidden">Home</span>
+            <div class="flex items-center gap-2">
+                <div id="tabBar" class="flex gap-2 overflow-x-auto pb-2 scrollbar-thin flex-1">
+                    <!-- Tabs rendered dynamically by renderTabBar() -->
+                </div>
+                <!-- Reorder toggle -->
+                <button id="tabReorderBtn" onclick="toggleTabReorder()" title="Customize tab order" class="flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-lg text-gray-500 hover:text-white hover:bg-white/10 transition text-sm">
+                    <i class="fas fa-grip-horizontal"></i>
                 </button>
-                <button onclick="showTab('generate')" id="tab-generate"
-                    class="px-3 sm:px-6 py-2 rounded-lg text-xs sm:text-sm font-medium text-gray-400 hover:text-white transition whitespace-nowrap glass bg-gradient-to-r from-green-600 to-emerald-600 text-white">
-                    <i class="fas fa-magic sm:mr-2"></i><span class="hidden sm:inline">Generate Content</span><span
-                        class="sm:hidden">Generate</span>
+            </div>
+            <!-- Reorder controls bar (hidden by default) -->
+            <div id="tabReorderControls" class="hidden flex items-center gap-3 mt-2 px-1 py-2 rounded-lg text-xs" style="background:rgba(99,102,241,0.1); border:1px solid rgba(99,102,241,0.25);">
+                <i class="fas fa-arrows-alt text-indigo-400 ml-1"></i>
+                <span class="text-indigo-300">Drag tabs to reorder</span>
+                <span class="text-gray-600">|</span>
+                <button onclick="saveTabOrder('client')" class="px-2 py-1 rounded bg-indigo-500/20 text-indigo-300 hover:bg-indigo-500/30 transition">
+                    <i class="fas fa-save mr-1"></i>Save for this Client
                 </button>
-                <button onclick="showTab('blogs')" id="tab-blogs"
-                    class="px-3 sm:px-6 py-2 rounded-lg text-xs sm:text-sm font-medium text-gray-400 hover:text-white transition whitespace-nowrap glass">
-                    <i class="fas fa-file-alt sm:mr-2"></i><span class="hidden sm:inline">Blog Posts</span><span
-                        class="sm:hidden">Blogs</span>
+                <button onclick="saveTabOrder('global')" class="px-2 py-1 rounded bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30 transition">
+                    <i class="fas fa-globe mr-1"></i>Save as Default
                 </button>
-                <button onclick="showTab('social')" id="tab-social"
-                    class="px-3 sm:px-6 py-2 rounded-lg text-xs sm:text-sm font-medium text-gray-400 hover:text-white transition whitespace-nowrap glass">
-                    <i class="fas fa-share-alt sm:mr-2"></i><span class="hidden sm:inline">Social Posts</span><span
-                        class="sm:hidden">Social</span>
+                <button onclick="resetTabOrder()" class="px-2 py-1 rounded bg-white/5 text-gray-400 hover:bg-white/10 transition">
+                    <i class="fas fa-undo mr-1"></i>Reset
                 </button>
-                <button onclick="showTab('seo')" id="tab-seo"
-                    class="px-3 sm:px-6 py-2 rounded-lg text-xs sm:text-sm font-medium text-gray-400 hover:text-white transition whitespace-nowrap glass">
-                    <i class="fas fa-chart-line sm:mr-2"></i><span class="hidden sm:inline">SEO Overview</span><span
-                        class="sm:hidden">SEO</span>
-                </button>
-                <button onclick="showTab('calendar')" id="tab-calendar"
-                    class="px-3 sm:px-6 py-2 rounded-lg text-xs sm:text-sm font-medium text-gray-400 hover:text-white transition whitespace-nowrap glass">
-                    <i class="fas fa-calendar-alt sm:mr-2"></i><span class="hidden sm:inline">Calendar</span><span
-                        class="sm:hidden">Cal</span>
-                </button>
-                <button onclick="showTab('reports')" id="tab-reports"
-                    class="px-3 sm:px-6 py-2 rounded-lg text-xs sm:text-sm font-medium text-gray-400 hover:text-white transition whitespace-nowrap glass">
-                    <i class="fas fa-file-pdf sm:mr-2"></i><span class="hidden sm:inline">Reports</span><span
-                        class="sm:hidden">PDF</span>
-                </button>
-                <button onclick="showTab('rankings')" id="tab-rankings"
-                    class="px-3 sm:px-6 py-2 rounded-lg text-xs sm:text-sm font-medium text-gray-400 hover:text-white transition whitespace-nowrap glass">
-                    <i class="fas fa-trophy sm:mr-2"></i><span class="hidden sm:inline">Rankings</span><span
-                        class="sm:hidden">Rank</span>
-                </button>
-                <button onclick="showTab('gsc')" id="tab-gsc"
-                    class="px-3 sm:px-6 py-2 rounded-lg text-xs sm:text-sm font-medium text-gray-400 hover:text-white transition whitespace-nowrap glass">
-                    <i class="fab fa-google sm:mr-2"></i><span class="hidden sm:inline">Search Console</span><span
-                        class="sm:hidden">GSC</span>
-                </button>
-                <button onclick="showTab('ga4')" id="tab-ga4"
-                    class="px-3 sm:px-6 py-2 rounded-lg text-xs sm:text-sm font-medium text-gray-400 hover:text-white transition whitespace-nowrap glass">
-                    <i class="fas fa-chart-line sm:mr-2"></i><span class="hidden sm:inline">Analytics</span><span
-                        class="sm:hidden">GA4</span>
-                </button>
-                <button onclick="showTab('competitors')" id="tab-competitors"
-                    class="px-3 sm:px-6 py-2 rounded-lg text-xs sm:text-sm font-medium text-gray-400 hover:text-white transition whitespace-nowrap glass">
-                    <i class="fas fa-users sm:mr-2"></i><span class="hidden sm:inline">Competitors</span><span
-                        class="sm:hidden">Comp</span>
-                </button>
-                <button onclick="showTab('settings')" id="tab-settings"
-                    class="px-3 sm:px-6 py-2 rounded-lg text-xs sm:text-sm font-medium text-gray-400 hover:text-white transition whitespace-nowrap glass">
-                    <i class="fas fa-cog sm:mr-2"></i><span class="hidden sm:inline">Settings</span><span
-                        class="sm:hidden">Set</span>
-                </button>
-                <button onclick="showTab('chatbot')" id="tab-chatbot"
-                    class="px-3 sm:px-6 py-2 rounded-lg text-xs sm:text-sm font-medium text-gray-400 hover:text-white transition whitespace-nowrap glass">
-                    <i class="fas fa-robot sm:mr-2"></i><span class="hidden sm:inline">AI Chatbot</span><span
-                        class="sm:hidden">Bot</span>
-                </button>
-                <button onclick="showTab('leads')" id="tab-leads"
-                    class="px-3 sm:px-6 py-2 rounded-lg text-xs sm:text-sm font-medium text-gray-400 hover:text-white transition whitespace-nowrap glass">
-                    <i class="fas fa-user-plus sm:mr-2"></i><span class="hidden sm:inline">Leads</span><span
-                        class="sm:hidden">Lead</span>
-                </button>
-                <button onclick="showTab('reviews')" id="tab-reviews"
-                    class="px-3 sm:px-6 py-2 rounded-lg text-xs sm:text-sm font-medium text-gray-400 hover:text-white transition whitespace-nowrap glass">
-                    <i class="fas fa-star sm:mr-2"></i><span class="hidden sm:inline">Reviews</span><span
-                        class="sm:hidden">Rev</span>
-                </button>
-                <button onclick="showTab('calls')" id="tab-calls"
-                    class="px-3 sm:px-6 py-2 rounded-lg text-xs sm:text-sm font-medium text-gray-400 hover:text-white transition whitespace-nowrap glass">
-                    <i class="fas fa-phone sm:mr-2"></i><span class="hidden sm:inline">Call Intel</span><span
-                        class="sm:hidden">Call</span>
-                </button>
-                <button onclick="showTab('pages')" id="tab-pages"
-                    class="px-3 sm:px-6 py-2 rounded-lg text-xs sm:text-sm font-medium text-gray-400 hover:text-white transition whitespace-nowrap glass">
-                    <i class="fas fa-file-code sm:mr-2"></i><span class="hidden sm:inline">Pages</span><span
-                        class="sm:hidden">Page</span>
-                </button>
-                <button onclick="showTab('accessibility')" id="tab-accessibility"
-                    class="px-3 sm:px-6 py-2 rounded-lg text-xs sm:text-sm font-medium text-gray-400 hover:text-white transition whitespace-nowrap glass">
-                    <i class="fas fa-universal-access sm:mr-2"></i><span class="hidden sm:inline">ADA</span><span
-                        class="sm:hidden">ADA</span>
+                <button onclick="toggleTabReorder()" class="ml-auto px-2 py-1 rounded text-gray-400 hover:text-white transition">
+                    <i class="fas fa-times"></i> Done
                 </button>
             </div>
         </div>
@@ -6098,6 +6033,228 @@
         let isFixingAdmin = false;  // Prevent infinite loops
 
         // ==========================================
+        // TAB ORDER — data-driven, reorderable
+        // ==========================================
+        const TAB_DEFINITIONS = {
+            overview:      { icon: 'fas fa-home',            label: 'Overview',          short: 'Home',     special: '' },
+            generate:      { icon: 'fas fa-magic',           label: 'Generate Content',  short: 'Generate', special: 'generate' },
+            blogs:         { icon: 'fas fa-file-alt',        label: 'Blog Posts',        short: 'Blogs',    special: '' },
+            social:        { icon: 'fas fa-share-alt',       label: 'Social Posts',      short: 'Social',   special: '' },
+            seo:           { icon: 'fas fa-chart-line',      label: 'SEO Overview',      short: 'SEO',      special: '' },
+            calendar:      { icon: 'fas fa-calendar-alt',    label: 'Calendar',          short: 'Cal',      special: '' },
+            reports:       { icon: 'fas fa-file-pdf',        label: 'Reports',           short: 'PDF',      special: '' },
+            rankings:      { icon: 'fas fa-trophy',          label: 'Rankings',          short: 'Rank',     special: '' },
+            gsc:           { icon: 'fab fa-google',          label: 'Search Console',    short: 'GSC',      special: '' },
+            ga4:           { icon: 'fas fa-chart-line',      label: 'Analytics',         short: 'GA4',      special: '' },
+            competitors:   { icon: 'fas fa-users',           label: 'Competitors',       short: 'Comp',     special: '' },
+            settings:      { icon: 'fas fa-cog',             label: 'Settings',          short: 'Set',      special: '' },
+            chatbot:       { icon: 'fas fa-robot',           label: 'AI Chatbot',        short: 'Bot',      special: '' },
+            leads:         { icon: 'fas fa-user-plus',       label: 'Leads',             short: 'Lead',     special: '' },
+            reviews:       { icon: 'fas fa-star',            label: 'Reviews',           short: 'Rev',      special: '' },
+            calls:         { icon: 'fas fa-phone',           label: 'Call Intel',        short: 'Call',     special: '' },
+            pages:         { icon: 'fas fa-file-code',       label: 'Pages',             short: 'Page',     special: '' },
+            accessibility: { icon: 'fas fa-universal-access', label: 'ADA',              short: 'ADA',      special: '' },
+        };
+
+        const DEFAULT_TAB_ORDER = [
+            'overview','generate','blogs','social','seo','calendar','reports','rankings',
+            'gsc','ga4','competitors','settings','chatbot','leads','reviews','calls','pages','accessibility'
+        ];
+
+        let currentTabOrder = [...DEFAULT_TAB_ORDER];
+        let tabReorderMode = false;
+        let dragSrcTab = null;
+
+        function renderTabBar() {
+            const bar = document.getElementById('tabBar');
+            if (!bar) return;
+            bar.innerHTML = '';
+            currentTabOrder.forEach(tabId => {
+                const def = TAB_DEFINITIONS[tabId];
+                if (!def) return;
+                const btn = document.createElement('button');
+                btn.id = `tab-${tabId}`;
+                btn.setAttribute('data-tab', tabId);
+                btn.onclick = () => showTab(tabId);
+
+                // Special styling for Generate
+                const isGenerate = def.special === 'generate';
+                const baseClass = 'px-3 sm:px-6 py-2 rounded-lg text-xs sm:text-sm font-medium transition whitespace-nowrap';
+                if (isGenerate) {
+                    btn.className = `${baseClass} glass bg-gradient-to-r from-green-600 to-emerald-600 text-white`;
+                } else {
+                    btn.className = `${baseClass} text-gray-400 hover:text-white glass`;
+                }
+
+                btn.innerHTML = `<i class="${def.icon} sm:mr-2"></i><span class="hidden sm:inline">${def.label}</span><span class="sm:hidden">${def.short}</span>`;
+
+                // Drag-and-drop attributes
+                btn.draggable = tabReorderMode;
+                if (tabReorderMode) {
+                    btn.style.cursor = 'grab';
+                    btn.classList.add('ring-1', 'ring-indigo-500/30');
+                    btn.addEventListener('dragstart', handleTabDragStart);
+                    btn.addEventListener('dragover', handleTabDragOver);
+                    btn.addEventListener('drop', handleTabDrop);
+                    btn.addEventListener('dragend', handleTabDragEnd);
+                }
+
+                bar.appendChild(btn);
+            });
+
+            // Re-highlight the active tab if one is already active
+            const active = document.querySelector('[id^="panel-"]:not(.hidden)');
+            if (active) {
+                const activeId = active.id.replace('panel-', '');
+                const activeBtn = document.getElementById(`tab-${activeId}`);
+                if (activeBtn) {
+                    activeBtn.classList.add('tab-active');
+                    if (activeId !== 'generate') {
+                        activeBtn.classList.remove('glass', 'text-gray-400');
+                    }
+                }
+            } else {
+                // Default: make overview active
+                const ovBtn = document.getElementById('tab-overview');
+                if (ovBtn) ovBtn.classList.add('tab-active');
+            }
+        }
+
+        // ── Drag & Drop handlers ────────────────────
+        function handleTabDragStart(e) {
+            dragSrcTab = this;
+            this.style.opacity = '0.4';
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/plain', this.dataset.tab);
+        }
+        function handleTabDragOver(e) {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            this.classList.add('ring-2', 'ring-indigo-400');
+        }
+        function handleTabDrop(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            this.classList.remove('ring-2', 'ring-indigo-400');
+            if (dragSrcTab === this) return;
+
+            const fromId = e.dataTransfer.getData('text/plain');
+            const toId = this.dataset.tab;
+            const fromIdx = currentTabOrder.indexOf(fromId);
+            const toIdx = currentTabOrder.indexOf(toId);
+            if (fromIdx < 0 || toIdx < 0) return;
+
+            // Swap positions
+            currentTabOrder.splice(fromIdx, 1);
+            currentTabOrder.splice(toIdx, 0, fromId);
+            renderTabBar();
+        }
+        function handleTabDragEnd(e) {
+            this.style.opacity = '1';
+            document.querySelectorAll('#tabBar button').forEach(b => b.classList.remove('ring-2', 'ring-indigo-400'));
+        }
+
+        // ── Toggle reorder mode ─────────────────────
+        function toggleTabReorder() {
+            tabReorderMode = !tabReorderMode;
+            const controls = document.getElementById('tabReorderControls');
+            const btn = document.getElementById('tabReorderBtn');
+            if (tabReorderMode) {
+                controls.classList.remove('hidden');
+                btn.classList.add('text-indigo-400', 'bg-indigo-500/20');
+                btn.classList.remove('text-gray-500');
+            } else {
+                controls.classList.add('hidden');
+                btn.classList.remove('text-indigo-400', 'bg-indigo-500/20');
+                btn.classList.add('text-gray-500');
+            }
+            renderTabBar();
+        }
+
+        // ── Save tab order ──────────────────────────
+        async function saveTabOrder(scope) {
+            try {
+                const scopeId = scope === 'client' ? currentClient?.id : null;
+                await fetch(`${API_URL}/api/settings`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${AUTH_TOKEN}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        scope: scope,
+                        scope_id: scopeId,
+                        category: 'dashboard',
+                        key: 'tab_order',
+                        value: JSON.stringify(currentTabOrder),
+                        value_type: 'json'
+                    })
+                });
+                showToast(scope === 'client' ? 'Tab order saved for this client' : 'Default tab order saved', 'success');
+                toggleTabReorder(); // exit reorder mode
+            } catch (e) {
+                console.error('Failed to save tab order:', e);
+                showToast('Failed to save tab order', 'error');
+            }
+        }
+
+        // ── Load tab order (client override → global → default) ──
+        async function loadTabOrder() {
+            try {
+                // Try client-specific first
+                if (currentClient?.id) {
+                    const res = await fetch(`${API_URL}/api/settings?scope=client&scope_id=${currentClient.id}&category=dashboard&key=tab_order`, {
+                        headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
+                    });
+                    if (res.ok) {
+                        const data = await res.json();
+                        const settings = data.settings || [];
+                        const match = settings.find(s => s.key === 'tab_order');
+                        if (match) {
+                            const parsed = JSON.parse(match.value);
+                            if (Array.isArray(parsed) && parsed.length > 0) {
+                                // Merge: use saved order, append any new tabs not in saved list
+                                currentTabOrder = [...parsed, ...DEFAULT_TAB_ORDER.filter(t => !parsed.includes(t))];
+                                renderTabBar();
+                                return;
+                            }
+                        }
+                    }
+                }
+
+                // Try global default
+                const res2 = await fetch(`${API_URL}/api/settings?scope=global&category=dashboard&key=tab_order`, {
+                    headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
+                });
+                if (res2.ok) {
+                    const data2 = await res2.json();
+                    const settings2 = data2.settings || [];
+                    const match2 = settings2.find(s => s.key === 'tab_order');
+                    if (match2) {
+                        const parsed2 = JSON.parse(match2.value);
+                        if (Array.isArray(parsed2) && parsed2.length > 0) {
+                            currentTabOrder = [...parsed2, ...DEFAULT_TAB_ORDER.filter(t => !parsed2.includes(t))];
+                            renderTabBar();
+                            return;
+                        }
+                    }
+                }
+            } catch (e) {
+                console.error('Failed to load tab order:', e);
+            }
+            // Fallback to default
+            currentTabOrder = [...DEFAULT_TAB_ORDER];
+            renderTabBar();
+        }
+
+        // ── Reset tab order ─────────────────────────
+        function resetTabOrder() {
+            currentTabOrder = [...DEFAULT_TAB_ORDER];
+            renderTabBar();
+            showToast('Tab order reset to default', 'info');
+        }
+
+        // Render initial tab bar immediately
+        renderTabBar();
+
+        // ==========================================
         // GLOBAL ERROR HANDLER
         // ==========================================
         window.onerror = function (message, source, lineno, colno, error) {
@@ -6648,6 +6805,9 @@
 
                 // Load overview data (with error handling)
                 try { loadOverviewData(); } catch (e) { console.error('loadOverviewData error:', e); }
+
+                // Load client-specific or global tab order
+                try { loadTabOrder(); } catch (e) { console.error('loadTabOrder error:', e); }
 
                 // Auto-load cached rankings from DB (so Rankings tab shows data immediately)
                 try { loadCachedRankings(); } catch (e) { console.error('loadCachedRankings error:', e); }
