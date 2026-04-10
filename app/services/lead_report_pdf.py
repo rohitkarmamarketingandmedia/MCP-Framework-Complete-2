@@ -44,6 +44,7 @@ SOURCE_LABELS = {
     'call': 'Phone Call',
     'form': 'Form Submission',
     'chat': 'Chat Lead',
+    'chatbot': 'Chatbot',
     'gbp': 'Google Business',
     'referral': 'Referral',
 }
@@ -164,7 +165,7 @@ def generate_lead_report_pdf(client, leads, days=30):
 
     calls = source_counts.get('call', 0)
     forms = source_counts.get('form', 0)
-    chats = source_counts.get('chat', 0)
+    chats = source_counts.get('chat', 0) + source_counts.get('chatbot', 0)
     new_count = status_counts.get('new', 0)
     contacted = status_counts.get('contacted', 0)
     qualified = status_counts.get('qualified', 0)

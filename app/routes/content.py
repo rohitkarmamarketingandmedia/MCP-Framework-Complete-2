@@ -2684,9 +2684,16 @@ def publish_to_wordpress(current_user, content_id):
                     result.append(word_lower)
             return ' '.join(result)
         
-        # Build tags — EVERY tag must include city/location name for local SEO
-        tags = []
-        # Use target_city from blog post if available, otherwise fall back to client.geo
+        # Build tags — use user-set tags if available, otherwise auto-generate
+        # Check if user manually set tags via the UI
+        user_tags = content.get_tags() if hasattr(content, 'get_tags') else []
+        if user_tags and len(user_tags) > 0:
+            tags = user_tags
+            logger.info(f"Using {len(tags)} user-set tags: {tags}")
+        else:
+            logger.info("No user tags found — auto-generating tags for local SEO")
+
+        # City is needed for both tags and categories
         city = ''
         if hasattr(content, 'target_city') and content.target_city:
             city = content.target_city.strip()
@@ -2696,77 +2703,79 @@ def publish_to_wordpress(current_user, content_id):
             logger.info(f"Using geo from client: {city}")
         city = title_case(city)  # Ensure city is Title Case
 
-        def ensure_city_in_tag(tag_text):
-            """Ensure every tag includes the city name"""
-            if not city:
-                return tag_text
-            if city.lower() in tag_text.lower():
-                return tag_text
-            return f"{tag_text} {city}"
+        # If user set tags manually, use those; otherwise auto-generate
+        if not user_tags:
+            def ensure_city_in_tag(tag_text):
+                """Ensure every tag includes the city name"""
+                if not city:
+                    return tag_text
+                if city.lower() in tag_text.lower():
+                    return tag_text
+                return f"{tag_text} {city}"
 
-        # Extract core service from keyword
-        service = ''
-        if content.primary_keyword:
-            service = content.primary_keyword.lower()
-            for loc_word in [' in ', ' near ', ' for ', city.lower() if city else '']:
-                if loc_word:
-                    service = service.split(loc_word)[0].strip()
+            # Extract core service from keyword
+            service = ''
+            if content.primary_keyword:
+                service = content.primary_keyword.lower()
+                for loc_word in [' in ', ' near ', ' for ', city.lower() if city else '']:
+                    if loc_word:
+                        service = service.split(loc_word)[0].strip()
 
-        # 1. Primary keyword + city
-        if content.primary_keyword:
-            tags.append(title_case(ensure_city_in_tag(content.primary_keyword)))
+            # 1. Primary keyword + city
+            if content.primary_keyword:
+                tags.append(title_case(ensure_city_in_tag(content.primary_keyword)))
 
-        # 2. City + service (reversed)
-        if city and service:
-            tags.append(title_case(f"{city} {service}"))
+            # 2. City + service (reversed)
+            if city and service:
+                tags.append(title_case(f"{city} {service}"))
 
-        # 3. Best [service] in [city]
-        if service and city:
-            tags.append(title_case(f"Best {service} in {city}"))
+            # 3. Best [service] in [city]
+            if service and city:
+                tags.append(title_case(f"Best {service} in {city}"))
 
-        # 4. Add secondary keywords — each with city
-        if content.secondary_keywords:
-            try:
-                keywords = json.loads(content.secondary_keywords) if isinstance(content.secondary_keywords, str) else content.secondary_keywords
-                if keywords:
-                    for kw in keywords[:5]:
-                        if kw:
-                            kw_tag = title_case(ensure_city_in_tag(kw))
-                            if kw_tag not in tags and len(tags) < 10:
-                                tags.append(kw_tag)
-            except (json.JSONDecodeError, TypeError):
-                pass
+            # 4. Add secondary keywords — each with city
+            if content.secondary_keywords:
+                try:
+                    keywords = json.loads(content.secondary_keywords) if isinstance(content.secondary_keywords, str) else content.secondary_keywords
+                    if keywords:
+                        for kw in keywords[:5]:
+                            if kw:
+                                kw_tag = title_case(ensure_city_in_tag(kw))
+                                if kw_tag not in tags and len(tags) < 10:
+                                    tags.append(kw_tag)
+                except (json.JSONDecodeError, TypeError):
+                    pass
 
-        # 5. Industry-based tags — ALL include city
-        industry = client.industry.lower() if client.industry else ''
-        if city:
-            if 'dent' in industry:
-                extra_tags = [f'Dentist {city}', f'{city} Dental', f'Dental Care {city}', f'Oral Health {city}']
-            elif 'hvac' in industry or 'air' in industry:
-                extra_tags = [f'HVAC {city}', f'{city} AC Repair', f'Air Conditioning {city}', f'Heating {city}']
-            elif 'plumb' in industry:
-                extra_tags = [f'Plumber {city}', f'{city} Plumbing', f'Plumbing Services {city}']
-            elif 'roof' in industry:
-                extra_tags = [f'Roofer {city}', f'{city} Roofing', f'Roof Repair {city}']
-            elif 'law' in industry or 'legal' in industry:
-                extra_tags = [f'Lawyer {city}', f'{city} Attorney', f'Legal Services {city}']
+            # 5. Industry-based tags — ALL include city
+            industry = client.industry.lower() if client.industry else ''
+            if city:
+                if 'dent' in industry:
+                    extra_tags = [f'Dentist {city}', f'{city} Dental', f'Dental Care {city}', f'Oral Health {city}']
+                elif 'hvac' in industry or 'air' in industry:
+                    extra_tags = [f'HVAC {city}', f'{city} AC Repair', f'Air Conditioning {city}', f'Heating {city}']
+                elif 'plumb' in industry:
+                    extra_tags = [f'Plumber {city}', f'{city} Plumbing', f'Plumbing Services {city}']
+                elif 'roof' in industry:
+                    extra_tags = [f'Roofer {city}', f'{city} Roofing', f'Roof Repair {city}']
+                elif 'law' in industry or 'legal' in industry:
+                    extra_tags = [f'Lawyer {city}', f'{city} Attorney', f'Legal Services {city}']
+                else:
+                    extra_tags = [f'{city} Services', f'Local Business {city}', f'Professional Services {city}']
             else:
-                extra_tags = [f'{city} Services', f'Local Business {city}', f'Professional Services {city}']
-        else:
-            extra_tags = []
+                extra_tags = []
 
-        for tag in extra_tags:
-            if tag and tag not in tags and len(tags) < 10:
-                tags.append(tag)
-
-        # Ensure minimum 5 tags — all with city
-        if len(tags) < 5 and city:
-            filler_tags = [f'Local {city}', f'{city} Expert Services', f'Professional {industry} {city}' if industry else f'Professional Services {city}']
-            for tag in filler_tags:
-                tag = title_case(tag)
-                if tag and tag not in tags and len(tags) < 5:
+            for tag in extra_tags:
+                if tag and tag not in tags and len(tags) < 10:
                     tags.append(tag)
-        
+
+            # Ensure minimum 5 tags — all with city
+            if len(tags) < 5 and city:
+                filler_tags = [f'Local {city}', f'{city} Expert Services', f'Professional {industry} {city}' if industry else f'Professional Services {city}']
+                for tag in filler_tags:
+                    tag = title_case(tag)
+                    if tag and tag not in tags and len(tags) < 5:
+                        tags.append(tag)
+
         # Remove duplicates while preserving order (case-insensitive comparison)
         # AND apply Title Case to ALL tags
         seen = set()
@@ -2778,7 +2787,7 @@ def publish_to_wordpress(current_user, content_id):
                 # Apply Title Case to each tag
                 unique_tags.append(title_case(tag.strip()))
         tags = unique_tags[:10]  # Limit to 10
-        
+
         logger.info(f"WordPress tags ({len(tags)}): {tags}")
         
         # Use content.title as WP post title (the actual blog title)
