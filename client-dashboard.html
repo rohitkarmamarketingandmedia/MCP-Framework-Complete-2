@@ -6147,6 +6147,8 @@
             // Swap positions
             currentTabOrder.splice(fromIdx, 1);
             currentTabOrder.splice(toIdx, 0, fromId);
+            // Auto-cache locally so reload preserves the drag even before explicit save
+            try { localStorage.setItem('mcp_tab_order', JSON.stringify(currentTabOrder)); } catch(e) {}
             renderTabBar();
         }
         function handleTabDragEnd(e) {
@@ -6188,7 +6190,7 @@
                     })
                 });
                 // Cache locally so reload is instant
-                try { sessionStorage.setItem('mcp_tab_order', JSON.stringify(currentTabOrder)); } catch(e) {}
+                try { localStorage.setItem('mcp_tab_order', JSON.stringify(currentTabOrder)); } catch(e) {}
                 showToast(scope === 'client' ? 'Tab order saved for this client' : 'Default tab order saved', 'success');
                 toggleTabReorder(); // exit reorder mode
             } catch (e) {
@@ -6213,7 +6215,7 @@
                             const parsed = JSON.parse(match.value);
                             if (Array.isArray(parsed) && parsed.length > 0) {
                                 currentTabOrder = [...parsed, ...DEFAULT_TAB_ORDER.filter(t => !parsed.includes(t))];
-                                try { sessionStorage.setItem('mcp_tab_order', JSON.stringify(currentTabOrder)); } catch(e) {}
+                                try { localStorage.setItem('mcp_tab_order', JSON.stringify(currentTabOrder)); } catch(e) {}
                                 renderTabBar();
                                 return;
                             }
@@ -6233,7 +6235,7 @@
                         const parsed2 = JSON.parse(match2.value);
                         if (Array.isArray(parsed2) && parsed2.length > 0) {
                             currentTabOrder = [...parsed2, ...DEFAULT_TAB_ORDER.filter(t => !parsed2.includes(t))];
-                            try { sessionStorage.setItem('mcp_tab_order', JSON.stringify(currentTabOrder)); } catch(e) {}
+                            try { localStorage.setItem('mcp_tab_order', JSON.stringify(currentTabOrder)); } catch(e) {}
                             renderTabBar();
                             return;
                         }
@@ -6242,15 +6244,18 @@
             } catch (e) {
                 console.error('Failed to load tab order:', e);
             }
-            // Fallback to default
-            currentTabOrder = [...DEFAULT_TAB_ORDER];
+            // No server order found — keep whatever is already in currentTabOrder
+            // (which was loaded from localStorage on init). Only reset if it's empty.
+            if (!currentTabOrder || currentTabOrder.length === 0) {
+                currentTabOrder = [...DEFAULT_TAB_ORDER];
+            }
             renderTabBar();
         }
 
         // ── Reset tab order ─────────────────────────
         function resetTabOrder() {
             currentTabOrder = [...DEFAULT_TAB_ORDER];
-            try { sessionStorage.removeItem('mcp_tab_order'); } catch(e) {}
+            try { localStorage.removeItem('mcp_tab_order'); } catch(e) {}
             renderTabBar();
             showToast('Tab order reset to default', 'info');
         }
@@ -6259,7 +6264,7 @@
         // then loadTabOrder() will update from server when client loads
         (function initTabBar() {
             try {
-                const cached = sessionStorage.getItem('mcp_tab_order');
+                const cached = localStorage.getItem('mcp_tab_order');
                 if (cached) {
                     const parsed = JSON.parse(cached);
                     if (Array.isArray(parsed) && parsed.length > 0) {
