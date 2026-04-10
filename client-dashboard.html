@@ -4744,7 +4744,7 @@
     </div>
     <!-- Health Score Breakdown Modal -->
     <div id="healthModal" class="hidden fixed inset-0 bg-black/80 z-50 flex items-center justify-center" onclick="if(event.target === this) closeHealthBreakdown()">
-        <div class="max-w-lg w-full mx-4 glass-light rounded-2xl overflow-hidden fade-in" onclick="event.stopPropagation()">
+        <div class="max-w-lg w-full mx-4 rounded-2xl overflow-hidden fade-in shadow-2xl" style="background:#1e293b" onclick="event.stopPropagation()">
             <!-- Header -->
             <div class="bg-gradient-to-r from-emerald-600 to-teal-600 p-6">
                 <div class="flex items-center justify-between">
@@ -4764,7 +4764,7 @@
             </div>
             <!-- Footer -->
             <div class="px-6 pb-6">
-                <div class="bg-white/5 rounded-xl p-4" id="healthTipBox">
+                <div class="rounded-xl p-4" style="background:rgba(255,255,255,0.05);" id="healthTipBox">
                     <div class="flex items-start gap-3">
                         <i class="fas fa-lightbulb text-yellow-400 mt-0.5"></i>
                         <div>
@@ -4773,7 +4773,7 @@
                         </div>
                     </div>
                 </div>
-                <button onclick="closeHealthBreakdown()" class="w-full mt-4 px-4 py-2.5 bg-white/5 hover:bg-white/10 rounded-xl text-sm text-gray-300 transition">
+                <button onclick="closeHealthBreakdown()" class="w-full mt-4 px-4 py-2.5 rounded-xl text-sm text-gray-300 transition" style="background:rgba(255,255,255,0.05);" onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='rgba(255,255,255,0.05)'">
                     Close
                 </button>
             </div>
