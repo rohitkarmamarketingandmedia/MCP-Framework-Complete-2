@@ -2789,7 +2789,13 @@ def publish_to_wordpress(current_user, content_id):
         tags = unique_tags[:10]  # Limit to 10
 
         logger.info(f"WordPress tags ({len(tags)}): {tags}")
-        
+
+        # Wrap the entire blog content in a main container div for styling hooks.
+        # Idempotent — skip if already wrapped (e.g. on re-publish).
+        if full_content and '<div class="mcp-blog">' not in full_content:
+            full_content = f'<div class="mcp-blog">\n{full_content}\n</div>'
+            logger.info("Wrapped blog content in <div class=\"mcp-blog\"> container")
+
         # Use content.title as WP post title (the actual blog title)
         # meta_title goes to Yoast SEO title field
         wp_post_title = content.title  # This is the blog title
