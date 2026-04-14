@@ -15686,7 +15686,7 @@
             document.getElementById('bodyEditMode').classList.remove('hidden');
             // Set innerHTML for contenteditable div
             document.getElementById('modalBodyEdit').innerHTML = currentBlog.body || '';
-            document.getElementById('modalBodySource').value = currentBlog.body || '';
+            document.getElementById('modalBodySource').value = prettifyHtml(currentBlog.body || '');
             updateEditWordCount();
 
             document.getElementById('footerViewMode').classList.add('hidden');
