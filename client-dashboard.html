@@ -6223,6 +6223,15 @@
         }
 
         // ── Load tab order (client override → global → default) ──
+        // Safely parse a value that may already be an array, a JSON string, or junk.
+        function _safeParseArray(val) {
+            if (Array.isArray(val)) return val;
+            if (typeof val === 'string' && val.trim().startsWith('[')) {
+                try { const p = JSON.parse(val); if (Array.isArray(p)) return p; } catch (_) {}
+            }
+            return null;
+        }
+
         async function loadTabOrder() {
             try {
                 // Try client-specific first
@@ -6235,8 +6244,8 @@
                         const settings = data.settings || [];
                         const match = settings.find(s => s.key === 'tab_order');
                         if (match) {
-                            const parsed = JSON.parse(match.value);
-                            if (Array.isArray(parsed) && parsed.length > 0) {
+                            const parsed = _safeParseArray(match.value);
+                            if (parsed && parsed.length > 0) {
                                 currentTabOrder = [...parsed, ...DEFAULT_TAB_ORDER.filter(t => !parsed.includes(t))];
                                 try { localStorage.setItem('mcp_tab_order', JSON.stringify(currentTabOrder)); } catch(e) {}
                                 renderTabBar();
@@ -6255,8 +6264,8 @@
                     const settings2 = data2.settings || [];
                     const match2 = settings2.find(s => s.key === 'tab_order');
                     if (match2) {
-                        const parsed2 = JSON.parse(match2.value);
-                        if (Array.isArray(parsed2) && parsed2.length > 0) {
+                        const parsed2 = _safeParseArray(match2.value);
+                        if (parsed2 && parsed2.length > 0) {
                             currentTabOrder = [...parsed2, ...DEFAULT_TAB_ORDER.filter(t => !parsed2.includes(t))];
                             try { localStorage.setItem('mcp_tab_order', JSON.stringify(currentTabOrder)); } catch(e) {}
                             renderTabBar();
@@ -6698,6 +6707,15 @@
             if (!clientId) return;
 
             // Clear ALL cached data when switching clients to prevent stale data showing
+            currentBlog = null;
+            currentBlogTags = [];
+            allBlogs = [];
+            // Close blog modal if open to prevent stale content showing
+            const blogModal = document.getElementById('blogModal');
+            if (blogModal && !blogModal.classList.contains('hidden')) {
+                blogModal.classList.add('hidden');
+                document.body.style.overflow = '';
+            }
             rankingsData = null;
             if (typeof competitorData !== 'undefined') competitorData = null;
             // Clear competitor dashboard UI
