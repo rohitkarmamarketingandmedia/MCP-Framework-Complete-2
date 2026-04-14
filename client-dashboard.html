@@ -5097,10 +5097,14 @@
                             style="font-family: system-ui, -apple-system, sans-serif; line-height: 1.6;"
                             oninput="updateEditWordCount()"></div>
                         <!-- HTML Source View (hidden by default) -->
-                        <textarea id="modalBodySource"
-                            class="hidden w-full min-h-[400px] px-3 py-2 border border-gray-300 rounded-lg font-mono text-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-200"
-                            style="tab-size:2; -moz-tab-size:2; line-height:1.5; color:#1e293b; background:#f8fafc;"
-                            spellcheck="false" wrap="off"></textarea>
+                        <!-- Raw value holder (hidden, used by save/toggle logic) -->
+                        <textarea id="modalBodySource" class="hidden"></textarea>
+                        <!-- Syntax-highlighted display -->
+                        <div id="htmlSourceHighlight"
+                            class="hidden w-full min-h-[400px] max-h-[600px] overflow-auto px-4 py-3 border border-gray-300 rounded-lg font-mono text-sm"
+                            style="tab-size:2; line-height:1.7; background:#1e1e2e; color:#cdd6f4; white-space:pre; cursor:text;"
+                            contenteditable="true" spellcheck="false"
+                            oninput="syncSourceFromHighlight()"></div>
                         <p class="text-xs text-gray-400 mt-1">Word count: <span id="editWordCount">0</span></p>
                     </div>
 
@@ -14434,6 +14438,26 @@
             currentBlog = allBlogs.find(b => b.id === blogId);
             if (!currentBlog) return;
 
+            // Always reset to view mode so stale edit content from a
+            // previously opened blog doesn't persist.
+            document.getElementById('modalBody').classList.remove('hidden');
+            document.getElementById('bodyEditMode').classList.add('hidden');
+            document.getElementById('modalTitle').classList.remove('hidden');
+            const titleEdit = document.getElementById('modalTitleEdit');
+            if (titleEdit) titleEdit.classList.add('hidden');
+            document.getElementById('metaViewMode')?.classList.remove('hidden');
+            document.getElementById('metaEditMode')?.classList.add('hidden');
+            document.getElementById('footerViewMode')?.classList.remove('hidden');
+            document.getElementById('footerEditMode')?.classList.add('hidden');
+            document.getElementById('seoScoreCard')?.classList.remove('hidden');
+            // Reset HTML source toggle back to visual editor
+            document.getElementById('modalBodyEdit')?.classList.remove('hidden');
+            document.getElementById('editorToolbar')?.classList.remove('hidden');
+            document.getElementById('modalBodySource')?.classList.add('hidden');
+            document.getElementById('htmlSourceHighlight')?.classList.add('hidden');
+            const toggleBtn = document.getElementById('btnToggleSource');
+            if (toggleBtn) toggleBtn.innerHTML = '<i class="fas fa-code mr-1"></i>View HTML';
+
             document.getElementById('modalKeyword').textContent = currentBlog.primary_keyword || '';
             document.getElementById('modalTitle').textContent = currentBlog.title || 'Untitled';
             document.getElementById('modalWordCount').textContent = currentBlog.word_count || 0;
@@ -15722,7 +15746,9 @@
             document.getElementById('bodyEditMode').classList.remove('hidden');
             // Set innerHTML for contenteditable div
             document.getElementById('modalBodyEdit').innerHTML = currentBlog.body || '';
-            document.getElementById('modalBodySource').value = prettifyHtml(currentBlog.body || '');
+            const _prettyBody = prettifyHtml(currentBlog.body || '');
+            document.getElementById('modalBodySource').value = _prettyBody;
+            document.getElementById('htmlSourceHighlight').innerHTML = highlightHtml(_prettyBody);
             updateEditWordCount();
 
             document.getElementById('footerViewMode').classList.add('hidden');
@@ -15736,24 +15762,37 @@
         function toggleHtmlSource() {
             const editor = document.getElementById('modalBodyEdit');
             const source = document.getElementById('modalBodySource');
+            const highlight = document.getElementById('htmlSourceHighlight');
             const toolbar = document.getElementById('editorToolbar');
             const btn = document.getElementById('btnToggleSource');
 
-            if (source.classList.contains('hidden')) {
-                // Switch to source view — prettify the HTML first
-                source.value = prettifyHtml(editor.innerHTML);
+            if (highlight.classList.contains('hidden')) {
+                // Switch to source view — prettify and highlight
+                const pretty = prettifyHtml(editor.innerHTML);
+                source.value = pretty;
+                highlight.innerHTML = highlightHtml(pretty);
                 editor.classList.add('hidden');
                 toolbar.classList.add('hidden');
-                source.classList.remove('hidden');
+                highlight.classList.remove('hidden');
                 btn.innerHTML = '<i class="fas fa-eye mr-1"></i>Visual Editor';
             } else {
-                // Switch to visual editor — collapse prettified whitespace
+                // Switch to visual editor
+                syncSourceFromHighlight();
                 editor.innerHTML = source.value;
-                source.classList.add('hidden');
+                highlight.classList.add('hidden');
                 toolbar.classList.remove('hidden');
                 editor.classList.remove('hidden');
                 btn.innerHTML = '<i class="fas fa-code mr-1"></i>View HTML';
             }
+        }
+
+        /** Keep the hidden textarea in sync when user edits the highlighted view */
+        function syncSourceFromHighlight() {
+            const highlight = document.getElementById('htmlSourceHighlight');
+            const source = document.getElementById('modalBodySource');
+            // innerText preserves line breaks from the contenteditable pre-formatted div
+            source.value = highlight.innerText || highlight.textContent || '';
+            updateEditWordCount();
         }
 
         /**
@@ -15805,6 +15844,92 @@
             }
 
             return result.join('\n');
+        }
+
+        /**
+         * Syntax-highlight an HTML string for the source editor.
+         * Uses a single-pass tokenizer so output spans never get re-matched.
+         */
+        function highlightHtml(raw) {
+            if (!raw) return '';
+            // Colours (Catppuccin Mocha palette)
+            const C_BRACKET = '#89b4fa';   // blue   – < > /
+            const C_TAG     = '#f38ba8';   // red    – tag names
+            const C_ATTR    = '#fab387';   // peach  – attribute names
+            const C_VALUE   = '#a6e3a1';   // green  – "values"
+            const C_TEXT    = '#cdd6f4';   // text   – plain content
+
+            const out = [];
+            let i = 0;
+            while (i < raw.length) {
+                if (raw[i] === '<') {
+                    // --- Parse a complete HTML tag ---
+                    const end = raw.indexOf('>', i);
+                    if (end === -1) { out.push(esc(raw.slice(i))); break; }
+                    const tag = raw.slice(i, end + 1);
+                    out.push(highlightTag(tag));
+                    i = end + 1;
+                } else {
+                    // Plain text until next <
+                    const next = raw.indexOf('<', i);
+                    const chunk = next === -1 ? raw.slice(i) : raw.slice(i, next);
+                    out.push(s(C_TEXT, esc(chunk)));
+                    i = next === -1 ? raw.length : next;
+                }
+            }
+            return out.join('');
+
+            function esc(t) { return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+            function s(c, t) { return '<span style="color:' + c + '">' + t + '</span>'; }
+
+            function highlightTag(tag) {
+                const parts = [];
+                // Match:  < or </
+                const openMatch = tag.match(/^(<\/?)/);
+                if (!openMatch) return esc(tag);
+                let pos = openMatch[0].length;
+                parts.push(s(C_BRACKET, esc(openMatch[0])));
+
+                // Tag name
+                const nameMatch = tag.slice(pos).match(/^[\w-]+/);
+                if (nameMatch) {
+                    parts.push(s(C_TAG, esc(nameMatch[0])));
+                    pos += nameMatch[0].length;
+                }
+
+                // Attributes
+                const rest = tag.slice(pos, tag.length - (tag.endsWith('/>') ? 2 : 1));
+                if (rest) {
+                    // Tokenise attributes:  name="value"  or  name='value'  or  name  or whitespace
+                    const attrRe = /([\w-]+)\s*=\s*"([^"]*)"|(\w[\w-]*)\s*=\s*'([^']*)'|([\w-]+)|(\s+)/g;
+                    let m;
+                    let lastIdx = 0;
+                    while ((m = attrRe.exec(rest)) !== null) {
+                        // Any gap (unlikely but safe)
+                        if (m.index > lastIdx) parts.push(s(C_TEXT, esc(rest.slice(lastIdx, m.index))));
+                        if (m[1] !== undefined) {
+                            // name="value"
+                            parts.push(s(C_ATTR, esc(m[1])) + s(C_BRACKET, '=') + s(C_VALUE, '&quot;' + esc(m[2]) + '&quot;'));
+                        } else if (m[3] !== undefined) {
+                            // name='value'
+                            parts.push(s(C_ATTR, esc(m[3])) + s(C_BRACKET, '=') + s(C_VALUE, "'" + esc(m[4]) + "'"));
+                        } else if (m[5] !== undefined) {
+                            // bare attribute name
+                            parts.push(s(C_ATTR, esc(m[5])));
+                        } else if (m[6] !== undefined) {
+                            // whitespace
+                            parts.push(m[6]);
+                        }
+                        lastIdx = m.index + m[0].length;
+                    }
+                    if (lastIdx < rest.length) parts.push(s(C_TEXT, esc(rest.slice(lastIdx))));
+                }
+
+                // Closing  />  or  >
+                const closer = tag.endsWith('/>') ? '/&gt;' : '&gt;';
+                parts.push(s(C_BRACKET, closer));
+                return parts.join('');
+            }
         }
 
         // Rich text editor commands
@@ -16243,6 +16368,7 @@
             document.getElementById('modalBodyEdit').classList.remove('hidden');
             document.getElementById('editorToolbar').classList.remove('hidden');
             document.getElementById('modalBodySource').classList.add('hidden');
+            document.getElementById('htmlSourceHighlight').classList.add('hidden');
             document.getElementById('btnToggleSource').innerHTML = '<i class="fas fa-code mr-1"></i>View HTML';
 
             document.getElementById('footerViewMode').classList.remove('hidden');
