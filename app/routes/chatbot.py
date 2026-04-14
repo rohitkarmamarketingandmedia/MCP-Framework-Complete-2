@@ -870,16 +870,31 @@ def capture_lead(chatbot_id):
         config.total_leads_captured += 1
         
         db.session.commit()
-        
-        # Send notification email if enabled
-        if config.email_notifications and config.notification_email:
+
+        # --- Send notifications to the client ---
+        # The chatbot config has its own notification_email field, but it's
+        # often left blank.  Fall back to the client-level notification
+        # settings (DBClient.lead_notification_email / _phone) so the
+        # client always gets notified regardless of which field is filled.
+        client = DBClient.query.get(config.client_id)
+
+        notify_email = config.notification_email  # chatbot-specific first
+        if not notify_email and client:
+            notify_email = client.lead_notification_email  # fall back to client-level
+
+        email_enabled = config.email_notifications  # chatbot toggle
+        if not config.notification_email and client:
+            # If chatbot has no email configured, honour the client-level toggle
+            email_enabled = getattr(client, 'lead_notification_enabled', True)
+
+        if email_enabled and notify_email:
             try:
                 # Parse CC/BCC from config
                 cc_list = [e.strip() for e in (config.notification_cc or '').split(',') if e.strip()]
                 bcc_list = [e.strip() for e in (config.notification_bcc or '').split(',') if e.strip()]
-                
+
                 _send_lead_notification_email(
-                    to_email=config.notification_email,
+                    to_email=notify_email,
                     lead_name=data.get('name', 'Anonymous'),
                     lead_email=data.get('email', 'Not provided'),
                     lead_phone=data.get('phone', 'Not provided'),
@@ -891,8 +906,38 @@ def capture_lead(chatbot_id):
                     cc=cc_list or None,
                     bcc=bcc_list or None
                 )
+                lead.notified_email = True
+                lead.notified_at = datetime.utcnow()
+                logger.info(f"Chatbot lead email sent to {notify_email}")
             except Exception as e:
                 logger.error(f"Failed to send lead notification email: {e}")
+        else:
+            logger.warning(
+                f"Chatbot lead notification skipped: email_enabled={email_enabled}, "
+                f"notify_email={notify_email}, config.notification_email={config.notification_email}, "
+                f"client.lead_notification_email={getattr(client, 'lead_notification_email', None)}"
+            )
+
+        # SMS notification — uses client-level settings (chatbot config
+        # doesn't have its own SMS path today)
+        if client and getattr(client, 'lead_notification_enabled', False) and getattr(client, 'lead_notification_phone', None):
+            try:
+                from app.services.lead_service import get_lead_service
+                lead_svc = get_lead_service()
+                sms_sent = lead_svc._send_lead_sms(client, lead)
+                if sms_sent:
+                    lead.notified_sms = True
+                    if not lead.notified_at:
+                        lead.notified_at = datetime.utcnow()
+                    logger.info(f"Chatbot lead SMS sent to {client.lead_notification_phone}")
+            except Exception as e:
+                logger.error(f"Failed to send chatbot lead SMS: {e}")
+
+        # Persist notification flags
+        try:
+            db.session.commit()
+        except Exception:
+            pass
         
         return jsonify({
             'success': True,

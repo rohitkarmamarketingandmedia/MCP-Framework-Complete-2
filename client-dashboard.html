@@ -5080,7 +5080,9 @@
                             oninput="updateEditWordCount()"></div>
                         <!-- HTML Source View (hidden by default) -->
                         <textarea id="modalBodySource"
-                            class="hidden w-full min-h-[400px] px-3 py-2 border border-gray-300 rounded-lg font-mono text-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-200"></textarea>
+                            class="hidden w-full min-h-[400px] px-3 py-2 border border-gray-300 rounded-lg font-mono text-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-200"
+                            style="tab-size:2; -moz-tab-size:2; line-height:1.5; color:#1e293b; background:#f8fafc;"
+                            spellcheck="false" wrap="off"></textarea>
                         <p class="text-xs text-gray-400 mt-1">Word count: <span id="editWordCount">0</span></p>
                     </div>
 
@@ -15702,20 +15704,71 @@
             const btn = document.getElementById('btnToggleSource');
 
             if (source.classList.contains('hidden')) {
-                // Switch to source view
-                source.value = editor.innerHTML;
+                // Switch to source view — prettify the HTML first
+                source.value = prettifyHtml(editor.innerHTML);
                 editor.classList.add('hidden');
                 toolbar.classList.add('hidden');
                 source.classList.remove('hidden');
                 btn.innerHTML = '<i class="fas fa-eye mr-1"></i>Visual Editor';
             } else {
-                // Switch to visual editor
+                // Switch to visual editor — collapse prettified whitespace
                 editor.innerHTML = source.value;
                 source.classList.add('hidden');
                 toolbar.classList.remove('hidden');
                 editor.classList.remove('hidden');
                 btn.innerHTML = '<i class="fas fa-code mr-1"></i>View HTML';
             }
+        }
+
+        /**
+         * Prettify raw HTML string with proper indentation so the
+         * source view is easy to read and edit.
+         */
+        function prettifyHtml(html) {
+            if (!html) return '';
+
+            // Normalise: collapse runs of whitespace that the contenteditable
+            // div produces, but preserve content inside <pre>/<code> blocks.
+            html = html.replace(/\r\n?/g, '\n').trim();
+
+            // Tags that should start on their own line and increase indent
+            const BLOCK_OPEN = /^(html|head|body|div|section|article|aside|header|footer|nav|main|form|fieldset|table|thead|tbody|tfoot|tr|ul|ol|dl|blockquote|figure|details|summary)$/i;
+            // Tags that are self-contained blocks (open+close on own lines, no indent change)
+            const BLOCK_SINGLE = /^(p|h[1-6]|li|dt|dd|th|td|caption|figcaption|address|pre|hr|br|img|input|meta|link|script|style|title)$/i;
+
+            // Step 1: ensure every tag starts on a fresh line (for block-level tags)
+            // Insert newlines around block-level open/close tags
+            html = html
+                .replace(/>\s*<\/(p|h[1-6]|div|section|article|aside|header|footer|nav|main|li|ul|ol|dl|dt|dd|blockquote|table|thead|tbody|tfoot|tr|th|td|form|fieldset|figure|figcaption|details|summary|pre|address)/gi, '>\n</$1')
+                .replace(/<(p|h[1-6]|div|section|article|aside|header|footer|nav|main|li|ul|ol|dl|dt|dd|blockquote|table|thead|tbody|tfoot|tr|th|td|form|fieldset|figure|figcaption|details|summary|hr|br|img|pre|address)(\s|>|\/)/gi, '\n<$1$2')
+                .replace(/(<\/[^>]+>)(<)/g, '$1\n$2');
+
+            // Step 2: split into lines & apply indentation
+            const lines = html.split('\n');
+            let indent = 0;
+            const TAB = '  '; // 2-space indent
+            const result = [];
+
+            for (let raw of lines) {
+                const line = raw.trim();
+                if (!line) continue;
+
+                // Check for closing tag at start of line → dedent first
+                const closeMatch = line.match(/^<\/(\w+)/);
+                if (closeMatch && BLOCK_OPEN.test(closeMatch[1])) {
+                    indent = Math.max(0, indent - 1);
+                }
+
+                result.push(TAB.repeat(indent) + line);
+
+                // Check for opening tag (not self-closing) → indent next lines
+                const openMatch = line.match(/^<(\w+)/);
+                if (openMatch && BLOCK_OPEN.test(openMatch[1]) && !line.match(/\/\s*>$/) && !line.includes('</' + openMatch[1])) {
+                    indent += 1;
+                }
+            }
+
+            return result.join('\n');
         }
 
         // Rich text editor commands
