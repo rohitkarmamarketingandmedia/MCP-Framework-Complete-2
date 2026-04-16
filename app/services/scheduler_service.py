@@ -168,8 +168,28 @@ def _add_scheduled_jobs(app):
         replace_existing=True,
         kwargs={'app': app}
     )
-    
-    logger.info("Scheduled jobs added: competitor_crawl(hourly), rank_check(5AM), intelligence(6AM), auto_publish(5min), alert_digest(hourly), daily_summary(8AM), content_due(7AM), digests(8AM), 3day_reports(Mon/Thu 9AM), review_responses(2hr)")
+
+    # Weekly Google Search Console indexing scan (Mon 3 AM, light traffic)
+    scheduler.add_job(
+        func=run_indexing_weekly_scan,
+        trigger=CronTrigger(day_of_week='mon', hour=3, minute=0),
+        id='weekly_indexing_scan',
+        name='Weekly GSC Indexing Scan',
+        replace_existing=True,
+        kwargs={'app': app}
+    )
+
+    logger.info("Scheduled jobs added: competitor_crawl(hourly), rank_check(5AM), intelligence(6AM), auto_publish(5min), alert_digest(hourly), daily_summary(8AM), content_due(7AM), digests(8AM), 3day_reports(Mon/Thu 9AM), review_responses(2hr), indexing_scan(Mon 3AM)")
+
+
+def run_indexing_weekly_scan(app):
+    """Weekly GSC indexing scan across all clients with indexing enabled."""
+    try:
+        from app.services.indexing_service import run_weekly_scan_all_clients
+        result = run_weekly_scan_all_clients(app=app)
+        logger.info(f'[indexing] weekly scan result: {result}')
+    except Exception as e:
+        logger.exception(f'[indexing] weekly scan failed: {e}')
 
 
 def run_competitor_crawl(app):

@@ -1783,6 +1783,79 @@
                 </div>
             </div>
 
+            <!-- Indexing Autopilot Panel -->
+            <div id="panel-indexing" class="hidden fade-in">
+                <div class="glass rounded-xl p-6 mb-6">
+                    <div class="flex items-start justify-between mb-4 flex-wrap gap-3">
+                        <div class="flex items-center gap-3">
+                            <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center">
+                                <i class="fas fa-search-plus text-white text-xl"></i>
+                            </div>
+                            <div>
+                                <h3 class="text-lg font-bold text-white">Indexing Autopilot</h3>
+                                <p class="text-sm text-gray-400">Detect, diagnose, and resubmit unindexed pages to Google, Bing, and Yandex</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-2 flex-wrap" id="indexingTopActions">
+                            <!-- Populated by loadIndexingData() -->
+                        </div>
+                    </div>
+
+                    <!-- Status / connection row -->
+                    <div id="indexingStatusRow" class="mb-4">
+                        <div class="text-center py-8 text-gray-500">
+                            <i class="fas fa-spinner fa-spin text-2xl mb-2 block"></i>
+                            <p>Loading indexing status...</p>
+                        </div>
+                    </div>
+
+                    <!-- Counts tiles -->
+                    <div id="indexingCountsRow" class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6 hidden">
+                        <div class="glass rounded-xl p-4">
+                            <div class="text-2xl font-bold text-yellow-400" id="idxCountDiscovered">0</div>
+                            <div class="text-xs text-gray-400 uppercase tracking-wide">Discovered</div>
+                        </div>
+                        <div class="glass rounded-xl p-4">
+                            <div class="text-2xl font-bold text-cyan-400" id="idxCountDiagnosed">0</div>
+                            <div class="text-xs text-gray-400 uppercase tracking-wide">Diagnosed</div>
+                        </div>
+                        <div class="glass rounded-xl p-4">
+                            <div class="text-2xl font-bold text-blue-400" id="idxCountSubmitted">0</div>
+                            <div class="text-xs text-gray-400 uppercase tracking-wide">Submitted</div>
+                        </div>
+                        <div class="glass rounded-xl p-4">
+                            <div class="text-2xl font-bold text-green-400" id="idxCountIndexed">0</div>
+                            <div class="text-xs text-gray-400 uppercase tracking-wide">Indexed</div>
+                        </div>
+                        <div class="glass rounded-xl p-4">
+                            <div class="text-2xl font-bold text-red-400" id="idxCountStuck">0</div>
+                            <div class="text-xs text-gray-400 uppercase tracking-wide">Still Unindexed</div>
+                        </div>
+                    </div>
+
+                    <!-- Filter pills -->
+                    <div id="indexingFilterPills" class="flex flex-wrap gap-2 mb-4 hidden">
+                        <button onclick="setIndexingFilter('')" data-idx-filter="" class="px-3 py-1 rounded-full text-xs bg-indigo-600 text-white">All</button>
+                        <button onclick="setIndexingFilter('discovered')" data-idx-filter="discovered" class="px-3 py-1 rounded-full text-xs glass text-gray-300 hover:text-white">Discovered</button>
+                        <button onclick="setIndexingFilter('diagnosed')" data-idx-filter="diagnosed" class="px-3 py-1 rounded-full text-xs glass text-gray-300 hover:text-white">Diagnosed</button>
+                        <button onclick="setIndexingFilter('submitted')" data-idx-filter="submitted" class="px-3 py-1 rounded-full text-xs glass text-gray-300 hover:text-white">Submitted</button>
+                        <button onclick="setIndexingFilter('still_unindexed')" data-idx-filter="still_unindexed" class="px-3 py-1 rounded-full text-xs glass text-gray-300 hover:text-white">Stuck</button>
+                        <button onclick="setIndexingFilter('indexed')" data-idx-filter="indexed" class="px-3 py-1 rounded-full text-xs glass text-gray-300 hover:text-white">Indexed</button>
+                        <button onclick="setIndexingFilter('failed')" data-idx-filter="failed" class="px-3 py-1 rounded-full text-xs glass text-gray-300 hover:text-white">Failed</button>
+                    </div>
+
+                    <!-- Issues table -->
+                    <div id="indexingIssuesTable" class="hidden">
+                        <!-- populated by renderIndexingIssues() -->
+                    </div>
+
+                    <!-- IndexNow setup helper -->
+                    <div id="indexNowHelper" class="mt-6 p-4 glass rounded-xl border border-amber-500/20 hidden">
+                        <!-- populated on demand -->
+                    </div>
+                </div>
+            </div>
+
             <!-- Calendar Panel -->
             <div id="panel-calendar" class="hidden fade-in">
                 <!-- Content Pipeline Stats -->
@@ -6072,6 +6145,7 @@
             reports:       { icon: 'fas fa-file-pdf',        label: 'Reports',           short: 'PDF',      special: '' },
             rankings:      { icon: 'fas fa-trophy',          label: 'Rankings',          short: 'Rank',     special: '' },
             gsc:           { icon: 'fab fa-google',          label: 'Search Console',    short: 'GSC',      special: '' },
+            indexing:      { icon: 'fas fa-search-plus',     label: 'Indexing',          short: 'Index',    special: '' },
             ga4:           { icon: 'fas fa-chart-line',      label: 'Analytics',         short: 'GA4',      special: '' },
             competitors:   { icon: 'fas fa-users',           label: 'Competitors',       short: 'Comp',     special: '' },
             settings:      { icon: 'fas fa-cog',             label: 'Settings',          short: 'Set',      special: '' },
@@ -6085,7 +6159,7 @@
 
         const DEFAULT_TAB_ORDER = [
             'overview','generate','blogs','social','seo','calendar','reports','rankings',
-            'gsc','ga4','competitors','settings','chatbot','leads','reviews','calls','pages','accessibility'
+            'gsc','indexing','ga4','competitors','settings','chatbot','leads','reviews','calls','pages','accessibility'
         ];
 
         let currentTabOrder = [...DEFAULT_TAB_ORDER];
@@ -7221,7 +7295,7 @@
         // TABS
         // ==========================================
         function showTab(tab) {
-            const allTabs = ['overview', 'generate', 'blogs', 'social', 'seo', 'gsc', 'ga4', 'calendar', 'reports', 'rankings', 'competitors', 'settings', 'chatbot', 'leads', 'reviews', 'calls', 'pages', 'accessibility'];
+            const allTabs = ['overview', 'generate', 'blogs', 'social', 'seo', 'gsc', 'indexing', 'ga4', 'calendar', 'reports', 'rankings', 'competitors', 'settings', 'chatbot', 'leads', 'reviews', 'calls', 'pages', 'accessibility'];
 
             allTabs.forEach(t => {
                 const panel = document.getElementById(`panel-${t}`);
@@ -7309,6 +7383,11 @@
             // Load Google Search Console data when GSC tab is shown
             if (tab === 'gsc') {
                 loadGSCData();
+            }
+
+            // Load Indexing Autopilot data when indexing tab is shown
+            if (tab === 'indexing') {
+                loadIndexingData();
             }
 
             // Load notification settings when settings tab is shown
@@ -8920,6 +8999,422 @@
                 }
             });
             canvas._chart = chart;
+        }
+
+        // ==========================================
+        // INDEXING AUTOPILOT
+        // ==========================================
+        let _indexingState = { status: null, issues: [], filter: '' };
+
+        async function _indexingApi(path, method = 'GET', body = null) {
+            const token = localStorage.getItem('authToken');
+            const opts = {
+                method,
+                headers: {
+                    'Authorization': 'Bearer ' + token,
+                    'Content-Type': 'application/json'
+                }
+            };
+            if (body) opts.body = JSON.stringify(body);
+            const resp = await fetch('/api/indexing' + path, opts);
+            let data = null;
+            try { data = await resp.json(); } catch (_) { data = { error: 'Bad JSON from server' }; }
+            if (!resp.ok) throw new Error(data.error || ('HTTP ' + resp.status));
+            return data;
+        }
+
+        async function loadIndexingData() {
+            if (!currentClient) return;
+
+            const statusRow = document.getElementById('indexingStatusRow');
+            const actions = document.getElementById('indexingTopActions');
+            const counts = document.getElementById('indexingCountsRow');
+            const pills = document.getElementById('indexingFilterPills');
+            const table = document.getElementById('indexingIssuesTable');
+            const helper = document.getElementById('indexNowHelper');
+            if (!statusRow) return;
+
+            // Check URL for oauth callback flags
+            const params = new URLSearchParams(window.location.search);
+            if (params.get('gsc_connected') === '1') {
+                showToast('Google Search Console connected', 'success');
+                // Clean the URL so reloads don't re-toast
+                history.replaceState({}, '', window.location.pathname + window.location.hash);
+            } else if (params.get('gsc_error')) {
+                showToast('GSC connection failed: ' + params.get('gsc_error'), 'error');
+                history.replaceState({}, '', window.location.pathname + window.location.hash);
+            }
+
+            statusRow.innerHTML = '<div class="text-center py-6 text-gray-400"><i class="fas fa-spinner fa-spin mr-2"></i>Loading...</div>';
+
+            let status;
+            try {
+                status = await _indexingApi('/status/' + currentClient.id);
+            } catch (err) {
+                statusRow.innerHTML = '<div class="p-4 bg-red-500/10 border border-red-500/30 rounded-lg text-red-300 text-sm"><i class="fas fa-exclamation-triangle mr-2"></i>' + err.message + '</div>';
+                return;
+            }
+            _indexingState.status = status;
+
+            // Not connected → show connect card
+            if (!status.connected) {
+                actions.innerHTML = '';
+                counts.classList.add('hidden');
+                pills.classList.add('hidden');
+                table.classList.add('hidden');
+                helper.classList.add('hidden');
+                statusRow.innerHTML = `
+                    <div class="p-6 rounded-xl border border-indigo-500/30 bg-indigo-500/5">
+                        <div class="flex items-start gap-4 flex-wrap">
+                            <div class="flex-1 min-w-[260px]">
+                                <h4 class="text-white font-medium mb-1">Connect Google Search Console</h4>
+                                <p class="text-sm text-gray-400 mb-3">Authorize this client's Search Console account so we can detect unindexed pages, diagnose why, and resubmit them automatically.</p>
+                                <ul class="text-xs text-gray-500 space-y-1">
+                                    <li><i class="fas fa-check text-green-400 mr-2"></i>Scans blog URLs against GSC's URL Inspection API</li>
+                                    <li><i class="fas fa-check text-green-400 mr-2"></i>Pings Google, sitemap, and IndexNow (Bing + Yandex) on resubmit</li>
+                                    <li><i class="fas fa-check text-green-400 mr-2"></i>Re-checks results weekly for up to 4 cycles</li>
+                                </ul>
+                            </div>
+                            <button onclick="connectIndexingGSC()" class="px-5 py-2.5 rounded-lg bg-gradient-to-r from-indigo-600 to-blue-600 text-white text-sm font-medium hover:opacity-90 transition">
+                                <i class="fab fa-google mr-2"></i>Connect Search Console
+                            </button>
+                        </div>
+                    </div>`;
+                return;
+            }
+
+            // Connected but no site selected → show property picker
+            if (!status.site_url) {
+                actions.innerHTML = '';
+                counts.classList.add('hidden');
+                pills.classList.add('hidden');
+                table.classList.add('hidden');
+                helper.classList.add('hidden');
+                statusRow.innerHTML = '<div class="text-sm text-gray-400"><i class="fas fa-spinner fa-spin mr-2"></i>Loading your GSC properties...</div>';
+                try {
+                    const props = await _indexingApi('/properties/' + currentClient.id);
+                    const options = (props.properties || []).map(p =>
+                        '<option value="' + escapeHtml(p.site_url) + '">' + escapeHtml(p.site_url) + ' (' + escapeHtml(p.permission_level || '') + ')</option>'
+                    ).join('');
+                    statusRow.innerHTML = `
+                        <div class="p-5 rounded-xl border border-amber-500/30 bg-amber-500/5">
+                            <h4 class="text-white font-medium mb-3"><i class="fas fa-list-ul mr-2 text-amber-400"></i>Select the site to monitor</h4>
+                            <div class="flex gap-2 flex-wrap">
+                                <select id="indexingSiteSelect" class="flex-1 min-w-[260px] bg-white/10 border border-white/20 rounded-lg text-white text-sm px-3 py-2 focus:outline-none">
+                                    <option value="">-- choose a property --</option>
+                                    ${options || '<option disabled>No properties available</option>'}
+                                </select>
+                                <button onclick="saveIndexingSite()" class="px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-medium hover:opacity-90 transition">Save</button>
+                                <button onclick="disconnectIndexing()" class="px-4 py-2 rounded-lg glass text-gray-300 hover:text-white text-sm transition">Disconnect</button>
+                            </div>
+                        </div>`;
+                } catch (err) {
+                    statusRow.innerHTML = '<div class="p-4 bg-red-500/10 border border-red-500/30 rounded-lg text-red-300 text-sm">' + err.message + '</div>';
+                }
+                return;
+            }
+
+            // Fully connected
+            const lastScanStr = status.last_scan_at ? new Date(status.last_scan_at).toLocaleString() : 'Never';
+            statusRow.innerHTML = `
+                <div class="flex items-center justify-between flex-wrap gap-3 p-4 rounded-xl bg-white/5">
+                    <div class="text-sm">
+                        <div class="text-gray-400">Site: <span class="text-white font-medium">${escapeHtml(status.site_url)}</span></div>
+                        <div class="text-xs text-gray-500">Last scan: ${lastScanStr}</div>
+                    </div>
+                    <div class="flex items-center gap-2 flex-wrap">
+                        <button onclick="showIndexNowHelper()" class="px-3 py-1.5 rounded-lg glass text-xs text-gray-300 hover:text-white transition"><i class="fas fa-bolt mr-1 text-yellow-400"></i>IndexNow Setup</button>
+                        <button onclick="disconnectIndexing()" class="px-3 py-1.5 rounded-lg glass text-xs text-gray-400 hover:text-red-300 transition"><i class="fas fa-unlink mr-1"></i>Disconnect</button>
+                    </div>
+                </div>`;
+
+            actions.innerHTML = `
+                <button onclick="runIndexingScan()" class="px-4 py-2 rounded-lg bg-gradient-to-r from-indigo-600 to-blue-600 text-white text-sm font-medium hover:opacity-90 transition">
+                    <i class="fas fa-sync-alt mr-2"></i>Scan Now
+                </button>
+                <button onclick="submitAllPending()" class="px-4 py-2 rounded-lg glass text-gray-200 hover:text-white text-sm font-medium transition border border-white/10">
+                    <i class="fas fa-paper-plane mr-2"></i>Resubmit All
+                </button>`;
+
+            counts.classList.remove('hidden');
+            pills.classList.remove('hidden');
+            table.classList.remove('hidden');
+
+            // Counts
+            const c = status.issue_counts || {};
+            document.getElementById('idxCountDiscovered').textContent = c.discovered || 0;
+            document.getElementById('idxCountDiagnosed').textContent = c.diagnosed || 0;
+            document.getElementById('idxCountSubmitted').textContent = c.submitted || 0;
+            document.getElementById('idxCountIndexed').textContent = c.indexed || 0;
+            document.getElementById('idxCountStuck').textContent = c.still_unindexed || 0;
+
+            await loadIndexingIssues();
+        }
+
+        async function loadIndexingIssues() {
+            if (!currentClient) return;
+            const table = document.getElementById('indexingIssuesTable');
+            table.innerHTML = '<div class="text-center py-6 text-gray-400"><i class="fas fa-spinner fa-spin mr-2"></i>Loading issues...</div>';
+
+            try {
+                const q = _indexingState.filter ? ('?status=' + encodeURIComponent(_indexingState.filter)) : '';
+                const data = await _indexingApi('/issues/' + currentClient.id + q);
+                _indexingState.issues = data.issues || [];
+                renderIndexingIssues();
+            } catch (err) {
+                table.innerHTML = '<div class="p-4 bg-red-500/10 border border-red-500/30 rounded-lg text-red-300 text-sm">' + err.message + '</div>';
+            }
+        }
+
+        function renderIndexingIssues() {
+            const table = document.getElementById('indexingIssuesTable');
+            const issues = _indexingState.issues || [];
+
+            if (issues.length === 0) {
+                table.innerHTML = `
+                    <div class="text-center py-10 glass rounded-xl">
+                        <i class="fas fa-check-circle text-4xl text-green-400/40 mb-3 block"></i>
+                        <p class="text-gray-400">No indexing issues in this view.</p>
+                        <p class="text-xs text-gray-500 mt-1">Click "Scan Now" to pull the latest status from Google.</p>
+                    </div>`;
+                return;
+            }
+
+            const rows = issues.map(i => {
+                const statusColors = {
+                    discovered: 'bg-yellow-500/20 text-yellow-300',
+                    diagnosed: 'bg-cyan-500/20 text-cyan-300',
+                    remediating: 'bg-purple-500/20 text-purple-300',
+                    remediated: 'bg-purple-500/20 text-purple-300',
+                    submitted: 'bg-blue-500/20 text-blue-300',
+                    indexed: 'bg-green-500/20 text-green-300',
+                    still_unindexed: 'bg-red-500/20 text-red-300',
+                    failed: 'bg-red-500/20 text-red-300',
+                    ignored: 'bg-gray-500/20 text-gray-300',
+                };
+                const statusColor = statusColors[i.status] || 'bg-gray-500/20 text-gray-300';
+                const diagnosis = i.diagnosis || {};
+                const rootCause = diagnosis.primary_root_cause || '';
+                const channelsUsed = [
+                    i.submitted_to_google ? '<span title="Google Indexing API" class="text-green-400"><i class="fab fa-google"></i></span>' : '',
+                    i.submitted_to_indexnow ? '<span title="IndexNow" class="text-yellow-400"><i class="fas fa-bolt"></i></span>' : '',
+                    i.sitemap_pinged ? '<span title="Sitemap ping" class="text-blue-400"><i class="fas fa-sitemap"></i></span>' : '',
+                ].filter(Boolean).join(' ');
+
+                return `
+                    <tr class="border-b border-white/5 hover:bg-white/5">
+                        <td class="py-3 pr-3 align-top">
+                            <a href="${escapeHtml(i.url)}" target="_blank" class="text-blue-400 hover:text-blue-300 text-xs break-all">${escapeHtml(i.url)}</a>
+                            ${rootCause ? '<div class="text-xs text-gray-500 mt-1"><i class="fas fa-lightbulb mr-1 text-amber-400/70"></i>' + escapeHtml(rootCause) + '</div>' : ''}
+                        </td>
+                        <td class="py-3 px-3 align-top">
+                            <span class="text-xs text-gray-300">${escapeHtml(i.coverage_state || '—')}</span>
+                        </td>
+                        <td class="py-3 px-3 align-top">
+                            <span class="inline-block px-2 py-0.5 rounded-full text-xs ${statusColor}">${i.status}</span>
+                            ${channelsUsed ? '<div class="text-xs mt-1 space-x-1">' + channelsUsed + '</div>' : ''}
+                        </td>
+                        <td class="py-3 px-3 text-right align-top whitespace-nowrap">
+                            <button onclick="diagnoseIssue(${i.id})" title="Run Claude diagnosis" class="px-2 py-1 rounded-md glass text-xs text-cyan-300 hover:bg-cyan-500/10 transition">
+                                <i class="fas fa-stethoscope"></i>
+                            </button>
+                            <button onclick="submitIssue(${i.id})" title="Resubmit now" class="px-2 py-1 rounded-md glass text-xs text-blue-300 hover:bg-blue-500/10 transition">
+                                <i class="fas fa-paper-plane"></i>
+                            </button>
+                            <button onclick="recheckIssue(${i.id})" title="Re-check indexing status" class="px-2 py-1 rounded-md glass text-xs text-green-300 hover:bg-green-500/10 transition">
+                                <i class="fas fa-search"></i>
+                            </button>
+                            <button onclick="ignoreIssue(${i.id})" title="Ignore this issue" class="px-2 py-1 rounded-md glass text-xs text-gray-400 hover:text-red-300 transition">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </td>
+                    </tr>`;
+            }).join('');
+
+            table.innerHTML = `
+                <div class="overflow-x-auto glass rounded-xl">
+                    <table class="w-full text-sm">
+                        <thead>
+                            <tr class="text-gray-500 text-xs uppercase tracking-wide border-b border-white/10">
+                                <th class="text-left py-3 pl-4">URL</th>
+                                <th class="text-left py-3 px-3">Coverage</th>
+                                <th class="text-left py-3 px-3">Status</th>
+                                <th class="text-right py-3 pr-4">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>${rows}</tbody>
+                    </table>
+                </div>`;
+        }
+
+        function setIndexingFilter(f) {
+            _indexingState.filter = f || '';
+            document.querySelectorAll('[data-idx-filter]').forEach(btn => {
+                if (btn.getAttribute('data-idx-filter') === _indexingState.filter) {
+                    btn.className = 'px-3 py-1 rounded-full text-xs bg-indigo-600 text-white';
+                } else {
+                    btn.className = 'px-3 py-1 rounded-full text-xs glass text-gray-300 hover:text-white';
+                }
+            });
+            loadIndexingIssues();
+        }
+
+        async function connectIndexingGSC() {
+            if (!currentClient) return;
+            try {
+                const r = await _indexingApi('/connect/' + currentClient.id, 'POST');
+                if (r.auth_url) {
+                    window.location.href = r.auth_url;
+                }
+            } catch (err) {
+                showToast('Connect failed: ' + err.message, 'error');
+            }
+        }
+
+        async function disconnectIndexing() {
+            if (!currentClient) return;
+            if (!confirm('Disconnect Google Search Console for this client?')) return;
+            try {
+                await _indexingApi('/disconnect/' + currentClient.id, 'POST');
+                showToast('Disconnected', 'success');
+                loadIndexingData();
+            } catch (err) {
+                showToast('Disconnect failed: ' + err.message, 'error');
+            }
+        }
+
+        async function saveIndexingSite() {
+            const sel = document.getElementById('indexingSiteSelect');
+            if (!sel || !sel.value) {
+                showToast('Please choose a property', 'warning');
+                return;
+            }
+            try {
+                await _indexingApi('/site/' + currentClient.id, 'POST', { site_url: sel.value });
+                showToast('Site saved', 'success');
+                loadIndexingData();
+            } catch (err) {
+                showToast('Save failed: ' + err.message, 'error');
+            }
+        }
+
+        async function runIndexingScan() {
+            if (!currentClient) return;
+            showToast('Scanning — this may take a minute...', 'info');
+            try {
+                const r = await _indexingApi('/scan/' + currentClient.id, 'POST', { max_urls: 100 });
+                showToast(`Scanned ${r.inspected || 0} URLs — ${r.new_issues || 0} new issues, ${r.cleared || 0} cleared`, 'success');
+                loadIndexingData();
+            } catch (err) {
+                showToast('Scan failed: ' + err.message, 'error');
+            }
+        }
+
+        async function diagnoseIssue(id) {
+            try {
+                showToast('Diagnosing with Claude...', 'info');
+                await _indexingApi('/issues/' + id + '/diagnose', 'POST');
+                showToast('Diagnosis complete', 'success');
+                loadIndexingIssues();
+            } catch (err) {
+                showToast('Diagnose failed: ' + err.message, 'error');
+            }
+        }
+
+        async function submitIssue(id) {
+            try {
+                showToast('Submitting to Google / Bing / sitemap...', 'info');
+                const r = await _indexingApi('/issues/' + id + '/submit', 'POST');
+                showToast('Submitted', 'success');
+                loadIndexingIssues();
+            } catch (err) {
+                showToast('Submit failed: ' + err.message, 'error');
+            }
+        }
+
+        async function recheckIssue(id) {
+            try {
+                const r = await _indexingApi('/issues/' + id + '/recheck', 'POST');
+                showToast(r.indexed ? 'Indexed ✓' : 'Not yet indexed', r.indexed ? 'success' : 'info');
+                loadIndexingData();
+            } catch (err) {
+                showToast('Recheck failed: ' + err.message, 'error');
+            }
+        }
+
+        async function ignoreIssue(id) {
+            if (!confirm('Ignore this issue?')) return;
+            try {
+                await _indexingApi('/issues/' + id + '/ignore', 'POST');
+                loadIndexingData();
+            } catch (err) {
+                showToast('Ignore failed: ' + err.message, 'error');
+            }
+        }
+
+        async function submitAllPending() {
+            if (!currentClient) return;
+            if (!confirm('Resubmit every pending indexing issue for this client?')) return;
+            try {
+                showToast('Resubmitting...', 'info');
+                const r = await _indexingApi('/submit-all/' + currentClient.id, 'POST');
+                showToast(`Resubmitted ${r.submitted || 0} URLs`, 'success');
+                loadIndexingData();
+            } catch (err) {
+                showToast('Resubmit failed: ' + err.message, 'error');
+            }
+        }
+
+        async function showIndexNowHelper() {
+            if (!currentClient) return;
+            const box = document.getElementById('indexNowHelper');
+            if (!box) return;
+            box.classList.remove('hidden');
+            box.innerHTML = '<div class="text-gray-400 text-sm"><i class="fas fa-spinner fa-spin mr-2"></i>Loading IndexNow key...</div>';
+            try {
+                const r = await _indexingApi('/indexnow/' + currentClient.id);
+                const verified = r.verified;
+                const verifyBadge = verified
+                    ? '<span class="ml-2 px-2 py-0.5 rounded-full bg-green-500/20 text-green-300 text-xs">Verified ✓</span>'
+                    : '<span class="ml-2 px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 text-xs">Not verified</span>';
+                box.innerHTML = `
+                    <div>
+                        <h4 class="text-white font-medium mb-2"><i class="fas fa-bolt mr-2 text-yellow-400"></i>IndexNow Setup ${verifyBadge}</h4>
+                        <p class="text-xs text-gray-400 mb-3">IndexNow instantly notifies Bing, Yandex, Seznam, and Naver of new/updated URLs. Host a key file at the site root, then we can ping them on every resubmission.</p>
+                        <div class="space-y-2 text-xs">
+                            <div><span class="text-gray-500">Key:</span> <code class="bg-black/30 px-2 py-0.5 rounded text-amber-300 break-all">${escapeHtml(r.key || '')}</code></div>
+                            <div><span class="text-gray-500">Host at:</span> <code class="bg-black/30 px-2 py-0.5 rounded text-blue-300 break-all">${escapeHtml(r.key_location_url || '(set client website URL first)')}</code></div>
+                            <div class="text-gray-500">Contents of that file should be exactly the key (no newlines, no extras).</div>
+                        </div>
+                        <div class="mt-3 flex gap-2 flex-wrap">
+                            <button onclick="verifyIndexNowKey()" class="px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-xs font-medium hover:opacity-90 transition"><i class="fas fa-check mr-1"></i>Verify Now</button>
+                            <button onclick="regenerateIndexNowKey()" class="px-3 py-1.5 rounded-lg glass text-xs text-gray-300 hover:text-white transition"><i class="fas fa-redo mr-1"></i>Regenerate</button>
+                            <button onclick="document.getElementById('indexNowHelper').classList.add('hidden')" class="px-3 py-1.5 rounded-lg glass text-xs text-gray-400 hover:text-white transition">Close</button>
+                        </div>
+                    </div>`;
+            } catch (err) {
+                box.innerHTML = '<div class="text-red-300 text-sm">' + err.message + '</div>';
+            }
+        }
+
+        async function verifyIndexNowKey() {
+            try {
+                const r = await _indexingApi('/indexnow/' + currentClient.id + '/verify', 'POST');
+                showToast(r.verified ? 'Key verified ✓' : 'Key not found at that URL yet', r.verified ? 'success' : 'warning');
+                showIndexNowHelper();
+            } catch (err) {
+                showToast('Verify failed: ' + err.message, 'error');
+            }
+        }
+
+        async function regenerateIndexNowKey() {
+            if (!confirm('Generate a new key? You will need to host the new file.')) return;
+            try {
+                await _indexingApi('/indexnow/' + currentClient.id + '/regenerate', 'POST');
+                showIndexNowHelper();
+            } catch (err) {
+                showToast('Regenerate failed: ' + err.message, 'error');
+            }
         }
 
         async function loadCompetitorInsights() {

@@ -422,6 +422,41 @@ def run_migrations(app):
             except:
                 pass
 
+        # ------------------------------------------------------------------
+        # GSC indexing automation columns on clients table
+        # ------------------------------------------------------------------
+        try:
+            gsc_columns = [
+                ('gsc_access_token',      'TEXT'),
+                ('gsc_refresh_token',     'TEXT'),
+                ('gsc_token_expires_at',  'TIMESTAMP'),
+                ('gsc_connected_at',      'TIMESTAMP'),
+                ('gsc_indexing_enabled',  'BOOLEAN DEFAULT FALSE'),
+                ('gsc_last_scan_at',      'TIMESTAMP'),
+            ]
+            for col_name, col_type in gsc_columns:
+                result = db.session.execute(text(f"""
+                    SELECT column_name FROM information_schema.columns
+                    WHERE table_name = 'clients' AND column_name = '{col_name}'
+                """))
+                if not result.fetchone():
+                    try:
+                        db.session.execute(text(
+                            f"ALTER TABLE clients ADD COLUMN {col_name} {col_type}"
+                        ))
+                        db.session.commit()
+                        logger.info(f"  ✓ Added clients.{col_name}")
+                    except Exception as col_err:
+                        db.session.rollback()
+                        if 'already exists' not in str(col_err).lower():
+                            logger.warning(f"  Could not add clients.{col_name}: {col_err}")
+        except Exception as e:
+            logger.debug(f"GSC indexing columns migration: {e}")
+            try:
+                db.session.rollback()
+            except:
+                pass
+
 
 def init_db(app):
     """Initialize database with app"""

@@ -208,7 +208,13 @@ class DBClient(db.Model):
 
     # Google Search Console Integration
     gsc_site_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
-    
+    gsc_access_token: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    gsc_refresh_token: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    gsc_token_expires_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    gsc_connected_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    gsc_indexing_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
+    gsc_last_scan_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+
     # Relationships
     leads: Mapped[List["DBLead"]] = relationship("DBLead", back_populates="client", lazy="dynamic")
     reviews: Mapped[List["DBReview"]] = relationship("DBReview", back_populates="client", lazy="dynamic")
@@ -2491,4 +2497,140 @@ class DBTokenUsage(db.Model):
             'cost_usd': round(self.cost_usd, 6),
             'duration_ms': self.duration_ms,
             'created_at': self.created_at.isoformat() if self.created_at else None
+        }
+
+
+# ============================================
+# Indexing / Search Console Issue Tracking
+# ============================================
+
+class IndexingStatus:
+    """Lifecycle states for an indexing issue."""
+    DISCOVERED        = 'discovered'        # Pulled from GSC, not yet diagnosed
+    DIAGNOSED         = 'diagnosed'         # AI diagnosis complete
+    REMEDIATING       = 'remediating'       # Auto-fix in progress
+    REMEDIATED        = 'remediated'        # Fix applied, awaiting resubmission
+    SUBMITTED         = 'submitted'         # Resubmitted to Google / IndexNow
+    INDEXED           = 'indexed'           # Confirmed indexed on re-check
+    STILL_UNINDEXED   = 'still_unindexed'   # Confirmed still not indexed after re-check
+    FAILED            = 'failed'            # Error during processing
+    IGNORED           = 'ignored'           # Manually dismissed
+
+
+class DBIndexingIssue(db.Model):
+    """
+    Tracks a single URL that has an indexing problem in Google Search Console.
+    Pulled from the URL Inspection API / Index Coverage reports, then diagnosed,
+    optionally remediated, and resubmitted for indexing.
+    """
+    __tablename__ = 'indexing_issues'
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    client_id: Mapped[str] = mapped_column(String(50), ForeignKey('clients.id'), nullable=False, index=True)
+
+    # The problem page
+    url: Mapped[str] = mapped_column(String(1000), nullable=False, index=True)
+
+    # GSC-reported state (e.g. "Crawled - currently not indexed",
+    # "Discovered - currently not indexed", "Duplicate without user-selected canonical")
+    coverage_state: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
+    index_status: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)  # raw GSC verdict
+    last_crawl_time: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+
+    # Our lifecycle
+    status: Mapped[str] = mapped_column(String(30), default=IndexingStatus.DISCOVERED, index=True)
+
+    # Claude-powered diagnosis (stored as JSON string)
+    # Keys: thin_content, duplicate_candidates, missing_schema, weak_internal_links,
+    # keyword_cannibalization, weak_title_meta, recommendations[]
+    diagnosis: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
+    # Remediation record
+    remediation_actions: Mapped[Optional[str]] = mapped_column(Text, nullable=True)  # JSON list of actions taken
+    remediation_blog_post_id: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)  # if rewrite, link to blog
+
+    # Resubmission tracking
+    submitted_to_google: Mapped[bool] = mapped_column(Boolean, default=False)
+    submitted_to_indexnow: Mapped[bool] = mapped_column(Boolean, default=False)
+    sitemap_pinged: Mapped[bool] = mapped_column(Boolean, default=False)
+    submission_response: Mapped[Optional[str]] = mapped_column(Text, nullable=True)  # last API response
+
+    # Re-check tracking
+    recheck_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    recheck_count: Mapped[int] = mapped_column(Integer, default=0)
+
+    # Error surface
+    last_error: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
+    # Timestamps
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    diagnosed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    remediated_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    submitted_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    resolved_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+
+    def get_diagnosis(self) -> dict:
+        return safe_json_loads(self.diagnosis, default={})
+
+    def set_diagnosis(self, data: dict):
+        self.diagnosis = json.dumps(data)
+
+    def get_remediation_actions(self) -> list:
+        return safe_json_loads(self.remediation_actions, default=[])
+
+    def set_remediation_actions(self, actions: list):
+        self.remediation_actions = json.dumps(actions)
+
+    def to_dict(self) -> dict:
+        return {
+            'id': self.id,
+            'client_id': self.client_id,
+            'url': self.url,
+            'coverage_state': self.coverage_state,
+            'index_status': self.index_status,
+            'last_crawl_time': self.last_crawl_time.isoformat() if self.last_crawl_time else None,
+            'status': self.status,
+            'diagnosis': self.get_diagnosis(),
+            'remediation_actions': self.get_remediation_actions(),
+            'remediation_blog_post_id': self.remediation_blog_post_id,
+            'submitted_to_google': self.submitted_to_google,
+            'submitted_to_indexnow': self.submitted_to_indexnow,
+            'sitemap_pinged': self.sitemap_pinged,
+            'recheck_at': self.recheck_at.isoformat() if self.recheck_at else None,
+            'recheck_count': self.recheck_count,
+            'last_error': self.last_error,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+            'diagnosed_at': self.diagnosed_at.isoformat() if self.diagnosed_at else None,
+            'remediated_at': self.remediated_at.isoformat() if self.remediated_at else None,
+            'submitted_at': self.submitted_at.isoformat() if self.submitted_at else None,
+            'resolved_at': self.resolved_at.isoformat() if self.resolved_at else None,
+        }
+
+
+class DBIndexNowKey(db.Model):
+    """
+    Stores the IndexNow key per client. IndexNow requires hosting a
+    {key}.txt file at the site root, so we persist the generated key.
+    """
+    __tablename__ = 'indexnow_keys'
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    client_id: Mapped[str] = mapped_column(String(50), ForeignKey('clients.id'), unique=True, nullable=False, index=True)
+    key: Mapped[str] = mapped_column(String(128), nullable=False)
+    key_location_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)  # where {key}.txt is hosted
+    verified: Mapped[bool] = mapped_column(Boolean, default=False)
+    verified_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    def to_dict(self) -> dict:
+        return {
+            'id': self.id,
+            'client_id': self.client_id,
+            'key': self.key,
+            'key_location_url': self.key_location_url,
+            'verified': self.verified,
+            'verified_at': self.verified_at.isoformat() if self.verified_at else None,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
         }

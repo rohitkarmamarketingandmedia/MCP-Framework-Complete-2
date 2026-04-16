@@ -39,6 +39,7 @@ def register_routes(app: Flask):
     from app.routes.intelligence_automation import intelligence_auto_bp
     from app.routes.content_schedule import content_schedule_bp
     from app.routes.token_usage import token_usage_bp
+    from app.routes.indexing import indexing_bp
 
     # Register with /api prefix
     app.register_blueprint(auth_bp, url_prefix='/api/auth')
@@ -72,3 +73,4 @@ def register_routes(app: Flask):
     app.register_blueprint(intelligence_auto_bp, url_prefix='/api/ai')
     app.register_blueprint(content_schedule_bp, url_prefix='/api/schedule')
     app.register_blueprint(token_usage_bp, url_prefix='/api/usage')
+    app.register_blueprint(indexing_bp, url_prefix='/api/indexing')
