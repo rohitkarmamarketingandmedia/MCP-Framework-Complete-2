@@ -9334,6 +9334,32 @@
             }
         }
 
+        async function _scanUrlBatch(urls, batchSize = 25) {
+            // Send URLs to the server in small batches to avoid timeout
+            let totalInspected = 0, totalNew = 0, totalCleared = 0, totalErrors = 0;
+            const batches = [];
+            for (let i = 0; i < urls.length; i += batchSize) {
+                batches.push(urls.slice(i, i + batchSize));
+            }
+            for (let i = 0; i < batches.length; i++) {
+                showToast(`Inspecting batch ${i + 1}/${batches.length} (${batches[i].length} URLs)...`, 'info');
+                try {
+                    const r = await _indexingApi('/scan/' + currentClient.id, 'POST', {
+                        max_urls: batches[i].length,
+                        urls: batches[i]
+                    });
+                    totalInspected += (r.inspected || 0);
+                    totalNew += (r.new_issues || 0);
+                    totalCleared += (r.cleared || 0);
+                    totalErrors += (r.errors || 0);
+                } catch (err) {
+                    totalErrors += batches[i].length;
+                    console.error('Batch scan error:', err);
+                }
+            }
+            return { inspected: totalInspected, new_issues: totalNew, cleared: totalCleared, errors: totalErrors };
+        }
+
         async function runIndexingScan() {
             if (!currentClient) return;
             const siteUrl = (_indexingState.status?.site_url || currentClient.website_url || '').replace(/\/$/, '');
@@ -9342,32 +9368,34 @@
                 return;
             }
 
-            showToast('Fetching sitemap & inspecting URLs — this may take a few minutes...', 'info');
+            showToast('Fetching sitemap...', 'info');
 
-            // Step 1: Try to fetch sitemap URLs from the browser (bypasses server blocks)
+            // Step 1: Fetch sitemap URLs from the browser (bypasses server blocks)
             let browserUrls = [];
             for (const path of ['/sitemap_index.xml', '/sitemap.xml', '/wp-sitemap.xml']) {
                 browserUrls = await _fetchSitemapUrlsFromBrowser(siteUrl + path, 500);
-                if (browserUrls.length > 0) {
-                    showToast(`Found ${browserUrls.length} URLs from sitemap. Inspecting each with Google...`, 'info');
-                    break;
-                }
+                if (browserUrls.length > 0) break;
             }
 
-            try {
-                const payload = { max_urls: 500 };
-                if (browserUrls.length > 0) {
-                    payload.urls = browserUrls;
-                }
-                const r = await _indexingApi('/scan/' + currentClient.id, 'POST', payload);
-                if (r.inspected === 0 && r.debug) {
-                    showToast('No URLs found. Try "Import URLs" to paste URLs manually.', 'error');
-                } else {
-                    showToast(`Scanned ${r.inspected || 0} URLs — ${r.new_issues || 0} new issues, ${r.cleared || 0} cleared` + (r.errors ? ` (${r.errors} errors)` : ''), 'success');
-                }
+            if (browserUrls.length > 0) {
+                showToast(`Found ${browserUrls.length} URLs. Inspecting with Google (in batches)...`, 'info');
+                const r = await _scanUrlBatch(browserUrls, 25);
+                showToast(`Done! Scanned ${r.inspected} URLs — ${r.new_issues} new issues, ${r.cleared} cleared` + (r.errors ? ` (${r.errors} errors)` : ''), 'success');
                 loadIndexingData();
-            } catch (err) {
-                showToast('Scan failed: ' + err.message, 'error');
+            } else {
+                // Fallback: let server try its own discovery
+                showToast('Could not fetch sitemap from browser. Trying server-side...', 'info');
+                try {
+                    const r = await _indexingApi('/scan/' + currentClient.id, 'POST', { max_urls: 50 });
+                    if (r.inspected === 0) {
+                        showToast('No URLs found. Use "Import URLs" to paste URLs manually.', 'error');
+                    } else {
+                        showToast(`Scanned ${r.inspected || 0} URLs — ${r.new_issues || 0} new issues`, 'success');
+                    }
+                    loadIndexingData();
+                } catch (err) {
+                    showToast('Scan failed: ' + err.message, 'error');
+                }
             }
         }
 
@@ -9395,14 +9423,10 @@
                 return;
             }
             btn.closest('.fixed').remove();
-            showToast(`Importing ${urls.length} URLs & inspecting with Google...`, 'info');
-            try {
-                const r = await _indexingApi('/import-urls/' + currentClient.id, 'POST', { urls });
-                showToast(`Scanned ${r.inspected || 0} URLs — ${r.new_issues || 0} new issues, ${r.cleared || 0} cleared` + (r.errors ? ` (${r.errors} errors)` : ''), 'success');
-                loadIndexingData();
-            } catch (err) {
-                showToast('Import failed: ' + err.message, 'error');
-            }
+            showToast(`Importing ${urls.length} URLs — inspecting in batches...`, 'info');
+            const r = await _scanUrlBatch(urls, 25);
+            showToast(`Done! Scanned ${r.inspected} URLs — ${r.new_issues} new issues, ${r.cleared} cleared` + (r.errors ? ` (${r.errors} errors)` : ''), 'success');
+            loadIndexingData();
         }
 
         async function diagnoseIssue(id) {
