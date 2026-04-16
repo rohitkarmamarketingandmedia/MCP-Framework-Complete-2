@@ -18,8 +18,10 @@ Coverage states we care about (lowest-hanging fruit first):
 """
 import json
 import logging
+import xml.etree.ElementTree as ET
 from datetime import datetime, timedelta
 from typing import List, Optional, Dict
+from urllib.parse import urlparse
 
 import requests
 
@@ -54,29 +56,145 @@ NON_ACTIONABLE_COVERAGE_STATES = {
 
 
 # ---------------------------------------------------------------------------
+# Sitemap fetching — discover ALL site URLs
+# ---------------------------------------------------------------------------
+
+def _fetch_sitemap_urls(sitemap_url: str, max_urls: int = 500, _depth: int = 0) -> List[str]:
+    """
+    Fetch and parse a sitemap (or sitemap index) and return all <loc> URLs.
+    Handles sitemap indexes recursively (up to 2 levels deep).
+    """
+    if _depth > 2:
+        return []
+
+    try:
+        resp = requests.get(sitemap_url, timeout=20, headers={
+            'User-Agent': 'Mozilla/5.0 (compatible; KarmaMCPIndexer/1.0)',
+        })
+        if resp.status_code != 200:
+            logger.warning(f'Sitemap fetch failed ({resp.status_code}): {sitemap_url}')
+            return []
+    except Exception as e:
+        logger.warning(f'Sitemap fetch error for {sitemap_url}: {e}')
+        return []
+
+    urls = []
+    try:
+        root = ET.fromstring(resp.content)
+    except ET.ParseError as e:
+        logger.warning(f'Sitemap XML parse error for {sitemap_url}: {e}')
+        return []
+
+    # Strip namespace for easier tag matching
+    ns = ''
+    if root.tag.startswith('{'):
+        ns = root.tag.split('}')[0] + '}'
+
+    # Check if this is a sitemap index (<sitemapindex> with child <sitemap><loc>)
+    if 'sitemapindex' in root.tag.lower():
+        for sitemap_el in root.findall(f'.//{ns}loc'):
+            child_url = (sitemap_el.text or '').strip()
+            if child_url and len(urls) < max_urls:
+                child_urls = _fetch_sitemap_urls(child_url, max_urls - len(urls), _depth + 1)
+                urls.extend(child_urls)
+        return urls[:max_urls]
+
+    # Regular sitemap — extract all <url><loc> entries
+    for loc_el in root.findall(f'.//{ns}loc'):
+        url = (loc_el.text or '').strip()
+        if url:
+            urls.append(url)
+            if len(urls) >= max_urls:
+                break
+
+    return urls
+
+
+def _discover_sitemaps(client: DBClient) -> List[str]:
+    """
+    Try to find sitemap URLs for a client. Checks:
+    1. GSC sitemaps API (if connected)
+    2. Common sitemap locations (sitemap.xml, sitemap_index.xml)
+    Uses website_url OR gsc_site_url as the base domain.
+    """
+    sitemap_urls = []
+
+    # Try GSC sitemaps API first
+    try:
+        gsc = gsc_for_client(client)
+        sitemaps = gsc.list_sitemaps()
+        for sm in sitemaps:
+            path = sm.get('path', '')
+            if path:
+                sitemap_urls.append(path)
+                logger.info(f'[indexing] Found sitemap via GSC API: {path}')
+    except Exception as e:
+        logger.info(f'Could not list sitemaps via GSC for {client.id}: {e}')
+
+    # Fallback: try common sitemap URLs
+    if not sitemap_urls:
+        # Use website_url first, then gsc_site_url as fallback
+        # gsc_site_url can be "sc-domain:example.com" (domain property) or "https://..."
+        raw_base = client.website_url or client.gsc_site_url or ''
+        if raw_base.startswith('sc-domain:'):
+            raw_base = 'https://' + raw_base.replace('sc-domain:', '')
+        base = raw_base.rstrip('/')
+        if base:
+            logger.info(f'[indexing] Probing sitemaps at base URL: {base}')
+            for path in ['/sitemap.xml', '/sitemap_index.xml', '/post-sitemap.xml', '/wp-sitemap.xml']:
+                candidate = base + path
+                try:
+                    resp = requests.head(candidate, timeout=10, allow_redirects=True, headers={
+                        'User-Agent': 'Mozilla/5.0 (compatible; KarmaMCPIndexer/1.0)',
+                    })
+                    logger.info(f'[indexing] Sitemap probe {candidate} -> {resp.status_code}')
+                    if resp.status_code == 200:
+                        sitemap_urls.append(candidate)
+                except Exception as e:
+                    logger.info(f'[indexing] Sitemap probe failed {candidate}: {e}')
+        else:
+            logger.warning(f'[indexing] Client {client.id} has no website_url or gsc_site_url — cannot discover sitemaps')
+
+    return sitemap_urls
+
+
+# ---------------------------------------------------------------------------
 # Candidate URL discovery
 # ---------------------------------------------------------------------------
 
 def _candidate_urls(client: DBClient, limit: int = 100) -> List[str]:
     """
-    Build the list of URLs to inspect. Priority order:
-    1. Blog posts this client has published via our platform (exact URLs we know)
-    2. URLs already tracked in DBIndexingIssue (for re-check)
+    Build the list of URLs to inspect. Sources (in priority order):
+    1. URLs from the site's sitemap(s) — covers the full site
+    2. Blog posts published via our platform (as backup)
+    3. URLs already tracked in DBIndexingIssue (for re-check)
 
-    GSC does not expose a public "coverage report" list endpoint — you must
-    inspect URLs you already know. Our blog corpus + past indexing history is
-    the best source we have.
+    GSC URL Inspection API quota: 2,000/day/property. We cap at `limit`.
     """
     urls: List[str] = []
     seen = set()
 
-    # Blog posts with a known published URL
+    # Sitemap URLs — this is how we discover ALL pages on the site
+    try:
+        sitemaps = _discover_sitemaps(client)
+        for sm_url in sitemaps:
+            if len(urls) >= limit:
+                break
+            sm_urls = _fetch_sitemap_urls(sm_url, max_urls=limit - len(urls))
+            for u in sm_urls:
+                if u not in seen:
+                    urls.append(u)
+                    seen.add(u)
+    except Exception as e:
+        logger.warning(f'Sitemap discovery failed for client {client.id}: {e}')
+
+    # Blog posts with a known published URL (catch any not in sitemap)
     blog_posts = DBBlogPost.query.filter(
         DBBlogPost.client_id == client.id,
         DBBlogPost.published_url.isnot(None),
     ).order_by(DBBlogPost.created_at.desc()).limit(limit).all()
     for post in blog_posts:
-        if post.published_url and post.published_url not in seen:
+        if post.published_url and post.published_url not in seen and len(urls) < limit:
             urls.append(post.published_url)
             seen.add(post.published_url)
 
@@ -89,7 +207,7 @@ def _candidate_urls(client: DBClient, limit: int = 100) -> List[str]:
         ]),
     ).limit(limit).all()
     for issue in due_issues:
-        if issue.url not in seen:
+        if issue.url not in seen and len(urls) < limit:
             urls.append(issue.url)
             seen.add(issue.url)
 
@@ -108,11 +226,24 @@ def scan_client(client: DBClient, max_urls: int = 100) -> Dict:
     if not client.gsc_refresh_token or not client.gsc_site_url:
         return {'success': False, 'error': 'GSC not connected for this client'}
 
+    logger.info(f'[indexing] scan_client start for {client.id} | site={client.gsc_site_url} | website={client.website_url}')
+
     gsc = gsc_for_client(client)
     urls = _candidate_urls(client, limit=max_urls)
 
+    logger.info(f'[indexing] Found {len(urls)} candidate URLs to inspect')
+
     if not urls:
-        return {'success': True, 'inspected': 0, 'new_issues': 0, 'cleared': 0}
+        client.gsc_last_scan_at = datetime.utcnow()
+        db.session.commit()
+        return {
+            'success': True, 'inspected': 0, 'new_issues': 0, 'cleared': 0,
+            'debug': {
+                'website_url': client.website_url,
+                'gsc_site_url': client.gsc_site_url,
+                'note': 'No candidate URLs found. Check that the site has a reachable sitemap.xml and/or blog posts with published URLs.',
+            }
+        }
 
     new_issues = 0
     cleared = 0

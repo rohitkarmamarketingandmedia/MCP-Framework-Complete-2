@@ -9300,10 +9300,15 @@
 
         async function runIndexingScan() {
             if (!currentClient) return;
-            showToast('Scanning — this may take a minute...', 'info');
+            showToast('Scanning sitemap & inspecting URLs — this may take a few minutes...', 'info');
             try {
-                const r = await _indexingApi('/scan/' + currentClient.id, 'POST', { max_urls: 100 });
-                showToast(`Scanned ${r.inspected || 0} URLs — ${r.new_issues || 0} new issues, ${r.cleared || 0} cleared`, 'success');
+                const r = await _indexingApi('/scan/' + currentClient.id, 'POST', { max_urls: 500 });
+                if (r.inspected === 0 && r.debug) {
+                    const d = r.debug;
+                    showToast(`No URLs found to scan. website_url: ${d.website_url || '(empty)'}, gsc_site_url: ${d.gsc_site_url || '(empty)'}. Make sure the site has a reachable sitemap.xml.`, 'error');
+                } else {
+                    showToast(`Scanned ${r.inspected || 0} URLs — ${r.new_issues || 0} new issues, ${r.cleared || 0} cleared` + (r.errors ? ` (${r.errors} errors)` : ''), 'success');
+                }
                 loadIndexingData();
             } catch (err) {
                 showToast('Scan failed: ' + err.message, 'error');
