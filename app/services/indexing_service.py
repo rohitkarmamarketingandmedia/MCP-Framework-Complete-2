@@ -255,18 +255,24 @@ def _candidate_urls(client: DBClient, limit: int = 100) -> List[str]:
 # Scan — pull inspection data for every candidate URL, persist issues
 # ---------------------------------------------------------------------------
 
-def scan_client(client: DBClient, max_urls: int = 100) -> Dict:
+def scan_client(client: DBClient, max_urls: int = 100, provided_urls: List[str] = None) -> Dict:
     """
     Inspect candidate URLs, create/update DBIndexingIssue rows for any in an
     actionable coverage state.
+    If provided_urls is given, those are used directly (from browser-side sitemap fetch).
     """
     if not client.gsc_refresh_token or not client.gsc_site_url:
         return {'success': False, 'error': 'GSC not connected for this client'}
 
-    logger.info(f'[indexing] scan_client start for {client.id} | site={client.gsc_site_url} | website={client.website_url}')
+    logger.info(f'[indexing] scan_client start for {client.id} | site={client.gsc_site_url} | website={client.website_url} | provided_urls={len(provided_urls or [])}')
 
     gsc = gsc_for_client(client)
-    urls = _candidate_urls(client, limit=max_urls)
+
+    if provided_urls:
+        urls = provided_urls[:max_urls]
+        logger.info(f'[indexing] Using {len(urls)} provided URLs (browser-side fetch)')
+    else:
+        urls = _candidate_urls(client, limit=max_urls)
 
     logger.info(f'[indexing] Found {len(urls)} candidate URLs to inspect')
 
@@ -278,7 +284,7 @@ def scan_client(client: DBClient, max_urls: int = 100) -> Dict:
             'debug': {
                 'website_url': client.website_url,
                 'gsc_site_url': client.gsc_site_url,
-                'note': 'No candidate URLs found. Check that the site has a reachable sitemap.xml and/or blog posts with published URLs.',
+                'note': 'No candidate URLs found. Use "Import from Sitemap" to load URLs from your sitemap.',
             }
         }
 

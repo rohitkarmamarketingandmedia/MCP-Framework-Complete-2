@@ -9132,6 +9132,9 @@
                 <button onclick="runIndexingScan()" class="px-4 py-2 rounded-lg bg-gradient-to-r from-indigo-600 to-blue-600 text-white text-sm font-medium hover:opacity-90 transition">
                     <i class="fas fa-sync-alt mr-2"></i>Scan Now
                 </button>
+                <button onclick="showImportUrlsDialog()" class="px-4 py-2 rounded-lg glass text-gray-200 hover:text-white text-sm font-medium transition border border-white/10">
+                    <i class="fas fa-file-import mr-2"></i>Import URLs
+                </button>
                 <button onclick="submitAllPending()" class="px-4 py-2 rounded-lg glass text-gray-200 hover:text-white text-sm font-medium transition border border-white/10">
                     <i class="fas fa-paper-plane mr-2"></i>Resubmit All
                 </button>`;
@@ -9298,20 +9301,107 @@
             }
         }
 
+        async function _fetchSitemapUrlsFromBrowser(sitemapUrl, maxUrls = 500, depth = 0) {
+            // Fetch sitemap from the BROWSER (bypasses server-side blocks)
+            if (depth > 2) return [];
+            try {
+                const resp = await fetch(sitemapUrl);
+                if (!resp.ok) return [];
+                const text = await resp.text();
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(text, 'text/xml');
+                const urls = [];
+                // Check if it's a sitemap index
+                const sitemapLocs = doc.querySelectorAll('sitemap > loc');
+                if (sitemapLocs.length > 0) {
+                    for (const loc of sitemapLocs) {
+                        if (urls.length >= maxUrls) break;
+                        const childUrls = await _fetchSitemapUrlsFromBrowser(loc.textContent.trim(), maxUrls - urls.length, depth + 1);
+                        urls.push(...childUrls);
+                    }
+                    return urls.slice(0, maxUrls);
+                }
+                // Regular sitemap
+                const urlLocs = doc.querySelectorAll('url > loc');
+                for (const loc of urlLocs) {
+                    urls.push(loc.textContent.trim());
+                    if (urls.length >= maxUrls) break;
+                }
+                return urls;
+            } catch (e) {
+                console.warn('Browser sitemap fetch failed:', sitemapUrl, e);
+                return [];
+            }
+        }
+
         async function runIndexingScan() {
             if (!currentClient) return;
-            showToast('Scanning sitemap & inspecting URLs — this may take a few minutes...', 'info');
+            const siteUrl = (_indexingState.status?.site_url || currentClient.website_url || '').replace(/\/$/, '');
+            if (!siteUrl) {
+                showToast('No site URL configured', 'error');
+                return;
+            }
+
+            showToast('Fetching sitemap & inspecting URLs — this may take a few minutes...', 'info');
+
+            // Step 1: Try to fetch sitemap URLs from the browser (bypasses server blocks)
+            let browserUrls = [];
+            for (const path of ['/sitemap_index.xml', '/sitemap.xml', '/wp-sitemap.xml']) {
+                browserUrls = await _fetchSitemapUrlsFromBrowser(siteUrl + path, 500);
+                if (browserUrls.length > 0) {
+                    showToast(`Found ${browserUrls.length} URLs from sitemap. Inspecting each with Google...`, 'info');
+                    break;
+                }
+            }
+
             try {
-                const r = await _indexingApi('/scan/' + currentClient.id, 'POST', { max_urls: 500 });
+                const payload = { max_urls: 500 };
+                if (browserUrls.length > 0) {
+                    payload.urls = browserUrls;
+                }
+                const r = await _indexingApi('/scan/' + currentClient.id, 'POST', payload);
                 if (r.inspected === 0 && r.debug) {
-                    const d = r.debug;
-                    showToast(`No URLs found to scan. website_url: ${d.website_url || '(empty)'}, gsc_site_url: ${d.gsc_site_url || '(empty)'}. Make sure the site has a reachable sitemap.xml.`, 'error');
+                    showToast('No URLs found. Try "Import URLs" to paste URLs manually.', 'error');
                 } else {
                     showToast(`Scanned ${r.inspected || 0} URLs — ${r.new_issues || 0} new issues, ${r.cleared || 0} cleared` + (r.errors ? ` (${r.errors} errors)` : ''), 'success');
                 }
                 loadIndexingData();
             } catch (err) {
                 showToast('Scan failed: ' + err.message, 'error');
+            }
+        }
+
+        async function showImportUrlsDialog() {
+            const modal = document.createElement('div');
+            modal.className = 'fixed inset-0 bg-black/60 flex items-center justify-center z-50';
+            modal.innerHTML = `
+                <div class="glass rounded-2xl p-6 max-w-lg w-full mx-4">
+                    <h3 class="text-lg font-semibold text-white mb-2">Import URLs to Scan</h3>
+                    <p class="text-sm text-gray-400 mb-4">Paste URLs (one per line) from your Google Search Console coverage report.</p>
+                    <textarea id="importUrlsText" rows="10" class="w-full bg-white/5 border border-white/10 rounded-lg p-3 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="https://www.example.com/page1&#10;https://www.example.com/page2&#10;..."></textarea>
+                    <div class="flex justify-end gap-3 mt-4">
+                        <button onclick="this.closest('.fixed').remove()" class="px-4 py-2 rounded-lg glass text-gray-300 hover:text-white text-sm">Cancel</button>
+                        <button onclick="submitImportedUrls(this)" class="px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-500">Import & Scan</button>
+                    </div>
+                </div>`;
+            document.body.appendChild(modal);
+        }
+
+        async function submitImportedUrls(btn) {
+            const textarea = document.getElementById('importUrlsText');
+            const urls = textarea.value.split('\n').map(u => u.trim()).filter(u => u.startsWith('http'));
+            if (urls.length === 0) {
+                showToast('No valid URLs found. Paste URLs starting with http/https.', 'error');
+                return;
+            }
+            btn.closest('.fixed').remove();
+            showToast(`Importing ${urls.length} URLs & inspecting with Google...`, 'info');
+            try {
+                const r = await _indexingApi('/import-urls/' + currentClient.id, 'POST', { urls });
+                showToast(`Scanned ${r.inspected || 0} URLs — ${r.new_issues || 0} new issues, ${r.cleared || 0} cleared` + (r.errors ? ` (${r.errors} errors)` : ''), 'success');
+                loadIndexingData();
+            } catch (err) {
+                showToast('Import failed: ' + err.message, 'error');
             }
         }
 

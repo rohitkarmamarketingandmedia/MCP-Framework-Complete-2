@@ -251,7 +251,27 @@ def scan(current_user, client_id):
         return jsonify({'error': 'Client not found'}), 404
     body = request.get_json(silent=True) or {}
     max_urls = min(int(body.get('max_urls', 100)), 500)
-    result = indexing_service.scan_client(client, max_urls=max_urls)
+    # Accept optional URLs from client (browser-side sitemap fetch)
+    provided_urls = body.get('urls', [])
+    if provided_urls and isinstance(provided_urls, list):
+        provided_urls = [u.strip() for u in provided_urls if isinstance(u, str) and u.strip()]
+    result = indexing_service.scan_client(client, max_urls=max_urls, provided_urls=provided_urls)
+    return jsonify(result)
+
+
+@indexing_bp.route('/import-urls/<client_id>', methods=['POST'])
+@token_required
+def import_urls(current_user, client_id):
+    """Import a list of URLs to inspect (from browser-side sitemap parse or manual paste)."""
+    client = DBClient.query.get(client_id)
+    if not client:
+        return jsonify({'error': 'Client not found'}), 404
+    body = request.get_json(silent=True) or {}
+    urls = body.get('urls', [])
+    if not urls or not isinstance(urls, list):
+        return jsonify({'error': 'Provide a "urls" array'}), 400
+    urls = [u.strip() for u in urls if isinstance(u, str) and u.strip()][:500]
+    result = indexing_service.scan_client(client, max_urls=len(urls), provided_urls=urls)
     return jsonify(result)
 
 
