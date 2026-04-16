@@ -81,9 +81,9 @@ def connect(current_user, client_id):
     if not client:
         return jsonify({'error': 'Client not found'}), 404
 
-    google_client_id = os.getenv('GOOGLE_CLIENT_ID', '')
+    google_client_id = os.getenv('GOOGLE_CLIENT_ID') or os.getenv('GBP_CLIENT_ID', '')
     if not google_client_id:
-        return jsonify({'error': 'GOOGLE_CLIENT_ID not configured'}), 500
+        return jsonify({'error': 'GOOGLE_CLIENT_ID or GBP_CLIENT_ID not configured'}), 500
 
     state = _put_state(client_id)
     params = {
@@ -130,8 +130,8 @@ def oauth_callback():
             'grant_type': 'authorization_code',
             'code': code,
             'redirect_uri': _gsc_callback_url(),
-            'client_id': os.getenv('GOOGLE_CLIENT_ID', ''),
-            'client_secret': os.getenv('GOOGLE_CLIENT_SECRET', ''),
+            'client_id': os.getenv('GOOGLE_CLIENT_ID') or os.getenv('GBP_CLIENT_ID', ''),
+            'client_secret': os.getenv('GOOGLE_CLIENT_SECRET') or os.getenv('GBP_CLIENT_SECRET', ''),
         }, timeout=15)
         data = resp.json()
     except Exception as e:

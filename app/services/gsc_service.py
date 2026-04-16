@@ -63,10 +63,10 @@ class GSCService:
 
     def _google_credentials(self) -> Tuple[str, str]:
         """Read Google OAuth credentials from environment."""
-        cid = os.getenv('GOOGLE_CLIENT_ID', '')
-        sec = os.getenv('GOOGLE_CLIENT_SECRET', '')
+        cid = os.getenv('GOOGLE_CLIENT_ID') or os.getenv('GBP_CLIENT_ID', '')
+        sec = os.getenv('GOOGLE_CLIENT_SECRET') or os.getenv('GBP_CLIENT_SECRET', '')
         if not cid or not sec:
-            raise GSCError('GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET not configured')
+            raise GSCError('GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET (or GBP_CLIENT_ID / GBP_CLIENT_SECRET) not configured')
         return cid, sec
 
     def _refresh_access_token(self) -> str:
