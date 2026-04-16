@@ -79,24 +79,39 @@ def _fetch_sitemap_urls(sitemap_url: str, max_urls: int = 500, _depth: int = 0) 
         return []
 
     urls = []
+    content = resp.content
+
+    # Strip XML processing instructions (<?xml-stylesheet ...?>) that can trip up parsers
+    text_content = resp.text
     try:
-        root = ET.fromstring(resp.content)
-    except ET.ParseError as e:
-        logger.warning(f'Sitemap XML parse error for {sitemap_url}: {e}')
-        return []
+        root = ET.fromstring(content)
+    except ET.ParseError:
+        # Yoast adds <?xml-stylesheet?> — try stripping it
+        import re
+        cleaned = re.sub(r'<\?xml-stylesheet[^?]*\?>', '', text_content)
+        try:
+            root = ET.fromstring(cleaned.encode('utf-8'))
+        except ET.ParseError as e:
+            logger.warning(f'Sitemap XML parse error for {sitemap_url}: {e}')
+            return []
 
     # Strip namespace for easier tag matching
     ns = ''
     if root.tag.startswith('{'):
         ns = root.tag.split('}')[0] + '}'
 
+    logger.info(f'[indexing] Parsed sitemap {sitemap_url} | root_tag={root.tag} | ns={ns}')
+
     # Check if this is a sitemap index (<sitemapindex> with child <sitemap><loc>)
     if 'sitemapindex' in root.tag.lower():
-        for sitemap_el in root.findall(f'.//{ns}loc'):
+        child_sitemaps = root.findall(f'.//{ns}loc')
+        logger.info(f'[indexing] Sitemap index has {len(child_sitemaps)} child sitemaps')
+        for sitemap_el in child_sitemaps:
             child_url = (sitemap_el.text or '').strip()
             if child_url and len(urls) < max_urls:
                 child_urls = _fetch_sitemap_urls(child_url, max_urls - len(urls), _depth + 1)
                 urls.extend(child_urls)
+                logger.info(f'[indexing] Fetched {len(child_urls)} URLs from {child_url}')
         return urls[:max_urls]
 
     # Regular sitemap — extract all <url><loc> entries
@@ -107,6 +122,7 @@ def _fetch_sitemap_urls(sitemap_url: str, max_urls: int = 500, _depth: int = 0) 
             if len(urls) >= max_urls:
                 break
 
+    logger.info(f'[indexing] Extracted {len(urls)} URLs from {sitemap_url}')
     return urls
 
 
@@ -141,20 +157,26 @@ def _discover_sitemaps(client: DBClient) -> List[str]:
         base = raw_base.rstrip('/')
         if base:
             logger.info(f'[indexing] Probing sitemaps at base URL: {base}')
-            for path in ['/sitemap.xml', '/sitemap_index.xml', '/post-sitemap.xml', '/wp-sitemap.xml']:
+            # Use GET (not HEAD) — many WordPress/Yoast configs reject HEAD on sitemaps
+            for path in ['/sitemap_index.xml', '/sitemap.xml', '/wp-sitemap.xml', '/post-sitemap.xml']:
                 candidate = base + path
                 try:
-                    resp = requests.head(candidate, timeout=10, allow_redirects=True, headers={
+                    resp = requests.get(candidate, timeout=15, allow_redirects=True, headers={
                         'User-Agent': 'Mozilla/5.0 (compatible; KarmaMCPIndexer/1.0)',
+                        'Accept': 'application/xml, text/xml, */*',
                     })
-                    logger.info(f'[indexing] Sitemap probe {candidate} -> {resp.status_code}')
-                    if resp.status_code == 200:
+                    logger.info(f'[indexing] Sitemap probe {candidate} -> {resp.status_code} ({len(resp.content)} bytes)')
+                    if resp.status_code == 200 and len(resp.content) > 50:
                         sitemap_urls.append(candidate)
+                        # If we found a sitemap index, that's enough — it contains all sub-sitemaps
+                        if 'sitemapindex' in resp.text[:500].lower() or 'sitemap_index' in path:
+                            break
                 except Exception as e:
                     logger.info(f'[indexing] Sitemap probe failed {candidate}: {e}')
         else:
             logger.warning(f'[indexing] Client {client.id} has no website_url or gsc_site_url — cannot discover sitemaps')
 
+    logger.info(f'[indexing] Discovered {len(sitemap_urls)} sitemaps: {sitemap_urls}')
     return sitemap_urls
 
 
