@@ -125,7 +125,7 @@ def oauth_callback():
 
     base_url = os.getenv(
         'APP_URL', 'https://mcp.karmamarketingandmedia.com'
-    ) + '/client-dashboard.html'
+    ) + '/client-dashboard'
 
     def _redirect_with(params_str):
         """Build redirect: query params BEFORE the hash so JS can read them."""
