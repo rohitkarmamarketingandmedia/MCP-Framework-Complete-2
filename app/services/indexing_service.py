@@ -188,15 +188,16 @@ def _candidate_urls(client: DBClient, limit: int = 100) -> List[str]:
     """
     Build the list of URLs to inspect. Sources (in priority order):
     1. URLs from the site's sitemap(s) — covers the full site
-    2. Blog posts published via our platform (as backup)
-    3. URLs already tracked in DBIndexingIssue (for re-check)
+    2. GSC Search Analytics API — all URLs Google has data on (via googleapis.com)
+    3. Blog posts published via our platform (as backup)
+    4. URLs already tracked in DBIndexingIssue (for re-check)
 
     GSC URL Inspection API quota: 2,000/day/property. We cap at `limit`.
     """
     urls: List[str] = []
     seen = set()
 
-    # Sitemap URLs — this is how we discover ALL pages on the site
+    # 1. Sitemap URLs — try to discover ALL pages on the site
     try:
         sitemaps = _discover_sitemaps(client)
         for sm_url in sitemaps:
@@ -210,7 +211,21 @@ def _candidate_urls(client: DBClient, limit: int = 100) -> List[str]:
     except Exception as e:
         logger.warning(f'Sitemap discovery failed for client {client.id}: {e}')
 
-    # Blog posts with a known published URL (catch any not in sitemap)
+    # 2. GSC Search Analytics — guaranteed to work (goes through googleapis.com)
+    #    Picks up pages the sitemap might miss, and works when sitemap fetch is blocked
+    if len(urls) < limit:
+        try:
+            gsc = gsc_for_client(client)
+            sa_pages = gsc.query_search_analytics(days=90, row_limit=min(limit, 500))
+            logger.info(f'[indexing] Search Analytics returned {len(sa_pages)} pages')
+            for u in sa_pages:
+                if u not in seen and len(urls) < limit:
+                    urls.append(u)
+                    seen.add(u)
+        except Exception as e:
+            logger.warning(f'Search Analytics query failed for client {client.id}: {e}')
+
+    # 3. Blog posts with a known published URL (catch any not in sitemap/SA)
     blog_posts = DBBlogPost.query.filter(
         DBBlogPost.client_id == client.id,
         DBBlogPost.published_url.isnot(None),
@@ -220,7 +235,7 @@ def _candidate_urls(client: DBClient, limit: int = 100) -> List[str]:
             urls.append(post.published_url)
             seen.add(post.published_url)
 
-    # Include any existing issues that still need a re-check
+    # 4. Include any existing issues that still need a re-check
     due_issues = DBIndexingIssue.query.filter(
         DBIndexingIssue.client_id == client.id,
         DBIndexingIssue.status.in_([

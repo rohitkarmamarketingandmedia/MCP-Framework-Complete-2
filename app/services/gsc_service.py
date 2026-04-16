@@ -36,6 +36,7 @@ GSC_SCOPE_STRING = ' '.join(GSC_SCOPES)
 GOOGLE_TOKEN_URL = 'https://oauth2.googleapis.com/token'
 URL_INSPECTION_URL = 'https://searchconsole.googleapis.com/v1/urlInspection/index:inspect'
 SITES_LIST_URL = 'https://www.googleapis.com/webmasters/v3/sites'
+SEARCH_ANALYTICS_URL = 'https://www.googleapis.com/webmasters/v3/sites/{site}/searchAnalytics/query'
 SITEMAPS_BASE = 'https://www.googleapis.com/webmasters/v3/sites/{site}/sitemaps'
 INDEXING_PUBLISH_URL = 'https://indexing.googleapis.com/v3/urlNotifications:publish'
 INDEXING_METADATA_URL = 'https://indexing.googleapis.com/v3/urlNotifications/metadata'
@@ -125,6 +126,48 @@ class GSCService:
         if resp.status_code != 200:
             raise GSCError(f'list_sites failed: {resp.status_code} {resp.text[:200]}')
         return resp.json().get('siteEntry', [])
+
+    # ------------------------------------------------------------------
+    # Search Analytics — discover URLs Google knows about
+    # ------------------------------------------------------------------
+
+    def query_search_analytics(self, days: int = 90, row_limit: int = 500) -> List[str]:
+        """
+        Query GSC Search Analytics for all pages Google has data on.
+        Returns a list of page URLs (deduplicated).
+        This goes through googleapis.com so it works even when the site itself
+        is unreachable from the server.
+        """
+        site = self.client.gsc_site_url
+        if not site:
+            raise GSCError('No gsc_site_url configured')
+
+        from datetime import date, timedelta as td
+        end = date.today() - td(days=3)  # GSC data has ~3 day lag
+        start = end - td(days=days)
+
+        url = SEARCH_ANALYTICS_URL.format(site=requests.utils.quote(site, safe=''))
+        body = {
+            'startDate': start.isoformat(),
+            'endDate': end.isoformat(),
+            'dimensions': ['page'],
+            'rowLimit': row_limit,
+            'dataState': 'all',
+        }
+
+        resp = self._session.post(url, headers=self._authed_headers(), json=body, timeout=30)
+        if resp.status_code != 200:
+            raise GSCError(f'search_analytics query failed: {resp.status_code} {resp.text[:300]}')
+
+        rows = resp.json().get('rows', [])
+        pages = []
+        for row in rows:
+            keys = row.get('keys', [])
+            if keys:
+                pages.append(keys[0])
+
+        logger.info(f'[gsc] Search Analytics returned {len(pages)} pages for {site}')
+        return pages
 
     # ------------------------------------------------------------------
     # URL inspection — this is how we confirm "Crawled - currently not indexed"
