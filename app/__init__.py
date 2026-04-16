@@ -105,7 +105,11 @@ def create_app(config_name=None):
     # Register blueprints
     from app.routes import register_routes
     register_routes(app)
-    
+
+    # Create any tables defined inside route modules (e.g. gsc_oauth_states)
+    with app.app_context():
+        db.create_all()
+
     # Apply per-endpoint rate limits to chatbot (widget message endpoint gets stricter limit)
     # Note: Don't blanket-exempt chatbot_bp — the /widget/message endpoint calls AI and needs limiting
     from app.routes.chatbot import chatbot_bp
