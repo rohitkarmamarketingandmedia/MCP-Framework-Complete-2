@@ -9007,7 +9007,7 @@
         let _indexingState = { status: null, issues: [], filter: '' };
 
         async function _indexingApi(path, method = 'GET', body = null) {
-            const token = localStorage.getItem('authToken');
+            const token = AUTH_TOKEN || localStorage.getItem('mcp_auth_token');
             const opts = {
                 method,
                 headers: {
