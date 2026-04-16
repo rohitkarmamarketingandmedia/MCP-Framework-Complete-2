@@ -41,25 +41,41 @@ indexing_bp = Blueprint('indexing', __name__)
 
 
 # ---------------------------------------------------------------------------
-# Simple in-memory OAuth state store (mirrors oauth_service.OAuthState pattern)
+# Database-backed OAuth state store (works across Gunicorn workers)
 # ---------------------------------------------------------------------------
-_GSC_OAUTH_STATE: dict = {}
+
+class DBOAuthState(db.Model):
+    """Temporary OAuth state tokens — survives multi-worker deployments."""
+    __tablename__ = 'gsc_oauth_states'
+    state = db.Column(db.String(64), primary_key=True)
+    client_id = db.Column(db.String(64), nullable=False)
+    expires_at = db.Column(db.DateTime, nullable=False)
 
 
 def _put_state(client_id: str) -> str:
     state = secrets.token_urlsafe(32)
-    _GSC_OAUTH_STATE[state] = {
-        'client_id': client_id,
-        'expires_at': datetime.utcnow() + timedelta(minutes=10),
-    }
+    # Clean up any expired states while we're here
+    db.session.query(DBOAuthState).filter(
+        DBOAuthState.expires_at < datetime.utcnow()
+    ).delete()
+    row = DBOAuthState(
+        state=state,
+        client_id=str(client_id),
+        expires_at=datetime.utcnow() + timedelta(minutes=10),
+    )
+    db.session.add(row)
+    db.session.commit()
     return state
 
 
 def _take_state(state: str):
-    data = _GSC_OAUTH_STATE.pop(state, None)
-    if not data:
+    row = DBOAuthState.query.get(state)
+    if not row:
         return None
-    if datetime.utcnow() > data['expires_at']:
+    data = {'client_id': row.client_id}
+    db.session.delete(row)
+    db.session.commit()
+    if datetime.utcnow() > row.expires_at:
         return None
     return data
 
@@ -107,22 +123,26 @@ def oauth_callback():
     state = request.args.get('state')
     error = request.args.get('error')
 
-    frontend_return = os.getenv(
+    base_url = os.getenv(
         'APP_URL', 'https://mcp.karmamarketingandmedia.com'
-    ) + '/client-dashboard.html#indexing'
+    ) + '/client-dashboard.html'
+
+    def _redirect_with(params_str):
+        """Build redirect: query params BEFORE the hash so JS can read them."""
+        return redirect(f'{base_url}?{params_str}#indexing')
 
     if error:
-        return redirect(f'{frontend_return}?gsc_error={error}')
+        return _redirect_with(f'gsc_error={error}')
     if not code or not state:
-        return redirect(f'{frontend_return}?gsc_error=missing_code_or_state')
+        return _redirect_with('gsc_error=missing_code_or_state')
 
     state_data = _take_state(state)
     if not state_data:
-        return redirect(f'{frontend_return}?gsc_error=invalid_state')
+        return _redirect_with('gsc_error=invalid_state')
 
     client = DBClient.query.get(state_data['client_id'])
     if not client:
-        return redirect(f'{frontend_return}?gsc_error=client_not_found')
+        return _redirect_with('gsc_error=client_not_found')
 
     # Exchange code for tokens
     try:
@@ -136,10 +156,10 @@ def oauth_callback():
         data = resp.json()
     except Exception as e:
         logger.exception(f'GSC token exchange failed: {e}')
-        return redirect(f'{frontend_return}?gsc_error=token_exchange_failed')
+        return _redirect_with('gsc_error=token_exchange_failed')
 
     if 'error' in data:
-        return redirect(f'{frontend_return}?gsc_error={data.get("error")}')
+        return _redirect_with(f'gsc_error={data.get("error")}')
 
     access_token = data.get('access_token')
     refresh_token = data.get('refresh_token')
@@ -157,7 +177,7 @@ def oauth_callback():
     client.gsc_indexing_enabled = True
     db.session.commit()
 
-    return redirect(f'{frontend_return}?gsc_connected=1&client_id={client.id}')
+    return _redirect_with(f'gsc_connected=1&client_id={client.id}')
 
 
 @indexing_bp.route('/disconnect/<client_id>', methods=['POST'])
