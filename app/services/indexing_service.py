@@ -35,7 +35,16 @@ from app.services import indexnow_service
 logger = logging.getLogger(__name__)
 
 
-# States where resubmission is worth attempting
+# States where resubmission is worth attempting (lowercase keys for matching)
+_ACTIONABLE_LOWER = {
+    'crawled - currently not indexed',
+    'discovered - currently not indexed',
+    'duplicate without user-selected canonical',
+    'duplicate, google chose different canonical than user',
+    'page with redirect',
+}
+
+# Keep original-case set for backward compat
 ACTIONABLE_COVERAGE_STATES = {
     'Crawled - currently not indexed',
     'Discovered - currently not indexed',
@@ -44,15 +53,14 @@ ACTIONABLE_COVERAGE_STATES = {
     'Page with redirect',
 }
 
-# States where we should NOT resubmit
-NON_ACTIONABLE_COVERAGE_STATES = {
-    'Submitted and indexed',
-    'Indexed, not submitted in sitemap',
-    'Excluded by ‘noindex’ tag',
-    'Excluded by "noindex" tag',
-    'Blocked by robots.txt',
-    'Not found (404)',
-}
+
+def _is_actionable(coverage_state):
+    return (coverage_state or '').lower().strip() in _ACTIONABLE_LOWER
+
+
+def _is_indexed(coverage_state):
+    low = (coverage_state or '').lower()
+    return 'submitted and indexed' in low or 'indexed, not submitted' in low
 
 
 # ---------------------------------------------------------------------------
@@ -292,6 +300,8 @@ def scan_client(client: DBClient, max_urls: int = 100, provided_urls: List[str] 
     cleared = 0
     inspected = 0
     errors = 0
+    coverage_summary = {}  # Track how many URLs in each coverage state
+    first_error = None
 
     for url in urls:
         try:
@@ -301,22 +311,23 @@ def scan_client(client: DBClient, max_urls: int = 100, provided_urls: List[str] 
 
             coverage = parsed['coverage_state'] or 'Unknown'
             last_crawl = parsed.get('last_crawl_time')
+            coverage_summary[coverage] = coverage_summary.get(coverage, 0) + 1
+
+            logger.info(f'[indexing] URL: {url[:80]} | coverage: "{coverage}" | verdict: {parsed.get("verdict")}')
 
             existing = DBIndexingIssue.query.filter_by(
                 client_id=client.id, url=url
             ).order_by(DBIndexingIssue.created_at.desc()).first()
 
-            is_actionable = coverage in ACTIONABLE_COVERAGE_STATES
-
             # If coverage is now "indexed" and we had a tracked issue -> mark resolved
-            if existing and coverage in NON_ACTIONABLE_COVERAGE_STATES and 'indexed' in coverage.lower():
+            if existing and _is_indexed(coverage):
                 if existing.status != IndexingStatus.INDEXED:
                     existing.status = IndexingStatus.INDEXED
                     existing.resolved_at = datetime.utcnow()
                     cleared += 1
                 continue
 
-            if not is_actionable:
+            if not _is_actionable(coverage):
                 continue
 
             # New or updated issue
@@ -351,13 +362,19 @@ def scan_client(client: DBClient, max_urls: int = 100, provided_urls: List[str] 
 
         except GSCError as e:
             errors += 1
+            if not first_error:
+                first_error = f'{url[:60]}: {e}'
             logger.warning(f'[indexing_scan] inspect failed for {url}: {e}')
         except Exception as e:
             errors += 1
+            if not first_error:
+                first_error = f'{url[:60]}: {e}'
             logger.exception(f'[indexing_scan] unexpected error for {url}: {e}')
 
     client.gsc_last_scan_at = datetime.utcnow()
     db.session.commit()
+
+    logger.info(f'[indexing] scan complete: inspected={inspected} new={new_issues} cleared={cleared} errors={errors} coverage={coverage_summary}')
 
     return {
         'success': True,
@@ -365,6 +382,8 @@ def scan_client(client: DBClient, max_urls: int = 100, provided_urls: List[str] 
         'new_issues': new_issues,
         'cleared': cleared,
         'errors': errors,
+        'coverage_breakdown': coverage_summary,
+        'first_error': first_error,
     }
 
 

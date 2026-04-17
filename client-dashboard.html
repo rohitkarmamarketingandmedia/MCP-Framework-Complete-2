@@ -9334,7 +9334,7 @@
             }
         }
 
-        async function _scanUrlBatch(urls, batchSize = 25) {
+        async function _scanUrlBatch(urls, batchSize = 20) {
             // Send URLs to the server in small batches to avoid timeout
             let totalInspected = 0, totalNew = 0, totalCleared = 0, totalErrors = 0;
             const batches = [];
@@ -9348,13 +9348,18 @@
                         max_urls: batches[i].length,
                         urls: batches[i]
                     });
+                    console.log(`[Indexing] Batch ${i+1}/${batches.length} result:`, JSON.stringify(r));
+                    if (r.coverage_breakdown) console.log(`[Indexing] Coverage breakdown:`, r.coverage_breakdown);
+                    if (r.first_error) console.warn(`[Indexing] First error:`, r.first_error);
                     totalInspected += (r.inspected || 0);
                     totalNew += (r.new_issues || 0);
                     totalCleared += (r.cleared || 0);
                     totalErrors += (r.errors || 0);
+                    // Refresh UI after each batch so user sees progress
+                    if (r.new_issues > 0) loadIndexingIssues();
                 } catch (err) {
                     totalErrors += batches[i].length;
-                    console.error('Batch scan error:', err);
+                    console.error(`[Indexing] Batch ${i+1} error:`, err.message);
                 }
             }
             return { inspected: totalInspected, new_issues: totalNew, cleared: totalCleared, errors: totalErrors };

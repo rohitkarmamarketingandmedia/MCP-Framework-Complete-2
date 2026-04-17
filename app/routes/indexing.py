@@ -243,6 +243,32 @@ def set_site(current_user, client_id):
 # Scan / issues
 # ---------------------------------------------------------------------------
 
+@indexing_bp.route('/test-inspect/<client_id>', methods=['POST'])
+@token_required
+def test_inspect(current_user, client_id):
+    """Debug: inspect a single URL and return the raw GSC response."""
+    client = DBClient.query.get(client_id)
+    if not client:
+        return jsonify({'error': 'Client not found'}), 404
+    body = request.get_json(silent=True) or {}
+    test_url = (body.get('url') or '').strip()
+    if not test_url:
+        return jsonify({'error': 'Provide a "url" to inspect'}), 400
+    try:
+        gsc = gsc_for_client(client)
+        raw = gsc.inspect_url(test_url)
+        parsed = gsc.parse_coverage_state(raw)
+        return jsonify({
+            'url': test_url,
+            'raw_result': raw,
+            'parsed': parsed,
+            'is_actionable': parsed.get('coverage_state') in indexing_service.ACTIONABLE_COVERAGE_STATES,
+        })
+    except Exception as e:
+        import traceback
+        return jsonify({'error': str(e), 'traceback': traceback.format_exc()}), 500
+
+
 @indexing_bp.route('/scan/<client_id>', methods=['POST'])
 @token_required
 def scan(current_user, client_id):
