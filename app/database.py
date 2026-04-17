@@ -457,20 +457,25 @@ def run_migrations(app):
             except:
                 pass
 
-    # --- Chatbot config: lead_confirmation_message ---
-    try:
-        if 'chatbot_configs' in table_names:
-            cc_cols = [c['name'] for c in inspector.get_columns('chatbot_configs')]
-            if 'lead_confirmation_message' not in cc_cols:
+        # --- Chatbot config: lead_confirmation_message ---
+        try:
+            result = db.session.execute(text("""
+                SELECT column_name FROM information_schema.columns
+                WHERE table_name = 'chatbot_configs' AND column_name = 'lead_confirmation_message'
+            """))
+            if not result.fetchone():
+                logger.info("Adding lead_confirmation_message column to chatbot_configs...")
                 db.session.execute(text(
                     "ALTER TABLE chatbot_configs ADD COLUMN lead_confirmation_message TEXT"
                 ))
                 db.session.commit()
                 logger.info("  ✓ Added chatbot_configs.lead_confirmation_message")
-    except Exception as e:
-        db.session.rollback()
-        if 'already exists' not in str(e).lower():
+        except Exception as e:
             logger.debug(f"lead_confirmation_message migration: {e}")
+            try:
+                db.session.rollback()
+            except:
+                pass
 
 
 def init_db(app):

@@ -106,9 +106,24 @@ def create_app(config_name=None):
     from app.routes import register_routes
     register_routes(app)
 
-    # Create any tables defined inside route modules (e.g. gsc_oauth_states)
-    with app.app_context():
-        db.create_all()
+    # Create tables defined in route modules (e.g. gsc_oauth_states)
+    # Done via raw SQL to avoid app-context issues with Gunicorn workers
+    try:
+        with app.app_context():
+            from sqlalchemy import text as _text
+            try:
+                db.session.execute(_text("""
+                    CREATE TABLE IF NOT EXISTS gsc_oauth_states (
+                        state VARCHAR(64) PRIMARY KEY,
+                        client_id VARCHAR(64) NOT NULL,
+                        expires_at TIMESTAMP NOT NULL
+                    )
+                """))
+                db.session.commit()
+            except Exception:
+                db.session.rollback()
+    except Exception:
+        pass
 
     # Apply per-endpoint rate limits to chatbot (widget message endpoint gets stricter limit)
     # Note: Don't blanket-exempt chatbot_bp — the /widget/message endpoint calls AI and needs limiting
