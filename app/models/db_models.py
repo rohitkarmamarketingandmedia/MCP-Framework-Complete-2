@@ -1691,6 +1691,7 @@ class DBChatbotConfig(db.Model):
     # Lead capture
     lead_capture_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
     lead_capture_trigger: Mapped[str] = mapped_column(String(50), default='after_3_messages')
+    lead_confirmation_message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)  # Custom message shown after lead submits contact info
     
     # Notifications
     email_notifications: Mapped[bool] = mapped_column(Boolean, default=True)
@@ -1777,6 +1778,7 @@ class DBChatbotConfig(db.Model):
             'collect_name': self.collect_name,
             'lead_capture_enabled': self.lead_capture_enabled,
             'lead_capture_trigger': self.lead_capture_trigger,
+            'lead_confirmation_message': self.lead_confirmation_message,
             'email_notifications': self.email_notifications,
             'notification_email': self.notification_email,
             'notification_cc': self.notification_cc,

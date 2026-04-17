@@ -1293,7 +1293,7 @@
                 // Show thank you message - add to array AND render
                 const thankYouMsg = {
                     role: 'assistant',
-                    content: result.message || "Thank you! We'll be in touch soon."
+                    content: result.message || "Thank you for reaching out. Someone from our team will contact you as soon as possible. Is there anything you want them to know before they call?"
                 };
                 this.messages.push(thankYouMsg);
                 this.renderMessage(thankYouMsg);

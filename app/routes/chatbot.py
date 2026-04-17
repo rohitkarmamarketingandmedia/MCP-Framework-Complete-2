@@ -79,7 +79,7 @@ def update_chatbot_config(current_user, client_id):
         'guided_flow_enabled', 'guided_flow_json',
         'collect_email', 'collect_phone', 'collect_name',
         'system_prompt_override', 'temperature', 'max_tokens',
-        'lead_capture_enabled', 'lead_capture_trigger',
+        'lead_capture_enabled', 'lead_capture_trigger', 'lead_confirmation_message',
         'email_notifications', 'notification_email', 'notification_cc', 'notification_bcc',
         'sms_notifications', 'notification_phone',
         'business_hours_only', 'business_hours_start', 'business_hours_end',
@@ -939,18 +939,22 @@ def capture_lead(chatbot_id):
         except Exception:
             pass
         
+        default_msg = 'Thank you for reaching out. Someone from our team will contact you as soon as possible. Is there anything you want them to know before they call?'
+        confirmation_msg = (config.lead_confirmation_message or '').strip() or default_msg
+
         return jsonify({
             'success': True,
-            'message': 'Thank you! We\'ll be in touch soon.',
+            'message': confirmation_msg,
             'lead_id': lead.id
         })
-        
+
     except Exception as e:
         logger.error(f"Lead capture error: {str(e)}")
         db.session.rollback()
+        default_msg = 'Thank you for reaching out. Someone from our team will contact you as soon as possible. Is there anything you want them to know before they call?'
         return jsonify({
             'success': False,
-            'message': 'Thank you! We received your information.'
+            'message': default_msg
         })
 
 
